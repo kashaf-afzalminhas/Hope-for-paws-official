@@ -69,14 +69,44 @@ router.get('/user/:userId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    const adoptionPosts = await Adoption.find({
-      $or: [
-        { userId: req.params.userId },
-        { userId: new mongoose.Types.ObjectId(req.params.userId) }
-      ]
-    })
-    .populate('userId', 'username')
-    .sort({ createdAt: -1 });
+    // Use aggregation for better performance
+    const adoptionPosts = await Adoption.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(userId)
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      {
+        $lookup: {
+          from: 'adoptionrequests',
+          localField: '_id',
+          foreignField: 'adId',
+          as: 'requests'
+        }
+      },
+      {
+        $addFields: {
+          username: { $arrayElemAt: ['$userDetails.username', 0] },
+          requestCount: { $size: '$requests' }
+        }
+      },
+      {
+        $project: {
+          userDetails: 0
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
 
     res.json(adoptionPosts);
   } catch (error) {
@@ -214,7 +244,7 @@ router.post('/:id/request', auth, async (req, res) => {
   }
 });
 
-// Get requests for a specific adoption post
+// Get adoption requests for a post
 router.get('/:id/requests', auth, async (req, res) => {
   try {
     const adoptionPost = await Adoption.findById(req.params.id);
@@ -222,14 +252,15 @@ router.get('/:id/requests', auth, async (req, res) => {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // Only the post owner can see requests
+    // Check if user is authorized to view requests
     if (String(adoptionPost.userId) !== String(req.user.userId)) {
-      return res.status(403).json({ message: 'Unauthorized' });
+      return res.status(403).json({ message: 'Unauthorized to view these requests' });
     }
 
     const requests = await AdoptionRequest.find({ adId: req.params.id })
       .populate('requester', 'username email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json(requests);
   } catch (error) {

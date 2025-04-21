@@ -29,6 +29,15 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
 
 const app = express();
 
+// Add timeout middleware
+app.use((req, res, next) => {
+  // Set timeout to 30 seconds
+  req.setTimeout(30000, () => {
+    res.status(504).json({ message: 'Request timeout' });
+  });
+  next();
+});
+
 // CORS configuration
 const corsOptions = {
   origin: [
@@ -58,9 +67,12 @@ const corsOptions = {
 // Apply CORS middleware
 app.use(cors(corsOptions));
 
-// Add headers middleware
+// Add headers middleware for all routes
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://hope-for-paws-official.vercel.app');
+  const origin = req.headers.origin;
+  if (corsOptions.origin.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, cache-control, Cache-Control, If-None-Match, ETag');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -97,23 +109,22 @@ app.get('/api', (req, res) => {
   res.json({ message: "Hello from backend!" });
 });
 
+// Add error handling middleware at the end
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
-  console.error('Error stack:', err.stack);
-  console.error('Error details:', {
-    name: err.name,
-    message: err.message,
-    code: err.code,
-    stack: err.stack
-  });
-  res.status(500).json({ 
-    message: 'Something went wrong!', 
-    error: err.message,
-    details: process.env.NODE_ENV === 'development' ? {
-      name: err.name,
-      code: err.code,
-      stack: err.stack
-    } : undefined
+  
+  // Handle timeout errors
+  if (err.name === 'TimeoutError') {
+    return res.status(504).json({ 
+      message: 'Request timeout',
+      error: 'The request took too long to process'
+    });
+  }
+
+  // Handle other errors
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err : {}
   });
 });
 
