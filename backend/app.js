@@ -40,38 +40,26 @@ app.use((req, res, next) => {
 });
 
 // CORS configuration
-// const corsOptions = {
-//   origin: [
-//     'https://hope-for-paws-official.vercel.app',
-//     'http://localhost:3000',
-//     'https://hope-for-paws-official-backend.vercel.app'
-//   ],
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//   allowedHeaders: [
-//     'Content-Type',
-//     'Authorization',
-//     'X-Requested-With',
-//     'Accept',
-//     'Origin',
-//     'cache-control',
-//     'Cache-Control',
-//     'If-None-Match',
-//     'ETag'
-//   ],
-//   exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
-//   credentials: true,
-//   maxAge: 86400, // 24 hours
-//   preflightContinue: false,
-//   optionsSuccessStatus: 204
-// };
 const corsOptions = {
   origin: [
     'https://hope-for-paws-official.vercel.app',
     'http://localhost:3000'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'cache-control',
+    'Cache-Control',
+    'If-None-Match',
+    'ETag'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 };
 
 // Apply CORS middleware
@@ -83,10 +71,11 @@ app.use((req, res, next) => {
   if (corsOptions.origin.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, cache-control, Cache-Control, If-None-Match, ETag');
+  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
+  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Expose-Headers', 'ETag');
+  res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
+  res.header('Access-Control-Max-Age', corsOptions.maxAge.toString());
   
   // Handle OPTIONS method
   if (req.method === 'OPTIONS') {

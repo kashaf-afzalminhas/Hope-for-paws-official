@@ -52,13 +52,18 @@ const AdoptionHistory = () => {
       const response = await fetch(`${API_BASE_URL}/adoptions/history`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       });
   
       console.log('Response status:', response.status);
       
+      if (response.status === 401) {
+        // Handle unauthorized access
+        throw new Error('Please log in again to view your adoption history.');
+      }
+
       if (response.status === 429) {
         // Handle rate limiting with a retry after delay
         const retryAfter = response.headers.get('Retry-After') || 5;
@@ -71,6 +76,7 @@ const AdoptionHistory = () => {
         let errorMessage = `Server error: ${response.status}`;
         try {
           const errorData = await response.json();
+          console.error('Error response:', errorData);
           errorMessage = errorData.message || errorData.error || errorMessage;
         } catch (e) {
           console.error('Error parsing error response:', e);
@@ -81,12 +87,21 @@ const AdoptionHistory = () => {
       const data = await response.json();
       console.log('Adoption history data:', data);
       
+      if (!Array.isArray(data)) {
+        console.error('Unexpected data format:', data);
+        throw new Error('Invalid data format received from server');
+      }
+      
       // Transform data if needed to match expected format
       const formattedData = data.map(item => ({
         ...item,
         _id: item._id || item.id,
-        requestDate: item.requestDate || item.createdAt,
-        responseDate: item.responseDate || item.updatedAt
+        requestDate: new Date(item.requestDate || item.createdAt).toISOString(),
+        responseDate: item.responseDate ? new Date(item.responseDate).toISOString() : null,
+        status: item.status?.toLowerCase() || 'pending',
+        petName: item.petName || 'Unknown Pet',
+        petType: item.petType || 'Unknown Type',
+        petImage: item.petImage || 'https://via.placeholder.com/40?text=Pet'
       }));
       
       setHistory(formattedData);
@@ -94,6 +109,12 @@ const AdoptionHistory = () => {
     } catch (err) {
       console.error('Error fetching adoption history:', err);
       setError(err.message || 'Failed to fetch adoption history');
+      if (err.message.includes('log in')) {
+        // Clear user data and redirect to login
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        navigate('/signin');
+      }
     } finally {
       setLoading(false);
     }
