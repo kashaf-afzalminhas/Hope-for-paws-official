@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_BASE_URL } from '../config';
+
 const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');

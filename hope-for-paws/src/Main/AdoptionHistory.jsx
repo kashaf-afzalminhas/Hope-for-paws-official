@@ -9,52 +9,100 @@ const AdoptionHistory = () => {
   const [error, setError] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [effectiveUser, setEffectiveUser] = useState(null);
 
   useEffect(() => {
+    // Check for user in localStorage/sessionStorage if not in context
     if (!user) {
-      navigate('/signin');
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        console.log('Stored user found:', storedUser);
+        if (storedUser) {
+          setEffectiveUser(storedUser);
+        }
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    } else {
+      setEffectiveUser(user);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!effectiveUser) {
+      setLoading(false);
+      setError('Please log in to view your adoption history');
       return;
     }
+    
     fetchHistory();
-  }, [user, navigate]);
+  }, [effectiveUser]);
 
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      setError('');
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       if (!token) {
-        throw new Error('Authentication required');
+        throw new Error('No token found. Please log in again.');
       }
 
+      console.log('Fetching adoption history with token:', token.substring(0, 10) + '...');
+      
       const response = await fetch(`${API_BASE_URL}/adoptions/history`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         }
       });
 
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch adoption history');
+        let errorMessage = `Server error: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          console.error('Error response data:', errorData);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          if (errorData.details) {
+            console.error('Error details:', errorData.details);
+          }
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log('Received history data:', data);
-      
-      // Handle paginated response
-      if (data.data) {
-        setHistory(data.data);
-      } else {
-        setHistory(data);
-      }
+      console.log('Adoption history data:', data);
+      setHistory(data);
     } catch (err) {
       console.error('Error fetching adoption history:', err);
       setError(err.message || 'Failed to fetch adoption history');
-     
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'accepted':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -71,6 +119,14 @@ const AdoptionHistory = () => {
       <div className="bg-red-100 text-red-700 p-4 rounded-lg">
         <p className="font-semibold">Error</p>
         <p>{error}</p>
+        {!effectiveUser && (
+          <button 
+            onClick={() => navigate('/login')}
+            className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
+          >
+            Log In
+          </button>
+        )}
       </div>
     );
   }
@@ -96,6 +152,8 @@ const AdoptionHistory = () => {
               <th className="px-6 py-3 text-left">Type</th>
               <th className="px-6 py-3 text-left">Request Date</th>
               <th className="px-6 py-3 text-left">Status</th>
+              <th className="px-6 py-3 text-left">Response Date</th>
+              <th className="px-6 py-3 text-left">Message</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -104,29 +162,29 @@ const AdoptionHistory = () => {
                 <td className="px-6 py-4">
                   <div className="flex items-center">
                     <img 
-                      src={item.petImage || 'https://via.placeholder.com/40?text=Pet'} 
-                      alt={item.petName || 'Pet'}
+                      src={item.petImage} 
+                      alt={item.petName}
                       className="h-10 w-10 rounded-full object-cover mr-3"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/40?text=Pet';
+                      }}
                     />
-                    <span className="font-medium text-gray-900">
-                      {item.petName || 'Unknown Pet'}
-                    </span>
+                    <span className="font-medium text-gray-900">{item.petName}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-gray-700">
-                  {item.petType || 'Unknown'}
-                </td>
-                <td className="px-6 py-4 text-gray-700">
-                  {new Date(item.requestDate).toLocaleDateString()}
-                </td>
+                <td className="px-6 py-4 text-gray-700">{item.petType}</td>
+                <td className="px-6 py-4 text-gray-700">{formatDate(item.requestDate)}</td>
                 <td className="px-6 py-4">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                    item.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                    item.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {item.status || 'pending'}
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
+                    {item.status}
                   </span>
+                </td>
+                <td className="px-6 py-4 text-gray-700">
+                  {item.responseDate ? formatDate(item.responseDate) : '-'}
+                </td>
+                <td className="px-6 py-4 text-gray-700">
+                  {item.message || '-'}
                 </td>
               </tr>
             ))}

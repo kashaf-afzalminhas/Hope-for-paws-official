@@ -84,46 +84,64 @@ export const AdoptionProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, all: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${BACKEND_API_URL}/adoptions`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
+      // Add AbortController to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // Increase timeout to 30s
+  
+      try {
+        const response = await fetch(`${API_BASE_URL}/adoptions`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
     
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Received all adoption posts:", data);
+        
+        // Update cache
+        cache.allAdoptionPosts = {
+          data: data,
+          timestamp: Date.now()
+        };
+        
+        const userId = getUserId();
+        let filteredData;
+        
+        if (userId) {
+          filteredData = data.filter(post => 
+            String(post.userId?._id || post.userId) !== String(userId)
+          );
+        } else {
+          filteredData = data;
+        }
+        
+        // Only update state if the data has changed
+        if (JSON.stringify(allAdoptionPosts) !== JSON.stringify(filteredData)) {
+          setAllAdoptionPosts(filteredData);
+        } else {
+          console.log("Adoption posts data hasn't changed, skipping state update");
+        }
+        
+        setError(prev => ({ ...prev, all: '' }));
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Request was aborted due to timeout');
+          setError(prev => ({ ...prev, all: 'Request timed out. Please try again.' }));
+        } else {
+          throw fetchError;
+        }
       }
-      
-      const data = await response.json();
-      console.log("Received all adoption posts:", data);
-      
-      // Update cache
-      cache.allAdoptionPosts = {
-        data: data,
-        timestamp: Date.now()
-      };
-      
-      const userId = getUserId();
-      let filteredData;
-      
-      if (userId) {
-        filteredData = data.filter(post => 
-          String(post.userId?._id || post.userId) !== String(userId)
-        );
-      } else {
-        filteredData = data;
-      }
-      
-      setAllAdoptionPosts(filteredData);
-      setError(prev => ({ ...prev, all: '' }));
     } catch (error) {
       console.error('Fetch error:', error);
       setError(prev => ({ ...prev, all: error.message || 'Failed to fetch adoption posts' }));
@@ -144,20 +162,19 @@ export const AdoptionProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, user: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
       // Use the helper function to get the user ID
       const effectiveUserId = userId || getUserId();
       
       if (!effectiveUserId) {
-        throw new Error('User ID not found');
+        console.error('No user ID available for fetching adoptions');
+        setError(prev => ({ ...prev, user: 'User ID not found' }));
+        return;
       }
       
       console.log('Fetching adoptions for user:', effectiveUserId);
       
-      const postsResponse = await fetch(`${BACKEND_API_URL}/adoptions/user/${effectiveUserId}`, {
+      // First fetch the adoption posts
+      const postsResponse = await fetch(`${API_BASE_URL}/adoptions/user/${effectiveUserId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -166,8 +183,7 @@ export const AdoptionProvider = ({ children }) => {
       });
       
       if (!postsResponse.ok) {
-        const errorData = await postsResponse.json();
-        throw new Error(errorData.message || `HTTP error! status: ${postsResponse.status}`);
+        throw new Error(`HTTP error! status: ${postsResponse.status}`);
       }
       
       const postsData = await postsResponse.json();
@@ -177,7 +193,7 @@ export const AdoptionProvider = ({ children }) => {
       const postsWithRequests = await Promise.all(
         postsData.map(async (post) => {
           try {
-            const requestsResponse = await fetch(`${BACKEND_API_URL}/adoptions/${post._id}/requests`, {
+            const requestsResponse = await fetch(`${API_BASE_URL}/adoptions/${post._id}/requests`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -208,7 +224,13 @@ export const AdoptionProvider = ({ children }) => {
         timestamp: Date.now()
       };
       
-      setUserAdoptionPosts(postsWithRequests);
+      // Only update state if the data has changed
+      if (JSON.stringify(userAdoptionPosts) !== JSON.stringify(postsWithRequests)) {
+        setUserAdoptionPosts(postsWithRequests);
+      } else {
+        console.log("User adoption posts data hasn't changed, skipping state update");
+      }
+      
       setError(prev => ({ ...prev, user: '' }));
     } catch (error) {
       console.error('Fetch error:', error);
@@ -227,7 +249,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -266,7 +288,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -308,7 +330,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -349,7 +371,7 @@ export const AdoptionProvider = ({ children }) => {
 
       console.log('Sending adoption request:', { postId, requestData });
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}/request`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -380,10 +402,6 @@ export const AdoptionProvider = ({ children }) => {
         post._id === postId ? { ...post, status: 'pending' } : post
       ));
 
-      // Clear cache to ensure fresh data on next fetch
-      cache.userAdoptionPosts = { data: null, timestamp: 0 };
-      cache.allAdoptionPosts = { data: null, timestamp: 0 };
-
       return data;
     } catch (error) {
       console.error('Error requesting adoption:', error);
@@ -404,7 +422,7 @@ export const AdoptionProvider = ({ children }) => {
 
       console.log(`Handling adoption request: ${action} for post ${postId}, request ${requestId}`);
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/requests/${requestId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/requests/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

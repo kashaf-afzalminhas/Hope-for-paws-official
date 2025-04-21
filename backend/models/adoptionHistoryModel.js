@@ -10,20 +10,17 @@ const adoptionHistorySchema = new mongoose.Schema({
   petId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Adoption',
-    required: true,
-    index: true
+    required: true
   },
   requestId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdoptionRequest',
-    required: true,
-    index: true
+    required: true
   },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'rejected'],
-    default: 'pending',
-    index: true
+    default: 'pending'
   },
   petName: {
     type: String,
@@ -39,34 +36,15 @@ const adoptionHistorySchema = new mongoose.Schema({
   },
   requestDate: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   },
   responseDate: {
     type: Date
   },
   message: {
     type: String
-  },
-  // Add these new fields for better data tracking
-  adopterName: {
-    type: String
-  },
-  adopterEmail: {
-    type: String
-  },
-  adopterPhone: {
-    type: String
   }
-}, { 
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
-
-// Compound indexes for better query performance
-adoptionHistorySchema.index({ userId: 1, requestDate: -1 });
-adoptionHistorySchema.index({ userId: 1, status: 1, requestDate: -1 });
+}, { timestamps: true });
 
 adoptionHistorySchema.pre('save', function(next) {
   if (!this.userId || !mongoose.Types.ObjectId.isValid(this.userId)) {
@@ -78,4 +56,4 @@ adoptionHistorySchema.pre('save', function(next) {
 
 const AdoptionHistory = mongoose.model('AdoptionHistory', adoptionHistorySchema);
 
-module.exports = AdoptionHistory;
+module.exports = AdoptionHistory; 

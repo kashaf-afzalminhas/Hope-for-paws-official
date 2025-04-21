@@ -304,57 +304,57 @@ router.put('/requests/:requestId', auth, async (req, res) => {
   }
 });
 
-// // Get user's adoption history
-// router.get('/history', auth, async (req, res) => {
-//   try {
-//     console.log('Adoption history request received');
-//     console.log('User from request:', req.user);
+// Get user's adoption history
+router.get('/history', auth, async (req, res) => {
+  try {
+    console.log('Adoption history request received');
+    console.log('User from request:', req.user);
     
-//     // Try both userId and id formats
-//     const userId = req.user.userId || req.user.id;
+    // Try both userId and id formats
+    const userId = req.user.userId || req.user.id;
     
-//     if (!userId) {
-//       console.error('No user ID found in request');
-//       return res.status(400).json({ message: 'User ID is required' });
-//     }
+    if (!userId) {
+      console.error('No user ID found in request');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
     
-//     console.log('Looking for user with ID:', userId);
+    console.log('Looking for user with ID:', userId);
     
-//     // Check if the user exists
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       console.error('User not found with ID:', userId);
-//       return res.status(404).json({ message: 'User not found' });
-//     }
+    // Check if the user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      console.error('User not found with ID:', userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
     
-//     console.log('User found, fetching adoption history');
+    console.log('User found, fetching adoption history');
     
-//     // Try to find adoption history entries
-//     const history = await AdoptionHistory.find({ userId: userId })
-//       .sort({ createdAt: -1 });
+    // Try to find adoption history entries
+    const history = await AdoptionHistory.find({ userId: userId })
+      .sort({ createdAt: -1 });
     
-//     console.log(`Found ${history.length} adoption history entries`);
+    console.log(`Found ${history.length} adoption history entries`);
     
-//     res.json(history);
-//   } catch (error) {
-//     console.error('Error fetching adoption history:', error);
-//     console.error('Error stack:', error.stack);
-//     console.error('Error details:', {
-//       name: error.name,
-//       message: error.message,
-//       code: error.code,
-//       stack: error.stack
-//     });
-//     res.status(500).json({ 
-//       message: 'Server error', 
-//       error: error.message,
-//       details: process.env.NODE_ENV === 'development' ? {
-//         name: error.name,
-//         code: error.code,
-//         stack: error.stack
-//       } : undefined
-//     });
-//   }
-// });
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching adoption history:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? {
+        name: error.name,
+        code: error.code,
+        stack: error.stack
+      } : undefined
+    });
+  }
+});
 
 module.exports = router;
