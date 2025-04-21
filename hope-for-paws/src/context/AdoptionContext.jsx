@@ -150,31 +150,73 @@ export const AdoptionProvider = ({ children }) => {
     }
   };
 
+  // const fetchUserAdoptions = async (userId) => {
+  //   try {
+  //     // Check cache first
+  //     if (isCacheValid('userAdoptionPosts')) {
+  //       console.log('Using cached user adoption posts');
+  //       setUserAdoptionPosts(cache.userAdoptionPosts.data);
+  //       return;
+  //     }
+      
+  //     setLoading(prev => ({ ...prev, user: true }));
+  //     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+  //     // Use the helper function to get the user ID
+  //     const effectiveUserId = userId || getUserId();
+      
+  //     if (!effectiveUserId) {
+  //       console.error('No user ID available for fetching adoptions');
+  //       setError(prev => ({ ...prev, user: 'User ID not found' }));
+  //       return;
+  //     }
+      
+  //     console.log('Fetching adoptions for user:', effectiveUserId);
+      
+  //     // First fetch the adoption posts with requests included
+  //     const response = await fetch(`${API_BASE_URL}/api/adoptions/user/${effectiveUserId}?includeRequests=true`, {
+  //       method: 'GET',
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`,
+  //         'Content-Type': 'application/json'
+  //       }
+  //     });
+      
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
+      
+  //     const postsData = await response.json();
+  //     console.log('Received user adoption posts with requests:', postsData);
+      
+  //     // Update cache
+  //     cache.userAdoptionPosts = {
+  //       data: postsData,
+  //       timestamp: Date.now()
+  //     };
+      
+  //     // Only update state if the data has changed
+  //     if (JSON.stringify(userAdoptionPosts) !== JSON.stringify(postsData)) {
+  //       setUserAdoptionPosts(postsData);
+  //     } else {
+  //       console.log("User adoption posts data hasn't changed, skipping state update");
+  //     }
+      
+  //     setError(prev => ({ ...prev, user: '' }));
+  //   } catch (error) {
+  //     console.error('Fetch error:', error);
+  //     setError(prev => ({ ...prev, user: error.message || 'Failed to fetch user adoption posts' }));
+  //   } finally {
+  //     setLoading(prev => ({ ...prev, user: false }));
+  //   }
+  // };
+
   const fetchUserAdoptions = async (userId) => {
     try {
-      // Check cache first
-      if (isCacheValid('userAdoptionPosts')) {
-        console.log('Using cached user adoption posts');
-        setUserAdoptionPosts(cache.userAdoptionPosts.data);
-        return;
-      }
-      
       setLoading(prev => ({ ...prev, user: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      // Use the helper function to get the user ID
-      const effectiveUserId = userId || getUserId();
-      
-      if (!effectiveUserId) {
-        console.error('No user ID available for fetching adoptions');
-        setError(prev => ({ ...prev, user: 'User ID not found' }));
-        return;
-      }
-      
-      console.log('Fetching adoptions for user:', effectiveUserId);
-      
-      // First fetch the adoption posts with requests included
-      const response = await fetch(`${API_BASE_URL}/api/adoptions/user/${effectiveUserId}?includeRequests=true`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/user/${userId}?includeRequests=true`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -186,31 +228,17 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const postsData = await response.json();
-      console.log('Received user adoption posts with requests:', postsData);
-      
-      // Update cache
-      cache.userAdoptionPosts = {
-        data: postsData,
-        timestamp: Date.now()
-      };
-      
-      // Only update state if the data has changed
-      if (JSON.stringify(userAdoptionPosts) !== JSON.stringify(postsData)) {
-        setUserAdoptionPosts(postsData);
-      } else {
-        console.log("User adoption posts data hasn't changed, skipping state update");
-      }
-      
+      const data = await response.json();
+      setUserAdoptionPosts(data);
       setError(prev => ({ ...prev, user: '' }));
     } catch (error) {
       console.error('Fetch error:', error);
-      setError(prev => ({ ...prev, user: error.message || 'Failed to fetch user adoption posts' }));
+      setError(prev => ({ ...prev, user: error.message }));
     } finally {
       setLoading(prev => ({ ...prev, user: false }));
     }
   };
-  
+
   const createAdoptionPost = async (postData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));

@@ -46,7 +46,7 @@ const AdoptionHistory = () => {
       if (!token) {
         throw new Error('No token found. Please log in again.');
       }
-
+  
       console.log('Fetching adoption history with token:', token.substring(0, 10) + '...');
       
       const response = await fetch(`${API_BASE_URL}/adoptions/history`, {
@@ -56,27 +56,41 @@ const AdoptionHistory = () => {
           'Cache-Control': 'no-cache'
         }
       });
-
+  
       console.log('Response status:', response.status);
+      
+      if (response.status === 429) {
+        // Handle rate limiting with a retry after delay
+        const retryAfter = response.headers.get('Retry-After') || 5;
+        console.log(`Rate limited. Retrying after ${retryAfter} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        return fetchHistory(); // Recursive retry
+      }
       
       if (!response.ok) {
         let errorMessage = `Server error: ${response.status}`;
         try {
           const errorData = await response.json();
-          console.error('Error response data:', errorData);
           errorMessage = errorData.message || errorData.error || errorMessage;
-          if (errorData.details) {
-            console.error('Error details:', errorData.details);
-          }
         } catch (e) {
           console.error('Error parsing error response:', e);
         }
         throw new Error(errorMessage);
       }
-
+  
       const data = await response.json();
       console.log('Adoption history data:', data);
-      setHistory(data);
+      
+      // Transform data if needed to match expected format
+      const formattedData = data.map(item => ({
+        ...item,
+        _id: item._id || item.id,
+        requestDate: item.requestDate || item.createdAt,
+        responseDate: item.responseDate || item.updatedAt
+      }));
+      
+      setHistory(formattedData);
+      setError('');
     } catch (err) {
       console.error('Error fetching adoption history:', err);
       setError(err.message || 'Failed to fetch adoption history');

@@ -40,29 +40,38 @@ app.use((req, res, next) => {
 });
 
 // CORS configuration
+// const corsOptions = {
+//   origin: [
+//     'https://hope-for-paws-official.vercel.app',
+//     'http://localhost:3000',
+//     'https://hope-for-paws-official-backend.vercel.app'
+//   ],
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//   allowedHeaders: [
+//     'Content-Type',
+//     'Authorization',
+//     'X-Requested-With',
+//     'Accept',
+//     'Origin',
+//     'cache-control',
+//     'Cache-Control',
+//     'If-None-Match',
+//     'ETag'
+//   ],
+//   exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
+//   credentials: true,
+//   maxAge: 86400, // 24 hours
+//   preflightContinue: false,
+//   optionsSuccessStatus: 204
+// };
 const corsOptions = {
   origin: [
     'https://hope-for-paws-official.vercel.app',
-    'http://localhost:3000',
-    'https://hope-for-paws-official-backend.vercel.app'
+    'http://localhost:3000'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'cache-control',
-    'Cache-Control',
-    'If-None-Match',
-    'ETag'
-  ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
-  credentials: true,
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 };
 
 // Apply CORS middleware
