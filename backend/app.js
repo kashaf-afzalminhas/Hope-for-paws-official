@@ -32,7 +32,7 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: '*', // Allow all origins
+  origin: 'https://hope-for-paws-official.vercel.app', // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: '*', // Allow all headers
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
