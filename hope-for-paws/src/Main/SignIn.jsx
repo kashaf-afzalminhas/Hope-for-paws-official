@@ -34,6 +34,7 @@ const Login = () => {
     try {
       const response = await fetch(`${AUTH_BASE_URL}/signin`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
