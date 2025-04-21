@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
 import { Pencil, Trash2, X, Check, X as XIcon } from "lucide-react";
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const MyAdoptions = () => {
-  const { userAdoptionPosts, loading, error, fetchUserAdoptions, deleteAdoptionPost, updateAdoptionPost, handleAdoptionRequest } = useAdoption();
-  const { user } = useAuth();
+  const [adoptions, setAdoptions] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [editData, setEditData] = useState({
     name: '',
@@ -13,52 +13,67 @@ const MyAdoptions = () => {
     petType: '',
     description: ''
   });
-  const [loadingState, setLoading] = useState({ action: false });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
+  const [storedUser, setStoredUser] = useState(null);
 
-  // Check user authentication state directly from storage
-  const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-  console.log("MyAdoptions - Stored user:", storedUser);
+  // Get user from storage if context user is not available
+  useEffect(() => {
+    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    setStoredUser(userFromStorage);
+  }, []);
 
- // In MyAdoptions.jsx
-useEffect(() => {
-  const effectiveUser = user || storedUser;
-  const userId = effectiveUser?._id || effectiveUser?.id;
-  
-  if (userId && (!userAdoptionPosts || userAdoptionPosts.length === 0)) {
-    console.log('Fetching adoptions for user:', userId);
-    const fetchData = async () => {
-      try {
-        await fetchUserAdoptions(userId);
-      } catch (error) {
-        console.error('Error fetching adoptions:', error);
+  // Fetch adoptions when user is available
+  useEffect(() => {
+    const effectiveUser = user || storedUser;
+    if (!effectiveUser?.id) return;
+
+    fetchUserAdoptions(effectiveUser.id);
+  }, [user, storedUser]);
+
+  const fetchUserAdoptions = async (userId) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token missing');
       }
-    };
-    
-    // Add debounce to prevent rapid firing
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }
-}, [user, storedUser]);
 
-  // Debug render
-  console.log('MyAdoptions - Current state:', {
-    loading: loading.user,
-    error: error.user,
-    postsCount: userAdoptionPosts?.length,
-    user: user?._id || user?.id,
-    storedUser: storedUser?._id || storedUser?.id,
-    posts: userAdoptionPosts
-  });
+      const response = await axios.get(
+        `${API_BASE_URL}/adoptions/user/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setAdoptions(response.data);
+    } catch (err) {
+      console.error('Error fetching adoptions:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load adoption posts');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (postId) => {
     if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
+    
     try {
-      await deleteAdoptionPost(postId);
-    } catch (error) {
-      console.error('Error deleting post:', error);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await axios.delete(
+        `${API_BASE_URL}/adoptions/${postId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Refresh the list after deletion
+      const effectiveUser = user || storedUser;
+      if (effectiveUser?.id) {
+        fetchUserAdoptions(effectiveUser.id);
+      }
+    } catch (err) {
+      console.error('Error deleting adoption post:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to delete post');
     }
   };
 
@@ -74,60 +89,66 @@ useEffect(() => {
 
   const handleSaveEdit = async (postId) => {
     try {
-      await updateAdoptionPost(postId, editData);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await axios.put(
+        `${API_BASE_URL}/adoptions/${postId}`,
+        editData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
       setEditingPost(null);
-    } catch (error) {
-      console.error('Error updating post:', error);
+      
+      // Refresh the list after update
+      const effectiveUser = user || storedUser;
+      if (effectiveUser?.id) {
+        fetchUserAdoptions(effectiveUser.id);
+      }
+    } catch (err) {
+      console.error('Error updating adoption post:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to update post');
     }
   };
 
   const handleRequestAction = async (postId, requestId, action) => {
     try {
-      console.log(`Handling ${action} request for post ${postId}, request ${requestId}`);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await axios.put(
+        `${API_BASE_URL}/adoptions/requests/${requestId}`,
+        { status: action === 'accept' ? 'accepted' : 'rejected' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       
-      // Show loading state
-      setLoading(prev => ({ ...prev, action: true }));
+      alert(`Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`);
       
-      await handleAdoptionRequest(postId, requestId, action);
-      
-      // Show success message
-      const message = action === 'accept' 
-        ? 'Adoption request accepted successfully' 
-        : 'Adoption request rejected';
-      
-      // You could add a toast notification here if you have one
-      alert(message);
-      
-      // Refresh the posts to ensure we have the latest data
-      const userId = user?._id || user?.id || storedUser?._id || storedUser?.id;
-      if (userId) {
-        fetchUserAdoptions(userId);
+      // Refresh the list after action
+      const effectiveUser = user || storedUser;
+      if (effectiveUser?.id) {
+        fetchUserAdoptions(effectiveUser.id);
       }
-    } catch (error) {
-      console.error('Error handling adoption request:', error);
-      alert(`Failed to ${action} request: ${error.message}`);
-    } finally {
-      setLoading(prev => ({ ...prev, action: false }));
+    } catch (err) {
+      console.error('Error handling adoption request:', err);
+      alert(`Failed to ${action} request: ${err.response?.data?.message || err.message}`);
     }
   };
 
-  if (loading.user) return (
-    <div className="flex justify-center items-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
+      </div>
+    );
+  }
 
-  if (error.user) return (
-    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
-      <p className="font-semibold">Error loading adoption posts</p>
-      <p className="text-sm mt-2">{error.user}</p>
-    </div>
-  );
+  if (error) {
+    return (
+      <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
+        <p className="font-semibold">Error loading adoption posts</p>
+        <p className="text-sm mt-2">{error}</p>
+      </div>
+    );
+  }
 
-  // Check if user is logged in using both context and storage
-  const isLoggedIn = user || storedUser;
-  
-  if (!isLoggedIn) {
+  if (!user && !storedUser) {
     return (
       <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl text-center">
         <p>Please log in to view your adoption posts.</p>
@@ -135,7 +156,7 @@ useEffect(() => {
     );
   }
 
-  if (!userAdoptionPosts || userAdoptionPosts.length === 0) {
+  if (adoptions.length === 0) {
     return (
       <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
         <p className="text-xl text-[#6b493d]/80 italic">No adoption posts yet. Create your first adoption post!</p>
@@ -151,7 +172,7 @@ useEffect(() => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {userAdoptionPosts.map((post) => (
+          {adoptions.map((post) => (
             <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="relative group">
                 <img 
@@ -255,8 +276,7 @@ useEffect(() => {
                 )}
               </div>
 
-              {/* Add adoption requests section */}
-              {post.requests && post.requests.length > 0 ? (
+              {post.requests && post.requests.length > 0 && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <h4 className="text-lg font-semibold text-[#6b493d] mb-3">Adoption Requests ({post.requests.length})</h4>
                   <div className="space-y-3">
@@ -295,23 +315,9 @@ useEffect(() => {
                             </button>
                           </div>
                         )}
-                        {request.status === 'accepted' && (
-                          <p className="mt-2 text-sm text-green-600 font-medium">
-                            This request has been accepted. The pet is now adopted.
-                          </p>
-                        )}
-                        {request.status === 'rejected' && (
-                          <p className="mt-2 text-sm text-red-600 font-medium">
-                            This request has been rejected.
-                          </p>
-                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div className="mt-4 border-t border-gray-200 pt-4">
-                  <p className="text-sm text-gray-500 italic">No adoption requests yet</p>
                 </div>
               )}
             </div>
