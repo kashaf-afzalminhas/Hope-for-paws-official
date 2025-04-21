@@ -462,7 +462,7 @@ export const AdoptionProvider = ({ children }) => {
         loading,
         error,
         fetchAllAdoptionPosts,
-        fetchUserAdoptions,
+  
         createAdoptionPost,
         updateAdoptionPost,
         deleteAdoptionPost,
