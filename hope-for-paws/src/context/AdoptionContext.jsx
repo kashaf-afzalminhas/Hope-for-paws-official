@@ -422,7 +422,7 @@ export const AdoptionProvider = ({ children }) => {
 
       console.log(`Handling adoption request: ${action} for post ${postId}, request ${requestId}`);
 
-      const response = await fetch(`${API_BASE_URL}/adoptions/requests/${requestId}`, {
+      const response = await fetch(`${API_BASE_URL }/adoptions/requests/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
