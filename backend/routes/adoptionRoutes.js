@@ -341,49 +341,78 @@ router.get('/history', auth, async (req, res) => {
     console.log('Adoption history request received');
     console.log('User from request:', req.user);
     
-    // Try both userId and id formats
+    // Get user ID and ensure it's valid
     const userId = req.user.userId || req.user.id;
     
     if (!userId) {
       console.error('No user ID found in request');
       return res.status(400).json({ message: 'User ID is required' });
     }
+
+    // Convert string ID to ObjectId
+    let userObjectId;
+    try {
+      userObjectId = new mongoose.Types.ObjectId(userId);
+    } catch (error) {
+      console.error('Invalid user ID format:', userId);
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
     
-    console.log('Looking for user with ID:', userId);
+    console.log('Looking for user with ID:', userObjectId);
     
     // Check if the user exists
-    const user = await User.findById(userId);
+    const user = await User.findById(userObjectId);
     if (!user) {
-      console.error('User not found with ID:', userId);
+      console.error('User not found with ID:', userObjectId);
       return res.status(404).json({ message: 'User not found' });
     }
     
     console.log('User found, fetching adoption history');
     
-    // Try to find adoption history entries
-    const history = await AdoptionHistory.find({ userId: userId })
-      .sort({ createdAt: -1 });
+    // Try to find adoption history entries with populated references
+    const history = await AdoptionHistory.find({ userId: userObjectId })
+      .populate('petId', 'name petType imageUrl')
+      .populate('requestId', 'status message')
+      .sort({ createdAt: -1 })
+      .lean();
     
     console.log(`Found ${history.length} adoption history entries`);
     
-    res.json(history);
+    // Transform the data to include only necessary fields
+    const transformedHistory = history.map(entry => ({
+      id: entry._id,
+      petName: entry.petName,
+      petType: entry.petType,
+      petImage: entry.petImage,
+      status: entry.status,
+      requestDate: entry.requestDate,
+      responseDate: entry.responseDate,
+      message: entry.message,
+      pet: entry.petId,
+      request: entry.requestId
+    }));
+    
+    res.json(transformedHistory);
   } catch (error) {
     console.error('Error fetching adoption history:', error);
     console.error('Error stack:', error.stack);
     console.error('Error details:', {
       name: error.name,
       message: error.message,
-      code: error.code,
-      stack: error.stack
+      code: error.code
     });
+    
+    // Send appropriate error response
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: 'Invalid ID format',
+        error: error.message 
+      });
+    }
+    
     res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? {
-        name: error.name,
-        code: error.code,
-        stack: error.stack
-      } : undefined
+      message: 'Error fetching adoption history',
+      error: error.message
     });
   }
 });
