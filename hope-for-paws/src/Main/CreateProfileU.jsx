@@ -3,7 +3,7 @@ import { FaUserCircle } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 //import Navbar from '../Components/Navbar'
 import { useAuth } from '../context/AuthContext';
-
+import { AUTH_BASE_URL } from '../config';
 const ProfilePage = () => {
   const { isAuthenticated, user } = useAuth(); 
   
@@ -71,7 +71,7 @@ if (userData) {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/auth/update-profile', {
+        const response = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, phone, city, about })
@@ -131,7 +131,7 @@ if (userData) {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/auth/change-password', {
+      const response = await fetch(`${AUTH_BASE_URL}/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +158,7 @@ if (userData) {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('http://localhost:3000/auth/signout', {
+      const response = await fetch(`${AUTH_BASE_URL}/signout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import { AUTH_BASE_URL } from '../config';
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
@@ -16,7 +16,7 @@ const ForgotPassword = () => {
         }
 
         try {
-            const response = await fetch('http://localhost:3000/auth/forgot-password', {
+            const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

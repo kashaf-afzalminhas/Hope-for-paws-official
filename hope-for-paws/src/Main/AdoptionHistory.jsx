@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 const AdoptionHistory = () => {
@@ -12,24 +13,13 @@ const AdoptionHistory = () => {
   const [effectiveUser, setEffectiveUser] = useState(null);
 
   useEffect(() => {
-    // Check for user in localStorage/sessionStorage if not in context
-    if (!user) {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-        console.log('Stored user found:', storedUser);
-        if (storedUser) {
-          setEffectiveUser(storedUser);
-        }
-      } catch (e) {
-        console.error('Error parsing stored user:', e);
-      }
-    } else {
-      setEffectiveUser(user);
-    }
+    // Get user from storage if context user is not available
+    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    setEffectiveUser(user || userFromStorage);
   }, [user]);
 
   useEffect(() => {
-    if (!effectiveUser) {
+    if (!effectiveUser?.id) {
       setLoading(false);
       setError('Please log in to view your adoption history');
       return;
@@ -41,79 +31,44 @@ const AdoptionHistory = () => {
   const fetchHistory = async () => {
     try {
       setLoading(true);
+      setError('');
+      
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
       if (!token) {
-        throw new Error('No token found. Please log in again.');
+        throw new Error('No authentication token found');
       }
-  
-      console.log('Fetching adoption history with token:', token.substring(0, 10) + '...');
-      
-      const response = await fetch(`${API_BASE_URL}/adoptions/history`, {
+
+      const response = await axios.get(`${API_BASE_URL}/adoptions/history`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-  
-      console.log('Response status:', response.status);
-      
-      if (response.status === 401) {
-        // Handle unauthorized access
-        throw new Error('Please log in again to view your adoption history.');
-      }
-
-      if (response.status === 429) {
-        // Handle rate limiting with a retry after delay
-        const retryAfter = response.headers.get('Retry-After') || 5;
-        console.log(`Rate limited. Retrying after ${retryAfter} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-        return fetchHistory(); // Recursive retry
-      }
-      
-      if (!response.ok) {
-        let errorMessage = `Server error: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          console.error('Error response:', errorData);
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-          console.error('Error parsing error response:', e);
         }
-        throw new Error(errorMessage);
-      }
-  
-      const data = await response.json();
-      console.log('Adoption history data:', data);
-      
-      if (!Array.isArray(data)) {
-        console.error('Unexpected data format:', data);
-        throw new Error('Invalid data format received from server');
-      }
-      
-      // Transform data if needed to match expected format
-      const formattedData = data.map(item => ({
-        ...item,
+      });
+
+      // Transform data to ensure consistent format
+      const formattedData = response.data.map(item => ({
         _id: item._id || item.id,
-        requestDate: new Date(item.requestDate || item.createdAt).toISOString(),
-        responseDate: item.responseDate ? new Date(item.responseDate).toISOString() : null,
-        status: item.status?.toLowerCase() || 'pending',
         petName: item.petName || 'Unknown Pet',
         petType: item.petType || 'Unknown Type',
-        petImage: item.petImage || 'https://via.placeholder.com/40?text=Pet'
+        petImage: item.petImage || 'https://via.placeholder.com/40?text=Pet',
+        status: item.status?.toLowerCase() || 'pending',
+        requestDate: item.requestDate || item.createdAt,
+        responseDate: item.responseDate || null,
+        message: item.message || '-'
       }));
-      
+
       setHistory(formattedData);
-      setError('');
     } catch (err) {
       console.error('Error fetching adoption history:', err);
-      setError(err.message || 'Failed to fetch adoption history');
-      if (err.message.includes('log in')) {
-        // Clear user data and redirect to login
+      
+      if (err.response?.status === 401) {
+        // Handle unauthorized access
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
         navigate('/signin');
+        setError('Please log in again');
+      } else {
+        setError(err.response?.data?.message || err.message || 'Failed to load adoption history');
       }
     } finally {
       setLoading(false);
@@ -121,6 +76,7 @@ const AdoptionHistory = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -130,14 +86,10 @@ const AdoptionHistory = () => {
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'accepted':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'accepted': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -216,10 +168,10 @@ const AdoptionHistory = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-gray-700">
-                  {item.responseDate ? formatDate(item.responseDate) : '-'}
+                  {formatDate(item.responseDate)}
                 </td>
                 <td className="px-6 py-4 text-gray-700">
-                  {item.message || '-'}
+                  {item.message}
                 </td>
               </tr>
             ))}
