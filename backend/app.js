@@ -32,29 +32,21 @@ const app = express();
 
 // CORS configuration
 const corsOptions = {
-  origin: ['https://hope-for-paws-official.vercel.app', 
-  'http://localhost:3000'],// Allow all origins
+  origin: [
+    'https://hope-for-paws-official.vercel.app',
+    'http://localhost:3000',
+    'https://hope-for-paws-official-backend.vercel.app'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: '*', // Allow all headers
+  allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
   maxAge: 86400 // 24 hours
 };
 
-// Apply CORS before any route handlers
+// Apply CORS middleware
 app.use(cors(corsOptions));
 
-// Add a middleware to handle preflight requests
-app.options('*', cors(corsOptions));
-
-// Add a middleware to set CORS headers for all responses
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://hope-for-paws-official.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
