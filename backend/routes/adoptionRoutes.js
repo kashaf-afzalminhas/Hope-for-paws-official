@@ -60,54 +60,25 @@ router.get('/', async (req, res) => {
 });
 
 // Get adoption posts for a specific user
+// In adoptionRoutes.js
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    const userId = String(req.params.userId);
-    const authUserId = String(req.user.userId);
-    
-    if (userId !== authUserId) {
-      return res.status(403).json({ message: 'Unauthorized' });
+    const userId = req.params.userId;
+    const includeRequests = req.query.includeRequests === 'true';
+
+    let query = Adoption.find({ userId })
+      .populate('userId', 'username')
+      .sort({ createdAt: -1 });
+
+    if (includeRequests) {
+      query = query.populate({
+        path: 'requests',
+        model: 'AdoptionRequest',
+        select: 'name email phone message status'
+      });
     }
 
-    // Use aggregation for better performance
-    const adoptionPosts = await Adoption.aggregate([
-      {
-        $match: {
-          userId: new mongoose.Types.ObjectId(userId)
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'userDetails'
-        }
-      },
-      {
-        $lookup: {
-          from: 'adoptionrequests',
-          localField: '_id',
-          foreignField: 'adId',
-          as: 'requests'
-        }
-      },
-      {
-        $addFields: {
-          username: { $arrayElemAt: ['$userDetails.username', 0] },
-          requestCount: { $size: '$requests' }
-        }
-      },
-      {
-        $project: {
-          userDetails: 0
-        }
-      },
-      {
-        $sort: { createdAt: -1 }
-      }
-    ]);
-
+    const adoptionPosts = await query.exec();
     res.json(adoptionPosts);
   } catch (error) {
     console.error('Error:', error);

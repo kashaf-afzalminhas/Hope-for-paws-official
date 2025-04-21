@@ -19,27 +19,29 @@ const MyAdoptions = () => {
   const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
   console.log("MyAdoptions - Stored user:", storedUser);
 
-  useEffect(() => {
-    // Use stored user if context user is not available
-    const effectiveUser = user || storedUser;
-    console.log("MyAdoptions - Effective user:", effectiveUser);
-    
-    if (effectiveUser?._id || effectiveUser?.id) {
-      const userId = effectiveUser._id || effectiveUser.id;
-      
-      // Only fetch if we don't already have data or if the user has changed
-      if (!userAdoptionPosts.length) {
-        console.log('MyAdoptions - Fetching adoptions for user:', userId);
-        fetchUserAdoptions(userId).catch(error => {
-          console.error('MyAdoptions - Error fetching adoptions:', error);
-        });
-      } else {
-        console.log('MyAdoptions - Already have adoption posts, skipping fetch');
+ // In MyAdoptions.jsx
+useEffect(() => {
+  const effectiveUser = user || storedUser;
+  const userId = effectiveUser?._id || effectiveUser?.id;
+  
+  if (userId && (!userAdoptionPosts || userAdoptionPosts.length === 0)) {
+    console.log('Fetching adoptions for user:', userId);
+    const fetchData = async () => {
+      try {
+        await fetchUserAdoptions(userId);
+      } catch (error) {
+        console.error('Error fetching adoptions:', error);
       }
-    } else {
-      console.log('MyAdoptions - No user ID available');
-    }
-  }, [user, storedUser]);
+    };
+    
+    // Add debounce to prevent rapid firing
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }
+}, [user, storedUser]);
 
   // Debug render
   console.log('MyAdoptions - Current state:', {

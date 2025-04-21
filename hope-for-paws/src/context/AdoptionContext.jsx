@@ -173,8 +173,8 @@ export const AdoptionProvider = ({ children }) => {
       
       console.log('Fetching adoptions for user:', effectiveUserId);
       
-      // First fetch the adoption posts
-      const postsResponse = await fetch(`${API_BASE_URL}/adoptions/user/${effectiveUserId}`, {
+      // First fetch the adoption posts with requests included
+      const response = await fetch(`${API_BASE_URL}/api/adoptions/user/${effectiveUserId}?includeRequests=true`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -182,51 +182,22 @@ export const AdoptionProvider = ({ children }) => {
         }
       });
       
-      if (!postsResponse.ok) {
-        throw new Error(`HTTP error! status: ${postsResponse.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const postsData = await postsResponse.json();
-      console.log('Received user adoption posts:', postsData);
-      
-      // Then fetch requests for each post
-      const postsWithRequests = await Promise.all(
-        postsData.map(async (post) => {
-          try {
-            const requestsResponse = await fetch(`${API_BASE_URL}/adoptions/${post._id}/requests`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (requestsResponse.ok) {
-              const requestsData = await requestsResponse.json();
-              console.log(`Requests for post ${post._id}:`, requestsData);
-              return { ...post, requests: requestsData };
-            } else {
-              console.error(`Failed to fetch requests for post ${post._id}`);
-              return { ...post, requests: [] };
-            }
-          } catch (error) {
-            console.error(`Error fetching requests for post ${post._id}:`, error);
-            return { ...post, requests: [] };
-          }
-        })
-      );
-      
-      console.log('Posts with requests:', postsWithRequests);
+      const postsData = await response.json();
+      console.log('Received user adoption posts with requests:', postsData);
       
       // Update cache
       cache.userAdoptionPosts = {
-        data: postsWithRequests,
+        data: postsData,
         timestamp: Date.now()
       };
       
       // Only update state if the data has changed
-      if (JSON.stringify(userAdoptionPosts) !== JSON.stringify(postsWithRequests)) {
-        setUserAdoptionPosts(postsWithRequests);
+      if (JSON.stringify(userAdoptionPosts) !== JSON.stringify(postsData)) {
+        setUserAdoptionPosts(postsData);
       } else {
         console.log("User adoption posts data hasn't changed, skipping state update");
       }
@@ -239,7 +210,7 @@ export const AdoptionProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, user: false }));
     }
   };
-
+  
   const createAdoptionPost = async (postData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
