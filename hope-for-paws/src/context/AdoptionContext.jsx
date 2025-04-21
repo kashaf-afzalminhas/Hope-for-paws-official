@@ -210,35 +210,7 @@ export const AdoptionProvider = ({ children }) => {
   //     setLoading(prev => ({ ...prev, user: false }));
   //   }
   // };
-
-  const fetchUserAdoptions = async (userId) => {
-    try {
-      setLoading(prev => ({ ...prev, user: true }));
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      const response = await fetch(`${API_BASE_URL}/adoptions/user/${userId}?includeRequests=true`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setUserAdoptionPosts(data);
-      setError(prev => ({ ...prev, user: '' }));
-    } catch (error) {
-      console.error('Fetch error:', error);
-      setError(prev => ({ ...prev, user: error.message }));
-    } finally {
-      setLoading(prev => ({ ...prev, user: false }));
-    }
-  };
-
+  
   const createAdoptionPost = async (postData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));

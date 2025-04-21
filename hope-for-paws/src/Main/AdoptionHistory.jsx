@@ -38,6 +38,7 @@ const AdoptionHistory = () => {
         throw new Error('No authentication token found');
       }
 
+      console.log('Fetching adoption history...');
       const response = await axios.get(`${API_BASE_URL}/adoptions/history`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -45,18 +46,21 @@ const AdoptionHistory = () => {
         }
       });
 
+      console.log('Response data:', response.data);
+
       // Transform data to ensure consistent format
-      const formattedData = response.data.map(item => ({
+      const formattedData = Array.isArray(response.data) ? response.data.map(item => ({
         _id: item._id || item.id,
         petName: item.petName || 'Unknown Pet',
         petType: item.petType || 'Unknown Type',
         petImage: item.petImage || 'https://via.placeholder.com/40?text=Pet',
-        status: item.status?.toLowerCase() || 'pending',
+        status: (item.status || 'pending').toLowerCase(),
         requestDate: item.requestDate || item.createdAt,
         responseDate: item.responseDate || null,
         message: item.message || '-'
-      }));
+      })) : [];
 
+      console.log('Formatted data:', formattedData);
       setHistory(formattedData);
     } catch (err) {
       console.error('Error fetching adoption history:', err);
@@ -77,15 +81,20 @@ const AdoptionHistory = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      console.error('Date formatting error:', e);
+      return dateString;
+    }
   };
 
   const getStatusBadgeClass = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'accepted': return 'bg-green-100 text-green-800';
       case 'rejected': return 'bg-red-100 text-red-800';
@@ -95,7 +104,7 @@ const AdoptionHistory = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8B5A2B]"></div>
       </div>
     );
@@ -103,26 +112,30 @@ const AdoptionHistory = () => {
 
   if (error) {
     return (
-      <div className="bg-red-100 text-red-700 p-4 rounded-lg">
-        <p className="font-semibold">Error</p>
-        <p>{error}</p>
-        {!effectiveUser && (
-          <button 
-            onClick={() => navigate('/login')}
-            className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
-          >
-            Log In
-          </button>
-        )}
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 text-red-700 p-4 rounded-lg">
+          <p className="font-semibold">Error</p>
+          <p>{error}</p>
+          {(!effectiveUser || error.includes('log in')) && (
+            <button 
+              onClick={() => navigate('/signin')}
+              className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
+            >
+              Log In
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
-  if (history.length === 0) {
+  if (!history.length) {
     return (
-      <div className="text-center py-10">
-        <h2 className="text-xl font-semibold text-gray-700">No Adoption History</h2>
-        <p className="text-gray-500 mt-2">You haven't made any adoption requests yet.</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-10 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-[#4E3B31]">No Adoption History</h2>
+          <p className="text-gray-500 mt-2">You haven't made any adoption requests yet.</p>
+        </div>
       </div>
     );
   }
@@ -131,52 +144,50 @@ const AdoptionHistory = () => {
     <div className="container mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold text-[#4E3B31] mb-6">My Adoption History</h2>
       
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
-          <thead className="bg-[#8B5A2B] text-white">
-            <tr>
-              <th className="px-6 py-3 text-left">Pet</th>
-              <th className="px-6 py-3 text-left">Type</th>
-              <th className="px-6 py-3 text-left">Request Date</th>
-              <th className="px-6 py-3 text-left">Status</th>
-              <th className="px-6 py-3 text-left">Response Date</th>
-              <th className="px-6 py-3 text-left">Message</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {history.map((item) => (
-              <tr key={item._id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <div className="flex items-center">
-                    <img 
-                      src={item.petImage} 
-                      alt={item.petName}
-                      className="h-10 w-10 rounded-full object-cover mr-3"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://via.placeholder.com/40?text=Pet';
-                      }}
-                    />
-                    <span className="font-medium text-gray-900">{item.petName}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-gray-700">{item.petType}</td>
-                <td className="px-6 py-4 text-gray-700">{formatDate(item.requestDate)}</td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-gray-700">
-                  {formatDate(item.responseDate)}
-                </td>
-                <td className="px-6 py-4 text-gray-700">
-                  {item.message}
-                </td>
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-[#8B5A2B] text-white">
+              <tr>
+                <th className="px-6 py-3 text-left">Pet</th>
+                <th className="px-6 py-3 text-left">Type</th>
+                <th className="px-6 py-3 text-left">Request Date</th>
+                <th className="px-6 py-3 text-left">Status</th>
+                <th className="px-6 py-3 text-left">Response Date</th>
+                <th className="px-6 py-3 text-left">Message</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {history.map((item) => (
+                <tr key={item._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <img 
+                        src={item.petImage} 
+                        alt={item.petName}
+                        className="h-10 w-10 rounded-full object-cover mr-3"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/40?text=Pet';
+                        }}
+                      />
+                      <span className="font-medium text-gray-900">{item.petName}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-700">{item.petType}</td>
+                  <td className="px-6 py-4 text-gray-700">{formatDate(item.requestDate)}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
+                      {item.status || 'pending'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-700">{formatDate(item.responseDate)}</td>
+                  <td className="px-6 py-4 text-gray-700">{item.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
