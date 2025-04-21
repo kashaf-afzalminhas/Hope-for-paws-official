@@ -14,12 +14,6 @@ const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const rateLimit = require('express-rate-limit');
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-
-app.use(limiter);
 dotenv.config();
 
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -91,7 +85,12 @@ app.use((req, res, next) => {
   }
   next();
 });
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
 
+app.use(limiter);
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
