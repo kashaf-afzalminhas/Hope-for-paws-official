@@ -37,8 +37,18 @@ const corsOptions = {
     'https://hope-for-paws-official-backend.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'cache-control',
+    'Cache-Control',
+    'If-None-Match',
+    'ETag'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
   credentials: true,
   maxAge: 86400, // 24 hours
   preflightContinue: false,
@@ -52,8 +62,14 @@ app.use(cors(corsOptions));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', 'https://hope-for-paws-official.vercel.app');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, cache-control, Cache-Control, If-None-Match, ETag');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Expose-Headers', 'ETag');
+  
+  // Handle OPTIONS method
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
   next();
 });
 
