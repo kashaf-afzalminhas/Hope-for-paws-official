@@ -8,7 +8,6 @@ const passport = require('passport');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
-const historyRoutes = require('./routes/historyroute');
 const postRoutes = require('./routes/posts');
 const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
@@ -72,7 +71,6 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
-app.use('/api', historyRoutes);
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
