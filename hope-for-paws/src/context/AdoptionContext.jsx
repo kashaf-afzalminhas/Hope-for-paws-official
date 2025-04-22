@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config';
 const AdoptionContext = createContext();
 
 // Define the backend API URL
-const BACKEND_API_URL = API_BASE_URL;
+// const BACKEND_API_URL = API_BASE_URL;
 
 // Cache configuration
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -88,7 +88,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -157,7 +157,7 @@ export const AdoptionProvider = ({ children }) => {
       
       console.log('Fetching adoptions for user:', effectiveUserId);
       
-      const postsResponse = await fetch(`${BACKEND_API_URL}/adoptions/user/${effectiveUserId}`, {
+      const postsResponse = await fetch(`${API_BASE_URL}/adoptions/user/${effectiveUserId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -177,7 +177,7 @@ export const AdoptionProvider = ({ children }) => {
       const postsWithRequests = await Promise.all(
         postsData.map(async (post) => {
           try {
-            const requestsResponse = await fetch(`${BACKEND_API_URL}/adoptions/${post._id}/requests`, {
+            const requestsResponse = await fetch(`${API_BASE_URL}/adoptions/${post._id}/requests`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -227,7 +227,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -266,7 +266,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -308,7 +308,7 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -349,7 +349,7 @@ export const AdoptionProvider = ({ children }) => {
 
       console.log('Sending adoption request:', { postId, requestData });
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/${postId}/request`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -404,7 +404,7 @@ export const AdoptionProvider = ({ children }) => {
 
       console.log(`Handling adoption request: ${action} for post ${postId}, request ${requestId}`);
 
-      const response = await fetch(`${BACKEND_API_URL}/adoptions/requests/${requestId}`, {
+      const response = await fetch(`${API_BASE_URL}/adoptions/requests/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
