@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft } from 'react-icons/fa';
-import { MdAdoptionServices } from 'react-icons/md';
+import { MdPets  } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
@@ -171,7 +171,7 @@ const ProfilePage = () => {
     { name: 'Edit Profile', view: 'edit', icon: <FaEdit /> },
     { name: 'Security Settings', view: 'security', icon: <FaLock /> },
     { name: 'My Posts', path: '/my-posts', external: true, icon: <FaListAlt /> },
-    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: <MdAdoptionServices /> },
+    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: < MdPets/> },
     { name: 'Adoption History', path: '/adoptionhistory', external: true, icon: <FaHistory /> },
   ];
 
