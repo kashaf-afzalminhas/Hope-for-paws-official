@@ -282,15 +282,238 @@ const ProfilePage = () => {
 
           {/* Content Area */}
           <div className="flex-1 bg-white rounded-lg shadow p-6">
-            {/* Include your content components here (like the profile forms / views) */}
-            {/* This is unchanged from your version for brevity */}
-            {/* If needed I can include all views too again */}
-            {/* Let me know if you want that expanded here too */}
+            {currentView === 'profile' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">My Profile</h2>
+                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Personal Information</h3>
+                    <div className="bg-gray-50 p-4 rounded">
+                      <div className="mb-3">
+                        <p className="text-sm text-gray-500">Name</p>
+                        <p className="font-medium">{profile.name}</p>
+                      </div>
+                      <div className="mb-3">
+                        <p className="text-sm text-gray-500">Email</p>
+                        <p className="font-medium">{profile.email}</p>
+                      </div>
+                      <div className="mb-3">
+                        <p className="text-sm text-gray-500">Phone</p>
+                        <p className="font-medium">{profile.phone || 'Not provided'}</p>
+                      </div>
+                      <div className="mb-3">
+                        <p className="text-sm text-gray-500">City</p>
+                        <p className="font-medium">{profile.city || 'Not provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">About Me</h3>
+                    <div className="bg-gray-50 p-4 rounded h-full">
+                      <p>{profile.about || 'No information provided yet.'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Account Type</h3>
+                  <div className="bg-gray-50 p-4 rounded">
+                    <p className="font-medium capitalize">{profile.userType || 'Standard User'}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-8 flex justify-end">
+                  <button 
+                    onClick={() => setCurrentView('edit')}
+                    className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {currentView === 'edit' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Edit Profile</h2>
+                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+                
+                <form onSubmit={handleSaveProfile}>
+                  <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <input 
+                        type="text" 
+                        disabled
+                        value={profile.name}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input 
+                        type="email" 
+                        disabled
+                        value={profile.email}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                      <input 
+                        type="tel" 
+                        name="phone"
+                        value={profile.phone}
+                        onChange={handleProfileChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                      <input 
+                        type="text" 
+                        name="city"
+                        value={profile.city}
+                        onChange={handleProfileChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">About Me</label>
+                    <textarea 
+                      name="about"
+                      value={profile.about}
+                      onChange={handleProfileChange}
+                      rows="4"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="Tell us a bit about yourself..."
+                    ></textarea>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <button 
+                      type="button"
+                      onClick={() => setCurrentView('profile')}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={loading}
+                      className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
+                    >
+                      {loading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {currentView === 'security' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Security Settings</h2>
+                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+                
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-4 text-[#6b493d]">Change Password</h3>
+                  <form onSubmit={handlePasswordUpdate}>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                      <input 
+                        type="password" 
+                        name="currentPassword"
+                        value={passwords.currentPassword}
+                        onChange={handlePasswordChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                      <input 
+                        type="password" 
+                        name="newPassword"
+                        value={passwords.newPassword}
+                        onChange={handlePasswordChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                      <input 
+                        type="password" 
+                        name="confirmPassword"
+                        value={passwords.confirmPassword}
+                        onChange={handlePasswordChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <button 
+                        type="submit"
+                        disabled={loading}
+                        className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
+                      >
+                        {loading ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                
+                <div className="mt-8 border-t pt-6">
+                  <h3 className="text-lg font-medium mb-4 text-[#6b493d]">Account Security</h3>
+                  
+                  <div className="bg-gray-50 p-4 rounded mb-4">
+                    <div className="flex items-start">
+                      <div className="mr-4 text-[#6b493d]">
+                        <FaLock size={24} />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Two-Factor Authentication</h4>
+                        <p className="text-gray-600 text-sm mt-1">Add an extra layer of security to your account</p>
+                        <button className="mt-2 bg-[#a07855] hover:bg-[#866446] text-white text-sm py-1 px-3 rounded">
+                          Set Up
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded">
+                    <div className="flex items-start">
+                      <div className="mr-4 text-red-500">
+                        <FaSignOutAlt size={24} />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Sign Out All Devices</h4>
+                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you're currently signed in</p>
+                        <button className="mt-2 bg-red-500 hover:bg-red-600 text-white text-sm py-1 px-3 rounded">
+                          Sign Out All
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
-
-      {/* Removed Bottom Navigation and Logo Branding */}
     </div>
   );
 };
