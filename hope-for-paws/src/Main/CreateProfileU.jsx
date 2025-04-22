@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaUserCircle, FaPaw, FaEdit, FaLock, FaListAlt, FaHistory, FaPaste, FaSignOutAlt } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft } from 'react-icons/fa';
+import { MdAdoptionServices, MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
@@ -21,6 +22,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentView, setCurrentView] = useState('profile'); // 'profile', 'edit', 'security'
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -180,7 +182,7 @@ const ProfilePage = () => {
     { name: 'Edit Profile', view: 'edit', icon: <FaEdit className="text-lg md:mr-2" /> },
     { name: 'Security Settings', view: 'security', icon: <FaLock className="text-lg md:mr-2" /> },
     { name: 'My Posts', path: '/my-posts', external: true, icon: <FaListAlt className="text-lg md:mr-2" /> },
-    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: <FaPaw className="text-lg md:mr-2" /> },
+    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: <MdAdoptionServices className="text-lg md:mr-2" /> },
     { name: 'Adoption History', path: '/adoptionhistory', external: true, icon: <FaHistory className="text-lg md:mr-2" /> },
   ];
 
@@ -193,32 +195,49 @@ const ProfilePage = () => {
     { name: 'Posts', path: '/posts' },
   ];
 
+  // Toggle mobile menu dropdown
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleViewChange = (view) => {
+    setCurrentView(view);
+    setMobileMenuOpen(false); // Close the menu after selection
+  };
+
+  const handleExternalNavigation = (path) => {
+    navigate(path);
+    setMobileMenuOpen(false); // Close the menu after navigation
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header/Navbar - Always visible */}
       <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
         <div className="flex justify-between items-center max-w-6xl mx-auto">
           <NavLink to="/" className="flex items-center">
-            <FaPaw className="text-2xl text-[#a07855]" />
-            <span className="text-xl font-bold ml-2 hidden md:inline">HopeForPaws</span>
+            <FaChevronLeft className="text-xl text-[#6b493d]" />
+            <span className="ml-2 text-[#6b493d]">Back</span>
           </NavLink>
           
           <h1 className="text-lg font-bold text-[#6b493d]">My Profile</h1>
           
-          <button 
-            onClick={handleSignOut} 
-            className="flex items-center text-[#a07855] hover:text-[#6b493d]"
-          >
-            <span className="mr-1 hidden md:inline">Sign Out</span>
-            <FaSignOutAlt />
-          </button>
+          <div className="flex items-center">
+            <button 
+              onClick={handleSignOut} 
+              className="flex items-center text-[#a07855] hover:text-[#6b493d]"
+            >
+              <span className="mr-1 hidden md:inline">Sign Out</span>
+              <FaSignOutAlt />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 pb-20 md:pb-4 max-w-6xl mx-auto w-full">
         <div className="flex flex-col md:flex-row md:space-x-6">
-          {/* Profile Card - Always visible on top in mobile */}
+          {/* Profile Card - Always visible on top */}
           <div className="md:w-1/4 mb-6">
             <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
               <div className="w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold mx-auto mb-3">
@@ -226,10 +245,56 @@ const ProfilePage = () => {
               </div>
               <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
               <p className="text-[#a07855] text-sm truncate">{profile.email}</p>
+              
+              {/* Mobile dropdown menu button */}
+              <div className="mt-4 md:hidden">
+                <button
+                  onClick={toggleMobileMenu}
+                  className="w-full flex items-center justify-between bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-4 rounded-md"
+                >
+                  <span>{currentView === 'profile' ? 'View Profile' : 
+                         currentView === 'edit' ? 'Edit Profile' : 'Security Settings'}</span>
+                  {mobileMenuOpen ? 
+                    <FaTimes className="ml-2" /> : 
+                    <FaBars className="ml-2" />
+                  }
+                </button>
+                
+                {/* Mobile dropdown menu */}
+                {mobileMenuOpen && (
+                  <div className="absolute z-20 mt-2 w-64 bg-white rounded-md shadow-lg py-1 left-1/2 transform -translate-x-1/2">
+                    {profileLinks.map((link, index) => 
+                      link.external ? (
+                        <button 
+                          key={index} 
+                          onClick={() => handleExternalNavigation(link.path)}
+                          className="flex items-center w-full text-left px-4 py-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]"
+                        >
+                          {link.icon}
+                          <span className="ml-2">{link.name}</span>
+                        </button>
+                      ) : (
+                        <button
+                          key={index}
+                          onClick={() => handleViewChange(link.view)}
+                          className={`flex items-center w-full text-left px-4 py-3 border-b border-gray-100 ${
+                            currentView === link.view 
+                              ? 'bg-[#6b493d] text-white font-medium' 
+                              : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                          }`}
+                        >
+                          {link.icon}
+                          <span className="ml-2">{link.name}</span>
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
-            {/* Navigation Tabs */}
-            <div className="mt-4 bg-white rounded-lg shadow overflow-hidden">
+            {/* Desktop Navigation Menu - Hidden on mobile */}
+            <div className="mt-4 bg-white rounded-lg shadow overflow-hidden hidden md:block">
               {profileLinks.map((link, index) => 
                 link.external ? (
                   <NavLink 
@@ -238,7 +303,7 @@ const ProfilePage = () => {
                     className="flex items-center p-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]"
                   >
                     {link.icon}
-                    <span className="md:inline">{link.name}</span>
+                    <span>{link.name}</span>
                   </NavLink>
                 ) : (
                   <button
@@ -251,7 +316,7 @@ const ProfilePage = () => {
                     }`}
                   >
                     {link.icon}
-                    <span className="md:inline">{link.name}</span>
+                    <span>{link.name}</span>
                   </button>
                 )
               )}
@@ -445,7 +510,7 @@ const ProfilePage = () => {
       </main>
 
       {/* Bottom Navigation for Mobile */}
-      <nav className="fixed bottom-0 w-full bg-[#F8F4ED] shadow-lg z-20 md:hidden">
+      <nav className="fixed bottom-0 w-full bg-[#F8F4ED] shadow-lg z-10 md:hidden">
         <div className="flex justify-around items-center p-3">
           {mainNavigation.map((item, index) => (
             <NavLink 
@@ -460,6 +525,14 @@ const ProfilePage = () => {
           ))}
         </div>
       </nav>
+      
+      {/* Overlay when mobile menu is open */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 z-10"
+          onClick={() => setMobileMenuOpen(false)}
+        ></div>
+      )}
     </div>
   );
 };
