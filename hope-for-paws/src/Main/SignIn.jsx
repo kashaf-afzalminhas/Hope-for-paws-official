@@ -74,16 +74,17 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
         {/* Image Section - Visible on both mobile and desktop */}
-        <div className="w-full md:w-1/2 h-48 md:h-auto bg-[#F8F4ED] relative">
+        <div className="w-full sm:h-72 md:w-1/2 h-64 md:h-auto bg-[#F8F4ED] relative">
           <img 
             src={Paws} 
             alt="Hope For Paws" 
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute h-72 inset-0 w-full md:h-full object-cover"
+            style={{ objectFit: 'cover' }}
           />
         </div>
 
         {/* Form Section */}
-        <div className="w-full md:w-1/2 p-8">
+        <div className="w-full md:w-1/2 p-8 mt-6">
           <div className="max-w-md mx-auto space-y-6">
             <div className="flex flex-col items-center space-y-2">
               <h2 className="text-2xl font-bold text-[#4E3B31]">Welcome back</h2>
