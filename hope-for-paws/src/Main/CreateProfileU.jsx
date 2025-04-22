@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaUserCircle, FaArrowLeft, FaPaw } from 'react-icons/fa';
+import { FaUserCircle, FaPaw, FaEdit, FaLock, FaListAlt, FaHistory, FaPaste, FaSignOutAlt } from 'react-icons/fa';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
@@ -69,10 +69,7 @@ const ProfilePage = () => {
     }
 
     try {
-      // Replace with your actual API base URL
-      const API_BASE_URL = `${AUTH_BASE_URL}`;
-      
-      const response = await fetch(`${API_BASE_URL}/update-profile`, {
+      const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, phone, city, about })
@@ -177,108 +174,92 @@ const ProfilePage = () => {
     }
   };
 
-  // Navigation links for the profile page
+  // Navigation links with icons for the profile page
   const profileLinks = [
-    { name: 'View Profile', view: 'profile', icon: 'profile' },
-    { name: 'Edit Profile', view: 'edit', icon: 'edit' },
-    { name: 'Security Settings', view: 'security', icon: 'security' },
-    { name: 'My Posts', path: '/my-posts', external: true },
-    { name: 'My Adoptions', path: '/my-adoptions', external: true },
-    { name: 'Adoption History', path: '/adoptionhistory', external: true },
+    { name: 'View Profile', view: 'profile', icon: <FaUserCircle className="text-lg md:mr-2" /> },
+    { name: 'Edit Profile', view: 'edit', icon: <FaEdit className="text-lg md:mr-2" /> },
+    { name: 'Security Settings', view: 'security', icon: <FaLock className="text-lg md:mr-2" /> },
+    { name: 'My Posts', path: '/my-posts', external: true, icon: <FaListAlt className="text-lg md:mr-2" /> },
+    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: <FaPaw className="text-lg md:mr-2" /> },
+    { name: 'Adoption History', path: '/adoptionhistory', external: true, icon: <FaHistory className="text-lg md:mr-2" /> },
   ];
 
   // Main app navigation
   const mainNavigation = [
     { name: 'Home', path: '/' },
-    { name: 'Clinics & Vets', path: '/clinics' },
-    { name: "NGO's", path: '/ngo' },
+    { name: 'Clinics', path: '/clinics' },
+    { name: "NGOs", path: '/ngo' },
     { name: 'Adoption', path: '/adoption' },
     { name: 'Posts', path: '/posts' },
-    { name: 'Contact Us', path: '/contactus' },
-    { name: "FAQ's", path: '/faq' },
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header/Navbar - Always visible */}
-      <header className="bg-[#F8F4ED] text-[#a07855] p-4 sticky top-0 z-10 shadow-md">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <NavLink to="/" className="flex items-center">
-              <FaPaw className="text-2xl text-[#a07855]" />
-              <span className="text-xl font-bold ml-2">HopeForPaws</span>
-            </NavLink>
-          </div>
-          <div className="text-lg font-bold">My Profile</div>
-          <button onClick={handleSignOut} className="text-[#a07855]">
-            Sign Out
+      <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
+        <div className="flex justify-between items-center max-w-6xl mx-auto">
+          <NavLink to="/" className="flex items-center">
+            <FaPaw className="text-2xl text-[#a07855]" />
+            <span className="text-xl font-bold ml-2 hidden md:inline">HopeForPaws</span>
+          </NavLink>
+          
+          <h1 className="text-lg font-bold text-[#6b493d]">My Profile</h1>
+          
+          <button 
+            onClick={handleSignOut} 
+            className="flex items-center text-[#a07855] hover:text-[#6b493d]"
+          >
+            <span className="mr-1 hidden md:inline">Sign Out</span>
+            <FaSignOutAlt />
           </button>
         </div>
       </header>
 
-      {/* Bottom Navigation for Mobile */}
-      <nav className="fixed bottom-0 w-full bg-[#F8F4ED] z-20 md:hidden">
-        <div className="flex justify-around items-center p-3">
-          {mainNavigation.slice(0, 5).map((item, index) => (
-            <NavLink 
-              key={index} 
-              to={item.path}
-              className={({ isActive }) => 
-                `flex flex-col items-center text-xs text-[#a07855] ${isActive ? 'font-bold' : ''}`
-              }
-            >
-              <span>{item.name.split(' ')[0]}</span>
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-
       {/* Main Content Area */}
-      <main className="flex-1 p-4 pb-20 md:pb-4">
-        <div className="flex flex-col md:flex-row md:space-x-6 max-w-6xl mx-auto">
-          {/* Profile Navigation Menu - Shown as tabs on mobile */}
-          <div className="mb-6 md:mb-0 md:w-1/4">
-            <div className="md:sticky md:top-20">
-              {/* Profile Card */}
-              <div className="p-4 bg-[#F8F4ED] rounded-lg shadow-md mb-4 text-center">
-                <div className="w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold mx-auto mb-3">
-                  {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
-                </div>
-                <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
-                <p className="text-[#a07855]">{profile.email}</p>
+      <main className="flex-1 p-4 pb-20 md:pb-4 max-w-6xl mx-auto w-full">
+        <div className="flex flex-col md:flex-row md:space-x-6">
+          {/* Profile Card - Always visible on top in mobile */}
+          <div className="md:w-1/4 mb-6">
+            <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
+              <div className="w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold mx-auto mb-3">
+                {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
               </div>
-              
-              {/* Menu Options - Shown as horizontal tabs on mobile */}
-              <div className="flex flex-row overflow-x-auto md:flex-col space-x-2 md:space-x-0 md:space-y-1 mb-4 pb-2">
-                {profileLinks.map((link, index) => 
-                  link.external ? (
-                    <NavLink 
-                      key={index} 
-                      to={link.path}
-                      className="whitespace-nowrap px-4 py-2 rounded-lg text-[#6b493d] hover:bg-[#F8F4ED] md:block text-center"
-                    >
-                      {link.name}
-                    </NavLink>
-                  ) : (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentView(link.view)}
-                      className={`whitespace-nowrap px-4 py-2 rounded-lg md:block text-center ${
-                        currentView === link.view 
-                          ? 'bg-[#6b493d] text-white font-medium' 
-                          : 'text-[#6b493d] hover:bg-[#F8F4ED]'
-                      }`}
-                    >
-                      {link.name}
-                    </button>
-                  )
-                )}
-              </div>
+              <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+              <p className="text-[#a07855] text-sm truncate">{profile.email}</p>
+            </div>
+            
+            {/* Navigation Tabs */}
+            <div className="mt-4 bg-white rounded-lg shadow overflow-hidden">
+              {profileLinks.map((link, index) => 
+                link.external ? (
+                  <NavLink 
+                    key={index} 
+                    to={link.path}
+                    className="flex items-center p-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]"
+                  >
+                    {link.icon}
+                    <span className="md:inline">{link.name}</span>
+                  </NavLink>
+                ) : (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentView(link.view)}
+                    className={`flex items-center w-full p-3 border-b border-gray-100 text-left ${
+                      currentView === link.view 
+                        ? 'bg-[#6b493d] text-white font-medium' 
+                        : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                    }`}
+                  >
+                    {link.icon}
+                    <span className="md:inline">{link.name}</span>
+                  </button>
+                )
+              )}
             </div>
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 bg-white rounded-lg shadow-md p-6">
+          <div className="flex-1 bg-white rounded-lg shadow p-6">
             {currentView === 'security' ? (
               <form onSubmit={handlePasswordUpdate} className="space-y-4">
                 <h2 className="text-xl font-bold mb-6 text-[#6b493d]">Change Password</h2>
@@ -292,7 +273,8 @@ const ProfilePage = () => {
                     name="currentPassword"
                     value={passwords.currentPassword}
                     onChange={handlePasswordChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    required
                   />
                 </div>
                 <div>
@@ -305,7 +287,8 @@ const ProfilePage = () => {
                     name="newPassword"
                     value={passwords.newPassword}
                     onChange={handlePasswordChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    required
                   />
                 </div>
                 <div>
@@ -318,7 +301,8 @@ const ProfilePage = () => {
                     name="confirmPassword"
                     value={passwords.confirmPassword}
                     onChange={handlePasswordChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    required
                   />
                 </div>
                 <div className="pt-4">
@@ -344,8 +328,7 @@ const ProfilePage = () => {
                     id="name"
                     name="name"
                     value={profile.name}
-                    onChange={handleProfileChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2 bg-gray-50"
                     disabled
                   />
                 </div>
@@ -358,7 +341,7 @@ const ProfilePage = () => {
                     id="email"
                     name="email"
                     value={profile.email}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2 bg-gray-50"
                     disabled
                   />
                 </div>
@@ -372,7 +355,8 @@ const ProfilePage = () => {
                     name="phone"
                     value={profile.phone}
                     onChange={handleProfileChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    placeholder="Enter your phone number"
                   />
                 </div>
                 <div>
@@ -385,7 +369,8 @@ const ProfilePage = () => {
                     name="city"
                     value={profile.city}
                     onChange={handleProfileChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full p-2"
+                    placeholder="Enter your city"
                   />
                 </div>
                 <div>
@@ -397,7 +382,8 @@ const ProfilePage = () => {
                     name="about"
                     value={profile.about}
                     onChange={handleProfileChange}
-                    className="mt-1 border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full h-24 p-2"
+                    className="mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-[#6b493d] focus:border-[#6b493d] block w-full h-24 p-2"
+                    placeholder="Tell us about yourself"
                   />
                 </div>
                 <div className="pt-4">
@@ -457,6 +443,23 @@ const ProfilePage = () => {
           </div>
         </div>
       </main>
+
+      {/* Bottom Navigation for Mobile */}
+      <nav className="fixed bottom-0 w-full bg-[#F8F4ED] shadow-lg z-20 md:hidden">
+        <div className="flex justify-around items-center p-3">
+          {mainNavigation.map((item, index) => (
+            <NavLink 
+              key={index} 
+              to={item.path}
+              className={({ isActive }) => 
+                `flex flex-col items-center text-xs ${isActive ? 'text-[#6b493d] font-bold' : 'text-[#a07855]'}`
+              }
+            >
+              <span>{item.name}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 };

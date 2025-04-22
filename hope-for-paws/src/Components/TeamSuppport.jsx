@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import DocImage from '../assets/Doc.jpeg';
-
+import VetConnect from '../assets/vc.jpg'
+import Huraira from '../assets/Huraira.jpeg';
 const PersonCard = ({ name, role, image, summary, details, contact, className }) => {
   const [activeAccordion, setActiveAccordion] = useState(null);
 
@@ -201,7 +202,7 @@ const AmbassadorCollaboratorsSection = () => {
           <PersonCard
             name="Vet Connect"
             role="Private Company & Government-Registered Society"
-            image="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80"
+            image={VetConnect}
             summary="Leading veterinary healthcare and education platform in Pakistan."
             details={{
               experience: [
@@ -230,7 +231,7 @@ const AmbassadorCollaboratorsSection = () => {
           <PersonCard
             name="Huraira Animal Shelter"
             role="ISO-Certified Animal Welfare Organization"
-            image="https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80"
+            image={Huraira}
             summary="Pakistan's first and largest institution dedicated to animal welfare, providing comprehensive care and rehabilitation services."
             details={{
               experience: [
