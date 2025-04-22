@@ -12,16 +12,19 @@ const Postnew = () => {
   const [error, setError] = useState("");
   const { userd } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
+  
   // Check user authentication state
   const user =
     JSON.parse(localStorage.getItem("user")) ||
     JSON.parse(sessionStorage.getItem("user"));
+    
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({
       ...prev,
       [postId]: !prev[postId],
     }));
   };
+  
   const fetchPosts = async () => {
     try {
       setLoading(true);
@@ -128,15 +131,15 @@ const Postnew = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f3ed] flex justify-center items-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#6b493d] border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f5f3ed] p-6">
-        <div className="max-w-4xl mx-auto bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
+      <div className="min-h-screen bg-[#f5f3ed] p-4">
+        <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-lg p-4 text-center">
           <p className="text-red-700 font-medium">{error}</p>
         </div>
       </div>
@@ -145,39 +148,39 @@ const Postnew = () => {
 
   return (
     <div className="min-h-screen bg-[#f5f3ed]">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header Section */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-[#4E3B31] text-center mb-6 font-playfair">
+      <div className="max-w-md mx-auto px-3 py-4 sm:px-4 sm:py-6 md:max-w-2xl lg:max-w-4xl">
+        {/* Header Section - More compact on mobile */}
+        <div className="mb-6 sm:mb-10">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#4E3B31] text-center mb-3 sm:mb-5 font-playfair">
             Community Posts
           </h1>
-          <p className="text-[#6b493d] text-center mb-8 font-poppins">
+          <p className="text-[#6b493d] text-center mb-4 sm:mb-6 font-poppins text-sm sm:text-base">
             Get your queries answered by our professional veterinarians
           </p>
           
-          {/* Action Bar */}
-          <div className="flex flex-wrap gap-4 justify-center items-center">
+          {/* Action Bar - Full width on mobile */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             {user ? (
               <>
                 <Link
                   to="/createpost"
-                  className="flex items-center gap-2 px-6 py-3 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all transform hover:scale-105 shadow-lg font-poppins"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
                 >
-                  <PlusCircle className="h-5 w-5" />
+                  <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>Create Post</span>
                 </Link>
                 <Link
                   to="/my-posts"
-                  className="flex items-center gap-2 px-6 py-3 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border-2 border-[#6b493d] font-poppins"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] font-poppins text-sm sm:text-base"
                 >
-                  <UserCircle className="h-5 w-5" />
+                  <UserCircle className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>My Posts</span>
                 </Link>
               </>
             ) : (
               <Link
                 to="/signin"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all transform hover:scale-105 shadow-lg font-poppins"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
               >
                 Sign in to Post
               </Link>
@@ -186,14 +189,14 @@ const Postnew = () => {
         </div>
 
         {/* Posts Feed */}
-        <div className="space-y-8">
+        <div className="space-y-4 sm:space-y-6">
           {posts.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg p-8 text-center border-2 border-[#c9a280]/20">
+            <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 text-center border border-[#c9a280]/20">
               <div className="max-w-md mx-auto">
-                <p className="text-xl text-[#6b493d] font-playfair mb-4">
+                <p className="text-lg sm:text-xl text-[#6b493d] font-playfair mb-2 sm:mb-3">
                   No posts yet
                 </p>
-                <p className="text-[#a07855] font-poppins">
+                <p className="text-[#a07855] font-poppins text-sm">
                   Be the first to share your pet story!
                 </p>
               </div>
@@ -202,25 +205,25 @@ const Postnew = () => {
             posts.map((post) => (
               <div
                 key={post._id}
-                className="bg-white rounded-2xl shadow-lg border border-[#c9a280]/10 overflow-hidden transform transition-all hover:shadow-xl"
+                className="bg-white rounded-xl shadow-md border border-[#c9a280]/10 overflow-hidden transform transition-all"
               >
                 {/* Post Header */}
-                <div className="p-6 flex items-center gap-4 border-b border-[#f5f3ed]">
-                  <div className="h-12 w-12 bg-[#f5f3ed] rounded-full flex items-center justify-center">
-                    <UserCircle className="h-8 w-8 text-[#6b493d]" />
+                <div className="p-3 sm:p-4 flex items-center gap-3 border-b border-[#f5f3ed]">
+                  <div className="h-10 w-10 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0">
+                    <UserCircle className="h-6 w-6 text-[#6b493d]" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[#4E3B31] font-playfair">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-bold text-[#4E3B31] font-playfair text-sm sm:text-base truncate">
                         {post.userId?.username || "Unknown User"}
                       </h3>
                       {post.userId?.isVeterinarian && (
-                        <span className="px-3 py-1 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
+                        <span className="px-2 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
                           Veterinarian
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-[#a07855] font-poppins">
+                    <p className="text-xs text-[#a07855] font-poppins">
                       {new Date(post.createdAt).toLocaleDateString("en-US", {
                         month: "long",
                         day: "numeric",
@@ -230,58 +233,58 @@ const Postnew = () => {
                   </div>
                 </div>
 
-                {/* Post Image */}
+                {/* Post Image - Fixed aspect ratio & better containment */}
                 {post.imageUrl && (
-                  <div className="relative aspect-video">
+                  <div className="relative w-full aspect-square sm:aspect-video">
                     <img
                       src={post.imageUrl}
-                      alt="Pet"
-                      className="w-full h-full object-cover"
+                      alt="Post content"
+                      className="w-full h-full object-contain bg-black/5"
                       loading="lazy"
                     />
                   </div>
                 )}
 
                 {/* Post Content */}
-                <div className="p-6">
-                  <p className="text-[#4E3B31] font-poppins text-lg mb-6 leading-relaxed">
+                <div className="p-3 sm:p-4">
+                  <p className="text-[#4E3B31] font-poppins text-sm sm:text-base mb-4 leading-relaxed break-words">
                     {post.caption}
                   </p>
 
                   {/* Engagement Section */}
-                  <div className="flex items-center justify-between pb-4 border-b border-[#f5f3ed]">
-                    <div className="flex items-center gap-6">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#f5f3ed]">
+                    <div className="flex items-center gap-4">
                       <button
                         onClick={() => handleLike(post._id)}
-                        className={`flex items-center gap-2 transition-colors ${
+                        className={`flex items-center gap-1.5 transition-colors ${
                           user && post.likes.includes(user._id)
                             ? "text-[#6b493d]"
                             : "text-[#a07855] hover:text-[#6b493d]"
                         }`}
                       >
                         <Heart
-                          className={`h-6 w-6 transition-transform hover:scale-110 ${
+                          className={`h-5 w-5 transition-transform hover:scale-110 ${
                             user && post.likes.includes(user._id)
                               ? "fill-current"
                               : ""
                           }`}
                         />
-                        <span className="font-medium">{post.likes.length}</span>
+                        <span className="font-medium text-sm">{post.likes.length}</span>
                       </button>
                       <button
                         onClick={() => toggleComments(post._id)}
-                        className="flex items-center gap-2 text-[#a07855] hover:text-[#6b493d] transition-colors"
+                        className="flex items-center gap-1.5 text-[#a07855] hover:text-[#6b493d] transition-colors"
                       >
-                        <MessageCircle className="h-6 w-6" />
-                        <span className="font-medium">{post.comments.length}</span>
+                        <MessageCircle className="h-5 w-5" />
+                        <span className="font-medium text-sm">{post.comments.length}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Comments Section */}
-                  <div className="mt-6 space-y-6">
+                  {/* Comments Section - Better spacing for mobile */}
+                  <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
                     {user && (
-                      <div className="flex gap-3">
+                      <div className="flex gap-2">
                         <input
                           type="text"
                           value={newComment[post._id] || ""}
@@ -292,49 +295,49 @@ const Postnew = () => {
                             })
                           }
                           placeholder="Write a comment..."
-                          className="flex-1 bg-[#f5f3ed] rounded-full px-6 py-3 text-[#4E3B31] placeholder-[#a07855] focus:outline-none focus:ring-2 focus:ring-[#6b493d] font-poppins"
+                          className="flex-1 bg-[#f5f3ed] rounded-full px-4 py-2 text-[#4E3B31] text-sm placeholder-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
                           onKeyPress={(e) =>
                             e.key === "Enter" && handleComment(post._id)
                           }
                         />
                         <button
                           onClick={() => handleComment(post._id)}
-                          className="px-6 py-3 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all transform hover:scale-105 font-poppins font-medium"
+                          className="px-3 py-2 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins font-medium text-sm"
                         >
                           Post
                         </button>
                       </div>
                     )}
 
-                    <div className="space-y-4">
+                    <div className="space-y-2 sm:space-y-3">
                       {(expandedComments[post._id]
                         ? post.comments
                         : post.comments.slice(0, 2)
                       ).map((comment) => (
                         <div
                           key={comment._id}
-                          className="flex gap-4 bg-[#f5f3ed] rounded-xl p-4"
+                          className="flex gap-2 sm:gap-3 bg-[#f5f3ed] rounded-lg p-2 sm:p-3"
                         >
-                          <div className="h-8 w-8 bg-[#6b493d] rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-medium">
+                          <div className="h-7 w-7 bg-[#6b493d] rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-medium text-xs">
                               {comment.userId?.username?.[0]?.toUpperCase() || "?"}
                             </span>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-bold text-[#4E3B31] font-playfair">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                              <h4 className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate">
                                 {comment.userId?.username || "Unknown User"}
                               </h4>
                               {comment.userId?.isVeterinarian && (
-                                <span className="px-2 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
+                                <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
                                   Veterinarian
                                 </span>
                               )}
                             </div>
-                            <p className="text-[#4E3B31] font-poppins">
+                            <p className="text-[#4E3B31] font-poppins text-xs sm:text-sm break-words">
                               {comment.content}
                             </p>
-                            <p className="text-xs text-[#a07855] mt-2 font-poppins">
+                            <p className="text-xs text-[#a07855] mt-1 font-poppins">
                               {new Date(comment.createdAt).toLocaleDateString(
                                 "en-US",
                                 {
@@ -351,9 +354,9 @@ const Postnew = () => {
                               onClick={() =>
                                 handleDeleteComment(comment._id, post._id)
                               }
-                              className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                              className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
                             >
-                              <Trash2 className="h-5 w-5 text-[#6b493d]" />
+                              <Trash2 className="h-4 w-4 text-[#6b493d]" />
                             </button>
                           )}
                         </div>
@@ -361,7 +364,7 @@ const Postnew = () => {
                       {post.comments.length > 2 && (
                         <button
                           onClick={() => toggleComments(post._id)}
-                          className="w-full text-center py-3 text-[#6b493d] hover:text-[#5a3c32] transition-colors font-poppins font-medium"
+                          className="w-full text-center py-2 text-[#6b493d] hover:text-[#5a3c32] transition-colors font-poppins font-medium text-xs sm:text-sm"
                         >
                           {expandedComments[post._id]
                             ? "Show Less"
@@ -381,4 +384,3 @@ const Postnew = () => {
 };
 
 export default Postnew;
-
