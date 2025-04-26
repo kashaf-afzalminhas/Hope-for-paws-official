@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Navbar from './Components/Navbar';
 import { Outlet } from 'react-router-dom';
 import { AUTH_BASE_URL } from './config';
+import { DisclaimerBanner } from './Components/DisclaimerBanner';
 
 function App() {
   const handleSignOut = async () => {
@@ -36,8 +37,10 @@ function App() {
 
   return (
     <>
+      <DisclaimerBanner />
       <Navbar handleSignOut={handleSignOut} />
       <Outlet/>
+
     </>
   );
 }
