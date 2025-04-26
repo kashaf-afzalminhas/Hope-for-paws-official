@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import DocImage from '../assets/Doc.jpeg';
 import VetConnect from '../assets/vc.jpg'
 import Huraira from '../assets/Huraira.jpeg';
-const PersonCard = ({ name, role, image, summary, details, contact, className }) => {
+import ibraheem from '../assets/ibraheem.jpeg';
+import wasif from '../assets/wasif.jpeg';
+import avator from '../assets/avatar.png';
+import { useNavigate } from 'react-router-dom';
+
+export const PersonCard = ({ name, role, image, summary, details, contact, className }) => {
   const [activeAccordion, setActiveAccordion] = useState(null);
 
   const toggleAccordion = (value) => {
@@ -163,6 +168,154 @@ const PersonCard = ({ name, role, image, summary, details, contact, className })
 };
 
 const AmbassadorCollaboratorsSection = () => {
+  const navigate = useNavigate();
+  
+  const teamMembers = [
+    {
+      name: "Fahad Ansari",
+      role: "Ambassador & Executive Director",
+      image: DocImage,
+      summary: "Experienced veterinarian with expertise in small animal practice and community outreach.",
+      details: {
+        education: ["Doctor of Veterinary Medicine (Final Year)"],
+        experience: [
+          "Executive Director & Organizer at Vet Connect",
+          "Co-Author of Veterinary Capsule (For Public Service Commission Exam)",
+          "Former HR International Veterinary Students Association",
+          "Veterinary camp organizer"
+        ]
+      },
+      contact: {
+        phone: "+92 308 8676335",
+        email: "vetconnect3@gmail.com"
+      }
+    },
+    {
+      name: "Dr. Asfa",
+      role: "DVM, MPhil",
+      image: avator, // Empty for avatar
+      summary: "Online veterinary consultations for emergency/rescue cases",
+      details: {
+        education: [
+          "Doctor of Veterinary Medicine (DVM)",
+          "Master of Philosophy (MPhil)"
+        ],
+        experience: [
+          "5 years pet practice experience",
+          "Former HR - International Veterinary Students Association",
+          "Emergency case specialist"
+        ]
+      },
+      contact: {
+        phone: "03072736096"
+      }
+    },
+    {
+      name: "Muhammad Ibraheem Saeed",
+      role: "Doctor of Veterinary Medicine (DVM)",
+      image: wasif, // Add image path or leave empty for avatar
+      summary: "Experienced veterinarian with 1 year of professional practice",
+      details: {
+        education: ["Doctor of Veterinary Medicine (DVM)"],
+        experience: ["1 year of professional veterinary practice"]
+      },
+      contact: {
+        phone: "03358745668"
+      }
+    },
+    {
+      name: "Vet Connect",
+      role: "Government University Affiliated",
+      image: VetConnect,
+      summary: "Leading veterinary healthcare and education platform in Pakistan.",
+      details: {
+        experience: [
+          "Led by Executive Director Fahad Ansari",
+          "Physical presence in Dera Ismail Khan",
+          "Remote operations in 6-8 cities across Pakistan"
+        ],
+        achievements: [
+          "Veterinary healthcare programs",
+          "Veterinary camps",
+          "Veterinary education platforms",
+          "Free online classes and webinars",
+          "Mentorship programs",
+          "Digital learning platforms",
+          "Published 'Veterinary Capsule' (2024-25 edition)",
+          "First platform to unite veterinarians digitally in Pakistan"
+        ]
+      },
+      contact: {
+        email: "vetconnect3@gmail.com"
+      }
+    },
+    {
+      name: "Huraira Animal Shelter",
+      role: "ISO-Certified Animal Welfare Organization",
+      image: Huraira,
+      summary: "Pakistan's first and largest institution dedicated to animal welfare, providing comprehensive care and rehabilitation services.",
+      details: {
+        experience: [
+          "Founded in 2008, operating nationwide",
+          "ISO-certified and internationally accredited",
+          "Affiliated with World Animal Friends, UK",
+          "24/7 operational shelters and hospitals",
+          "Over 300 team members including veterinarians and support staff"
+        ],
+        achievements: [
+          "Pakistan's largest animal welfare team",
+          "State-of-the-art medical facilities including digital X-ray, ultrasound, and ICU",
+          "Nationwide TNVR (Trap-Neuter-Vaccinate-Return) program",
+          "Free medical camps in rural areas",
+          "Weekly pet market visits for free treatment",
+          "Regular awareness seminars at schools and universities",
+          "24/7 rescue and emergency response teams"
+        ],
+        facilities: [
+          "Advanced medical technology",
+          "Dental care and physiotherapy",
+          "Surgical and orthopedic procedures",
+          "Nutritionally balanced food",
+          "Dedicated play areas and toys",
+          "Clean and comfortable environments"
+        ]
+      },
+      contact: {
+        phone: "0312-2281433",
+        email: "Managerkhi@hurairaanimallovers.com",
+        location: "Karachi, Sindh"
+      }
+    },
+    {
+      name: "Dr. Wasif Gulzar",
+      role: "DVM Student",
+      image: ibraheem, // Add image path or leave empty for avatar
+      summary: "Passionate about blending traditional veterinary medicine with modern technology",
+      details: {
+        education: [
+          "Doctor of Veterinary Medicine (DVM) - 3rd Year",
+          "University of Agriculture Faisalabad, Pakistan",
+          "Focus: Infectious diseases, AMR, Veterinary surgery"
+        ],
+        experience: [
+          "Clinical rotations in diagnostic procedures & animal care",
+          "Published author in veterinary medicine",
+          "Research in infectious diseases & One Health",
+          "Developing Python-based veterinary data analysis"
+        ],
+        achievements: [
+          "Special interest in zoonotic disease control",
+          "Advocate for scientific transparency",
+          "Bridging clinical knowledge with data insights"
+        ]
+      },
+      contact: {
+        phone: "03027463455",
+        email: "gulzarmuhammadwasif@gmail.com"
+      }
+    },
+  ];
+
   return (
     <section className="py-16 px-4 bg-[#f5f3ed]">
       <div className="max-w-7xl mx-auto">
@@ -173,100 +326,28 @@ const AmbassadorCollaboratorsSection = () => {
           Working together to improve animal healthcare and welfare across communities
         </p>
         
+        {/* Original 3 cards display */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Ambassador */}
-          <PersonCard
-            name="Fahad Ansari"
-            role="Ambassador & Executive Director"
-            image={DocImage}
-            summary="Experienced veterinarian with expertise in small animal practice and community outreach."
-            details={{
-              education: [
-                "Doctor of Veterinary Medicine (Final Year)"
-              ],
-              experience: [
-                "Executive Director & Organizer at Vet Connect",
-                "Co-Author of Veterinary Capsule (For Public Service Commission Exam)",
-                "Small animal practice specialist",
-                "Veterinary camp organizer"
-              ]
-            }}
-            contact={{
-              phone: "+92 308 8676335",
-              email: "vetconnect3@gmail.com"
-            }}
-            className="md:col-span-1 bg-white border border-[#c9a280] hover:border-[#6b493d] transition-colors duration-300"
-          />
-          
-          {/* Organization Info */}
-          <PersonCard
-            name="Vet Connect"
-            role="Private Company & Government-Registered Society"
-            image={VetConnect}
-            summary="Leading veterinary healthcare and education platform in Pakistan."
-            details={{
-              experience: [
-                "Led by Executive Director Fahad Ansari",
-                "Physical presence in Dera Ismail Khan",
-                "Remote operations in 6-8 cities across Pakistan"
-              ],
-              achievements: [
-                "Veterinary healthcare programs",
-                "Veterinary camps",
-                "Veterinary education platforms",
-                "Free online classes and webinars",
-                "Mentorship programs",
-                "Digital learning platforms",
-                "Published 'Veterinary Capsule' (2024-25 edition)",
-                "First platform to unite veterinarians digitally in Pakistan"
-              ]
-            }}
-            contact={{
-              email: "vetconnect3@gmail.com"
-            }}
-            className="md:col-span-1 bg-white border border-[#c9a280] hover:border-[#6b493d] transition-colors duration-300"
-          />
-          
-          {/* Huraira Animal Shelter */}
-          <PersonCard
-            name="Huraira Animal Shelter"
-            role="ISO-Certified Animal Welfare Organization"
-            image={Huraira}
-            summary="Pakistan's first and largest institution dedicated to animal welfare, providing comprehensive care and rehabilitation services."
-            details={{
-              experience: [
-                "Founded in 2008, operating nationwide",
-                "ISO-certified and internationally accredited",
-                "Affiliated with World Animal Friends, UK",
-                "24/7 operational shelters and hospitals",
-                "Over 300 team members including veterinarians and support staff"
-              ],
-              achievements: [
-                "Pakistan's largest animal welfare team",
-                "State-of-the-art medical facilities including digital X-ray, ultrasound, and ICU",
-                "Nationwide TNVR (Trap-Neuter-Vaccinate-Return) program",
-                "Free medical camps in rural areas",
-                "Weekly pet market visits for free treatment",
-                "Regular awareness seminars at schools and universities",
-                "24/7 rescue and emergency response teams"
-              ],
-              facilities: [
-                "Advanced medical technology",
-                "Dental care and physiotherapy",
-                "Surgical and orthopedic procedures",
-                "Nutritionally balanced food",
-                "Dedicated play areas and toys",
-                "Clean and comfortable environments"
-              ]
-            }}
-            contact={{
-              phone: "0312-2281433",
-              email: "Managerkhi@hurairaanimallovers.com",
-              location: "Karachi, Sindh"
-            }}
-            className="md:col-span-1 bg-white border border-[#c9a280] hover:border-[#6b493d] transition-colors duration-300"
-          />
+          {teamMembers.slice(0, 3).map((member, index) => (
+            <PersonCard
+              key={index}
+              {...member}
+              className="md:col-span-1 bg-white border border-[#c9a280] hover:border-[#6b493d] transition-colors duration-300"
+            />
+          ))}
         </div>
+
+        {/* See More button */}
+        {teamMembers.length > 3 && (
+          <div className="text-center mt-8">
+            <button
+              onClick={() => navigate('/team', { state: { allMembers: teamMembers } })}
+              className="bg-[#6b493d] text-white px-6 py-2 rounded-full hover:bg-[#a07855] transition-colors duration-300"
+            >
+              See More Team Members
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

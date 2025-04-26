@@ -26,6 +26,7 @@ import AdoptionPage from './Main/AdoptionPage';
 import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
 import AdoptionHistory from './Main/AdoptionHistory';
+import FullTeamPage from './Main/FullTeamPage'; // Import FullTeamPage component
 
 // Define your routes
 const router = createBrowserRouter(
@@ -48,6 +49,7 @@ const router = createBrowserRouter(
       <Route path="/verify-code" element={<VerifyCode />} />
       <Route path="/profile" element={<Createprofile />} />
       <Route path="/my-posts" element={<MyPosts />} />
+      <Route path="/team" element={<FullTeamPage />} /> {/* Add this line */}
       <Route path="/verify-registration" element={<VerifyRegistration />} />
     </Route>
   )
