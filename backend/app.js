@@ -43,7 +43,8 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: [
     'https://hope-for-paws-official.vercel.app',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'http://localhost:5173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
