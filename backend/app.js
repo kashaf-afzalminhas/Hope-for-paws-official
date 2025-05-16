@@ -42,8 +42,10 @@ app.use((req, res, next) => {
 // CORS configuration
 const corsOptions = {
   origin: [
-    'https://www.hopeforpaws.club/',
-    'http://localhost:3000'
+    'https://www.hopeforpaws.club', // Removed trailing slash
+    'http://localhost:3000',
+    'https://hope-for-paws-official-backend.vercel.app' // Add your backend domain
+  
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
