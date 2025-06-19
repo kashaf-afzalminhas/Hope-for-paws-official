@@ -42,8 +42,9 @@ const MyAdoptions = () => {
         throw new Error('Authentication token missing');
       }
 
+      // Always include requests in the fetch
       const response = await axios.get(
-        `${API_BASE_URL}/adoptions/user/${userId}`,
+        `${API_BASE_URL}/adoptions/user/${userId}?includeRequests=true`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

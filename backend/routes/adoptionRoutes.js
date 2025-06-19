@@ -86,6 +86,88 @@ router.get('/user/:userId', auth, async (req, res) => {
   }
 });
 
+// Get user's adoption history
+router.get('/history', auth, async (req, res) => {
+  try {
+    console.log('Adoption history request received');
+    console.log('User from request:', req.user);
+    
+    // Get user ID and ensure it's valid
+    const userId = req.user.userId || req.user.id;
+    
+    if (!userId) {
+      console.error('No user ID found in request');
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Convert string ID to ObjectId
+    let userObjectId;
+    try {
+      userObjectId = new mongoose.Types.ObjectId(userId);
+    } catch (error) {
+      console.error('Invalid user ID format:', userId);
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
+    
+    console.log('Looking for user with ID:', userObjectId);
+    
+    // Check if the user exists
+    const user = await User.findById(userObjectId);
+    if (!user) {
+      console.error('User not found with ID:', userObjectId);
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    console.log('User found, fetching adoption history');
+    
+    // Try to find adoption history entries with populated references
+    const history = await AdoptionHistory.find({ userId: userObjectId })
+      .populate('petId', 'name petType imageUrl')
+      .populate('requestId', 'status message')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    console.log(`Found ${history.length} adoption history entries`);
+    
+    // Transform the data to include only necessary fields
+    const transformedHistory = history.map(entry => ({
+      id: entry._id,
+      petName: entry.petName,
+      petType: entry.petType,
+      petImage: entry.petImage,
+      status: entry.status,
+      requestDate: entry.requestDate,
+      responseDate: entry.responseDate,
+      message: entry.message,
+      pet: entry.petId,
+      request: entry.requestId
+    }));
+    
+    res.json(transformedHistory);
+  } catch (error) {
+    console.error('Error fetching adoption history:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code
+    });
+    
+    // Send appropriate error response
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        message: 'Invalid ID format',
+        error: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Error fetching adoption history',
+      error: error.message
+    });
+  }
+});
+
 // Get a single adoption post
 router.get('/:id', async (req, res) => {
   try {
@@ -193,6 +275,9 @@ router.post('/:id/request', auth, async (req, res) => {
     });
 
     await adoptionRequest.save();
+
+    // Add the request to the adoption post's requests array
+    await Adoption.findByIdAndUpdate(adId, { $push: { requests: adoptionRequest._id } });
 
     // Create adoption history entry
     const adoptionHistory = new AdoptionHistory({
@@ -303,88 +388,6 @@ router.put('/requests/:requestId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error updating request status:', error);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get user's adoption history
-router.get('/history', auth, async (req, res) => {
-  try {
-    console.log('Adoption history request received');
-    console.log('User from request:', req.user);
-    
-    // Get user ID and ensure it's valid
-    const userId = req.user.userId || req.user.id;
-    
-    if (!userId) {
-      console.error('No user ID found in request');
-      return res.status(400).json({ message: 'User ID is required' });
-    }
-
-    // Convert string ID to ObjectId
-    let userObjectId;
-    try {
-      userObjectId = new mongoose.Types.ObjectId(userId);
-    } catch (error) {
-      console.error('Invalid user ID format:', userId);
-      return res.status(400).json({ message: 'Invalid user ID format' });
-    }
-    
-    console.log('Looking for user with ID:', userObjectId);
-    
-    // Check if the user exists
-    const user = await User.findById(userObjectId);
-    if (!user) {
-      console.error('User not found with ID:', userObjectId);
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    console.log('User found, fetching adoption history');
-    
-    // Try to find adoption history entries with populated references
-    const history = await AdoptionHistory.find({ userId: userObjectId })
-      .populate('petId', 'name petType imageUrl')
-      .populate('requestId', 'status message')
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    console.log(`Found ${history.length} adoption history entries`);
-    
-    // Transform the data to include only necessary fields
-    const transformedHistory = history.map(entry => ({
-      id: entry._id,
-      petName: entry.petName,
-      petType: entry.petType,
-      petImage: entry.petImage,
-      status: entry.status,
-      requestDate: entry.requestDate,
-      responseDate: entry.responseDate,
-      message: entry.message,
-      pet: entry.petId,
-      request: entry.requestId
-    }));
-    
-    res.json(transformedHistory);
-  } catch (error) {
-    console.error('Error fetching adoption history:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      code: error.code
-    });
-    
-    // Send appropriate error response
-    if (error.name === 'CastError') {
-      return res.status(400).json({ 
-        message: 'Invalid ID format',
-        error: error.message 
-      });
-    }
-    
-    res.status(500).json({ 
-      message: 'Error fetching adoption history',
-      error: error.message
-    });
   }
 });
 

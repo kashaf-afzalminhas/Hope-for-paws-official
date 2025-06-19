@@ -84,19 +84,20 @@ export const AdoptionProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, all: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      if (!token) {
-        throw new Error('Authentication required');
+      // Only include Authorization header if token exists
+      const headers = {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const response = await fetch(`${API_BASE_URL}/adoptions`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
+        headers
       });
-    
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);

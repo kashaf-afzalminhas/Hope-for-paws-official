@@ -114,7 +114,7 @@ const AdoptionHistory = () => {
     );
   }
 
-  if (error) {
+  if (error && (!history || history.length === 0)) {
     return (
       <div className="bg-red-100 text-red-700 p-4 rounded-lg">
         <p className="font-semibold">Error</p>
