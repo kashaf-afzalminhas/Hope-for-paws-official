@@ -41,10 +41,18 @@ const signUp = async (req, res) => {
   }
 
   try {
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    // Check if user is already verified (exists in User collection)
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.warn('User already exists:', { email, username });
+      console.warn('Verified user already exists:', { email });
       return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Check if there's an existing unverified user (in TempUser collection)
+    const existingTempUser = await TempUser.findOne({ email });
+    if (existingTempUser) {
+      console.log('Deleting existing unverified user:', { email });
+      await TempUser.deleteOne({ email });
     }
 
     const salt = await bcrypt.genSalt(10);

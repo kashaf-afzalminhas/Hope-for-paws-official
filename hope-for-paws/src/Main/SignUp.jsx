@@ -10,13 +10,60 @@ const SignUp = () => {
   const [isVeterinarian, setIsVeterinarian] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  // Email validation
+  const validateEmail = (value) => {
+    if (!value) return 'Email is required';
+    const emailRegex = /^[^\s@]+@gmail\.com$/;
+    if (!emailRegex.test(value)) return 'Please enter a valid Gmail address';
+    return '';
+  };
+
+  // Password validation
+  const validatePassword = (value) => {
+    if (!value) return 'Password is required';
+    const errors = [];
+    if (value.length < 8) errors.push('At least 8 characters');
+    if (!/[A-Z]/.test(value)) errors.push('One uppercase letter');
+    if (!/[a-z]/.test(value)) errors.push('One lowercase letter');
+    if (!/[0-9]/.test(value)) errors.push('One number');
+    if (!/[^A-Za-z0-9]/.test(value)) errors.push('One special character');
+    return errors.length ? errors.join(', ') : '';
+  };
+
+  // Handlers for live validation
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    setEmailTouched(true);
+    setEmailError(validateEmail(e.target.value));
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    setPasswordTouched(true);
+    setPasswordError(validatePassword(e.target.value));
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setError('');
-
+    setEmailError(validateEmail(email));
+    setPasswordError(validatePassword(password));
+    if (validateEmail(email) || validatePassword(password)) {
+      setLoading(false);
+      return;
+    }
     try {
       const response = await fetch(`${AUTH_BASE_URL}/register`, {
         method: 'POST',
@@ -25,10 +72,8 @@ const SignUp = () => {
         },
         body: JSON.stringify({ username, email, password, isVeterinarian }),
       });
-
       const data = await response.json();
       setLoading(false);
-
       if (response.ok) {
         navigate('/verify-registration', { state: { email: data.email || email } });
       } else {
@@ -39,6 +84,18 @@ const SignUp = () => {
       setError('An error occurred while signing up. Please try again.');
     }
   };
+
+  // Password requirements for dynamic inline validation
+  const passwordChecks = [
+    { label: '8+ characters', valid: password.length >= 8 },
+    { label: 'Uppercase', valid: /[A-Z]/.test(password) },
+    { label: 'Lowercase', valid: /[a-z]/.test(password) },
+    { label: 'Number', valid: /[0-9]/.test(password) },
+    { label: 'Special', valid: /[^A-Za-z0-9]/.test(password)},
+  ];
+
+  // Filter to show only unmet requirements
+  const unmetRequirements = passwordChecks.filter(check => !check.valid);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
@@ -86,25 +143,60 @@ const SignUp = () => {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm"
+                onChange={handleEmailChange}
+                onBlur={() => setEmailTouched(true)}
+                className={`block w-full px-3 py-2 border ${emailTouched && emailError ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
                 placeholder="Enter your email"
               />
+              {emailTouched && emailError && (
+                <p className="text-xs text-red-600 mt-1">{emailError}</p>
+              )}
             </div>
             
             <div className="mb-4">
               <label htmlFor="password" className="block text-sm font-medium text-[#4E3B31] mb-1">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm"
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={handlePasswordChange}
+                  onBlur={() => setPasswordTouched(true)}
+                  className={`block w-full px-3 py-2 pr-10 border ${passwordTouched && passwordError ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#6b493d] hover:text-[#4E3B31] focus:outline-none"
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {passwordTouched && passwordError && (
+                <p className="text-xs text-red-600 mt-1">Password must have: {passwordError}</p>
+              )}
+              {/* Show completion message when all requirements are met */}
+              {password && unmetRequirements.length === 0 && (
+                <div className="mt-2 flex items-center text-green-600 text-xs">
+                  <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Password meets all requirements
+                </div>
+              )}
             </div>
             
             <div className="mb-6">
@@ -128,8 +220,8 @@ const SignUp = () => {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#6b493d] hover:bg-[#5a3c32] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b493d]"
+              disabled={loading || !!emailError || !!passwordError}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#6b493d] hover:bg-[#5a3c32] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b493d] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
