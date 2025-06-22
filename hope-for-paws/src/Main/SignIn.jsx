@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
 
 const Login = () => {
@@ -12,8 +13,16 @@ const Login = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { type: "spring", stiffness: 120 }
+    }
+  };
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('savedEmail');
@@ -69,10 +78,35 @@ const Login = () => {
       } else {
         setError(data.error || 'Invalid email or password');
       }
-    } catch (error) {
+    } catch {
       setLoading(false);
       setError('An error occurred while signing in');
     }    
+  };
+
+  const googleLoginHandler = async (googleResponse) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: googleResponse.credential }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      if (response.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google login failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google login");
+    }
   };
 
   return (
@@ -182,9 +216,24 @@ const Login = () => {
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
+            <motion.div variants={itemVariants} className="flex justify-center">
+              <GoogleOAuthProvider clientId="1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com">
+                <GoogleLogin 
+                  onSuccess={(response) => googleLoginHandler(response)}
+                  onError={(error) => console.log(error)}
+                  theme="filled_blue"
+                  shape="pill"
+                  size="large"
+                  text="continue_with"
+                  width="300"
+                  logo_alignment="left"
+                  className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
+                />
+              </GoogleOAuthProvider>
+            </motion.div>
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <NavLink to="/signup" className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
                 Sign up
               </NavLink>

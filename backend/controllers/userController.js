@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const {OAuth2Client} = require("google-auth-library");
+
 dotenv.config();
 
 console.log('GMAIL_USER:', process.env.GMAIL_USER);
@@ -455,6 +457,67 @@ const resendOTP = async (req, res) => {
     });
     res.status(500).json({ message: 'Server error during resend OTP' });
   }
+},
+
+googleLogins = async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ message: "No credential provided" });
+    }
+
+    const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
+    const client = new OAuth2Client(CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google email not found" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create a random password for Google users (not used for login)
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+      user = await User.create({
+        username: name,
+        email,
+        password: hashedPassword,
+        isVeterinarian: false,
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      process.env.JWT_SECRET,
+      { expiresIn: '5d' }
+    );
+
+    return res.status(200).json({
+      message: 'Sign in successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        city: user.city,
+        about: user.about,
+        isVeterinarian: user.isVeterinarian,
+      },
+    });
+  } catch (error) {
+    console.error("Google Login Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 module.exports = {
@@ -468,6 +531,7 @@ module.exports = {
   signOut,
   changePassword,
   resendOTP,
+  googleLogins,
 };
 
 
