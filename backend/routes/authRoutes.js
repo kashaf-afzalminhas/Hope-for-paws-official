@@ -1,13 +1,12 @@
-
-
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // Adjust the path according to your project structure
 const bcrypt = require('bcryptjs');
-const { signUp, signIn,forgotPassword, verifyCode, updateProfile, signOut, changePassword , verifyRegistrationOTP} = require('../controllers/userController');
+const { signUp, signIn, forgotPassword, verifyCode, updateProfile, signOut, changePassword, verifyRegistrationOTP, resendOTP } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
 router.post('/verify-registration', verifyRegistrationOTP);
+router.post('/resend-otp', resendOTP);
 router.post('/signin', signIn);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import Paws from '/Hopeforpaws.jpg';
@@ -7,17 +7,83 @@ const VerifyRegistration = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [resendMessage, setResendMessage] = useState('');
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
+  const [isExpired, setIsExpired] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Pre-fill email if passed from the SignUp page
-  React.useEffect(() => {
+  useEffect(() => {
     if (location.state && location.state.email) {
       setEmail(location.state.email);
     }
   }, [location.state]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (timeLeft > 0 && !isExpired) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsExpired(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [timeLeft, isExpired]);
+
+  // Format time as MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Handle resend OTP
+  const handleResendOTP = async () => {
+    if (!email) {
+      setError('Email is required to resend OTP');
+      return;
+    }
+
+    setResendLoading(true);
+    setError('');
+    setResendMessage('');
+
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResendMessage('New OTP sent successfully! Check your email.');
+        setIsExpired(false);
+        setTimeLeft(120); // Reset timer to 2 minutes
+        setOtp(''); // Clear the old OTP input
+        setTimeout(() => setResendMessage(''), 5000); // Clear message after 5 seconds
+      } else {
+        setError(data.message || 'Failed to resend OTP');
+      }
+    } catch (error) {
+      setError('An error occurred while resending OTP');
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,6 +153,11 @@ const VerifyRegistration = () => {
                   <span className="block sm:inline">{message}</span>
                 </div>
               )}
+              {resendMessage && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-600 px-4 py-3 rounded-lg text-sm" role="alert">
+                  <span className="block sm:inline">{resendMessage}</span>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div>
@@ -105,24 +176,49 @@ const VerifyRegistration = () => {
 
                 <div>
                   <label htmlFor="otp" className="block text-sm font-medium text-[#4E3B31] mb-1">Verification Code</label>
-                  <input
-                    type="text"
-                    id="otp"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
-                    required
-                    placeholder="Enter verification code"
-                  />
-                  <p className="mt-2 text-xs text-[#6b493d]">
-                    Please check your email inbox for the verification code
-                  </p>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="text"
+                      id="otp"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
+                      required
+                      placeholder="Enter verification code"
+                    />
+                    {/* Small Countdown Timer */}
+                    <div className={`px-2 py-1 rounded text-xs font-mono ${
+                      isExpired 
+                        ? 'bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'
+                    }`}>
+                      {isExpired ? 'Expired' : formatTime(timeLeft)}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-[#6b493d]">
+                      Please check your email inbox for the verification code
+                    </p>
+                    {/* Small Resend OTP Link */}
+                    <button
+                      type="button"
+                      onClick={handleResendOTP}
+                      disabled={!isExpired || resendLoading}
+                      className={`text-xs font-medium transition-colors ${
+                        isExpired && !resendLoading
+                          ? 'text-[#6b493d] hover:text-[#a07855] cursor-pointer'
+                          : 'text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {resendLoading ? 'Sending...' : 'Resend OTP'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isExpired}
                 className="w-full py-2.5 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#6b493d] hover:bg-[#5a3c32] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b493d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Verifying...' : 'Verify Email'}

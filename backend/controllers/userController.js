@@ -41,18 +41,46 @@ const signUp = async (req, res) => {
   }
 
   try {
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    // Check if user is already verified (exists in User collection)
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.warn('User already exists:', { email, username });
+      console.warn('Verified user already exists:', { email });
       return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Check if there's an existing unverified user (in TempUser collection)
+    const existingTempUser = await TempUser.findOne({ email });
+    if (existingTempUser) {
+      console.log('🔄 Updating existing unverified user:', { email, tempUserId: existingTempUser._id });
+      // Update the existing temp user with new data instead of deleting
+      existingTempUser.username = username;
+      existingTempUser.password = await bcrypt.hash(password, 10);
+      existingTempUser.isVeterinarian = isVeterinarian || false;
+      
+      const otp = crypto.randomBytes(3).toString('hex');
+      existingTempUser.verificationCode = otp;
+      existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
+      
+      await existingTempUser.save();
+      console.log('✅ Temporary user updated successfully:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
+
+      await transporter.sendMail({
+        from: process.env.GMAIL_USER,
+        to: email,
+        subject: 'Email Verification OTP',
+        text: `Your OTP code is: ${otp}`,
+      });
+      console.log('📧 OTP sent to email:', email);
+
+      return res.status(201).json({ message: 'OTP code sent to your email. Please verify to complete registration.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    console.log('Password hashed successfully');
+    console.log('🔐 Password hashed successfully');
 
     const otp = crypto.randomBytes(3).toString('hex');
-    console.log('Generated OTP:', otp);
+    console.log('🔢 Generated OTP:', otp);
 
     const tempUser = new TempUser({
       username,
@@ -60,11 +88,11 @@ const signUp = async (req, res) => {
       password: hashedPassword,
       isVeterinarian: isVeterinarian || false,
       verificationCode: otp,
-      verificationCodeExpires: Date.now() + 15 * 60 * 1000,
+      verificationCodeExpires: Date.now() + 2 * 60 * 1000,
     });
 
     await tempUser.save();
-    console.log('Temporary user created:', tempUser);
+    console.log('✅ Temporary user created successfully:', { email, tempUserId: tempUser._id, expiry: tempUser.verificationCodeExpires });
 
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
@@ -72,11 +100,11 @@ const signUp = async (req, res) => {
       subject: 'Email Verification OTP',
       text: `Your OTP code is: ${otp}`,
     });
-    console.log('OTP sent to email:', email);
+    console.log('📧 OTP sent to email:', email);
 
     res.status(201).json({ message: 'OTP code sent to your email. Please verify to complete registration.' });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('❌ Registration error:', error);
     res.status(500).json({ message: 'Server error during registration' });
   }
 };
@@ -89,15 +117,27 @@ const verifyRegistrationOTP = async (req, res) => {
   }
 
   try {
+    console.log('🔍 Verification attempt for:', email);
+    
     const tempUser = await TempUser.findOne({ email });
-    if (!tempUser) return res.status(404).json({ error: 'User not found.' });
+    if (!tempUser) {
+      console.log('❌ No TempUser found for verification:', email);
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    console.log('✅ Found TempUser for verification:', { email, tempUserId: tempUser._id, currentExpiry: tempUser.verificationCodeExpires });
 
     if (tempUser.verificationCode !== otp) {
+      console.log('❌ Invalid OTP for verification:', { email, providedOTP: otp, storedOTP: tempUser.verificationCode });
       return res.status(400).json({ error: 'Invalid OTP code.' });
     }
+    
     if (tempUser.verificationCodeExpires < Date.now()) {
+      console.log('❌ OTP expired for verification:', { email, expiry: tempUser.verificationCodeExpires, currentTime: Date.now() });
       return res.status(400).json({ error: 'OTP code has expired.' });
     }
+
+    console.log('✅ OTP validation successful, creating new user:', email);
 
     const newUser = new User({
       username: tempUser.username,
@@ -107,16 +147,18 @@ const verifyRegistrationOTP = async (req, res) => {
     });
 
     await newUser.save();
-    console.log('New user created:', newUser);
+    console.log('✅ New user created successfully:', { email, userId: newUser._id });
 
     await TempUser.deleteOne({ email });
-    console.log('Temporary user deleted:', email);
+    console.log('🗑️ Temporary user deleted after successful verification:', { email, tempUserId: tempUser._id });
 
     const token = jwt.sign(
       { id: newUser._id, username: newUser.username, isVeterinarian: newUser.isVeterinarian },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
+
+    console.log('✅ Verification completed successfully:', email);
 
     res.status(200).json({
       message: 'Email verified successfully. You are now logged in.',
@@ -129,7 +171,7 @@ const verifyRegistrationOTP = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error verifying OTP:', error);
+    console.error('❌ Error verifying OTP:', error);
     res.status(500).json({ error: 'Server error during verification' });
   }
 };
@@ -334,6 +376,87 @@ const signOut = async (req, res) => {
   }
 };
 
+const resendOTP = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  if (!email.toLowerCase().endsWith('@gmail.com')) {
+    return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+  }
+
+  try {
+    console.log('🔄 Resend OTP request for:', email);
+    
+    // Check if there's an existing unverified user
+    const existingTempUser = await TempUser.findOne({ email });
+    if (!existingTempUser) {
+      console.log('❌ No TempUser found for resend OTP:', email);
+      return res.status(404).json({ message: 'No pending verification found for this email. Please register first.' });
+    }
+
+    console.log('✅ Found existing TempUser for resend:', { email, tempUserId: existingTempUser._id, currentExpiry: existingTempUser.verificationCodeExpires });
+
+    // Check if user is already verified
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      console.log('❌ User already verified, cannot resend OTP:', email);
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Generate new OTP
+    const newOtp = crypto.randomBytes(3).toString('hex');
+    console.log('🔢 Generated new OTP for resend:', newOtp);
+
+    // Update the existing temp user with new OTP and expiration
+    existingTempUser.verificationCode = newOtp;
+    existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000; // 2 minutes
+    await existingTempUser.save();
+    console.log('✅ TempUser updated with new OTP:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
+
+    // Validate email configuration
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+      console.error('❌ Email configuration missing:', {
+        GMAIL_USER: !!process.env.GMAIL_USER,
+        GMAIL_PASS: !!process.env.GMAIL_PASS
+      });
+      return res.status(500).json({ message: 'Email service configuration error' });
+    }
+
+    // Send new OTP email with detailed error handling
+    try {
+      const mailResult = await transporter.sendMail({
+        from: process.env.GMAIL_USER,
+        to: email,
+        subject: 'New Email Verification OTP',
+        text: `Your new OTP code is: ${newOtp}`,
+      });
+      console.log('📧 Email sent successfully for resend:', mailResult);
+      console.log('📧 New OTP sent to email:', email);
+    } catch (emailError) {
+      console.error('❌ Email sending failed for resend:', {
+        error: emailError.message,
+        code: emailError.code,
+        command: emailError.command,
+        response: emailError.response,
+        responseCode: emailError.responseCode
+      });
+      return res.status(500).json({ message: 'Failed to send email. Please try again later.' });
+    }
+
+    res.status(200).json({ message: 'New OTP code sent to your email. Please verify to complete registration.' });
+  } catch (error) {
+    console.error('❌ Resend OTP error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ message: 'Server error during resend OTP' });
+  }
+};
+
 module.exports = {
   signUp,
   verifyRegistrationOTP,
@@ -344,6 +467,7 @@ module.exports = {
   updateProfile,
   signOut,
   changePassword,
+  resendOTP,
 };
 
 
