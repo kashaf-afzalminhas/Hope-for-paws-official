@@ -484,14 +484,11 @@ googleLogins = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      // Create a random password for Google users (not used for login)
-      const randomPassword = crypto.randomBytes(16).toString('hex');
-      const hashedPassword = await bcrypt.hash(randomPassword, 10);
-      user = await User.create({
-        username: name,
+      // Instead of creating user, return needsUserType
+      return res.status(200).json({
+        needsUserType: true,
         email,
-        password: hashedPassword,
-        isVeterinarian: false,
+        username: name
       });
     }
 
@@ -520,6 +517,49 @@ googleLogins = async (req, res) => {
   }
 };
 
+// New controller for completing Google registration
+const completeGoogleRegistration = async (req, res) => {
+  try {
+    const { email, username, isVeterinarian } = req.body;
+    if (!email || !username || typeof isVeterinarian !== 'boolean') {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    const randomPassword = crypto.randomBytes(16).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+    user = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      isVeterinarian,
+    });
+    const token = jwt.sign(
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      process.env.JWT_SECRET,
+      { expiresIn: '5d' }
+    );
+    return res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        city: user.city,
+        about: user.about,
+        isVeterinarian: user.isVeterinarian,
+      },
+    });
+  } catch (error) {
+    console.error('Complete Google Registration Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
 module.exports = {
   signUp,
   verifyRegistrationOTP,
@@ -532,6 +572,7 @@ module.exports = {
   changePassword,
   resendOTP,
   googleLogins,
+  completeGoogleRegistration,
 };
 
 

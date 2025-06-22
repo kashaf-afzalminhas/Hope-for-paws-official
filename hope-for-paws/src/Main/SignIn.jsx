@@ -5,6 +5,7 @@ import { AUTH_BASE_URL } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
+import UserTypeModal from '../Components/UserTypeModal';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +14,8 @@ const Login = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showUserTypeModal, setShowUserTypeModal] = useState(false);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
 
   const itemVariants = {
@@ -96,6 +99,11 @@ const Login = () => {
       const data = await response.json();
       setLoading(false);
       if (response.ok) {
+        if (data.needsUserType) {
+          setPendingGoogleUser({ email: data.email, username: data.username });
+          setShowUserTypeModal(true);
+          return;
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
@@ -106,6 +114,38 @@ const Login = () => {
     } catch {
       setLoading(false);
       setError("An error occurred during Google login");
+    }
+  };
+
+  const handleUserTypeSelect = async (isVeterinarian) => {
+    if (!pendingGoogleUser) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/complete-google-registration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: pendingGoogleUser.email,
+          username: pendingGoogleUser.username,
+          isVeterinarian,
+        }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      setShowUserTypeModal(false);
+      setPendingGoogleUser(null);
+      if (response.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google registration failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google registration");
     }
   };
 
@@ -231,6 +271,12 @@ const Login = () => {
                 />
               </GoogleOAuthProvider>
             </motion.div>
+            <UserTypeModal
+              open={showUserTypeModal}
+              onClose={() => setShowUserTypeModal(false)}
+              onSelect={handleUserTypeSelect}
+              username={pendingGoogleUser?.username}
+            />
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
               Don&apos;t have an account?{' '}
