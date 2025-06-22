@@ -69,8 +69,8 @@ const signUp = async (req, res) => {
       await transporter.sendMail({
         from: process.env.GMAIL_USER,
         to: email,
-        subject: 'Email Verification OTP',
-        text: `Your OTP code is: ${otp}`,
+        subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
+        text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
       });
       console.log('📧 OTP sent to email:', email);
 
@@ -99,8 +99,8 @@ const signUp = async (req, res) => {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Email Verification OTP',
-      text: `Your OTP code is: ${otp}`,
+      subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
+      text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
     });
     console.log('📧 OTP sent to email:', email);
 
@@ -221,8 +221,8 @@ const forgotPassword = async (req, res) => {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Password Reset Verification Code',
-      text: `Your verification code is: ${verificationCode}`,
+      subject: 'Hope for Paws: Password Reset Verification Code',
+      text: `Hello,\n\nWe received a request to reset your password for your Hope for Paws account.\n\nPlease use the following verification code to reset your password:\n\nVerification Code: ${verificationCode}\n\nThis code is valid for 15 minutes. If you did not request a password reset, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
     });
 
     res.status(200).json({ message: 'Verification code sent to your email.' });
@@ -432,8 +432,8 @@ const resendOTP = async (req, res) => {
       const mailResult = await transporter.sendMail({
         from: process.env.GMAIL_USER,
         to: email,
-        subject: 'New Email Verification OTP',
-        text: `Your new OTP code is: ${newOtp}`,
+        subject: 'Hope for Paws: Your New Email Verification Code',
+        text: `Hello ${existingTempUser.username || 'there'},\n\nAs requested, here is your new One-Time Password (OTP) to verify your email address:\n\nOTP Code: ${newOtp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
       });
       console.log('📧 Email sent successfully for resend:', mailResult);
       console.log('📧 New OTP sent to email:', email);
