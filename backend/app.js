@@ -43,26 +43,12 @@ app.use((req, res, next) => {
 
 // CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://www.hopeforpaws.club',
-      'https://hope-for-paws-official-backend.vercel.app',
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'https://www.hopeforpaws.club',
+    //'http://localhost:3000', // Removed as requested
+    'https://hope-for-paws-official-backend.vercel.app',
+    'http://localhost:5173' // Keep this for local frontend
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type', 
@@ -77,9 +63,7 @@ const corsOptions = {
   ],
   exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
   credentials: true,
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  maxAge: 86400 // 24 hours
 };
 
 // Apply CORS middleware
@@ -88,31 +72,19 @@ app.use(cors(corsOptions));
 // Add headers middleware for all routes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
-  // Log CORS requests for debugging
-  console.log('Request origin:', origin);
-  console.log('Request method:', req.method);
-  console.log('Request path:', req.path);
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-    res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', corsOptions.maxAge.toString());
-    return res.status(204).send();
-  }
-  
-  // For non-preflight requests
-  if (origin) {
+  if (corsOptions.origin.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
   res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
+  res.header('Access-Control-Max-Age', corsOptions.maxAge.toString());
   
+  // Handle OPTIONS method
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
   next();
 });
 const limiter = rateLimit({
@@ -135,29 +107,9 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
-
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// CORS test endpoint
-app.get('/api/cors-test', (req, res) => {
-  res.json({ 
-    message: 'CORS is working!',
-    origin: req.headers.origin,
-    timestamp: new Date().toISOString()
-  });
 });
 
 // Your routes here
