@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const {OAuth2Client} = require("google-auth-library");
+
 dotenv.config();
 
 console.log('GMAIL_USER:', process.env.GMAIL_USER);
@@ -67,8 +69,8 @@ const signUp = async (req, res) => {
       await transporter.sendMail({
         from: process.env.GMAIL_USER,
         to: email,
-        subject: 'Email Verification OTP',
-        text: `Your OTP code is: ${otp}`,
+        subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
+        text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
       });
       console.log('📧 OTP sent to email:', email);
 
@@ -97,8 +99,8 @@ const signUp = async (req, res) => {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Email Verification OTP',
-      text: `Your OTP code is: ${otp}`,
+      subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
+      text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
     });
     console.log('📧 OTP sent to email:', email);
 
@@ -219,8 +221,8 @@ const forgotPassword = async (req, res) => {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Password Reset Verification Code',
-      text: `Your verification code is: ${verificationCode}`,
+      subject: 'Hope for Paws: Password Reset Verification Code',
+      text: `Hello,\n\nWe received a request to reset your password for your Hope for Paws account.\n\nPlease use the following verification code to reset your password:\n\nVerification Code: ${verificationCode}\n\nThis code is valid for 15 minutes. If you did not request a password reset, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
     });
 
     res.status(200).json({ message: 'Verification code sent to your email.' });
@@ -430,8 +432,8 @@ const resendOTP = async (req, res) => {
       const mailResult = await transporter.sendMail({
         from: process.env.GMAIL_USER,
         to: email,
-        subject: 'New Email Verification OTP',
-        text: `Your new OTP code is: ${newOtp}`,
+        subject: 'Hope for Paws: Your New Email Verification Code',
+        text: `Hello ${existingTempUser.username || 'there'},\n\nAs requested, here is your new One-Time Password (OTP) to verify your email address:\n\nOTP Code: ${newOtp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
       });
       console.log('📧 Email sent successfully for resend:', mailResult);
       console.log('📧 New OTP sent to email:', email);
@@ -455,6 +457,107 @@ const resendOTP = async (req, res) => {
     });
     res.status(500).json({ message: 'Server error during resend OTP' });
   }
+},
+
+googleLogins = async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ message: "No credential provided" });
+    }
+
+    const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
+    const client = new OAuth2Client(CLIENT_ID);
+
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google email not found" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Instead of creating user, return needsUserType
+      return res.status(200).json({
+        needsUserType: true,
+        email,
+        username: name
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      process.env.JWT_SECRET,
+      { expiresIn: '5d' }
+    );
+
+    return res.status(200).json({
+      message: 'Sign in successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        city: user.city,
+        about: user.about,
+        isVeterinarian: user.isVeterinarian,
+      },
+    });
+  } catch (error) {
+    console.error("Google Login Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// New controller for completing Google registration
+const completeGoogleRegistration = async (req, res) => {
+  try {
+    const { email, username, isVeterinarian } = req.body;
+    if (!email || !username || typeof isVeterinarian !== 'boolean') {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    const randomPassword = crypto.randomBytes(16).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+    user = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      isVeterinarian,
+    });
+    const token = jwt.sign(
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      process.env.JWT_SECRET,
+      { expiresIn: '5d' }
+    );
+    return res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        city: user.city,
+        about: user.about,
+        isVeterinarian: user.isVeterinarian,
+      },
+    });
+  } catch (error) {
+    console.error('Complete Google Registration Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 };
 
 module.exports = {
@@ -468,6 +571,8 @@ module.exports = {
   signOut,
   changePassword,
   resendOTP,
+  googleLogins,
+  completeGoogleRegistration,
 };
 
 
