@@ -6,31 +6,62 @@ const { sendEmail } = require('../routes/mailer.js');
 // Get all posts
 exports.getAllPosts = async (req, res) => {
   try {
-    const posts = await AdoptionPost.find();
+    const posts = await AdoptionPost.find().populate('userId', 'username email');
     res.status(200).json(posts);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch posts', error });
+    console.error('Error fetching all posts:', error);
+    res.status(500).json({ message: 'Failed to fetch posts', error: error.message });
   }
 };
 
 exports.addPost = async (req, res) => {
-  const { name, age, location, description } = req.body;
-  const image = req.file ? req.file.path : null;
-
   try {
-    const newPost = new AdoptionPost({ name, age, location, description, image });
+    const { name, age, petType, location, description } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    
+    // Get user ID from the authenticated request
+    const userId = req.user?.userId || req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    if (!name || !age || !petType || !location || !description) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ message: 'Image is required' });
+    }
+
+    const newPost = new AdoptionPost({
+      userId,
+      name,
+      age,
+      petType,
+      location,
+      description,
+      imageUrl,
+      status: 'available'
+    });
+
     await newPost.save();
 
-    // Fetch all users from the database
-    const users = await User.find({}, 'email');
-    console.log('Fetched users:', users); // Log fetched users
+    // Populate user info for response
+    await newPost.populate('userId', 'username email');
 
-    // Send email notification to all users
-    const subject = 'New Adoption Post Added';
-    const text = `A new adoption post has been added:\n\nName: ${name}\nAge: ${age}\nLocation: ${location}\nDescription: ${description}`;
+    console.log('New adoption post created:', newPost);
 
-    // Use Promise.all to send emails in parallel
+    // Fetch all users from the database (optional - for email notifications)
     try {
+      const users = await User.find({}, 'email');
+      console.log('Fetched users for notifications:', users.length);
+
+      // Send email notification to all users
+      const subject = 'New Adoption Post Added';
+      const text = `A new adoption post has been added:\n\nName: ${name}\nAge: ${age}\nPet Type: ${petType}\nLocation: ${location}\nDescription: ${description}`;
+
+      // Use Promise.all to send emails in parallel
       await Promise.all(
         users.map((user) => {
           console.log(`Sending email to ${user.email}`);
@@ -42,35 +73,42 @@ exports.addPost = async (req, res) => {
         })
       );
       console.log('All emails sent successfully');
-    } catch (error) {
-      console.error('Error in sending emails:', error);
+    } catch (emailError) {
+      console.error('Error in sending emails:', emailError);
+      // Don't fail the request if email sending fails
     }
 
     res.status(201).json(newPost);
   } catch (error) {
-    console.error('Error in addPost:', error); // Log any errors
-    res.status(400).json({ message: 'Failed to create post', error });
+    console.error('Error in addPost:', error);
+    res.status(500).json({ message: 'Failed to create post', error: error.message });
   }
 };
 
 // Update a post
 exports.updatePost = async (req, res) => {
   const { id } = req.params;
-  const { name, age, location, description } = req.body;
-  const image = req.file ? req.file.path : null; // Use full path for image upload
+  const { name, age, petType, location, description } = req.body;
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
 
   try {
+    const updateData = { name, age, petType, location, description };
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
     const updatedPost = await AdoptionPost.findByIdAndUpdate(
       id,
-      { name, age, location, description, image },
+      updateData,
       { new: true }
-    );
+    ).populate('userId', 'username email');
 
     if (!updatedPost) return res.status(404).json({ message: 'Post not found' });
 
     res.status(200).json(updatedPost);
   } catch (error) {
-    res.status(400).json({ message: 'Failed to update post', error });
+    console.error('Error in updatePost:', error);
+    res.status(500).json({ message: 'Failed to update post', error: error.message });
   }
 };
 
@@ -84,6 +122,19 @@ exports.deletePost = async (req, res) => {
 
     res.status(200).json({ message: 'Post deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete post', error });
+    console.error('Error in deletePost:', error);
+    res.status(500).json({ message: 'Failed to delete post', error: error.message });
+  }
+};
+
+// Get posts by user
+exports.getPostsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const posts = await AdoptionPost.find({ userId }).populate('userId', 'username email');
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    res.status(500).json({ message: 'Failed to fetch user posts', error: error.message });
   }
 };

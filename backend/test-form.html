@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Adoption Form</title>
+</head>
+<body>
+    <h1>Test Adoption Form</h1>
+    <form id="testForm" enctype="multipart/form-data">
+        <div>
+            <label for="name">Pet Name:</label>
+            <input type="text" id="name" name="name" value="Test Pet" required>
+        </div>
+        <div>
+            <label for="age">Age:</label>
+            <input type="text" id="age" name="age" value="2" required>
+        </div>
+        <div>
+            <label for="petType">Pet Type:</label>
+            <select id="petType" name="petType" required>
+                <option value="Dog">Dog</option>
+                <option value="Cat">Cat</option>
+            </select>
+        </div>
+        <div>
+            <label for="location">Location:</label>
+            <input type="text" id="location" name="location" value="Test Location" required>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" required>Test description</textarea>
+        </div>
+        <div>
+            <label for="image">Image:</label>
+            <input type="file" id="image" name="image" accept="image/*" required>
+        </div>
+        <button type="submit">Submit Test</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            console.log('FormData entries:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}:`, value);
+            }
+            
+            try {
+                const response = await fetch('/api/adoptions/test-form', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                document.getElementById('result').innerHTML = `
+                    <h3>Response:</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `
+                    <h3>Error:</h3>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { API_BASE_URL } from '../config';
 
@@ -61,7 +61,7 @@ export const AdoptionProvider = ({ children }) => {
     return cache[cacheKey]?.data && (now - cache[cacheKey].timestamp < CACHE_DURATION);
   };
 
-  const fetchAllAdoptionPosts = async () => {
+  const fetchAllAdoptionPosts = useCallback(async () => {
     try {
       // Check cache first
       if (isCacheValid('allAdoptionPosts')) {
@@ -131,9 +131,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, all: false }));
     }
-  };
+  }, [user]); // Add user as dependency since getUserId uses it
 
-  const fetchUserAdoptions = async (userId) => {
+  const fetchUserAdoptions = useCallback(async (userId) => {
     try {
       // Check cache first
       if (isCacheValid('userAdoptionPosts')) {
@@ -217,9 +217,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, user: false }));
     }
-  };
+  }, [user]); // Add user as dependency
 
-  const createAdoptionPost = async (postData) => {
+  const createAdoptionPost = useCallback(async (postData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -256,9 +256,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
     }
-  };
+  }, []); // No dependencies needed
 
-  const updateAdoptionPost = async (postId, updatedData) => {
+  const updateAdoptionPost = useCallback(async (postId, updatedData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -298,9 +298,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
     }
-  };
+  }, []); // No dependencies needed
 
-  const deleteAdoptionPost = async (postId) => {
+  const deleteAdoptionPost = useCallback(async (postId) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -330,9 +330,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
     }
-  };
+  }, []); // No dependencies needed
 
-  const requestAdoption = async (postId, requestData) => {
+  const requestAdoption = useCallback(async (postId, requestData) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -392,9 +392,9 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
     }
-  };
+  }, []); // No dependencies needed
 
-  const handleAdoptionRequest = async (postId, requestId, action) => {
+  const handleAdoptionRequest = useCallback(async (postId, requestId, action) => {
     try {
       setLoading(prev => ({ ...prev, action: true }));
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -463,7 +463,7 @@ export const AdoptionProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, action: false }));
     }
-  };
+  }, []); // No dependencies needed
 
   return (
     <AdoptionContext.Provider

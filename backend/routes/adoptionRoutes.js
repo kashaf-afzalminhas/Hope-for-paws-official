@@ -8,16 +8,113 @@ const cloudinary = require('cloudinary').v2;
 const mongoose = require('mongoose');
 const AdoptionHistory = require('../models/adoptionHistoryModel');
 const User = require('../models/User');
+const dotenv = require('dotenv');
+const path = require('path');
+
+dotenv.config();
+
+// Configure Cloudinary
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET 
+});
+
+console.log('Cloudinary config for adoptions:');
+console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
+console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY);
+console.log('CLOUDINARY_API_SECRET is set:', !!process.env.CLOUDINARY_API_SECRET);
 
 // Configure Multer
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
 
-// Create an adoption post
-router.post('/', auth, upload.single('image'), async (req, res) => {
+// Add middleware to parse form data
+router.use(express.urlencoded({ extended: true }));
+
+// Add middleware to log raw requests
+router.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/') {
+    console.log('=== RAW REQUEST LOGGING ===');
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Body before multer:', req.body);
+  }
+  next();
+});
+
+// Migration endpoint to add location field to existing posts
+router.post('/migrate-location', async (req, res) => {
   try {
-    const { name, age, petType, description } = req.body;
+    console.log('Starting location migration...');
+    
+    // Find all adoption posts that don't have a location field or have empty location
+    const postsWithoutLocation = await Adoption.find({
+      $or: [
+        { location: { $exists: false } },
+        { location: null },
+        { location: '' }
+      ]
+    });
+    
+    console.log(`Found ${postsWithoutLocation.length} posts without location`);
+    
+    if (postsWithoutLocation.length === 0) {
+      return res.json({ 
+        message: 'No posts need location migration',
+        count: 0 
+      });
+    }
+    
+    // Update all posts without location to have a default location
+    const updateResult = await Adoption.updateMany(
+      {
+        $or: [
+          { location: { $exists: false } },
+          { location: null },
+          { location: '' }
+        ]
+      },
+      { 
+        $set: { location: 'Location not specified' }
+      }
+    );
+    
+    console.log('Migration completed:', updateResult);
+    
+    res.json({ 
+      message: 'Location migration completed successfully',
+      updatedCount: updateResult.modifiedCount,
+      totalPosts: postsWithoutLocation.length
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({ 
+      message: 'Migration failed', 
+      error: error.message 
+    });
+  }
+});
 
+// Image upload endpoint
+router.post('/upload-image', auth, upload.single('image'), async (req, res) => {
+  try {
+    console.log('=== IMAGE UPLOAD ENDPOINT HIT ===');
+    
     if (!req.file) {
       return res.status(400).json({ message: 'Image is required' });
     }
@@ -25,23 +122,137 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     // Upload image to Cloudinary
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+    console.log('Uploading to Cloudinary...');
+    
+    const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+      timeout: 30000
+    });
+    
+    console.log('Cloudinary upload successful:', uploadResponse.secure_url);
+    
+    res.json({ imageUrl: uploadResponse.secure_url });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ message: 'Failed to upload image', error: error.message });
+  }
+});
+
+// Create an adoption post
+router.post('/', auth, upload.single('image'), async (req, res) => {
+  console.log('=== ADOPTION POST ROUTE HIT ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request path:', req.path);
+  console.log('Request headers:', req.headers);
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  // Debug: Log each field individually
+  console.log('=== INDIVIDUAL FIELD DEBUG ===');
+  console.log('req.body.name:', req.body.name, typeof req.body.name);
+  console.log('req.body.age:', req.body.age, typeof req.body.age);
+  console.log('req.body.petType:', req.body.petType, typeof req.body.petType);
+  console.log('req.body.location:', req.body.location, typeof req.body.location);
+  console.log('req.body.description:', req.body.description, typeof req.body.description);
+  
+  try {
+    const { name, age, petType, location, description } = req.body;
+    
+    console.log('=== DESTRUCTURED FIELDS ===');
+    console.log('Parsed fields:');
+    console.log('- name:', name, typeof name);
+    console.log('- age:', age, typeof age);
+    console.log('- petType:', petType, typeof petType);
+    console.log('- location:', location, typeof location);
+    console.log('- description:', description, typeof description);
+    
+    // Get user ID from the authenticated request
+    const userId = req.user?.userId || req.user?.id;
+    
+    if (!userId) {
+      console.error('No user ID found in request:', req.user);
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    console.log('Creating adoption post for user:', userId);
+
+    // Validation
+    const missingFields = [];
+    if (!name || name.trim() === '') missingFields.push('name');
+    if (!age || age.trim() === '') missingFields.push('age');
+    if (!petType || petType.trim() === '') missingFields.push('petType');
+    if (!description || description.trim() === '') missingFields.push('description');
+    
+    // Handle location with fallback
+    const finalLocation = location && location.trim() !== '' ? location.trim() : 'Location not specified';
+    console.log('Final location value:', finalLocation);
+
+    if (missingFields.length > 0) {
+      console.log('Missing or empty fields:', missingFields);
+      return res.status(400).json({ 
+        message: 'All fields are required', 
+        missingFields: missingFields 
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'Image is required' });
+    }
+
+    // Upload image to Cloudinary with error handling
+    let uploadResponse;
+    try {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+      console.log('Uploading to Cloudinary...');
+      uploadResponse = await cloudinary.uploader.upload(dataURI, {
+        timeout: 30000 // 30 second timeout
+      });
+      console.log('Cloudinary upload successful:', uploadResponse.secure_url);
+    } catch (cloudinaryError) {
+      console.error('Cloudinary upload error:', cloudinaryError);
+      return res.status(500).json({ 
+        message: 'Failed to upload image', 
+        error: cloudinaryError.message 
+      });
+    }
 
     const adoptionPost = new Adoption({
-      userId: req.user.userId,
-      name,
-      age,
-      petType,
-      description,
+      userId: userId,
+      name: name.trim(),
+      age: age.trim(),
+      petType: petType.trim(),
+      location: finalLocation,
+      description: description.trim(),
       imageUrl: uploadResponse.secure_url,
       status: 'available' // Default status
     });
 
+    console.log('About to save adoption post with data:', {
+      userId,
+      name: name.trim(),
+      age: age.trim(),
+      petType: petType.trim(),
+      location: finalLocation,
+      description: description.trim(),
+      imageUrl: uploadResponse.secure_url,
+      status: 'available'
+    });
+
     await adoptionPost.save();
+    
+    console.log('Adoption post saved successfully. Full document:', adoptionPost.toObject());
+    
+    // Populate user info for response
+    await adoptionPost.populate('userId', 'username email');
+    
+    console.log('Adoption post created successfully:', adoptionPost);
     res.status(201).json(adoptionPost);
   } catch (error) {
     console.error('Error creating adoption post:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -188,13 +399,18 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, description, status } = req.body;
+    const { name, age, petType, location, description, status } = req.body;
+    const userId = req.user?.userId || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     const adoptionPost = await Adoption.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.userId },
-      { name, age, petType, description, status },
+      { _id: req.params.id, userId: userId },
+      { name, age, petType, location, description, status },
       { new: true }
-    );
+    ).populate('userId', 'username email');
 
     if (!adoptionPost) {
       return res.status(404).json({ message: 'Adoption post not found' });
@@ -203,34 +419,33 @@ router.put('/:id', auth, async (req, res) => {
     res.json(adoptionPost);
   } catch (error) {
     console.error('Error updating adoption post:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Delete an adoption post
 router.delete('/:id', auth, async (req, res) => {
   try {
+    const userId = req.user?.userId || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const adoptionPost = await Adoption.findOne({
       _id: req.params.id,
-      userId: req.user.userId,
+      userId: userId
     });
 
     if (!adoptionPost) {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // Delete image from Cloudinary
-    const publicId = adoptionPost.imageUrl.split('/').pop().split('.')[0];
-    await cloudinary.uploader.destroy(publicId);
-
-    // Delete all related requests
-    await AdoptionRequest.deleteMany({ adId: req.params.id });
-
-    await adoptionPost.deleteOne();
+    await Adoption.findByIdAndDelete(req.params.id);
     res.json({ message: 'Adoption post deleted successfully' });
   } catch (error) {
     console.error('Error deleting adoption post:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -389,6 +604,172 @@ router.put('/requests/:requestId', auth, async (req, res) => {
     console.error('Error updating request status:', error);
     res.status(500).json({ message: 'Server error' });
   }
+});
+
+// Test endpoint to manually create an adoption post with location
+router.post('/test-create', auth, async (req, res) => {
+  try {
+    console.log('=== TEST CREATE ENDPOINT HIT ===');
+    console.log('Request body:', req.body);
+    
+    const userId = req.user?.userId || req.user?.id;
+    
+    const testAdoptionPost = new Adoption({
+      userId: userId,
+      name: 'Test Pet',
+      age: '1',
+      petType: 'Dog',
+      location: 'Test Location',
+      description: 'Test description',
+      imageUrl: 'https://via.placeholder.com/400x300?text=Test+Image',
+      status: 'available'
+    });
+
+    console.log('About to save test adoption post:', testAdoptionPost);
+    
+    await testAdoptionPost.save();
+    
+    console.log('Test adoption post saved successfully:', testAdoptionPost.toObject());
+    
+    res.status(201).json(testAdoptionPost);
+  } catch (error) {
+    console.error('Error in test create:', error);
+    res.status(500).json({ message: 'Test create failed', error: error.message });
+  }
+});
+
+// Test endpoint for JSON data
+router.post('/test-json', auth, async (req, res) => {
+  console.log('=== TEST JSON ENDPOINT HIT ===');
+  console.log('Request body:', req.body);
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  const { name, age, petType, location, description } = req.body;
+  
+  console.log('Parsed JSON fields:');
+  console.log('- name:', name, typeof name);
+  console.log('- age:', age, typeof age);
+  console.log('- petType:', petType, typeof petType);
+  console.log('- location:', location, typeof location);
+  console.log('- description:', description, typeof description);
+  
+  res.json({
+    message: 'JSON test successful',
+    receivedData: req.body,
+    parsedFields: { name, age, petType, location, description }
+  });
+});
+
+// Test endpoint for FormData
+router.post('/test-formdata', auth, upload.single('image'), async (req, res) => {
+  console.log('=== TEST FORMDATA ENDPOINT HIT ===');
+  console.log('Request body:', req.body);
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Request file:', req.file);
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  const { name, age, petType, location, description } = req.body;
+  
+  console.log('Parsed FormData fields:');
+  console.log('- name:', name, typeof name);
+  console.log('- age:', age, typeof age);
+  console.log('- petType:', petType, typeof petType);
+  console.log('- location:', location, typeof location);
+  console.log('- description:', description, typeof description);
+  
+  res.json({
+    message: 'FormData test successful',
+    receivedData: req.body,
+    parsedFields: { name, age, petType, location, description },
+    file: req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : null
+  });
+});
+
+// Test endpoint for simple form data (no image)
+router.post('/test-simple', auth, async (req, res) => {
+  console.log('=== TEST SIMPLE ENDPOINT HIT ===');
+  console.log('Request body:', req.body);
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  const { name, age, petType, location, description } = req.body;
+  
+  console.log('Parsed simple fields:');
+  console.log('- name:', name, typeof name);
+  console.log('- age:', age, typeof age);
+  console.log('- petType:', petType, typeof petType);
+  console.log('- location:', location, typeof location);
+  console.log('- description:', description, typeof description);
+  
+  res.json({
+    message: 'Simple test successful',
+    receivedData: req.body,
+    parsedFields: { name, age, petType, location, description }
+  });
+});
+
+// Test endpoint for URL-encoded form data
+router.post('/test-urlencoded', auth, async (req, res) => {
+  console.log('=== TEST URL-ENCODED ENDPOINT HIT ===');
+  console.log('Request body:', req.body);
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  const { name, age, petType, location, description } = req.body;
+  
+  console.log('Parsed URL-encoded fields:');
+  console.log('- name:', name, typeof name);
+  console.log('- age:', age, typeof age);
+  console.log('- petType:', petType, typeof petType);
+  console.log('- location:', location, typeof location);
+  console.log('- description:', description, typeof description);
+  
+  res.json({
+    message: 'URL-encoded test successful',
+    receivedData: req.body,
+    parsedFields: { name, age, petType, location, description }
+  });
+});
+
+// Test endpoint for form data parsing (no auth required)
+router.post('/test-form', upload.single('image'), async (req, res) => {
+  console.log('=== TEST FORM ENDPOINT HIT ===');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', req.headers);
+  console.log('Content-Type:', req.headers['content-type']);
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  
+  // Log each field individually
+  console.log('=== FIELD ANALYSIS ===');
+  console.log('req.body.name:', req.body.name, typeof req.body.name);
+  console.log('req.body.age:', req.body.age, typeof req.body.age);
+  console.log('req.body.petType:', req.body.petType, typeof req.body.petType);
+  console.log('req.body.location:', req.body.location, typeof req.body.location);
+  console.log('req.body.description:', req.body.description, typeof req.body.description);
+  
+  res.json({
+    message: 'Test endpoint successful',
+    receivedData: req.body,
+    file: req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : null,
+    headers: req.headers
+  });
+});
+
+// Serve test form
+router.get('/test-form', (req, res) => {
+  res.sendFile(path.join(__dirname, '../test-form.html'));
 });
 
 module.exports = router;

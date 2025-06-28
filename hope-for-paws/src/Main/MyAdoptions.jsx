@@ -11,6 +11,7 @@ const MyAdoptions = () => {
     name: '',
     age: '',
     petType: '',
+    location: '',
     description: ''
   });
   const [loading, setLoading] = useState(true);
@@ -84,6 +85,7 @@ const MyAdoptions = () => {
       name: post.name,
       age: post.age,
       petType: post.petType,
+      location: post.location,
       description: post.description
     });
   };
@@ -213,6 +215,13 @@ const MyAdoptions = () => {
                       className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                       placeholder="Pet Type"
                     />
+                    <input
+                      type="text"
+                      value={editData.location}
+                      onChange={(e) => setEditData({...editData, location: e.target.value})}
+                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                      placeholder="Location"
+                    />
                     <textarea
                       value={editData.description}
                       onChange={(e) => setEditData({...editData, description: e.target.value})}
@@ -241,6 +250,7 @@ const MyAdoptions = () => {
                     <h2 className="text-xl font-bold text-[#6b493d] mb-2">{post.name}</h2>
                     <p className="text-[#6b493d] mb-1"><span className="font-semibold">Age:</span> {post.age} years</p>
                     <p className="text-[#6b493d] mb-1"><span className="font-semibold">Type:</span> {post.petType}</p>
+                    <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
                     <p className="text-[#6b493d] mb-4 italic">{post.description}</p>
                     <p className="text-sm text-gray-500 mb-4">
                       Posted by: {post.userId?.username || 'Anonymous'}
