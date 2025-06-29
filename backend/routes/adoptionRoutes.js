@@ -83,7 +83,6 @@ router.get('/', async (req, res) => {
 });
 
 // Get adoption posts for a specific user
-// In adoptionRoutes.js
 router.get('/user/:userId', auth, async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -97,7 +96,7 @@ router.get('/user/:userId', auth, async (req, res) => {
       query = query.populate({
         path: 'requests',
         model: 'AdoptionRequest',
-        select: 'name email phone message status'
+        select: 'name email phone message status petHistoryImage createdAt' // Ensure petHistoryImage is included
       });
     }
 
@@ -355,9 +354,10 @@ router.get('/:id/requests', auth, async (req, res) => {
 
     const requests = await AdoptionRequest.find({ adId: req.params.id })
       .populate('requester', 'username email')
-      .sort({ createdAt: -1 })
-      .lean();
+      .select('name email phone message status petHistoryImage requester createdAt')
+      .sort({ createdAt: -1 });
 
+    console.log('Fetched requests:', JSON.stringify(requests, null, 2));
     res.json(requests);
   } catch (error) {
     console.error('Error fetching adoption requests:', error);

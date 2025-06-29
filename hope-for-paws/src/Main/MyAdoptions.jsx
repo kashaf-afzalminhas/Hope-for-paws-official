@@ -291,69 +291,78 @@ const MyAdoptions = () => {
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <h4 className="text-lg font-semibold text-[#6b493d] mb-3">Adoption Requests ({post.requests.length})</h4>
                   <div className="space-y-3">
-                    {post.requests.map((request) => (
-                      <div key={request._id} className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium">{request.name}</p>
-                            <p className="text-sm text-gray-600">{request.email}</p>
-                            <p className="text-sm text-gray-600">{request.phone}</p>
+                    {post.requests.map((request) => {
+                      console.log('Request data for', request.name, ':', request);
+                      return (
+                        <div key={request._id} className="bg-gray-50 p-3 rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="font-medium">{request.name}</p>
+                              <p className="text-sm text-gray-600">{request.email}</p>
+                              <p className="text-sm text-gray-600">{request.phone}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              request.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {request.status}
+                            </span>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {request.status}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-700">{request.message}</p>
-                        
-                        {/* Display Pet History Image */}
-                        {request.petHistoryImage && (
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-600 mb-2">Pet History Proof:</p>
-                            <div className="relative">
-                              <img 
-                                src={request.petHistoryImage} 
-                                alt="Pet History Proof" 
-                                className="w-full h-32 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => {
-                                  // Open image in a modal or new tab
-                                  window.open(request.petHistoryImage, '_blank');
-                                }}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Available';
-                                }}
-                              />
-                              <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                Click to enlarge
+                          <p className="mt-2 text-sm text-gray-700">{request.message}</p>
+                          
+                          {/* Simple debug info */}
+                          <p className="text-xs text-gray-500 mt-1">
+                            Has petHistoryImage: {request.petHistoryImage ? 'Yes' : 'No'}
+                            {request.petHistoryImage && ` - URL: ${request.petHistoryImage}`}
+                          </p>
+                          
+                          {/* Display Pet History Image */}
+                          {request.petHistoryImage && (
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-gray-600 mb-2">Pet History Proof:</p>
+                              <div className="relative">
+                                <img 
+                                  src={request.petHistoryImage} 
+                                  alt="Pet History Proof" 
+                                  className="w-full h-32 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => {
+                                    // Open image in a modal or new tab
+                                    window.open(request.petHistoryImage, '_blank');
+                                  }}
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Available';
+                                  }}
+                                />
+                                <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                  Click to enlarge
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                        
-                        {request.status === 'pending' && post.status === 'available' && (
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              onClick={() => handleRequestAction(post._id, request._id, 'accept')}
-                              className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
-                            >
-                              <Check className="w-4 h-4" />
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleRequestAction(post._id, request._id, 'reject')}
-                              className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
-                            >
-                              <XIcon className="w-4 h-4" />
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                          
+                          {request.status === 'pending' && post.status === 'available' && (
+                            <div className="mt-3 flex gap-2">
+                              <button
+                                onClick={() => handleRequestAction(post._id, request._id, 'accept')}
+                                className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
+                              >
+                                <Check className="w-4 h-4" />
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleRequestAction(post._id, request._id, 'reject')}
+                                className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
+                              >
+                                <XIcon className="w-4 h-4" />
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
