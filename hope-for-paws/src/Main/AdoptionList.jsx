@@ -142,6 +142,10 @@ const AdoptionList = () => {
                     {post.petType}
                   </span>
                 </div>
+                {/* Location display */}
+                <div className="mt-1 text-sm text-[#8B5A2B]">
+                  <span className="font-semibold">Location:</span> {post.location || 'Location not specified'}
+                </div>
                 
                 <p className="mt-3 text-gray-600 line-clamp-3">{post.description}</p>
                 

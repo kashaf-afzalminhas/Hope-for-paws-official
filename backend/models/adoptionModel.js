@@ -34,7 +34,12 @@ const adoptionSchema = new mongoose.Schema({
   requests: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdoptionRequest'
-  }]
+  }],
+  location: {
+    type: String,
+    required: true,
+    default: 'Location not specified'
+  }
 }, { timestamps: true });
 
 const Adoption = mongoose.model('Adoption', adoptionSchema);

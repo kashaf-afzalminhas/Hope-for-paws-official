@@ -15,8 +15,22 @@ const upload = multer({ storage });
 
 // Create an adoption post
 router.post('/', auth, upload.single('image'), async (req, res) => {
+  console.log('=== ADOPTION POST ROUTE HIT ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', req.headers);
+  
   try {
-    const { name, age, petType, description } = req.body;
+    const { name, age, petType, description, location } = req.body;
+    
+    // Debug logging
+    console.log('Received adoption post data:');
+    console.log('name:', name);
+    console.log('age:', age);
+    console.log('petType:', petType);
+    console.log('description:', description);
+    console.log('location:', location);
+    console.log('Full req.body:', req.body);
 
     if (!req.file) {
       return res.status(400).json({ message: 'Image is required' });
@@ -33,12 +47,21 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       age,
       petType,
       description,
+      location: location || 'Location not specified',
       imageUrl: uploadResponse.secure_url,
       status: 'available' // Default status
     });
 
+    console.log('Saving adoption post with location:', adoptionPost.location);
     await adoptionPost.save();
-    res.status(201).json(adoptionPost);
+    console.log('Adoption post saved successfully');
+    
+    // Fetch the saved post to ensure all fields are included
+    const savedPost = await Adoption.findById(adoptionPost._id).populate('userId', 'username');
+    console.log('Saved post with all fields:', savedPost);
+    console.log('Response being sent:', JSON.stringify(savedPost, null, 2));
+    
+    res.status(201).json(savedPost);
   } catch (error) {
     console.error('Error creating adoption post:', error);
     res.status(500).json({ message: 'Server error' });
@@ -188,11 +211,11 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, description, status } = req.body;
+    const { name, age, petType, description, status, location } = req.body;
 
     const adoptionPost = await Adoption.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
-      { name, age, petType, description, status },
+      { name, age, petType, description, status, location },
       { new: true }
     );
 

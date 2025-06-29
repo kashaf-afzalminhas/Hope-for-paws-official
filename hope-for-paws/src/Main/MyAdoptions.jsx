@@ -11,7 +11,8 @@ const MyAdoptions = () => {
     name: '',
     age: '',
     petType: '',
-    description: ''
+    description: '',
+    location: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,7 +85,8 @@ const MyAdoptions = () => {
       name: post.name,
       age: post.age,
       petType: post.petType,
-      description: post.description
+      description: post.description,
+      location: post.location || ''
     });
   };
 
@@ -220,6 +222,13 @@ const MyAdoptions = () => {
                       rows={3}
                       placeholder="Description"
                     />
+                    <input
+                      type="text"
+                      value={editData.location}
+                      onChange={(e) => setEditData({...editData, location: e.target.value})}
+                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                      placeholder="Location"
+                    />
                     <div className="flex justify-end space-x-3">
                       <button 
                         onClick={() => setEditingPost(null)}
@@ -252,6 +261,7 @@ const MyAdoptions = () => {
                     }`}>
                       Status: {post.status}
                     </p>
+                    <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
                     
                     {post.status === 'adopted' && (
                       <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-md">
