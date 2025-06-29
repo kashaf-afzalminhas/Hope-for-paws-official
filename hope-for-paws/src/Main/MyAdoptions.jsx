@@ -294,7 +294,7 @@ const MyAdoptions = () => {
                     {post.requests.map((request) => (
                       <div key={request._id} className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium">{request.name}</p>
                             <p className="text-sm text-gray-600">{request.email}</p>
                             <p className="text-sm text-gray-600">{request.phone}</p>
@@ -308,6 +308,32 @@ const MyAdoptions = () => {
                           </span>
                         </div>
                         <p className="mt-2 text-sm text-gray-700">{request.message}</p>
+                        
+                        {/* Display Pet History Image */}
+                        {request.petHistoryImage && (
+                          <div className="mt-3">
+                            <p className="text-xs font-medium text-gray-600 mb-2">Pet History Proof:</p>
+                            <div className="relative">
+                              <img 
+                                src={request.petHistoryImage} 
+                                alt="Pet History Proof" 
+                                className="w-full h-32 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => {
+                                  // Open image in a modal or new tab
+                                  window.open(request.petHistoryImage, '_blank');
+                                }}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Available';
+                                }}
+                              />
+                              <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                Click to enlarge
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
                         {request.status === 'pending' && post.status === 'available' && (
                           <div className="mt-3 flex gap-2">
                             <button
