@@ -256,7 +256,7 @@ const Login = () => {
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
-            {/* <motion.div variants={itemVariants} className="flex justify-center">
+            <motion.div variants={itemVariants} className="flex justify-center">
               <GoogleOAuthProvider clientId="https://495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com/">
                 <GoogleLogin 
                   onSuccess={(response) => googleLoginHandler(response)}
@@ -276,7 +276,7 @@ const Login = () => {
               onClose={() => setShowUserTypeModal(false)}
               onSelect={handleUserTypeSelect}
               username={pendingGoogleUser?.username}
-            /> */}
+            />
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
               Don&apos;t have an account?{' '}

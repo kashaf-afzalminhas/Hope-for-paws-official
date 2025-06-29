@@ -303,7 +303,7 @@ const SignUp = () => {
             </button>
           </form>
           
-          {/* <motion.div variants={itemVariants} className="flex justify-center mt-4">
+          <motion.div variants={itemVariants} className="flex justify-center mt-4">
               <GoogleOAuthProvider clientId="https://495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com/">
                   <GoogleLogin 
                     onSuccess={(response) => googleLoginHandler(response)}
@@ -324,7 +324,7 @@ const SignUp = () => {
             onClose={() => setShowUserTypeModal(false)}
             onSelect={handleUserTypeSelect}
             username={pendingGoogleUser?.username}
-          /> */}
+          />
 
           <p className="text-sm text-[#4E3B31] text-center mt-4">
             Already have an account?{' '}
