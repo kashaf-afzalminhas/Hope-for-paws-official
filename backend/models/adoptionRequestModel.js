@@ -27,6 +27,10 @@ const adoptionRequestSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  petHistoryImage: {
+    type: String,
+    required: true
+  },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'rejected'],
