@@ -304,7 +304,7 @@ const SignUp = () => {
           </form>
           
           <motion.div variants={itemVariants} className="flex justify-center mt-4">
-              <GoogleOAuthProvider clientId="https://495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com/">
+              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
                   <GoogleLogin 
                     onSuccess={(response) => googleLoginHandler(response)}
                     onError={(error) => console.log(error)}

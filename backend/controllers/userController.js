@@ -238,7 +238,7 @@ const verifyCode = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user || user.verificationCode !== code) {
+    if (!user || user.verificationCode.trim() !== code.trim()) {
       return res.status(400).json({ error: 'Invalid verification code.' });
     }
 
