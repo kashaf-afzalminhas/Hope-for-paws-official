@@ -36,10 +36,10 @@ const getUserStats = async (req, res) => {
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     const { userId } = req.params;
     const [posts, comments, adoptions, requests] = await Promise.all([
-      Post.countDocuments({ user: userId }),
-      Comment.countDocuments({ user: userId }),
-      Adoption.countDocuments({ user: userId }),
-      AdoptionRequest.countDocuments({ user: userId })
+      Post.countDocuments({ userId: userId }),
+      Comment.countDocuments({ userId: userId }),
+      Adoption.countDocuments({ userId: userId }),
+      AdoptionRequest.countDocuments({ requester: userId })
     ]);
     res.json({ posts, comments, adoptions, requests });
   } catch (error) {

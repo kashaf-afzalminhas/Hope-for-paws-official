@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
@@ -8,6 +8,17 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
     u.email.toLowerCase().includes(search.toLowerCase())
   );
   const [tab, setTab] = useState('vets');
+
+  // Always get the current users for the selected tab and search
+  const currentUsers = tab === 'vets' ? filterUsers(vets) : filterUsers(users);
+
+  // Fetch stats for all users in the current tab on mount or tab/search change
+  useEffect(() => {
+    currentUsers.forEach(u => {
+      if (!userStats[u._id]) fetchUserStats(u._id);
+    });
+    // eslint-disable-next-line
+  }, [tab, search, currentUsers.length]);
 
   return (
     <motion.div
@@ -42,99 +53,53 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
           className="px-4 py-2 border border-[#a07855] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] text-[#4E3B31] w-72"
         />
       </div>
-      {/* User List */}
-      {tab === 'vets' && (
-        <>
-          <h2 className="text-xl font-bold mb-4 text-[#6b493d]">Veterinarians</h2>
-          <ul>
-            {filterUsers(vets).map(vet => (
-              <li key={vet._id} className="py-2 border-b border-[#f3e7d8] flex flex-col md:flex-row md:items-center md:gap-4 gap-2">
-                <div className="flex-1 flex flex-col md:flex-row md:items-center gap-2">
-                  <span className="font-semibold text-[#4E3B31]">{vet.username}</span>
-                  <span className="text-[#a07855]">{vet.email}</span>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <button
-                    className="bg-[#F8F4ED] border border-[#a07855] text-[#6b493d] px-3 py-1 rounded hover:bg-[#f3e7d8] text-xs font-semibold"
-                    onClick={() => fetchUserStats(vet._id)}
-                    disabled={!!userStats[vet._id]}
-                  >
-                    {userStats[vet._id] ? 'Stats Loaded' : 'View Stats'}
-                  </button>
-                  <button
-                    className="bg-red-100 border border-red-300 text-red-700 px-3 py-1 rounded hover:bg-red-200 text-xs font-semibold"
-                    onClick={() => handleDeleteUser(vet._id)}
-                    disabled={deleting === vet._id}
-                  >
-                    {deleting === vet._id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-                {userStats[vet._id] && (
-                  <div className="mt-2 text-xs text-[#4E3B31] bg-[#f8f4ed] rounded p-2">
-                    {userStats[vet._id].error ? (
-                      <span className="text-red-500">{userStats[vet._id].error}</span>
-                    ) : (
-                      <>
-                        <span className="mr-4">Posts: <b>{userStats[vet._id].posts}</b></span>
-                        <span className="mr-4">Comments: <b>{userStats[vet._id].comments}</b></span>
-                        <span className="mr-4">Adoptions: <b>{userStats[vet._id].adoptions}</b></span>
-                        <span>Requests: <b>{userStats[vet._id].requests}</b></span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-            {filterUsers(vets).length === 0 && <li className="text-gray-500">No veterinarians found.</li>}
-          </ul>
-        </>
-      )}
-      {tab === 'users' && (
-        <>
-          <h2 className="text-xl font-bold mb-4 text-[#a07855]">Regular Users</h2>
-          <ul>
-            {filterUsers(users).map(user => (
-              <li key={user._id} className="py-2 border-b border-[#f3e7d8] flex flex-col md:flex-row md:items-center md:gap-4 gap-2">
-                <div className="flex-1 flex flex-col md:flex-row md:items-center gap-2">
-                  <span className="font-semibold text-[#4E3B31]">{user.username}</span>
-                  <span className="text-[#a07855]">{user.email}</span>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <button
-                    className="bg-[#F8F4ED] border border-[#a07855] text-[#6b493d] px-3 py-1 rounded hover:bg-[#f3e7d8] text-xs font-semibold"
-                    onClick={() => fetchUserStats(user._id)}
-                    disabled={!!userStats[user._id]}
-                  >
-                    {userStats[user._id] ? 'Stats Loaded' : 'View Stats'}
-                  </button>
-                  <button
-                    className="bg-red-100 border border-red-300 text-red-700 px-3 py-1 rounded hover:bg-red-200 text-xs font-semibold"
-                    onClick={() => handleDeleteUser(user._id)}
-                    disabled={deleting === user._id}
-                  >
-                    {deleting === user._id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-                {userStats[user._id] && (
-                  <div className="mt-2 text-xs text-[#4E3B31] bg-[#f8f4ed] rounded p-2">
-                    {userStats[user._id].error ? (
-                      <span className="text-red-500">{userStats[user._id].error}</span>
-                    ) : (
-                      <>
-                        <span className="mr-4">Posts: <b>{userStats[user._id].posts}</b></span>
-                        <span className="mr-4">Comments: <b>{userStats[user._id].comments}</b></span>
-                        <span className="mr-4">Adoptions: <b>{userStats[user._id].adoptions}</b></span>
-                        <span>Requests: <b>{userStats[user._id].requests}</b></span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-            {filterUsers(users).length === 0 && <li className="text-gray-500">No regular users found.</li>}
-          </ul>
-        </>
-      )}
+      {/* User Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-[#f3e7d8]">
+          <thead className="bg-[#f8f4ed]">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase tracking-wider">Name</th>
+              <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase tracking-wider">Email</th>
+              <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase tracking-wider">Posts</th>
+              <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase tracking-wider">Comments</th>
+              <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase tracking-wider">Adoptions</th>
+              <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase tracking-wider">Requests</th>
+              <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-[#f3e7d8]">
+            {currentUsers.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center text-gray-500 py-6">No users found.</td>
+              </tr>
+            )}
+            {currentUsers.map(user => {
+              const stats = userStats[user._id] && typeof userStats[user._id].posts !== 'undefined'
+                ? userStats[user._id]
+                : { posts: 0, comments: 0, adoptions: 0, requests: 0 };
+              return (
+                <tr key={user._id} className="hover:bg-[#f8f4ed] transition-colors">
+                  <td className="px-4 py-2 font-semibold text-[#4E3B31]">{user.username}</td>
+                  <td className="px-4 py-2 text-[#a07855]">{user.email}</td>
+                  <td className="px-4 py-2 text-center">{stats.posts}</td>
+                  <td className="px-4 py-2 text-center">{stats.comments}</td>
+                  <td className="px-4 py-2 text-center">{stats.adoptions}</td>
+                  <td className="px-4 py-2 text-center">{stats.requests}</td>
+                  <td className="px-4 py-2 text-center">
+                    <button
+                      className="bg-red-100 border border-red-300 text-red-700 px-3 py-1 rounded hover:bg-red-200 text-xs font-semibold"
+                      onClick={() => handleDeleteUser(user._id)}
+                      disabled={deleting === user._id}
+                    >
+                      {deleting === user._id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </motion.div>
   );
 };

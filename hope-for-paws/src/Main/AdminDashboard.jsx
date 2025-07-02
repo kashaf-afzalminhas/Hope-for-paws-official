@@ -51,15 +51,15 @@ const AdminDashboard = ({ vets = [], users = [] }) => {
   };
 
   return (
-    <motion.div
+          <motion.div
       initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -40 }}
-      transition={{ duration: 0.4 }}
+            transition={{ duration: 0.4 }}
       className="mb-8 bg-white rounded-xl shadow p-6"
     >
       <Bar data={chartData} options={chartOptions} height={80} />
-    </motion.div>
+          </motion.div>
   );
 };
 
