@@ -170,6 +170,30 @@ const Login = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError("");
+    if (!email || !email.endsWith('@gmail.com')) {
+      setError('Please enter a valid Gmail address to reset password.');
+      return;
+    }
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('resetEmail', email); // Store for next step
+        navigate('/verify-code');
+      } else {
+        setError(data.error || 'Failed to send verification code.');
+      }
+    } catch {
+      setError('An error occurred while sending the verification code.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
@@ -261,12 +285,13 @@ const Login = () => {
                   />
                   <label htmlFor="remember-me" className="ml-2 text-sm text-[#4E3B31]">Remember me</label>
                 </div>
-                <NavLink 
-                  to='/forgotpass' 
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium"
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
                 >
                   Forgot Password?
-                </NavLink>
+                </button>
               </div>
 
               <button

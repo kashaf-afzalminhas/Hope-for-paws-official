@@ -44,6 +44,9 @@ router.post('/change-password', async (req, res) => {
   }
 });
 router.get('/user/validate', validateUser);
+router.post('/verify-reset-code', require('../controllers/userController').verifyResetCode);
+router.post('/reset-password', require('../controllers/userController').resetPassword);
+router.post('/resend-reset-code', require('../controllers/userController').resendResetCode);
 
 module.exports = router;
 

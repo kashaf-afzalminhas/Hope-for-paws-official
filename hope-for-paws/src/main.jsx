@@ -16,7 +16,6 @@ import SignUp from './Main/SignUp';
 import Faq from './Components/Faq';
 import NGO from './Components/NGO';
 import Clinics from './Components/Clinics';
-import ForgotPassword from './Main/ForgotPass';
 import VerifyCode from './Main/VerifyCode';
 import Createprofile from './Main/CreateProfileU';
 import CreatePost from './Main/CreatePost';
@@ -32,6 +31,7 @@ import AdminManageUsers from './Main/AdminManageUsers';
 import { useEffect, useState } from 'react';
 import { ADMIN_BASE_URL, AUTH_BASE_URL } from './config';
 import AdminDashboardLayout from './Main/AdminDashboardLayout';
+import ResetPassword from './Main/ResetPassword';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -191,8 +191,8 @@ const router = createBrowserRouter(
       <Route path="/my-adoptions" element={<MyAdoptions />} />
       <Route path="/create-adoption" element={<CreateAdoptionAdForm />} />
       <Route path="/adoptionhistory" element={<AdoptionHistory/>} />
-      <Route path="/forgotpass" element={<ForgotPassword />} />
       <Route path="/verify-code" element={<VerifyCode />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile" element={<Createprofile />} />
       <Route path="/my-posts" element={<MyPosts />} />
       <Route path="/team" element={<FullTeamPage />} />

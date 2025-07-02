@@ -34,6 +34,12 @@ const userSchema = new mongoose.Schema(
     isAdmin: {
       type: Boolean,
       default: false
+    },
+    verificationCode: {
+      type: String
+    },
+    verificationCodeExpires: {
+      type: Date
     }
   },
   { timestamps: true }

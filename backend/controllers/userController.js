@@ -593,6 +593,71 @@ const validateUser = async (req, res) => {
   }
 };
 
+// Verify Reset Code Controller
+const verifyResetCode = async (req, res) => {
+  const { email, code } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user || user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Invalid verification code.' });
+    }
+    if (user.verificationCodeExpires < Date.now()) {
+      return res.status(400).json({ error: 'Verification code has expired.' });
+    }
+    res.status(200).json({ message: 'Code verified successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while verifying the code.' });
+  }
+};
+
+// Reset Password Controller
+const resetPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user || user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Invalid verification code.' });
+    }
+    if (user.verificationCodeExpires < Date.now()) {
+      return res.status(400).json({ error: 'Verification code has expired.' });
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.verificationCode = undefined;
+    user.verificationCodeExpires = undefined;
+    await user.save();
+    res.status(200).json({ message: 'Password reset successfully.' });
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while resetting your password.' });
+  }
+};
+
+// Resend Reset Code Controller
+const resendResetCode = async (req, res) => {
+  const { email } = req.body;
+  if (!email.endsWith('@gmail.com')) {
+    return res.status(400).json({ error: 'Please use a valid Gmail address.' });
+  }
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Email not found.' });
+    }
+    const verificationCode = crypto.randomBytes(3).toString('hex');
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpires = Date.now() + 15 * 60 * 1000;
+    await user.save();
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: 'Hope for Paws: Password Reset Verification Code',
+      text: `Hello,\n\nWe received a request to reset your password for your Hope for Paws account.\n\nPlease use the following verification code to reset your password:\n\nVerification Code: ${verificationCode}\n\nThis code is valid for 15 minutes. If you did not request a password reset, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
+    });
+    res.status(200).json({ message: 'Verification code resent to your email.' });
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while resending the code.' });
+  }
+};
+
 module.exports = {
   signUp,
   verifyRegistrationOTP,
@@ -607,6 +672,9 @@ module.exports = {
   googleLogins,
   completeGoogleRegistration,
   validateUser,
+  verifyResetCode,
+  resetPassword,
+  resendResetCode,
 };
 
 
