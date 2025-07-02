@@ -6,6 +6,10 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const {OAuth2Client} = require("google-auth-library");
+const Post = require('../models/Post');
+const Comment = require('../models/Comment');
+const Adoption = require('../models/adoptionModel');
+const AdoptionRequest = require('../models/adoptionRequestModel');
 
 dotenv.config();
 
@@ -28,6 +32,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'Xy7@lKh$2nGz8qW!rVtP9&jDfL^6O77';
 const EMAIL_VERIFICATION_API_URL = 'https://www.zerobounce.net/members/API';
 const API_KEY = '0cd5922afa754b08911d12fe8e8452ba'; // Replace with your API key
 
+const ADMIN_EMAILS = [
+  'kashafafzal909@gmail.com',
+  'laibaanoor1616@gmail.com',
+  'sahabnoor193@gmail.com'
+];
+
 const signUp = async (req, res) => {
   const { username, email, password, isVeterinarian } = req.body;
   console.log('Received signup request:', { username, email, isVeterinarian });
@@ -40,6 +50,10 @@ const signUp = async (req, res) => {
   if (!email.toLowerCase().endsWith('@gmail.com')) {
     console.warn('Invalid email domain:', email);
     return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+  }
+
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    return res.status(403).json({ message: 'This email is reserved for admin use only.' });
   }
 
   try {
@@ -288,6 +302,7 @@ const signIn = async (req, res) => {
         city: user.city,
         about: user.about,
         isVeterinarian: user.isVeterinarian,
+        isAdmin: user.isAdmin,
       },
     });
   } catch (error) {
@@ -466,7 +481,8 @@ googleLogins = async (req, res) => {
       return res.status(400).json({ message: "No credential provided" });
     }
 
-    const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
+    //const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
+    const CLIENT_ID = '495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com';
     const client = new OAuth2Client(CLIENT_ID);
 
     const ticket = await client.verifyIdToken({
@@ -560,6 +576,23 @@ const completeGoogleRegistration = async (req, res) => {
   }
 };
 
+const validateUser = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ user });
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
 module.exports = {
   signUp,
   verifyRegistrationOTP,
@@ -573,6 +606,7 @@ module.exports = {
   resendOTP,
   googleLogins,
   completeGoogleRegistration,
+  validateUser,
 };
 
 

@@ -13,6 +13,7 @@ const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const rateLimit = require('express-rate-limit');
+const adminRoutes = require('./routes/adminRoutes');
 
 dotenv.config();
 
@@ -100,11 +101,12 @@ app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/auth', authRoutes);
+app.use('/admin', adminRoutes);
 //app.use('/animal', animalRoutes);
 //app.use('/adoptions', adoptionRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
-app.use('/api/faqRoutes', faqRoutes);
+app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
 // Root route handler

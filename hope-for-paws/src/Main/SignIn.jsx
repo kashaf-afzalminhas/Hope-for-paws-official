@@ -63,6 +63,13 @@ const Login = () => {
 
       if (response.ok) {
         if (data.token) {
+          if (data.user && data.user.isAdmin) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            navigate('/admin-dashboard');
+            window.location.reload();
+            return;
+          }
           if (rememberMe) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
@@ -104,6 +111,13 @@ const Login = () => {
           setShowUserTypeModal(true);
           return;
         }
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
@@ -136,6 +150,13 @@ const Login = () => {
       setShowUserTypeModal(false);
       setPendingGoogleUser(null);
       if (response.ok) {
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
@@ -257,7 +278,7 @@ const Login = () => {
               </button>
             </form>
             <motion.div variants={itemVariants} className="flex justify-center">
-              <GoogleOAuthProvider clientId="1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com">
+              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
                 <GoogleLogin 
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={(error) => console.log(error)}
