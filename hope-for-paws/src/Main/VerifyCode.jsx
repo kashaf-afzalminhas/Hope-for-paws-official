@@ -1,58 +1,65 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 
 const VerifyCode = () => {
-    const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
-    const [newPassword, setNewPassword] = useState('');
     const [message, setMessage] = useState('');
+    const [resendMessage, setResendMessage] = useState('');
     const navigate = useNavigate();
+    const email = localStorage.getItem('resetEmail') || '';
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         setMessage('');
-
+        if (!code) {
+            setMessage('Please enter the verification code.');
+            return;
+        }
         try {
-            const response = await fetch(`${AUTH_BASE_URL}/verify-code`, {
+            const response = await fetch(`${AUTH_BASE_URL}/verify-reset-code`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, code, newPassword }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code }),
             });
-
             const data = await response.json();
-
             if (response.ok) {
-                setMessage('Password reset successfully. Redirecting to login...');
-                setTimeout(() => navigate('/signin'), 3000);
+                localStorage.setItem('resetCode', code);
+                navigate('/reset-password');
             } else {
-                setMessage(data.error || 'Failed to reset password.');
+                setMessage(data.error || 'Failed to verify code.');
             }
-        } catch (error) {
-            setMessage('An error occurred while resetting your password.');
+        } catch {
+            setMessage('An error occurred while verifying the code.');
+        }
+    };
+
+    const handleResend = async () => {
+        setResendMessage('');
+        try {
+            const response = await fetch(`${AUTH_BASE_URL}/resend-reset-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setResendMessage('Verification code resent! Check your email.');
+            } else {
+                setResendMessage(data.error || 'Failed to resend code.');
+            }
+        } catch {
+            setResendMessage('An error occurred while resending the code.');
         }
     };
 
     return (
         <div className="flex min-h-full items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg p-8 shadow max-w-md w-full">
-                <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Verify Code & Reset Password</h2>
+                <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Verify Code</h2>
                 {message && <p className="text-red-500 text-center">{message}</p>}
+                {resendMessage && <p className="text-green-600 text-center">{resendMessage}</p>}
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                            placeholder="you@gmail.com"
-                        />
-                    </div>
                     <div>
                         <label htmlFor="code" className="block text-sm font-medium text-gray-700">Verification Code</label>
                         <input
@@ -65,22 +72,9 @@ const VerifyCode = () => {
                             placeholder="Enter code from email"
                         />
                     </div>
-                    <div>
-                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">New Password</label>
-                        <input
-                            type="password"
-                            id="newPassword"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            required
-                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                            placeholder="Enter new password"
-                        />
-                    </div>
-                    <div>
-                        <button type="submit" className="w-full bg-[#6b493d] text-white py-2 rounded-md">
-                            Reset Password
-                        </button>
+                    <div className="flex justify-between items-center">
+                        <button type="submit" className="bg-[#6b493d] text-white py-2 px-4 rounded-md">Verify Code</button>
+                        <button type="button" onClick={handleResend} className="text-[#6b493d] underline ml-2">Resend Code</button>
                     </div>
                 </form>
             </div>

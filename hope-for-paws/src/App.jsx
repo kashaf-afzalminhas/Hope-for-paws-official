@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
+// import React from 'react';
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from './config';
 import { DisclaimerBanner } from './Components/DisclaimerBanner';
+import React from 'react';
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+  // Show admin dashboard layout for all /admin-dashboard* routes
+  const isAdminDashboard = location.pathname.startsWith('/admin-dashboard') && user && user.isAdmin;
+
+  // Redirect admin to /admin-dashboard if not already there
+  React.useEffect(() => {
+    if (user && user.isAdmin && !location.pathname.startsWith('/admin-dashboard')) {
+      navigate('/admin-dashboard', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
+
   const handleSignOut = async () => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -35,6 +49,10 @@ function App() {
       alert('An error occurred while signing out.');
     }
   };
+
+  if (isAdminDashboard) {
+    return <Outlet />;
+  }
 
   return (
     <>

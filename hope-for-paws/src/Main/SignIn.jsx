@@ -63,6 +63,13 @@ const Login = () => {
 
       if (response.ok) {
         if (data.token) {
+          if (data.user && data.user.isAdmin) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            navigate('/admin-dashboard');
+            window.location.reload();
+            return;
+          }
           if (rememberMe) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
@@ -104,6 +111,13 @@ const Login = () => {
           setShowUserTypeModal(true);
           return;
         }
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
@@ -136,6 +150,13 @@ const Login = () => {
       setShowUserTypeModal(false);
       setPendingGoogleUser(null);
       if (response.ok) {
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/");
@@ -146,6 +167,30 @@ const Login = () => {
     } catch {
       setLoading(false);
       setError("An error occurred during Google registration");
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    if (!email || !email.endsWith('@gmail.com')) {
+      setError('Please enter a valid Gmail address to reset password.');
+      return;
+    }
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('resetEmail', email); // Store for next step
+        navigate('/verify-code');
+      } else {
+        setError(data.error || 'Failed to send verification code.');
+      }
+    } catch {
+      setError('An error occurred while sending the verification code.');
     }
   };
 
@@ -240,12 +285,13 @@ const Login = () => {
                   />
                   <label htmlFor="remember-me" className="ml-2 text-sm text-[#4E3B31]">Remember me</label>
                 </div>
-                <NavLink 
-                  to='/forgotpass' 
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium"
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
                 >
                   Forgot Password?
-                </NavLink>
+                </button>
               </div>
 
               <button

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // Adjust the path according to your project structure
 const bcrypt = require('bcryptjs');
-const { signUp, signIn, forgotPassword, verifyCode, updateProfile, signOut, changePassword, verifyRegistrationOTP, resendOTP, googleLogins, completeGoogleRegistration } = require('../controllers/userController');
+const { signUp, signIn, forgotPassword, verifyCode, updateProfile, signOut, changePassword, verifyRegistrationOTP, resendOTP, googleLogins, completeGoogleRegistration, validateUser } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
 router.post('/verify-registration', verifyRegistrationOTP);
@@ -43,6 +43,10 @@ router.post('/change-password', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+router.get('/user/validate', validateUser);
+router.post('/verify-reset-code', require('../controllers/userController').verifyResetCode);
+router.post('/reset-password', require('../controllers/userController').resetPassword);
+router.post('/resend-reset-code', require('../controllers/userController').resendResetCode);
 
 module.exports = router;
 
