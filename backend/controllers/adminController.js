@@ -72,8 +72,69 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// --- Admin Adoptions Management ---
+const getAllAdoptionsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const adoptions = await Adoption.find({})
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    res.json(adoptions);
+  } catch (error) {
+    console.error('Error fetching all adoptions for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get adoptions for a specific user (admin)
+const getUserAdoptionsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { userId } = req.params;
+    const adoptions = await Adoption.find({ userId })
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    res.json(adoptions);
+  } catch (error) {
+    console.error('Error fetching user adoptions for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete any adoption (admin)
+const deleteAdoptionForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { adoptionId } = req.params;
+    const adoption = await Adoption.findById(adoptionId);
+    if (!adoption) return res.status(404).json({ message: 'Adoption not found' });
+    // Optionally: delete related requests
+    await AdoptionRequest.deleteMany({ adId: adoptionId });
+    await adoption.deleteOne();
+    res.json({ message: 'Adoption deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting adoption for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllUsersForAdmin,
   getUserStats,
   deleteUser,
+  getAllAdoptionsForAdmin,
+  getUserAdoptionsForAdmin,
+  deleteAdoptionForAdmin,
 }; 

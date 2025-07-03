@@ -32,6 +32,8 @@ import { useEffect, useState } from 'react';
 import { ADMIN_BASE_URL, AUTH_BASE_URL } from './config';
 import AdminDashboardLayout from './Main/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
+import AdminAdoptions from './Main/AdminAdoptions';
+import AdminUserAdoptions from './Main/AdminUserAdoptions';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -170,6 +172,12 @@ const AdminDashboardRoutes = () => {
           search={search}
           setSearch={setSearch}
         />
+      )}
+      {window.location.pathname === '/admin-dashboard/adoptions' && (
+        <AdminAdoptions />
+      )}
+      {window.location.pathname.startsWith('/admin-dashboard/adoptions/user/') && (
+        <AdminUserAdoptions />
       )}
     </AdminDashboardLayout>
   );
