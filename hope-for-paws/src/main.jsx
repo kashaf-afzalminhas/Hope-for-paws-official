@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
-import { createBrowserRouter, createRoutesFromElements, Route, useNavigate } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
 
@@ -153,32 +153,30 @@ const AdminDashboardRoutes = () => {
 
   return (
     <AdminDashboardLayout admin={admin} onSignOut={handleSignOut}>
-      {window.location.pathname === '/admin-dashboard' && (
-        <AdminDashboard 
-          vets={vets}
-          users={users}
-          admin={admin}
-          onSignOut={handleSignOut}
-        />
-      )}
-      {window.location.pathname === '/admin-dashboard/manage-users' && (
-        <AdminManageUsers
-          vets={vets}
-          users={users}
-          userStats={userStats}
-          fetchUserStats={fetchUserStats}
-          handleDeleteUser={handleDeleteUser}
-          deleting={deleting}
-          search={search}
-          setSearch={setSearch}
-        />
-      )}
-      {window.location.pathname === '/admin-dashboard/adoptions' && (
-        <AdminAdoptions />
-      )}
-      {window.location.pathname.startsWith('/admin-dashboard/adoptions/user/') && (
-        <AdminUserAdoptions />
-      )}
+      <Routes>
+        <Route path="" element={
+          <AdminDashboard 
+            vets={vets}
+            users={users}
+            admin={admin}
+            onSignOut={handleSignOut}
+          />
+        } />
+        <Route path="manage-users" element={
+          <AdminManageUsers
+            vets={vets}
+            users={users}
+            userStats={userStats}
+            fetchUserStats={fetchUserStats}
+            handleDeleteUser={handleDeleteUser}
+            deleting={deleting}
+            search={search}
+            setSearch={setSearch}
+          />
+        } />
+        <Route path="adoptions" element={<AdminAdoptions />} />
+        <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
+      </Routes>
     </AdminDashboardLayout>
   );
 };

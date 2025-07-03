@@ -74,7 +74,7 @@ const AdminAdoptions = () => {
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{adoption.name}</td>
                   <td className="px-4 py-2">{adoption.petType}</td>
                   <td className="px-4 py-2">{adoption.age}</td>
-                  <td className="px-4 py-2 max-w-xs truncate">{adoption.description}</td>
+                  <td className="px-4 py-2">{adoption.description}</td>
                   <td className="px-4 py-2 capitalize">{adoption.status}</td>
                   <td className="px-4 py-2">
                     <img src={adoption.imageUrl} alt={adoption.name} className="h-12 w-12 object-cover rounded" onError={e => {e.target.onerror=null;e.target.src='https://via.placeholder.com/48x48?text=Pet';}} />
