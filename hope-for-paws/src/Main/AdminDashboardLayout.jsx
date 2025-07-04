@@ -19,7 +19,7 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
           Sign Out
         </button>
       </header>
-      <div className="flex flex-1 w-full max-w-7xl mx-auto">
+      <div className="flex flex-1 w-full">
         {/* Sidebar */}
         <aside className="w-56 bg-[#f3e7d8] border-r border-[#e0cfc2] py-8 px-4 flex flex-col gap-4">
           <NavLink
@@ -32,6 +32,14 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
             Dashboard
           </NavLink>
           <NavLink
+            to="/admin-dashboard/manage-users"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            Manage Users
+          </NavLink>
+          <NavLink
             to="/admin-dashboard/adoptions"
             className={({ isActive }) =>
               `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
@@ -40,12 +48,20 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
             Show Adoptions
           </NavLink>
           <NavLink
-            to="/admin-dashboard/manage-users"
+            to="/admin-dashboard/posts"
             className={({ isActive }) =>
-              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
             }
           >
-            Manage Users
+            Show Posts
+          </NavLink>
+          <NavLink
+            to="/admin-dashboard/comments"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            Show Post Comments
           </NavLink>
         </aside>
         {/* Main Content */}

@@ -83,17 +83,41 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
                 <tr key={user._id} className="hover:bg-[#f8f4ed] transition-colors">
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{user.username}</td>
                   <td className="px-4 py-2 text-[#a07855]">{user.email}</td>
-                  <td className="px-4 py-2 text-center">{stats.posts}</td>
-                  <td className="px-4 py-2 text-center">{stats.comments}</td>
-                  <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
-                    {stats.adoptions}
-                    <button
-                      className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
-                      onClick={() => navigate(`/admin-dashboard/adoptions/user/${user._id}`)}
-                      title={`Show ${user.username}'s adoptions`}
-                    >
-                      Show
-                    </button>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {stats.posts}
+                      <button
+                        className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
+                        onClick={() => navigate(`/admin-dashboard/posts/user/${user._id}`)}
+                        title={`Show ${user.username}'s posts`}
+                      >
+                        Show
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {stats.comments}
+                      <button
+                        className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
+                        onClick={() => navigate(`/admin-dashboard/comments/user/${user._id}`)}
+                        title={`Show ${user.username}'s comments`}
+                      >
+                        Show
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {stats.adoptions}
+                      <button
+                        className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
+                        onClick={() => navigate(`/admin-dashboard/adoptions/user/${user._id}`)}
+                        title={`Show ${user.username}'s adoptions`}
+                      >
+                        Show
+                      </button>
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-center">{stats.requests}</td>
                   <td className="px-4 py-2 text-center">

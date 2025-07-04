@@ -6,6 +6,7 @@ const AdminAdoptions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const fetchAdoptions = async () => {
     setLoading(true);
@@ -74,10 +75,16 @@ const AdminAdoptions = () => {
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{adoption.name}</td>
                   <td className="px-4 py-2">{adoption.petType}</td>
                   <td className="px-4 py-2">{adoption.age}</td>
-                  <td className="px-4 py-2">{adoption.description}</td>
+                  <td className="px-4 py-2 min-w-[300px] text-sm align-top">{adoption.description}</td>
                   <td className="px-4 py-2 capitalize">{adoption.status}</td>
                   <td className="px-4 py-2">
-                    <img src={adoption.imageUrl} alt={adoption.name} className="h-12 w-12 object-cover rounded" onError={e => {e.target.onerror=null;e.target.src='https://via.placeholder.com/48x48?text=Pet';}} />
+                    <img
+                      src={adoption.imageUrl}
+                      alt={adoption.name}
+                      className="h-12 w-12 object-cover rounded cursor-pointer hover:shadow-lg"
+                      onClick={() => setSelectedImage(adoption.imageUrl)}
+                      onError={e => {e.target.onerror=null;e.target.src='https://via.placeholder.com/48x48?text=Pet';}}
+                    />
                   </td>
                   <td className="px-4 py-2">
                     {adoption.userId?.username}<br/>
@@ -97,6 +104,14 @@ const AdminAdoptions = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={() => setSelectedImage(null)}>
+          <div className="bg-white p-4 rounded shadow-lg max-w-2xl max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <img src={selectedImage} alt="Large Pet" className="max-h-[70vh] max-w-full rounded" />
+            <button className="mt-4 px-4 py-2 bg-[#6b493d] text-white rounded hover:bg-[#4E3B31]" onClick={() => setSelectedImage(null)}>Close</button>
+          </div>
         </div>
       )}
     </div>

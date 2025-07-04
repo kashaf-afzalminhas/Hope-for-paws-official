@@ -4,6 +4,7 @@ const Comment = require('../models/Comment');
 const Adoption = require('../models/adoptionModel');
 const AdoptionRequest = require('../models/adoptionRequestModel');
 const jwt = require('jsonwebtoken');
+const cloudinary = require('cloudinary').v2;
 
 const getAllUsersForAdmin = async (req, res) => {
   try {
@@ -130,6 +131,159 @@ const deleteAdoptionForAdmin = async (req, res) => {
   }
 };
 
+// Get all posts (admin)
+const getAllPostsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const posts = await Post.find({})
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    // Attach comments to each post
+    const postsWithComments = await Promise.all(
+      posts.map(async (post) => {
+        const comments = await Comment.find({ postId: post._id });
+        const postObject = post.toObject();
+        return {
+          ...postObject,
+          comments: comments
+        };
+      })
+    );
+    res.json(postsWithComments);
+  } catch (error) {
+    console.error('Error fetching all posts for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get posts for a specific user (admin)
+const getUserPostsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { userId } = req.params;
+    const posts = await Post.find({ userId })
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (error) {
+    console.error('Error fetching user posts for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete any post (admin)
+const deletePostForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    // Delete image from Cloudinary
+    if (post.imageUrl) {
+      const publicId = post.imageUrl.split('/').pop().split('.')[0];
+      try { await cloudinary.uploader.destroy(publicId); } catch (e) { console.error('Cloudinary delete error:', e); }
+    }
+    // Delete all comments associated with the post
+    await Comment.deleteMany({ postId: post._id });
+    // Delete the post
+    await post.deleteOne();
+    res.json({ message: 'Post deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting post for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get all comments (admin)
+const getAllCommentsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const comments = await Comment.find({})
+      .populate('userId', 'username email')
+      .populate('postId', 'caption imageUrl')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    console.error('Error fetching all comments for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get comments for a specific user (admin)
+const getUserCommentsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { userId } = req.params;
+    const comments = await Comment.find({ userId })
+      .populate('userId', 'username email')
+      .populate('postId', 'caption imageUrl')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    console.error('Error fetching user comments for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get comments for a specific post (admin)
+const getPostCommentsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { postId } = req.params;
+    const comments = await Comment.find({ postId })
+      .populate('userId', 'username email')
+      .populate('postId', 'caption imageUrl')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    console.error('Error fetching post comments for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete any comment (admin)
+const deleteCommentForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { commentId } = req.params;
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    await comment.deleteOne();
+    res.json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllUsersForAdmin,
   getUserStats,
@@ -137,4 +291,11 @@ module.exports = {
   getAllAdoptionsForAdmin,
   getUserAdoptionsForAdmin,
   deleteAdoptionForAdmin,
+  getAllPostsForAdmin,
+  getUserPostsForAdmin,
+  deletePostForAdmin,
+  getAllCommentsForAdmin,
+  getUserCommentsForAdmin,
+  getPostCommentsForAdmin,
+  deleteCommentForAdmin,
 }; 

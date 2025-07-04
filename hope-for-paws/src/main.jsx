@@ -34,6 +34,11 @@ import AdminDashboardLayout from './Main/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
 import AdminAdoptions from './Main/AdminAdoptions';
 import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import AdminPosts from './Main/AdminPosts';
+import AdminUserPosts from './Main/AdminUserPosts';
+import AdminComments from './Main/AdminComments';
+import AdminUserComments from './Main/AdminUserComments';
+import AdminPostComments from './Main/AdminPostComments';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -155,27 +160,32 @@ const AdminDashboardRoutes = () => {
     <AdminDashboardLayout admin={admin} onSignOut={handleSignOut}>
       <Routes>
         <Route path="" element={
-          <AdminDashboard 
-            vets={vets}
-            users={users}
-            admin={admin}
-            onSignOut={handleSignOut}
-          />
+        <AdminDashboard 
+          vets={vets}
+          users={users}
+          admin={admin}
+          onSignOut={handleSignOut}
+        />
         } />
         <Route path="manage-users" element={
-          <AdminManageUsers
-            vets={vets}
-            users={users}
-            userStats={userStats}
-            fetchUserStats={fetchUserStats}
-            handleDeleteUser={handleDeleteUser}
-            deleting={deleting}
-            search={search}
-            setSearch={setSearch}
-          />
+        <AdminManageUsers
+          vets={vets}
+          users={users}
+          userStats={userStats}
+          fetchUserStats={fetchUserStats}
+          handleDeleteUser={handleDeleteUser}
+          deleting={deleting}
+          search={search}
+          setSearch={setSearch}
+        />
         } />
         <Route path="adoptions" element={<AdminAdoptions />} />
         <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
+        <Route path="posts" element={<AdminPosts />} />
+        <Route path="posts/user/:userId" element={<AdminUserPosts />} />
+        <Route path="comments" element={<AdminComments />} />
+        <Route path="comments/user/:userId" element={<AdminUserComments />} />
+        <Route path="comments/post/:postId" element={<AdminPostComments />} />
       </Routes>
     </AdminDashboardLayout>
   );
