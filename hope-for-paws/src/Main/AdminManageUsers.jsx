@@ -1,8 +1,10 @@
 import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
+  const navigate = useNavigate();
   const filterUsers = (arr) => arr.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
@@ -83,7 +85,16 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
                   <td className="px-4 py-2 text-[#a07855]">{user.email}</td>
                   <td className="px-4 py-2 text-center">{stats.posts}</td>
                   <td className="px-4 py-2 text-center">{stats.comments}</td>
-                  <td className="px-4 py-2 text-center">{stats.adoptions}</td>
+                  <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
+                    {stats.adoptions}
+                    <button
+                      className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
+                      onClick={() => navigate(`/admin-dashboard/adoptions/user/${user._id}`)}
+                      title={`Show ${user.username}'s adoptions`}
+                    >
+                      Show
+                    </button>
+                  </td>
                   <td className="px-4 py-2 text-center">{stats.requests}</td>
                   <td className="px-4 py-2 text-center">
                     <button

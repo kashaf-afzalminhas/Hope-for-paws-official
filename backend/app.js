@@ -101,7 +101,7 @@ app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/auth', authRoutes);
-app.use('/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 //app.use('/animal', animalRoutes);
 //app.use('/adoptions', adoptionRoutes);
 app.use('/api/posts', postRoutes);
