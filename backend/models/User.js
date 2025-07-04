@@ -30,6 +30,19 @@ const userSchema = new mongoose.Schema(
     about: {
       type: String,
       default: ""
+    },
+    profileImage: {
+      type: String,
+      default: ""
+    },
+    status: {
+      type: String,
+      enum: ['online', 'offline', 'away'],
+      default: 'offline'
+    },
+    lastActive: {
+      type: Date,
+      default: Date.now
     }
   },
   { timestamps: true }

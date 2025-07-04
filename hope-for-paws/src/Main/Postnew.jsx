@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from '../config';
+import { getCurrentUserId } from '../lib/utils';
+import { getUserPublicProfile } from './api';
 
 const Postnew = () => {
   const [posts, setPosts] = useState([]);
@@ -12,11 +14,14 @@ const Postnew = () => {
   const [error, setError] = useState("");
   const { userd } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
+  const navigate = useNavigate();
+  const [userProfileImages, setUserProfileImages] = useState({});
   
   // Check user authentication state
   const user =
     JSON.parse(localStorage.getItem("user")) ||
     JSON.parse(sessionStorage.getItem("user"));
+  const currentUserId = getCurrentUserId(user);
     
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({
@@ -44,6 +49,33 @@ const Postnew = () => {
     const interval = setInterval(fetchPosts, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch profile images for all unique userIds in posts
+  useEffect(() => {
+    const fetchProfileImages = async () => {
+      const uniqueUserIds = Array.from(new Set(posts.map(post => post.userId?._id).filter(Boolean)));
+      const missingUserIds = uniqueUserIds.filter(id => !userProfileImages[id]);
+      if (missingUserIds.length === 0) return;
+      const newImages = {};
+      for (const userId of missingUserIds) {
+        try {
+          const response = await getUserPublicProfile(userId);
+          if (response.data && response.data.data && response.data.data.profileImage) {
+            newImages[userId] = response.data.data.profileImage;
+          }
+        } catch (err) {
+          // Ignore errors, fallback to initial
+        }
+      }
+      if (Object.keys(newImages).length > 0) {
+        setUserProfileImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+    if (posts.length > 0) {
+      fetchProfileImages();
+    }
+    // eslint-disable-next-line
+  }, [posts]);
 
   const handleLike = async (postId) => {
     if (!user) return; // Only allow likes if the user is logged in
@@ -128,6 +160,19 @@ const Postnew = () => {
     }
   };
 
+  const handleStartConversation = (postCreatorId, postCreatorUsername) => {
+    if (!user) {
+      navigate('/signin');
+      return;
+    }
+    navigate('/chat', {
+      state: {
+        recipientId: postCreatorId,
+        recipientUsername: postCreatorUsername
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f3ed] flex justify-center items-center">
@@ -209,14 +254,27 @@ const Postnew = () => {
               >
                 {/* Post Header */}
                 <div className="p-3 sm:p-4 flex items-center gap-3 border-b border-[#f5f3ed]">
-                  <div className="h-10 w-10 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0">
-                    <UserCircle className="h-6 w-6 text-[#6b493d]" />
-                  </div>
+                  <Link to={post.userId?._id ? `/profile/public/${post.userId._id}` : '#'} className="h-10 w-10 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {userProfileImages[post.userId?._id] ? (
+                      <img
+                        src={`${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`}
+                        alt={post.userId?.username || 'User'}
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={e => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md">
+                        <span className="text-base font-bold" style={{ color: '#6b493d' }}>
+                          {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </Link>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-bold text-[#4E3B31] font-playfair text-sm sm:text-base truncate">
+                      <Link to={post.userId?._id ? `/profile/public/${post.userId._id}` : '#'} className="font-bold text-[#4E3B31] font-playfair text-sm sm:text-base truncate hover:underline">
                         {post.userId?.username || "Unknown User"}
-                      </h3>
+                      </Link>
                       {post.userId?.isVeterinarian && (
                         <span className="px-2 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
                           Veterinarian
@@ -231,6 +289,25 @@ const Postnew = () => {
                       })}
                     </p>
                   </div>
+                  {/* Enhanced Chat Button - top right, tooltip to the left */}
+                  {user && post.userId?._id !== currentUserId && (
+                    <div className="relative group ml-2 flex items-center">
+                      <button
+                        onClick={() => handleStartConversation(
+                          post.userId?._id,
+                          post.userId?.username
+                        )}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
+                        title={`Message ${post.userId?.username || 'this user'}`}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="text-xs font-medium hidden sm:inline">Chat</span>
+                      </button>
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10">
+                        Start private conversation
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Post Image - Fixed aspect ratio & better containment */}
@@ -257,15 +334,15 @@ const Postnew = () => {
                       <button
                         onClick={() => handleLike(post._id)}
                         className={`flex items-center gap-1.5 transition-colors ${
-                          user && post.likes.includes(user._id)
-                            ? "text-[#6b493d]"
+                          user && post.likes.includes(currentUserId)
+                            ? "text-red-600"
                             : "text-[#a07855] hover:text-[#6b493d]"
                         }`}
                       >
                         <Heart
                           className={`h-5 w-5 transition-transform hover:scale-110 ${
-                            user && post.likes.includes(user._id)
-                              ? "fill-current"
+                            user && post.likes.includes(currentUserId)
+                              ? "fill-current text-red-600"
                               : ""
                           }`}
                         />

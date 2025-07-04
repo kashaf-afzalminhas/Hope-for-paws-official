@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -39,17 +39,14 @@ const Login = () => {
     try {
       const response = await fetch(`${AUTH_BASE_URL}/signin`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       });
 
-      const data = await response.json();
-      setLoading(false);
-
       if (response.ok) {
+        const data = await response.json();
         if (data.token) {
           if (rememberMe) {
             localStorage.setItem('token', data.token);

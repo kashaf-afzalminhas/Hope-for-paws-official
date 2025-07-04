@@ -5,6 +5,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
+const http = require('http');
+const initSocket = require('./config/socket');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -13,6 +15,9 @@ const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const rateLimit = require('express-rate-limit');
+const messageRoutes = require('./routes/message');
+const conversationRoutes = require('./routes/conversation');
+const chatRoutes = require('./routes/chat');
 
 dotenv.config();
 
@@ -31,6 +36,10 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   });
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = initSocket(server);
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -87,12 +96,24 @@ app.use((req, res, next) => {
   }
   next();
 });
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
 
-app.use(limiter);
+// Temporarily disable rate limiting for development
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 1000, // Increased from 100 to 1000 for development
+//   message: 'Too many requests, please try again later.',
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   handler: (req, res) => {
+//     res.status(429).json({
+//       message: 'Too many requests, please try again later.',
+//       retryAfter: Math.ceil(15 * 60 / 1000) // 15 minutes in seconds
+//     });
+//   }
+// });
+
+// app.use(limiter);
+
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -107,9 +128,21 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
+app.use('/api/messages', messageRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/chats', chatRoutes);
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Your routes here
@@ -137,7 +170,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
 

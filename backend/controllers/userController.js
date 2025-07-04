@@ -179,13 +179,9 @@ const verifyRegistrationOTP = async (req, res) => {
 // Validate Token Function
 const validateToken = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
+    // Since this route uses auth middleware, req.user should already be set
+    const userId = req.user.id;
+    const user = await User.findById(userId).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -457,6 +453,192 @@ const resendOTP = async (req, res) => {
   }
 };
 
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+    
+    const user = await User.findById(id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ data: user });
+  } catch (err) {
+    console.error('Error fetching user by ID:', err);
+    res.status(500).json({ message: "Failed to fetch user" });
+  }
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    console.log('getAllUsers endpoint called');
+    console.log('Request headers:', req.headers);
+    console.log('Request body:', req.body);
+    
+    const users = await User.find().select("-password");
+    console.log('Found users:', users.length);
+    console.log('Users data type:', typeof users);
+    console.log('Is users an array?', Array.isArray(users));
+    console.log('First user example:', users[0]);
+    
+    const responseData = { data: users };
+    console.log('Response data structure:', responseData);
+    console.log('Response data type:', typeof responseData);
+    console.log('Response data.data type:', typeof responseData.data);
+    console.log('Is responseData.data an array?', Array.isArray(responseData.data));
+    
+    res.json(responseData);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+};
+
+const searchUsers = async (req, res) => {
+  try {
+    const { query } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    const users = await User.find({
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } }
+      ]
+    }).select("-password");
+
+    res.json({ data: users });
+  } catch (err) {
+    console.error('Error searching users:', err);
+    res.status(500).json({ message: "Failed to search users" });
+  }
+};
+
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        message: "No file uploaded" 
+      });
+    }
+
+    const userId = req.user.id;
+    const filePath = `/uploads/profile-images/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { profileImage: filePath }, 
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: "Profile image uploaded successfully", 
+      data: { profileImage: filePath }
+    });
+  } catch (err) {
+    console.error('Error in uploadProfileImage:', err);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to upload profile image",
+      error: err.message 
+    });
+  }
+};
+
+const getUserPublicProfile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select("username email profileImage phone city about isVeterinarian status lastActive");
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      data: user
+    });
+  } catch (err) {
+    console.error('Error in getUserPublicProfile:', err);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch public profile",
+      error: err.message 
+    });
+  }
+};
+
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ 
+      success: true,
+      data: user
+    });
+  } catch (err) {
+    console.error('Error in getUserProfile:', err);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to fetch user profile",
+      error: err.message 
+    });
+  }
+};
+
+const removeProfileImage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { profileImage: "" },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Profile image removed successfully",
+      data: { profileImage: "" }
+    });
+  } catch (err) {
+    console.error('Error in removeProfileImage:', err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove profile image",
+      error: err.message
+    });
+  }
+};
+
 module.exports = {
   signUp,
   verifyRegistrationOTP,
@@ -468,6 +650,13 @@ module.exports = {
   signOut,
   changePassword,
   resendOTP,
+  getUserById,
+  getAllUsers,
+  searchUsers,
+  uploadProfileImage,
+  getUserPublicProfile,
+  getUserProfile,
+  removeProfileImage,
 };
 
 

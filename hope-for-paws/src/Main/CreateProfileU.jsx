@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash } from 'react-icons/fa';
 import { MdPets  } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
+import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
+
+// Simple Toast component
+const Toast = ({ toasts, removeToast }) => (
+  <div className="fixed top-4 right-4 z-50 space-y-2">
+    {toasts.map((toast, idx) => (
+      <div key={idx} className={`p-4 rounded-lg shadow-lg font-body ${toast.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{toast.message}</div>
+    ))}
+  </div>
+);
 
 const ProfilePage = () => {
   const { isAuthenticated, user } = useAuth();
@@ -17,18 +27,38 @@ const ProfilePage = () => {
     about: '',
     userType: '',
     id: '',
+    profileImage: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentView, setCurrentView] = useState('profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   const [passwords, setPasswords] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [toasts, setToasts] = useState([]);
+  const addToast = (message, type = 'success') => {
+    setToasts((prev) => [...prev, { message, type }]);
+    setTimeout(() => setToasts((prev) => prev.slice(1)), 3500);
+  };
+
+  // Debug function to test token
+  const testToken = async () => {
+    try {
+      console.log('Testing token transmission...');
+      const response = await debugToken();
+      console.log('Token test response:', response);
+    } catch (error) {
+      console.error('Token test error:', error);
+      addToast('Token test failed', 'error');
+    }
+  };
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
@@ -41,12 +71,36 @@ const ProfilePage = () => {
         city: userData.city || '',
         about: userData.about || '',
         userType: userData.userType,
+        profileImage: userData.profileImage || '',
       });
+      
+      // Test token transmission
+      testToken();
     } else {
       setError('No user data found. Please log in.');
       navigate('/signin');
     }
   }, [navigate]);
+
+  // Fetch user profile data including profile image
+  const fetchUserProfile = async () => {
+    try {
+      const response = await getUserProfile();
+      if (response.data && response.data.data) {
+        const userData = response.data.data;
+        setProfile(prev => ({
+          ...prev,
+          profileImage: userData.profileImage || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
 
   const handleProfileChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -56,14 +110,105 @@ const ProfilePage = () => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
   };
 
+  // Handle profile image upload
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file');
+      addToast('Please select a valid image file', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      addToast('Image size should be less than 5MB', 'error');
+      return;
+    }
+
+    setImageLoading(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await uploadProfileImage(formData);
+      
+      if (response.data && response.data.success) {
+        const newImagePath = response.data.data.profileImage;
+        setProfile(prev => ({ ...prev, profileImage: newImagePath }));
+        
+        // Update local storage
+        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        if (userData) {
+          userData.profileImage = newImagePath;
+          localStorage.setItem('user', JSON.stringify(userData));
+          sessionStorage.setItem('user', JSON.stringify(userData));
+        }
+        
+        addToast('Profile image uploaded successfully!');
+      } else {
+        setError('Failed to upload image. Please try again.');
+        addToast('Failed to upload image. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setError('An error occurred while uploading the image.');
+      addToast('An error occurred while uploading the image.', 'error');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  // Handle profile image removal
+  const handleRemoveImage = async () => {
+    if (!profile.profileImage) return;
+
+    setImageLoading(true);
+    setError('');
+
+    try {
+      const response = await removeProfileImage();
+      
+      if (response.data && response.data.success) {
+        setProfile(prev => ({ ...prev, profileImage: '' }));
+        
+        // Update local storage
+        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        if (userData) {
+          userData.profileImage = '';
+          localStorage.setItem('user', JSON.stringify(userData));
+          sessionStorage.setItem('user', JSON.stringify(userData));
+        }
+        
+        addToast('Profile image removed successfully!');
+      } else {
+        setError('Failed to remove image. Please try again.');
+        addToast('Failed to remove image. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Error removing image:', error);
+      setError('An error occurred while removing the image.');
+      addToast('An error occurred while removing the image.', 'error');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
   const handleSaveProfile = async (event) => {
     event.preventDefault();
     setLoading(true);
     setError('');
 
     const { id, phone, city, about } = profile;
+
     if (!id) {
       setError('Please log in again to update profile');
+      addToast('Please log in again to update profile', 'error');
       setLoading(false);
       return;
     }
@@ -89,17 +234,20 @@ const ProfilePage = () => {
           phone: updatedUser.phone || '',
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          userType: updatedUser.userType
+          userType: updatedUser.userType,
+          profileImage: profile.profileImage, // Keep the current profile image
         });
-        alert('Profile updated successfully!');
+        addToast('Profile updated successfully!');
         setCurrentView('profile');
       } else {
         setError(data.message || 'Failed to update profile. Please try again.');
+        addToast(data.message || 'Failed to update profile. Please try again.', 'error');
       }
     } catch (error) {
       setLoading(false);
       console.error('Error:', error);
       setError('An error occurred while updating the profile.');
+      addToast('An error occurred while updating the profile.', 'error');
     }
   };
 
@@ -113,11 +261,13 @@ const ProfilePage = () => {
 
     if (!id) {
       setError('Please log in again to change your password');
+      addToast('Please log in again to change your password', 'error');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
+      addToast('New passwords do not match', 'error');
       setLoading(false);
       return;
     }
@@ -133,16 +283,18 @@ const ProfilePage = () => {
       setLoading(false);
 
       if (response.ok) {
-        alert('Password changed successfully!');
+        addToast('Password changed successfully!');
         setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setCurrentView('profile');
       } else {
         setError(data.error || 'Failed to change password. Please try again.');
+        addToast(data.error || 'Failed to change password. Please try again.', 'error');
       }
     } catch (error) {
       setLoading(false);
       console.error('Error:', error);
       setError('An error occurred while changing the password.');
+      addToast('An error occurred while changing the password.', 'error');
     }
   };
 
@@ -156,13 +308,14 @@ const ProfilePage = () => {
       if (response.ok) {
         localStorage.removeItem('user');
         sessionStorage.removeItem('user');
+        addToast('Signed out successfully!');
         navigate('/signin');
       } else {
-        alert('Failed to sign out. Please try again.');
+        addToast('Failed to sign out. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Error during sign out:', error);
-      alert('An error occurred while signing out.');
+      addToast('An error occurred while signing out.', 'error');
     }
   };
 
@@ -191,6 +344,7 @@ const ProfilePage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
+      <Toast toasts={toasts} removeToast={() => {}} />
       {/* Header */}
       <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
         <div className="flex justify-between items-center max-w-6xl mx-auto">
@@ -215,9 +369,53 @@ const ProfilePage = () => {
           {/* Sidebar */}
           <div className="md:w-1/4 mb-6">
             <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
-              <div className="w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold mx-auto mb-3">
-                {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
+              <div className="relative w-20 h-20 mx-auto mb-3">
+                {profile.profileImage ? (
+                  <img 
+                    src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
+                    alt="Profile"
+                    className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold ${profile.profileImage ? 'hidden' : ''}`}>
+                  {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
+                </div>
+                
+                {/* Image upload button */}
+                <label className="absolute bottom-0 right-0 bg-[#6b493d] text-white rounded-full p-2 cursor-pointer hover:bg-[#57392f] transition-colors">
+                  <FaCamera size={12} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={imageLoading}
+                  />
+                </label>
+                
+                {/* Remove image button */}
+                {profile.profileImage && (
+                  <button
+                    onClick={handleRemoveImage}
+                    disabled={imageLoading}
+                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 cursor-pointer hover:bg-red-600 transition-colors"
+                    title="Remove profile image"
+                  >
+                    <FaTrash size={10} />
+                  </button>
+                )}
               </div>
+              
+              {imageLoading && (
+                <div className="text-sm text-[#a07855] mb-2">
+                  {profile.profileImage ? 'Updating...' : 'Uploading...'}
+                </div>
+              )}
+              
               <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
               <p className="text-[#a07855] text-sm truncate">{profile.email}</p>
 
