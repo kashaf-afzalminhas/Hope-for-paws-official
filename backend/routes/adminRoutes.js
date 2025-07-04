@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getAllUsersForAdmin, getUserStats, deleteUser, getAllAdoptionsForAdmin, getUserAdoptionsForAdmin, deleteAdoptionForAdmin, getAllPostsForAdmin, getUserPostsForAdmin, deletePostForAdmin, getAllCommentsForAdmin, getUserCommentsForAdmin, getPostCommentsForAdmin, deleteCommentForAdmin } = require('../controllers/adminController');
+const { getAllUsersForAdmin, getAllUsersWithStats, getUserStats, deleteUser, getAllAdoptionsForAdmin, getUserAdoptionsForAdmin, deleteAdoptionForAdmin, getAllPostsForAdmin, getUserPostsForAdmin, deletePostForAdmin, getAllCommentsForAdmin, getUserCommentsForAdmin, getPostCommentsForAdmin, deleteCommentForAdmin } = require('../controllers/adminController');
 
 router.get('/users', getAllUsersForAdmin);
+router.get('/users-with-stats', getAllUsersWithStats);
 router.get('/user-stats/:userId', getUserStats);
 router.delete('/user/:userId', deleteUser);
 

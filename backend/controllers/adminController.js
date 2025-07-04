@@ -284,8 +284,67 @@ const deleteCommentForAdmin = async (req, res) => {
   }
 };
 
+// Get all users with stats in a single request
+const getAllUsersWithStats = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    
+    const users = await User.find({});
+    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin);
+    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin);
+    const admins = users.filter(u => u.isAdmin);
+    
+    // Get stats for all users in parallel
+    const allUserIds = [...veterinarians, ...regularUsers, ...admins].map(u => u._id);
+    
+    const statsPromises = allUserIds.map(async (userId) => {
+      try {
+        const [posts, comments, adoptions, requests] = await Promise.all([
+          Post.countDocuments({ userId: userId }),
+          Comment.countDocuments({ userId: userId }),
+          Adoption.countDocuments({ userId: userId }),
+          AdoptionRequest.countDocuments({ requester: userId })
+        ]);
+        return {
+          userId: userId.toString(),
+          stats: { posts, comments, adoptions, requests }
+        };
+      } catch (error) {
+        console.error(`Error fetching stats for user ${userId}:`, error);
+        return {
+          userId: userId.toString(),
+          stats: { posts: 0, comments: 0, adoptions: 0, requests: 0 }
+        };
+      }
+    });
+    
+    const userStats = await Promise.all(statsPromises);
+    
+    // Convert to object for easier lookup
+    const statsObject = {};
+    userStats.forEach(({ userId, stats }) => {
+      statsObject[userId] = stats;
+    });
+    
+    res.json({ 
+      admins, 
+      veterinarians, 
+      regularUsers, 
+      userStats: statsObject 
+    });
+  } catch (error) {
+    console.error('Error fetching users with stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllUsersForAdmin,
+  getAllUsersWithStats,
   getUserStats,
   deleteUser,
   getAllAdoptionsForAdmin,

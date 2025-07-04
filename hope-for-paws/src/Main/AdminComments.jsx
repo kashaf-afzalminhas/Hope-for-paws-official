@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../config';
+import { adminAPI } from './api';
 
 const AdminComments = () => {
   const [comments, setComments] = useState([]);
@@ -11,12 +11,8 @@ const AdminComments = () => {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/comments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to fetch comments');
-      setComments(await res.json());
+      const data = await adminAPI.getAllComments();
+      setComments(data);
     } catch (err) {
       setError(err.message || 'Failed to fetch comments');
     } finally {
@@ -30,12 +26,7 @@ const AdminComments = () => {
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     setDeleting(commentId);
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to delete comment');
+      await adminAPI.deleteComment(commentId);
       setComments(comments.filter(c => c._id !== commentId));
     } catch (err) {
       alert(err.message || 'Failed to delete comment');

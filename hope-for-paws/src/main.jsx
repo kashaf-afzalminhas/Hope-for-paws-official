@@ -58,7 +58,9 @@ const AdminDashboardRoutes = () => {
       navigate('/');
       return;
     }
-    fetch(`${ADMIN_BASE_URL}/users`, {
+    
+    // Use the new bulk API endpoint
+    fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -78,6 +80,10 @@ const AdminDashboardRoutes = () => {
         if (!data) return;
         setVets(data.veterinarians || []);
         setUsers(data.regularUsers || []);
+        // Set all user stats at once
+        if (data.userStats) {
+          setUserStats(data.userStats);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -87,8 +93,17 @@ const AdminDashboardRoutes = () => {
     // eslint-disable-next-line
   }, [navigate]);
 
-  const fetchUserStats = async (userId) => {
-    if (userStats[userId]) return; // Already fetched
+  const fetchUserStats = async (userId, preFetchedStats = null) => {
+    // If stats are already loaded, don't fetch again
+    if (userStats[userId] && !preFetchedStats) return;
+    
+    // If pre-fetched stats are provided, use them
+    if (preFetchedStats) {
+      setUserStats(prev => ({ ...prev, [userId]: preFetchedStats }));
+      return;
+    }
+    
+    // Fallback to individual API call if needed
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     try {
       const res = await fetch(`${ADMIN_BASE_URL}/user-stats/${userId}`, {
@@ -145,7 +160,9 @@ const AdminDashboardRoutes = () => {
           'Authorization': `Bearer ${token}`
         },
       });
-    } catch {}
+    } catch (error) {
+      console.error('Error during signout:', error);
+    }
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     sessionStorage.removeItem('user');

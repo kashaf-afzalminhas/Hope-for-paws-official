@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../config';
+import { adminAPI } from './api';
 import { useNavigate } from 'react-router-dom';
 
 const AdminPosts = () => {
@@ -8,20 +8,14 @@ const AdminPosts = () => {
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [expandedPost, setExpandedPost] = useState(null);
-  const [deletingComment, setDeletingComment] = useState(null);
   const navigate = useNavigate();
 
   const fetchPosts = async () => {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/posts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to fetch posts');
-      setPosts(await res.json());
+      const data = await adminAPI.getAllPosts();
+      setPosts(data);
     } catch (err) {
       setError(err.message || 'Failed to fetch posts');
     } finally {
@@ -35,12 +29,7 @@ const AdminPosts = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     setDeleting(postId);
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${postId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to delete post');
+      await adminAPI.deletePost(postId);
       setPosts(posts.filter(a => a._id !== postId));
     } catch (err) {
       alert(err.message || 'Failed to delete post');
@@ -49,23 +38,7 @@ const AdminPosts = () => {
     }
   };
 
-  const handleDeleteComment = async (commentId, postId) => {
-    if (!window.confirm('Are you sure you want to delete this comment?')) return;
-    setDeletingComment(commentId);
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to delete comment');
-      setPosts(posts => posts.map(post => post._id === postId ? { ...post, comments: post.comments.filter(c => c._id !== commentId) } : post));
-    } catch (err) {
-      alert(err.message || 'Failed to delete comment');
-    } finally {
-      setDeletingComment(null);
-    }
-  };
+
 
   if (loading) return <div className="p-8 text-center">Loading posts...</div>;
   if (error) return <div className="p-8 text-center text-red-600">{error}</div>;

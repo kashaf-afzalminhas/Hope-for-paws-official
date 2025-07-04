@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 
 const UserBadge = ({ userType }) => {
   if (userType === 'regular') return null;
@@ -18,6 +18,10 @@ const UserBadge = ({ userType }) => {
       {badgeLabels[userType]}
     </span>
   ) : null;
+};
+
+UserBadge.propTypes = {
+  userType: PropTypes.oneOf(['regular', 'vet', 'ngo']),
 };
 
 export default UserBadge; 

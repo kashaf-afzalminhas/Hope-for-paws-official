@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../config';
+import { adminAPI } from './api';
 
 const AdminAdoptions = () => {
   const [adoptions, setAdoptions] = useState([]);
@@ -12,12 +12,8 @@ const AdminAdoptions = () => {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/adoptions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to fetch adoptions');
-      setAdoptions(await res.json());
+      const data = await adminAPI.getAllAdoptions();
+      setAdoptions(data);
     } catch (err) {
       setError(err.message || 'Failed to fetch adoptions');
     } finally {
@@ -31,12 +27,7 @@ const AdminAdoptions = () => {
     if (!window.confirm('Are you sure you want to delete this adoption post?')) return;
     setDeleting(adoptionId);
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/adoptions/${adoptionId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to delete adoption');
+      await adminAPI.deleteAdoption(adoptionId);
       setAdoptions(adoptions.filter(a => a._id !== adoptionId));
     } catch (err) {
       alert(err.message || 'Failed to delete adoption');

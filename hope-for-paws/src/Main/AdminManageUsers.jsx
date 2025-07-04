@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { adminAPI } from './api';
 
 const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
   const navigate = useNavigate();
@@ -10,17 +11,36 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
     u.email.toLowerCase().includes(search.toLowerCase())
   );
   const [tab, setTab] = useState('vets');
+  const [loadingStats, setLoadingStats] = useState(false);
 
   // Always get the current users for the selected tab and search
   const currentUsers = tab === 'vets' ? filterUsers(vets) : filterUsers(users);
 
-  // Fetch stats for all users in the current tab on mount or tab/search change
+  // Load all user stats in bulk when component mounts or when users change
   useEffect(() => {
-    currentUsers.forEach(u => {
-      if (!userStats[u._id]) fetchUserStats(u._id);
-    });
-    // eslint-disable-next-line
-  }, [tab, search, currentUsers.length]);
+    const loadAllUserStats = async () => {
+      // Only load if we don't have stats for any users
+      const hasStats = Object.keys(userStats).length > 0;
+      if (hasStats) return;
+
+      setLoadingStats(true);
+      try {
+        const data = await adminAPI.getAllUsersWithStats();
+        // Update the userStats through the parent component
+        if (data.userStats) {
+          Object.entries(data.userStats).forEach(([userId, stats]) => {
+            fetchUserStats(userId, stats); // Pass the stats directly
+          });
+        }
+      } catch (error) {
+        console.error('Error loading user stats:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    loadAllUserStats();
+  }, [vets.length, users.length]); // Only run when user counts change
 
   return (
     <motion.div
@@ -78,7 +98,7 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
             {currentUsers.map(user => {
               const stats = userStats[user._id] && typeof userStats[user._id].posts !== 'undefined'
                 ? userStats[user._id]
-                : { posts: 0, comments: 0, adoptions: 0, requests: 0 };
+                : { posts: loadingStats ? '...' : 0, comments: loadingStats ? '...' : 0, adoptions: loadingStats ? '...' : 0, requests: loadingStats ? '...' : 0 };
               return (
                 <tr key={user._id} className="hover:bg-[#f8f4ed] transition-colors">
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{user.username}</td>
