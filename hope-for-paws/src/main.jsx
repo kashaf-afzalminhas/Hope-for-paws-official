@@ -35,6 +35,7 @@ import AdminDashboardLayout from './Main/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
 import AdminAdoptions from './Main/AdminAdoptions';
 import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import NotificationsPage from './Main/NotificationsPage';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -203,6 +204,7 @@ const router = createBrowserRouter(
       <Route path="/profile" element={<Createprofile />} />
       <Route path="/my-posts" element={<MyPosts />} />
       <Route path="/team" element={<FullTeamPage />} />
+      <Route path="/notifications" element={<NotificationsPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
     </Route>
