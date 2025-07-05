@@ -2,7 +2,6 @@ const express = require('express');
 const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const auth = require('../middleware/auth');
-const { getNotificationService } = require('../socket');
 
 const router = express.Router();
 
@@ -24,20 +23,6 @@ router.post('/:postId', auth, async (req, res) => {
     
     const populatedComment = await Comment.findById(comment._id)
       .populate('userId', 'username isVeterinarian');
-
-    // Send notification to post owner
-    try {
-      console.log('🔔 Attempting to send comment notification...');
-      console.log('🔔 Post owner ID:', post.userId);
-      console.log('🔔 Commenter ID:', req.user.userId);
-      console.log('🔔 Commenter username:', req.user.username);
-      
-      const notificationService = getNotificationService();
-      await notificationService.notifyPostComment(post, populatedComment, req.user);
-      console.log('✅ Comment notification sent successfully');
-    } catch (error) {
-      console.error('❌ Error sending comment notification:', error);
-    }
 
     res.status(201).json(populatedComment);
   } catch (error) {

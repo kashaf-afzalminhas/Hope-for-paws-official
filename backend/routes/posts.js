@@ -4,7 +4,6 @@ const cloudinary = require('cloudinary').v2;
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
-const { getNotificationService } = require('../socket');
 const dotenv = require('dotenv')
 dotenv.config();
 
@@ -139,16 +138,6 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     const populatedPost = await Post.findById(post._id)
       .populate('userId', 'username isVeterinarian');
 
-    // Send notification to vets if user is not a vet
-    if (!req.user.isVeterinarian) {
-      try {
-        const notificationService = getNotificationService();
-        await notificationService.notifyVetsNewPost(populatedPost, req.user);
-      } catch (error) {
-        console.error('Error notifying vets:', error);
-      }
-    }
-
     res.status(201).json(populatedPost);
   } catch (error) {
     console.error('Error creating post:', error);
@@ -248,8 +237,6 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     const likeIndex = post.likes.indexOf(req.user.userId);
-    const wasLiked = likeIndex !== -1;
-    
     if (likeIndex === -1) {
       post.likes.push(req.user.userId);
     } else {
@@ -257,16 +244,6 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     await post.save();
-
-    // Send notification only when liking (not unliking)
-    if (!wasLiked) {
-      try {
-        const notificationService = getNotificationService();
-        await notificationService.notifyPostLike(post, req.user);
-      } catch (error) {
-        console.error('Error sending like notification:', error);
-      }
-    }
 
     // Populate user data before sending response
     const populatedPost = await Post.findById(post._id)
