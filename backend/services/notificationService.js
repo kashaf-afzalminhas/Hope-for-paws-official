@@ -10,7 +10,7 @@ class NotificationService {
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
     
     // Email transporter setup
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.GMAIL_USER,
