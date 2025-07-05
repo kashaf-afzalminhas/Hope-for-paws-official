@@ -24,38 +24,49 @@ exports.createConversation = async (req, res) => {
   console.log('Receiver ID:', receiverId);
 
   try {
-    // Validate senderId and receiverId
-    if (!mongoose.Types.ObjectId.isValid(senderId) || !mongoose.Types.ObjectId.isValid(receiverId)) {
-      console.log('Invalid user IDs:', { senderId, receiverId });
-      return res.status(400).json({ message: "Invalid user IDs" });
+    // Always use ObjectId and sort
+    const sortedParticipants = [senderId, receiverId]
+      .map(id => new mongoose.Types.ObjectId(id))
+      .sort((a, b) => a.toString().localeCompare(b.toString()));
+
+    // Use a transaction for atomicity
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      let conversation = await Conversation.findOne({
+        participants: sortedParticipants
+      }).session(session);
+
+      if (conversation) {
+        await session.commitTransaction();
+        return res.status(200).json({ data: conversation, message: "Using existing conversation" });
+      }
+
+      conversation = new Conversation({
+        participants: sortedParticipants,
+        lastMessage: { text: "Start a conversation...", createdAt: new Date(), senderId: null },
+      });
+
+      await conversation.save({ session });
+      await session.commitTransaction();
+      return res.status(201).json({ data: conversation });
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
     }
-
-    // Always sort participants to ensure uniqueness
-    const sortedParticipants = [senderId, receiverId].sort();
-
-    // Check for existing conversation
-    let conversation = await Conversation.findOne({
-      participants: sortedParticipants,
-    });
-
-    if (conversation) {
-      return res.status(200).json({ data: conversation, message: "Using existing conversation" });
-    }
-
-    // Create new conversation with lastMessage as object
-    conversation = new Conversation({
-      participants: sortedParticipants,
-      lastMessage: { text: "Start a conversation...", createdAt: new Date(), senderId: null },
-    });
-    await conversation.save();
-    res.status(201).json({ data: conversation });
   } catch (err) {
-    // Handle duplicate key error
     if (err.code === 11000) {
-      // Fetch the existing conversation and return it
-      const sortedParticipants = [senderId, receiverId].sort();
+      // Duplicate key error: fetch and return the existing conversation
+      const sortedParticipants = [senderId, receiverId]
+        .map(id => new mongoose.Types.ObjectId(id))
+        .sort((a, b) => a.toString().localeCompare(b.toString()));
       const conversation = await Conversation.findOne({ participants: sortedParticipants });
-      return res.status(200).json({ data: conversation, message: "Using existing conversation (duplicate key)" });
+      if (conversation) {
+        return res.status(200).json({ data: conversation, message: "Using existing conversation (duplicate key)" });
+      }
     }
     console.error("Error creating conversation:", err);
     res.status(500).json({ message: "Failed to start conversation", error: err.message });

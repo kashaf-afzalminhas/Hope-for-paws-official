@@ -12,81 +12,39 @@ const RecentChats = ({
   selectedConversationId,
   users,
   addToast,
+  conversations,
+  setConversations,
 }) => {
-  const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setIsLoading(true);
-        console.log('Fetching conversations for user:', currentUserId);
-        const response = await getUserConversations(currentUserId);
-        console.log('Conversations response:', response);
-        
-        // Ensure response.data is an array
-        const conversationsData = Array.isArray(response?.data?.data) ? response.data.data : [];
-        console.log('Processed conversations data:', conversationsData);
-        
-        setConversations(conversationsData);
-        setFilteredConversations(conversationsData);
-      } catch (error) {
-        console.error('Error fetching conversations:', error);
-        // Set empty array as fallback
-        setConversations([]);
-        setFilteredConversations([]);
-        addToast && addToast({
-          title: 'Error',
-          description: 'Failed to fetch conversations',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Utility to deduplicate by _id
+  const dedupeById = (arr) => {
+    const map = new Map();
+    (arr || []).forEach(item => item && item._id && map.set(item._id, item));
+    return Array.from(map.values());
+  };
 
-    if (currentUserId && users.length > 0) {
-      fetchConversations();
-    } else if (currentUserId && users.length === 0) {
-      // If users array is empty, still try to fetch conversations
-      fetchConversations();
+  // De-duplicate conversations by sorted participants
+  const dedupeByParticipants = (arr) => {
+    const map = new Map();
+    (arr || []).forEach(item => {
+      if (item && item.participants) {
+        const key = item.participants.map(String).sort().join('-');
+        map.set(key, item);
+      }
+    });
+    return Array.from(map.values());
+  };
+
+  useEffect(() => {
+    if (conversations && conversations.length > 0) {
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
     }
-  }, [currentUserId, users]); // Removed addToast from dependencies
-
-  useEffect(() => {
-    const socket = getSocket();
-
-    const handleNewMessage = (message) => {
-      if (message.isReceiver || (message.isSender && message.senderId === currentUserId)) {
-        setConversations((prev) =>
-          (Array.isArray(prev) ? prev : []).map((conv) => {
-            if (conv._id === message.conversationId) {
-              const unreadCount =
-                selectedConversationId === conv._id
-                  ? 0
-                  : message.isReceiver ? (conv.unreadCount || 0) + 1 : conv.unreadCount || 0;
-
-              return {
-                ...conv,
-                lastMessage: message,
-                unreadCount,
-                updatedAt: message.createdAt,
-              };
-            }
-            return conv;
-          })
-        );
-      }
-    };
-
-    socket.on('getMessage', handleNewMessage);
-
-    return () => {
-      socket.off('getMessage', handleNewMessage);
-    };
-  }, [currentUserId, selectedConversationId]);
+  }, [conversations]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -111,7 +69,7 @@ const RecentChats = ({
         )
       );
     }
-  }, [selectedConversationId]);
+  }, [selectedConversationId, setConversations]);
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
@@ -128,19 +86,11 @@ const RecentChats = ({
     return format(date, 'MM/dd/yyyy');
   };
 
-  // De-duplicate conversations by _id
-  const uniqueConversations = [];
-  const seenIds = new Set();
-  for (const conv of filteredConversations) {
-    if (!seenIds.has(conv._id)) {
-      uniqueConversations.push(conv);
-      seenIds.add(conv._id);
-    }
-  }
+  // De-duplicate conversations by sorted participants
+  const uniqueConversations = dedupeByParticipants(filteredConversations);
 
   // Filter: Only show empty conversations to the user who started them
-  const filteredForDisplay = uniqueConversations.filter(conv => {
-    // If the conversation only has the default message and the current user is not the creator, hide it
+  const filteredForDisplay = uniqueConversations.filter((conv) => {
     if (
       conv.lastMessage &&
       conv.lastMessage.text === "Start a conversation..." &&
@@ -152,9 +102,9 @@ const RecentChats = ({
   });
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#fff7f0]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#f5f0e1]">
       {/* Search bar */}
-      <div className="p-4 border-b border-[#a07855]/20 bg-white">
+      <div className="p-4 border-b border-[#a07855]/20 bg-[#f5f0e1]">
         <SearchBar
           onSearch={setSearchQuery}
           placeholder="Search conversations..."
@@ -163,7 +113,7 @@ const RecentChats = ({
       </div>
 
       {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-[#f5f0e1]">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <div className="animate-spin rounded-full h-10 w-10 border-3 border-[#a07855] border-t-transparent mb-4"></div>

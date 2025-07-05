@@ -21,7 +21,13 @@ const {
   getUserPublicProfile,
   getUserProfile,
   removeProfileImage,
-  validateToken
+  validateToken,
+  googleLogins,
+  completeGoogleRegistration,
+  validateUser,
+  verifyResetCode,
+  resetPassword,
+  resendResetCode
 } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
@@ -33,6 +39,7 @@ router.post('/verify-code', verifyCode);
 router.post('/update-profile', updateProfile);
 router.post('/signout', signOut); 
 router.post('/changePassword',changePassword);
+// User management routes
 router.post('/getUserById', getUserById);
 router.post('/getAllUsers', getAllUsers);
 router.post('/searchUsers', searchUsers);
@@ -51,42 +58,20 @@ router.get('/debug-token', (req, res) => {
   });
 });
 
-// New profile management routes (protected with authentication)
+// Profile management routes
 router.post('/upload-profile-image', auth, uploadProfileImage.single('image'), uploadProfileImageController);
 router.get('/profile', auth, getUserProfile);
 router.get('/profile/:id', getUserPublicProfile);
 router.delete('/remove-profile-image', auth, removeProfileImage);
 
-// router.post('/google', googleSignIn);
-// router.post('/validateEmail', validateEmail);
-// Endpoint to change the password
-router.post('/change-password', async (req, res) => {
-  const { id, currentPassword, newPassword } = req.body;
+// Google Auth Routes
+router.post("/login-google", googleLogins);
+router.post("/complete-google-registration", completeGoogleRegistration);
 
-  try {
-    // Fetch the user by ID
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if the current password is correct
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
-    }
-
-    // Hash the new password and update it
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
-
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Validation and reset password routes
+router.post('/verify-reset-code', verifyResetCode);
+router.post('/reset-password', resetPassword);
+router.post('/resend-reset-code', resendResetCode);
 
 module.exports = router;
 

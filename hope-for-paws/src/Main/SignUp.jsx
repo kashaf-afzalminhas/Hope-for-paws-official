@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import Paws from '/Hopeforpaws.jpg';
 import { AUTH_BASE_URL } from '../config';
+import { motion } from "framer-motion";
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import UserTypeModal from '../Components/UserTypeModal';
 
 const SignUp = () => {
   const [username, setUsername] = useState('');
@@ -15,7 +18,18 @@ const SignUp = () => {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showUserTypeModal, setShowUserTypeModal] = useState(false);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { type: "spring", stiffness: 120 }
+    }
+  };
 
   // Email validation
   const validateEmail = (value) => {
@@ -79,7 +93,7 @@ const SignUp = () => {
       } else {
         setError(data.message || 'Registration failed');
       }
-    } catch (error) {
+    } catch {
       setLoading(false);
       setError('An error occurred while signing up. Please try again.');
     }
@@ -96,6 +110,68 @@ const SignUp = () => {
 
   // Filter to show only unmet requirements
   const unmetRequirements = passwordChecks.filter(check => !check.valid);
+
+  const googleLoginHandler = async (googleResponse) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: googleResponse.credential }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      if (response.ok) {
+        if (data.needsUserType) {
+          setPendingGoogleUser({ email: data.email, username: data.username });
+          setShowUserTypeModal(true);
+          return;
+        }
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google registration failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google registration");
+    }
+  };
+  
+  const handleUserTypeSelect = async (isVeterinarian) => {
+    if (!pendingGoogleUser) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/complete-google-registration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: pendingGoogleUser.email,
+          username: pendingGoogleUser.username,
+          isVeterinarian,
+        }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      setShowUserTypeModal(false);
+      setPendingGoogleUser(null);
+      if (response.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google registration failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google registration");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
@@ -227,6 +303,29 @@ const SignUp = () => {
             </button>
           </form>
           
+          <motion.div variants={itemVariants} className="flex justify-center mt-4">
+              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
+                  <GoogleLogin 
+                    onSuccess={(response) => googleLoginHandler(response)}
+                    onError={(error) => console.log(error)}
+                    theme="filled_blue"
+                    shape="pill"
+                    size="large"
+                    text="continue_with"
+                    width="300"
+                    logo_alignment="left"
+                    className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
+                  />
+                </GoogleOAuthProvider>
+              </motion.div>
+
+          <UserTypeModal
+            open={showUserTypeModal}
+            onClose={() => setShowUserTypeModal(false)}
+            onSelect={handleUserTypeSelect}
+            username={pendingGoogleUser?.username}
+          />
+
           <p className="text-sm text-[#4E3B31] text-center mt-4">
             Already have an account?{' '}
             <NavLink to="/signin" className="font-medium text-[#6b493d] hover:text-[#a07855]">

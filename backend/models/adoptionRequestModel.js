@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 
 const adoptionRequestSchema = new mongoose.Schema({
@@ -24,6 +25,10 @@ const adoptionRequestSchema = new mongoose.Schema({
     required: true
   },
   message: {
+    type: String,
+    required: true
+  },
+  petHistoryImage: {
     type: String,
     required: true
   },

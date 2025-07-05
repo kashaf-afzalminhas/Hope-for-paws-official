@@ -213,7 +213,7 @@ const AmbassadorCollaboratorsSection = () => {
     {
       name: "Muhammad Ibraheem Saeed",
       role: "Doctor of Veterinary Medicine (DVM)",
-      image: wasif, // Add image path or leave empty for avatar
+      image: ibraheem, // Add image path or leave empty for avatar
       summary: "Experienced veterinarian with 1 year of professional practice",
       details: {
         education: ["Doctor of Veterinary Medicine (DVM)"],
@@ -286,34 +286,7 @@ const AmbassadorCollaboratorsSection = () => {
         location: "Karachi, Sindh"
       }
     },
-    {
-      name: "Dr. Wasif Gulzar",
-      role: "DVM Student",
-      image: ibraheem, // Add image path or leave empty for avatar
-      summary: "Passionate about blending traditional veterinary medicine with modern technology",
-      details: {
-        education: [
-          "Doctor of Veterinary Medicine (DVM) - 3rd Year",
-          "University of Agriculture Faisalabad, Pakistan",
-          "Focus: Infectious diseases, AMR, Veterinary surgery"
-        ],
-        experience: [
-          "Clinical rotations in diagnostic procedures & animal care",
-          "Published author in veterinary medicine",
-          "Research in infectious diseases & One Health",
-          "Developing Python-based veterinary data analysis"
-        ],
-        achievements: [
-          "Special interest in zoonotic disease control",
-          "Advocate for scientific transparency",
-          "Bridging clinical knowledge with data insights"
-        ]
-      },
-      contact: {
-        phone: "03027463455",
-        email: "gulzarmuhammadwasif@gmail.com"
-      }
-    },
+   
   ];
 
   return (

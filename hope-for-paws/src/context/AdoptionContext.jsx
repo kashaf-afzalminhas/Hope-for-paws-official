@@ -341,51 +341,91 @@ export const AdoptionProvider = ({ children }) => {
         throw new Error('No token provided');
       }
 
-      // Ensure all required fields are present
-      const { name, email, phone, message } = requestData;
+      // Check if requestData is FormData (for image upload) or regular object
+      const isFormData = requestData instanceof FormData;
       
-      if (!name || !email || !phone || !message) {
-        throw new Error('All fields are required');
+      if (isFormData) {
+        // Handle FormData (includes image)
+        console.log('Sending adoption request with FormData:', { postId });
+        
+        const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/request`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type for FormData, let browser set it with boundary
+          },
+          body: requestData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to request adoption');
+        }
+
+        const data = await response.json();
+        console.log('Adoption request response:', data);
+        
+        // Update the post in both states to show it's pending
+        setAllAdoptionPosts(prev => prev.map(post => 
+          post._id === postId ? { ...post, status: 'pending' } : post
+        ));
+        
+        setUserAdoptionPosts(prev => prev.map(post => 
+          post._id === postId ? { ...post, status: 'pending' } : post
+        ));
+
+        // Clear cache to ensure fresh data on next fetch
+        cache.userAdoptionPosts = { data: null, timestamp: 0 };
+        cache.allAdoptionPosts = { data: null, timestamp: 0 };
+
+        return data;
+      } else {
+        // Handle regular JSON data (fallback for backward compatibility)
+        const { name, email, phone, message } = requestData;
+        
+        if (!name || !email || !phone || !message) {
+          throw new Error('All fields are required');
+        }
+
+        console.log('Sending adoption request:', { postId, requestData });
+
+        const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/request`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            message
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to request adoption');
+        }
+
+        const data = await response.json();
+        console.log('Adoption request response:', data);
+        
+        // Update the post in both states to show it's pending
+        setAllAdoptionPosts(prev => prev.map(post => 
+          post._id === postId ? { ...post, status: 'pending' } : post
+        ));
+        
+        setUserAdoptionPosts(prev => prev.map(post => 
+          post._id === postId ? { ...post, status: 'pending' } : post
+        ));
+
+        // Clear cache to ensure fresh data on next fetch
+        cache.userAdoptionPosts = { data: null, timestamp: 0 };
+        cache.allAdoptionPosts = { data: null, timestamp: 0 };
+
+        return data;
       }
-
-      console.log('Sending adoption request:', { postId, requestData });
-
-      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/request`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          phone,
-          message
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to request adoption');
-      }
-
-      const data = await response.json();
-      console.log('Adoption request response:', data);
-      
-      // Update the post in both states to show it's pending
-      setAllAdoptionPosts(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: 'pending' } : post
-      ));
-      
-      setUserAdoptionPosts(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: 'pending' } : post
-      ));
-
-      // Clear cache to ensure fresh data on next fetch
-      cache.userAdoptionPosts = { data: null, timestamp: 0 };
-      cache.allAdoptionPosts = { data: null, timestamp: 0 };
-
-      return data;
     } catch (error) {
       console.error('Error requesting adoption:', error);
       throw error;

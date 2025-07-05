@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
+import UserTypeModal from '../Components/UserTypeModal';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,8 +15,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const [showUserTypeModal, setShowUserTypeModal] = useState(false);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { type: "spring", stiffness: 120 }
+    }
+  };
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('savedEmail');
@@ -48,6 +61,13 @@ const Login = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.token) {
+          if (data.user && data.user.isAdmin) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            navigate('/admin-dashboard');
+            window.location.reload();
+            return;
+          }
           if (rememberMe) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
@@ -66,10 +86,110 @@ const Login = () => {
       } else {
         setError(data.error || 'Invalid email or password');
       }
-    } catch (error) {
+    } catch {
       setLoading(false);
       setError('An error occurred while signing in');
     }    
+  };
+
+  const googleLoginHandler = async (googleResponse) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: googleResponse.credential }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      if (response.ok) {
+        if (data.needsUserType) {
+          setPendingGoogleUser({ email: data.email, username: data.username });
+          setShowUserTypeModal(true);
+          return;
+        }
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google login failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google login");
+    }
+  };
+
+  const handleUserTypeSelect = async (isVeterinarian) => {
+    if (!pendingGoogleUser) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/complete-google-registration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: pendingGoogleUser.email,
+          username: pendingGoogleUser.username,
+          isVeterinarian,
+        }),
+      });
+      const data = await response.json();
+      setLoading(false);
+      setShowUserTypeModal(false);
+      setPendingGoogleUser(null);
+      if (response.ok) {
+        if (data.user && data.user.isAdmin) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          navigate('/admin-dashboard');
+          window.location.reload();
+          return;
+        }
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
+        window.location.reload();
+      } else {
+        setError(data.message || "Google registration failed");
+      }
+    } catch {
+      setLoading(false);
+      setError("An error occurred during Google registration");
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    if (!email || !email.endsWith('@gmail.com')) {
+      setError('Please enter a valid Gmail address to reset password.');
+      return;
+    }
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        localStorage.setItem('resetEmail', email); // Store for next step
+        navigate('/verify-code');
+      } else {
+        setError(data.error || 'Failed to send verification code.');
+      }
+    } catch {
+      setError('An error occurred while sending the verification code.');
+    }
   };
 
   return (
@@ -163,12 +283,13 @@ const Login = () => {
                   />
                   <label htmlFor="remember-me" className="ml-2 text-sm text-[#4E3B31]">Remember me</label>
                 </div>
-                <NavLink 
-                  to='/forgotpass' 
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium"
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
                 >
                   Forgot Password?
-                </NavLink>
+                </button>
               </div>
 
               <button
@@ -179,9 +300,30 @@ const Login = () => {
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
+            <motion.div variants={itemVariants} className="flex justify-center">
+              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
+                <GoogleLogin 
+                  onSuccess={(response) => googleLoginHandler(response)}
+                  onError={(error) => console.log(error)}
+                  theme="filled_blue"
+                  shape="pill"
+                  size="large"
+                  text="continue_with"
+                  width="300"
+                  logo_alignment="left"
+                  className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
+                />
+              </GoogleOAuthProvider>
+            </motion.div>
+            <UserTypeModal
+              open={showUserTypeModal}
+              onClose={() => setShowUserTypeModal(false)}
+              onSelect={handleUserTypeSelect}
+              username={pendingGoogleUser?.username}
+            />
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <NavLink to="/signup" className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
                 Sign up
               </NavLink>

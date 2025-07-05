@@ -15,8 +15,22 @@ const upload = multer({ storage });
 
 // Create an adoption post
 router.post('/', auth, upload.single('image'), async (req, res) => {
+  console.log('=== ADOPTION POST ROUTE HIT ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', req.headers);
+  
   try {
-    const { name, age, petType, description } = req.body;
+    const { name, age, petType, description, location } = req.body;
+    
+    // Debug logging
+    console.log('Received adoption post data:');
+    console.log('name:', name);
+    console.log('age:', age);
+    console.log('petType:', petType);
+    console.log('description:', description);
+    console.log('location:', location);
+    console.log('Full req.body:', req.body);
 
     if (!req.file) {
       return res.status(400).json({ message: 'Image is required' });
@@ -33,12 +47,21 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       age,
       petType,
       description,
+      location: location || 'Location not specified',
       imageUrl: uploadResponse.secure_url,
       status: 'available' // Default status
     });
 
+    console.log('Saving adoption post with location:', adoptionPost.location);
     await adoptionPost.save();
-    res.status(201).json(adoptionPost);
+    console.log('Adoption post saved successfully');
+    
+    // Fetch the saved post to ensure all fields are included
+    const savedPost = await Adoption.findById(adoptionPost._id).populate('userId', 'username');
+    console.log('Saved post with all fields:', savedPost);
+    console.log('Response being sent:', JSON.stringify(savedPost, null, 2));
+    
+    res.status(201).json(savedPost);
   } catch (error) {
     console.error('Error creating adoption post:', error);
     res.status(500).json({ message: 'Server error' });
@@ -60,7 +83,6 @@ router.get('/', async (req, res) => {
 });
 
 // Get adoption posts for a specific user
-// In adoptionRoutes.js
 router.get('/user/:userId', auth, async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -74,7 +96,7 @@ router.get('/user/:userId', auth, async (req, res) => {
       query = query.populate({
         path: 'requests',
         model: 'AdoptionRequest',
-        select: 'name email phone message status'
+        select: 'name email phone message status petHistoryImage createdAt' // Ensure petHistoryImage is included
       });
     }
 
@@ -188,11 +210,11 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, description, status } = req.body;
+    const { name, age, petType, description, status, location } = req.body;
 
     const adoptionPost = await Adoption.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
-      { name, age, petType, description, status },
+      { name, age, petType, description, status, location },
       { new: true }
     );
 
@@ -235,11 +257,21 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Create adoption request
-router.post('/:id/request', auth, async (req, res) => {
+router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, res) => {
   try {
     const { name, email, phone, message } = req.body;
     const adId = req.params.id;
     const requesterId = req.user.userId;
+
+    // Validate required fields
+    if (!name || !email || !phone || !message) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // Validate image upload
+    if (!req.file) {
+      return res.status(400).json({ message: 'Pet history image is required' });
+    }
 
     const adoptionPost = await Adoption.findById(adId);
     if (!adoptionPost) {
@@ -264,6 +296,11 @@ router.post('/:id/request', auth, async (req, res) => {
       return res.status(400).json({ message: 'You already have an active request for this pet' });
     }
 
+    // Upload image to Cloudinary
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+
     const adoptionRequest = new AdoptionRequest({
       adId,
       requester: requesterId,
@@ -271,6 +308,7 @@ router.post('/:id/request', auth, async (req, res) => {
       email,
       phone,
       message,
+      petHistoryImage: uploadResponse.secure_url,
       status: 'pending'
     });
 
@@ -288,6 +326,7 @@ router.post('/:id/request', auth, async (req, res) => {
       petName: adoptionPost.name,
       petType: adoptionPost.petType,
       petImage: adoptionPost.imageUrl,
+      image: uploadResponse.secure_url, // Store the pet history image
       message: message
     });
 
@@ -315,9 +354,10 @@ router.get('/:id/requests', auth, async (req, res) => {
 
     const requests = await AdoptionRequest.find({ adId: req.params.id })
       .populate('requester', 'username email')
-      .sort({ createdAt: -1 })
-      .lean();
+      .select('name email phone message status petHistoryImage requester createdAt')
+      .sort({ createdAt: -1 });
 
+    console.log('Fetched requests:', JSON.stringify(requests, null, 2));
     res.json(requests);
   } catch (error) {
     console.error('Error fetching adoption requests:', error);

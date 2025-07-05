@@ -41,7 +41,7 @@ function shouldShowDateSeparator(messages, currentIndex) {
   );
 }
 
-const ChatWindow = ({ conversationId, currentUser, otherUser, onBack }) => {
+const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage }) => {
   console.log('ChatWindow props:', { conversationId, currentUser, otherUser, onBack });
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -178,6 +178,10 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack }) => {
       // Emit socket event with normalized structure
       sendSocketMessage(serverMsg);
       console.log('Server message after send:', serverMsg);
+      // Update recent chats list immediately
+      if (updateConversationLastMessage) {
+        updateConversationLastMessage(conversationId, serverMsg);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       // Rollback optimistic update
@@ -188,7 +192,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack }) => {
   console.log('Messages state:', messages);
 
   return (
-    <div className="flex flex-col h-full bg-[#fff7f0]">
+    <div className="flex flex-col h-full bg-[#f5f0e1]">
       {/* Header */}
       <div className="p-4 border-b border-[#a07855]/20 flex items-center gap-3">
         {isMobile && onBack && (

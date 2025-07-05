@@ -179,7 +179,7 @@ const Navbar = ({ handleSignOut }) => {
                 `block py-2 ${isActive ? activeStyle : ''}`
               }
             >
-              Chat
+              Inbox
             </NavLink>
           </li>
         </ul>
@@ -224,7 +224,7 @@ const Navbar = ({ handleSignOut }) => {
           </li>
           <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
             <NavLink to="/chat" className={({ isActive }) => isActive ? activeStyle : ''}>
-              Chat
+              Inbox
             </NavLink>
           </li>
         </ul>

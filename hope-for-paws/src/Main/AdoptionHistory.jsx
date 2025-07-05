@@ -29,14 +29,14 @@ const AdoptionHistory = () => {
   }, [user]);
 
   useEffect(() => {
-    if (!effectiveUser) {
+    if (!user) {
       setLoading(false);
       setError('Please log in to view your adoption history');
       return;
     }
     
     fetchHistory();
-  }, [effectiveUser]);
+  }, [user]);
 
   const fetchHistory = async () => {
     try {

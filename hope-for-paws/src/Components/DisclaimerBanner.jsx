@@ -9,7 +9,7 @@ export const DisclaimerBanner = () => {
     "Aspirin/Paracetamol toxic to pets - keep out of reach",
     "Complete full antibiotic courses to prevent resistance",
     "Maintain vaccine boosters for optimal immunity",
-    "We remain neutral in third-party activities - All adoptions are at adopter's own responsibility"
+   
   ];
 
   if (!isOpen) return null;

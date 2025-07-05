@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const messageRoutes = require('./routes/message');
 const conversationRoutes = require('./routes/conversation');
 const chatRoutes = require('./routes/chat');
+const adminRoutes = require('./routes/adminRoutes');
 
 dotenv.config();
 
@@ -121,11 +122,12 @@ app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 //app.use('/animal', animalRoutes);
 //app.use('/adoptions', adoptionRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
-app.use('/api/faqRoutes', faqRoutes);
+app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
 app.use('/api/messages', messageRoutes);

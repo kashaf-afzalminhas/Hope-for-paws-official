@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../config';
+
 const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [petType, setPetType] = useState('');
   const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { user, isAuthenticated, loading } = useAuth();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -30,20 +34,45 @@ const AdoptionForm = () => {
     setError('');
     setSuccess(false);
 
-    // Get the JWT token from localStorage or sessionStorage
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
+    // Check authentication status
+    if (!isAuthenticated || !user) {
       setError('You must be logged in to create an adoption post.');
       setIsSubmitting(false);
       return;
     }
+
+    // Get the JWT token from localStorage or sessionStorage
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      setError('Authentication token is missing. Please log in again.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    console.log('Submitting form with token:', token.substring(0, 10) + '...');
+    console.log('Current user:', user);
 
     const formData = new FormData();
     formData.append('name', name);
     formData.append('age', age);
     formData.append('petType', petType);
     formData.append('description', description);
+    formData.append('location', location);
     formData.append('image', image);
+
+    // Debug: Log what's being sent
+    console.log('Form data being sent:');
+    console.log('name:', name);
+    console.log('age:', age);
+    console.log('petType:', petType);
+    console.log('description:', description);
+    console.log('location:', location);
+    console.log('image:', image ? image.name : 'No image');
+
+    // Debug: Check FormData contents
+    for (let [key, value] of formData.entries()) {
+      console.log('FormData entry:', key, value);
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/adoptions`, {
@@ -67,6 +96,7 @@ const AdoptionForm = () => {
       setAge('');
       setPetType('');
       setDescription('');
+      setLocation('');
       setImage(null);
       setImagePreview(null);
       setError('');
@@ -78,6 +108,36 @@ const AdoptionForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while auth is initializing
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8B5A2B]"></div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
+        <p className="mb-2">You need to be logged in to create an adoption post.</p>
+        <p className="text-sm mb-4">Please log in and try again.</p>
+        
+        {/* Debug information */}
+        <div className="text-xs text-gray-600 mt-4 p-2 bg-gray-100 rounded">
+          <p><strong>Debug Info:</strong></p>
+          <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
+          <p>user: {user ? 'present' : 'null'}</p>
+          <p>localStorage token: {localStorage.getItem('token') ? 'present' : 'missing'}</p>
+          <p>sessionStorage token: {sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
+          <p>localStorage user: {localStorage.getItem('user') ? 'present' : 'missing'}</p>
+          <p>sessionStorage user: {sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg">
@@ -122,6 +182,20 @@ const AdoptionForm = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
             />
           </div>
+        </div>
+        
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-[#4E3B31]">
+            Location
+          </label>
+          <input
+            type="text"
+            placeholder="e.g., Lahore, Pakistan"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            required
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
+          />
         </div>
         
         <div className="space-y-2">

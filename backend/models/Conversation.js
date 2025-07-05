@@ -28,7 +28,10 @@ const ConversationSchema = new mongoose.Schema({
 // Ensure participants are always stored in sorted order for uniqueness
 ConversationSchema.pre('save', function(next) {
   if (this.participants && Array.isArray(this.participants)) {
-    this.participants = this.participants.map(id => id.toString()).sort();
+    this.participants = this.participants
+      .map(id => id.toString())
+      .sort()
+      .map(id => new mongoose.Types.ObjectId(id));
   }
   next();
 });

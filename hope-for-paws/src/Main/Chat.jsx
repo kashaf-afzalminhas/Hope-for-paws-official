@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
-import { getAllUsers, createConversation, getConversationBetweenUsers } from '../Main/api';
+import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
 import { getSocket, initSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
 
@@ -48,6 +48,8 @@ const ChatPage = () => {
   const isMounted = useRef(true);
   const [lastHandledRecipientId, setLastHandledRecipientId] = useState(null);
   const [isSelectingConversation, setIsSelectingConversation] = useState(false);
+  const [pendingConversationUserId, setPendingConversationUserId] = useState(null);
+  const [conversations, setConversations] = useState([]);
 
   // Debug logging
   console.log('ChatPage render:', {
@@ -259,15 +261,17 @@ const ChatPage = () => {
   }, [currentUserId, selectedConversation]);
 
   // Move handleSelectUser above the useEffect that uses it
-  const handleSelectUser = async (userObj) => {
-    console.log('handleSelectUser called with:', userObj);
-    if (selectedUser && getCurrentUserId(selectedUser) === getCurrentUserId(userObj)) return;
-    if (isSelectingConversation) {
-      console.log('Already selecting conversation, skipping...');
+  const handleSelectUser = React.useCallback(async (userObj) => {
+    const otherUserId = getCurrentUserId(userObj);
+
+    // Prevent duplicate calls
+    if (isSelectingConversation || pendingConversationUserId === otherUserId) {
       return;
     }
+
+    setPendingConversationUserId(otherUserId);
     setIsSelectingConversation(true);
-    setSelectedUser(userObj);
+
     try {
       if (!currentUserId) {
         addToast({
@@ -277,99 +281,60 @@ const ChatPage = () => {
         });
         return;
       }
-      const otherUserId = getCurrentUserId(userObj);
-      console.log('Calling getConversationBetweenUsers with:', currentUserId, otherUserId);
+
+      // Check if conversation already exists in state
+      const existingConv = conversations.find(conv => {
+        const participants = conv.members || conv.participants || [];
+        return participants.map(String).includes(String(currentUserId)) &&
+               participants.map(String).includes(String(otherUserId));
+      });
+
+      if (existingConv) {
+        const otherUser = users.find(u => u._id === otherUserId) || userObj;
+        setSelectedConversation(existingConv);
+        setSelectedUser(otherUser);
+        if (isMobile) setShowChatMobile(true);
+        return;
+      }
+
+      // Proceed with API call if not found locally
       const response = await getConversationBetweenUsers(currentUserId, otherUserId);
-      console.log('getConversationBetweenUsers response:', response);
       let conversation;
-      const convData = response.data?.data;
-      if (convData) {
+
+      if (response.data?.data) {
         conversation = new ConversationWithUser(
-          convData._id,
-          convData.members,
-          convData.createdAt,
-          convData.updatedAt,
-          convData.lastMessage,
-          convData.unreadCount,
+          response.data.data._id,
+          response.data.data.members,
+          response.data.data.createdAt,
+          response.data.data.updatedAt,
+          response.data.data.lastMessage,
+          response.data.data.unreadCount,
           userObj
         );
-        console.log('Existing conversation found:', conversation);
       } else {
-        try {
-          const newConvResponse = await createConversation(currentUserId, otherUserId);
-          const newConvData = newConvResponse.data?.data;
-          if (!newConvData) {
-            throw new Error('Failed to create conversation');
-          }
-          conversation = new ConversationWithUser(
-            newConvData._id,
-            newConvData.members,
-            newConvData.createdAt,
-            newConvData.updatedAt,
-            newConvData.lastMessage,
-            newConvData.unreadCount,
-            userObj
-          );
-          console.log('New conversation created:', conversation);
-        } catch (error) {
-          // If error is duplicate key or conversation already exists, fetch it again
-          const isDuplicate = error?.response?.data?.message?.toLowerCase().includes('duplicate') ||
-                              error?.response?.data?.error?.toLowerCase().includes('duplicate');
-          if (isDuplicate) {
-            // Try to fetch the conversation again
-            const retryResponse = await getConversationBetweenUsers(currentUserId, otherUserId);
-            const retryData = retryResponse.data?.data;
-            if (retryData) {
-              conversation = new ConversationWithUser(
-                retryData._id,
-                retryData.members,
-                retryData.createdAt,
-                retryData.updatedAt,
-                retryData.lastMessage,
-                retryData.unreadCount,
-                userObj
-              );
-              setSelectedConversation(conversation);
-              // Find the other user in the users list (not the current user)
-              const otherUserIdInConv = conversation.members.find(id => id !== currentUserId);
-              let fullUserObj = users.find(u => getCurrentUserId(u) === String(otherUserIdInConv));
-              if (!fullUserObj) {
-                fullUserObj = userObj;
-              }
-              setSelectedUser(fullUserObj);
-              if (isMobile) setShowChatMobile(true);
-              setIsSelectingConversation(false);
-              return;
-            }
-          }
-          // Silently handle the error without showing toast
-          console.error('Conversation creation failed:', error);
-          setIsSelectingConversation(false);
-          return;
-        }
+        // Create new conversation
+        const newConvResponse = await createConversation(currentUserId, otherUserId);
+        conversation = new ConversationWithUser(
+          newConvResponse.data.data._id,
+          newConvResponse.data.data.members,
+          newConvResponse.data.data.createdAt,
+          newConvResponse.data.data.updatedAt,
+          newConvResponse.data.data.lastMessage,
+          newConvResponse.data.data.unreadCount,
+          userObj
+        );
       }
+
       setSelectedConversation(conversation);
-      // Find the other user in the users list (not the current user)
-      const otherUserIdInConv = conversation.members.find(id => id !== currentUserId);
-      let fullUserObj = users.find(u => getCurrentUserId(u) === String(otherUserIdInConv));
-      if (!fullUserObj) {
-        // fallback to userObj (temp user)
-        fullUserObj = userObj;
-        console.log('Using fallback userObj for selectedUser:', fullUserObj);
-      } else {
-        console.log('Found full user object for selectedUser:', fullUserObj);
-      }
-      setSelectedUser(fullUserObj);
+      setSelectedUser(userObj);
       if (isMobile) setShowChatMobile(true);
-      console.log('Set selectedConversation:', conversation);
-      console.log('Set selectedUser:', fullUserObj);
     } catch (error) {
       console.error('Error getting/creating conversation:', error);
-      // Silently handle the error without showing toast
     } finally {
       setIsSelectingConversation(false);
+      setPendingConversationUserId(null);
     }
-  };
+  }, [currentUserId, users, isMobile, conversations, addToast]);
 
   // Only call getConversationBetweenUsers when recipientId or currentUserId changes
   useEffect(() => {
@@ -448,6 +413,52 @@ const ChatPage = () => {
 
   const handleBackToList = () => setShowChatMobile(false);
 
+  // Update last message in conversations
+  const updateConversationLastMessage = (conversationId, message) => {
+    setConversations(prev => {
+      const exists = prev.some(conv => conv._id === conversationId);
+      if (exists) {
+        return prev.map(conv =>
+          conv._id === conversationId
+            ? { ...conv, lastMessage: message, updatedAt: message.createdAt }
+            : conv
+        );
+      } else {
+        // Try to get the other userId from selectedUser or message
+        let otherUserId = null;
+        if (selectedUser && selectedUser._id) {
+          otherUserId = selectedUser._id;
+        } else if (message && message.senderId && message.senderId !== currentUserId) {
+          otherUserId = message.senderId;
+        }
+        // Minimal conversation object
+        const newConv = {
+          _id: conversationId,
+          members: [currentUserId, otherUserId].filter(Boolean),
+          participants: [currentUserId, otherUserId].filter(Boolean),
+          lastMessage: message,
+          updatedAt: message.createdAt,
+        };
+        return [newConv, ...prev];
+      }
+    });
+  };
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!currentUserId) return;
+      try {
+        const response = await getUserConversations(currentUserId);
+        const conversationsData = Array.isArray(response?.data?.data) ? response.data.data : [];
+        setConversations(conversationsData);
+      } catch (error) {
+        setConversations([]);
+        // Optionally show a toast or error
+      }
+    };
+    fetchConversations();
+  }, [currentUserId]);
+
   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center h-screen font-body text-primary">
@@ -501,7 +512,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="flex h-screen bg-[#fff7f0]">
+    <div className="flex h-screen bg-[#f5f0e1]">
       {/* Toast notifications */}
       {toasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2">
@@ -533,25 +544,6 @@ const ChatPage = () => {
             <h2 className="text-xl font-heading font-bold text-[#2c1810]">
               Messages
             </h2>
-            {/* {isMobile && (
-              <button
-                onClick={() => setShowChatMobile(true)}
-                className="p-2 rounded-full hover:bg-[#a07855]/10"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-[#2c1810]"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            )} */}
           </div>
         </div>
 
@@ -563,13 +555,15 @@ const ChatPage = () => {
             selectedConversationId={selectedConversation?._id}
             users={users}
             addToast={addToast}
+            conversations={conversations}
+            setConversations={setConversations}
           />
         </div>
       </div>
 
       {/* Main Chat Area */}
       <div className={`
-        flex-1 flex flex-col bg-[#fff7f0]
+        flex-1 flex flex-col bg-[#f5f0e1]
         ${isMobile && !showChatMobile ? 'hidden' : 'flex'}
       `}>
         {isSelectingConversation ? (
@@ -585,6 +579,7 @@ const ChatPage = () => {
               currentUser={user}
               otherUser={selectedUser}
               onBack={handleBackToList}
+              updateConversationLastMessage={updateConversationLastMessage}
             />
           </>
         ) : (
