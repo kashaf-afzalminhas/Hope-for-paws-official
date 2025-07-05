@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
+import { SocketProvider } from './context/SocketContext'; // Import SocketProvider
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -34,6 +35,7 @@ import AdminDashboardLayout from './Main/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
 import AdminAdoptions from './Main/AdminAdoptions';
 import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import NotificationsPage from './Main/NotificationsPage';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -204,6 +206,7 @@ const router = createBrowserRouter(
       <Route path="/team" element={<FullTeamPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
+      <Route path="/notifications" element={<NotificationsPage />} />
     </Route>
   )
 );
@@ -211,7 +214,9 @@ const router = createBrowserRouter(
 const AppWithProviders = () => (
   <AuthProvider>
     <AdoptionProvider>
-      <RouterProvider router={router} />
+      <SocketProvider>
+        <RouterProvider router={router} />
+      </SocketProvider>
     </AdoptionProvider>
   </AuthProvider>
 );

@@ -5,6 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
+const http = require('http');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -14,6 +15,8 @@ const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const rateLimit = require('express-rate-limit');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const { initializeSocket } = require('./socket');
 
 dotenv.config();
 
@@ -109,6 +112,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
+app.use('/api/notifications', notificationRoutes);
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
@@ -139,7 +143,12 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+initializeSocket(server);
+
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
 

@@ -8,6 +8,7 @@ const cloudinary = require('cloudinary').v2;
 const mongoose = require('mongoose');
 const AdoptionHistory = require('../models/adoptionHistoryModel');
 const User = require('../models/User');
+const { getNotificationService } = require('../socket');
 
 // Configure Multer
 const storage = multer.memoryStorage();
@@ -332,6 +333,27 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
 
     await adoptionHistory.save();
 
+    // Send notification to adoption post owner
+    try {
+      console.log('🔔 Attempting to send adoption request notification...');
+      console.log('🔔 Adoption post owner ID:', adoptionPost.userId);
+      console.log('🔔 Requester ID:', requesterId);
+      
+      const notificationService = getNotificationService();
+      const requester = await User.findById(requesterId);
+      
+      if (!requester) {
+        console.error('❌ Requester not found:', requesterId);
+        return;
+      }
+      
+      console.log('🔔 Requester found:', requester.username);
+      await notificationService.notifyAdoptionRequest(adoptionPost, requester);
+      console.log('✅ Adoption request notification sent successfully');
+    } catch (error) {
+      console.error('❌ Error sending adoption request notification:', error);
+    }
+
     res.status(201).json(adoptionRequest);
   } catch (error) {
     console.error('Error creating adoption request:', error);
@@ -410,25 +432,34 @@ router.put('/requests/:requestId', auth, async (req, res) => {
       // Update adoption post status to adopted
       await Adoption.findByIdAndUpdate(adoptionRequest.adId._id, { status: 'adopted' });
 
-      // Update other pending history entries to rejected
-      await AdoptionHistory.updateMany(
-        {
-          petId: adoptionRequest.adId._id,
-          requestId: { $ne: requestId },
-          status: 'pending'
-        },
-        {
-          status: 'rejected',
-          responseDate: new Date()
-        }
-      );
-    }
-
-    res.json(adoptionRequest);
-  } catch (error) {
-    console.error('Error updating request status:', error);
-    res.status(500).json({ message: 'Server error' });
+          // Update other pending history entries to rejected
+    await AdoptionHistory.updateMany(
+      {
+        petId: adoptionRequest.adId._id,
+        requestId: { $ne: requestId },
+        status: 'pending'
+      },
+      {
+        status: 'rejected',
+        responseDate: new Date()
+      }
+    );
   }
+
+  // Send notification to requester about status update
+  try {
+    const notificationService = getNotificationService();
+    const adoption = await Adoption.findById(adoptionRequest.adId._id);
+    await notificationService.notifyAdoptionRequestResponse(adoptionRequest, adoption, status === 'accepted');
+  } catch (error) {
+    console.error('Error sending adoption response notification:', error);
+  }
+
+  res.json(adoptionRequest);
+} catch (error) {
+  console.error('Error updating request status:', error);
+  res.status(500).json({ message: 'Server error' });
+}
 });
 
 module.exports = router;
