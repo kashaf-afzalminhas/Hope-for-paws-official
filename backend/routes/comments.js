@@ -21,6 +21,11 @@ router.post('/:postId', auth, async (req, res) => {
 
     await comment.save();
     
+    // Send notification for new comment
+    if (global.notificationService) {
+      global.notificationService.notifyPostComment(req.params.postId, req.user.userId, comment._id);
+    }
+    
     const populatedComment = await Comment.findById(comment._id)
       .populate('userId', 'username isVeterinarian');
 

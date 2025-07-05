@@ -332,6 +332,11 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
 
     await adoptionHistory.save();
 
+    // Send notification for adoption request
+    if (global.notificationService) {
+      global.notificationService.notifyAdoptionRequest(adId, requesterId, adoptionRequest._id);
+    }
+
     res.status(201).json(adoptionRequest);
   } catch (error) {
     console.error('Error creating adoption request:', error);
@@ -395,6 +400,16 @@ router.put('/requests/:requestId', auth, async (req, res) => {
         responseDate: new Date()
       }
     );
+
+    // Send notification for adoption request status change
+    if (global.notificationService) {
+      global.notificationService.notifyAdoptionRequestStatus(
+        adoptionRequest.adId._id, 
+        adoptionRequest.requester, 
+        status, 
+        adoptionRequest.adId.name
+      );
+    }
 
     // If request is accepted, mark other requests as rejected
     if (status === 'accepted') {

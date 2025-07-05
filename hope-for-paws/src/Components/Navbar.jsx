@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaUser, FaPaw } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
+import NotificationBell from './NotificationBell';  
 
 const Navbar = ({ handleSignOut }) => {
   const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
@@ -46,6 +47,7 @@ const Navbar = ({ handleSignOut }) => {
             <span className="text-[#a07855] font-medium text-sm mr-2">
               {user.username}
             </span>
+            <NotificationBell />
             <button 
               onClick={toggleProfile}
               aria-label="Toggle Profile"
@@ -220,6 +222,7 @@ const Navbar = ({ handleSignOut }) => {
               <span className="text-[#a07855] font-medium hidden lg:inline-block">
                 Welcome {user.username}
               </span>
+              <NotificationBell />
               <div
                 className="relative"
                 onMouseEnter={handleMouseEnter}

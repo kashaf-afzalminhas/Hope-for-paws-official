@@ -5,6 +5,9 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -12,8 +15,12 @@ const postRoutes = require('./routes/posts');
 const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
+const notificationRoutes = require('./routes/notifications');
 const rateLimit = require('express-rate-limit');
 const adminRoutes = require('./routes/adminRoutes');
+
+// Import notification service
+const NotificationService = require('./services/notificationService');
 
 dotenv.config();
 
@@ -32,6 +39,58 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   });
 
 const app = express();
+const server = createServer(app);
+
+// Socket.IO setup
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'https://www.hopeforpaws.club',
+      //'http://localhost:3000', // Removed as requested
+      'https://hope-for-paws-official-backend.vercel.app',
+      'http://localhost:5173' // Keep this for local frontend
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true
+});
+
+// Initialize notification service
+const notificationService = new NotificationService(io);
+
+// Socket.IO authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return next(new Error('Authentication error'));
+  }
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.userId);
+  
+  // Add user to notification service
+  notificationService.addUserSocket(socket.userId, socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.userId);
+    notificationService.removeUserSocket(socket.userId);
+  });
+});
+
+// Make notification service available globally
+global.notificationService = notificationService;
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -108,7 +167,9 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
+
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
@@ -139,7 +200,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
 
