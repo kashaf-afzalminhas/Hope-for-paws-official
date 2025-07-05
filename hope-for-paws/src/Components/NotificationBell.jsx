@@ -21,7 +21,7 @@ const NotificationBell = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/notifications?limit=10`, {
+      const response = await fetch(`${API_BASE_URL}/notifications?limit=10`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -41,7 +41,7 @@ const NotificationBell = () => {
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/notifications/unread-count`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -59,7 +59,7 @@ const NotificationBell = () => {
   const markAsRead = async (notificationId) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -84,7 +84,7 @@ const NotificationBell = () => {
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -103,7 +103,7 @@ const NotificationBell = () => {
   const deleteNotification = async (notificationId) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
