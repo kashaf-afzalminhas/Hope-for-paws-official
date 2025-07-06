@@ -3,8 +3,16 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Notification = require('../models/Notification');
 
+// Debug middleware for notification routes
+router.use((req, res, next) => {
+  console.log(`Notification route accessed: ${req.method} ${req.path}`);
+  console.log('Headers:', req.headers);
+  next();
+});
+
 // Get user notifications
 router.get('/', auth, async (req, res) => {
+  console.log('GET /notifications - User ID:', req.user.userId);
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
@@ -16,6 +24,8 @@ router.get('/', auth, async (req, res) => {
       .skip(skip);
 
     const total = await Notification.countDocuments({ recipient: req.user.userId });
+
+    console.log(`Found ${notifications.length} notifications for user ${req.user.userId}`);
 
     res.json({
       notifications,
@@ -34,11 +44,13 @@ router.get('/', auth, async (req, res) => {
 
 // Get unread count
 router.get('/unread-count', auth, async (req, res) => {
+  console.log('GET /notifications/unread-count - User ID:', req.user.userId);
   try {
     const count = await Notification.countDocuments({
       recipient: req.user.userId,
       read: false
     });
+    console.log(`Unread count for user ${req.user.userId}: ${count}`);
     res.json({ count });
   } catch (error) {
     console.error('Error getting unread count:', error);
