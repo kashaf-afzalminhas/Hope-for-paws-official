@@ -4,7 +4,7 @@ const AdoptionHistory = require('../models/history'); // Import AdoptionHistory 
 // Controller for handling adoption requests and saving to history
 exports.createAdoptionRequest = async (req, res) => {
   try {
-    const { fname, lname, animal, owner, address, number, cnic, reason } = req.body;
+    const { fname, lname, animal, owner, address, number, cnic, reason, petHistoryImage } = req.body;
 
     // Save the adoption request
     const newAdoptReq = new AdoptReq({
@@ -16,13 +16,14 @@ exports.createAdoptionRequest = async (req, res) => {
       number,
       cnic,
       reason,
+      petHistoryImage
     });
 
     await newAdoptReq.save();
 
     // Save relevant data to AdoptionHistory
     const newHistory = new AdoptionHistory({
-      image: '', // Add an image field if needed or leave empty
+      image: petHistoryImage || '', // Use the uploaded image
       animalName: animal,
       ownerName: owner, // Combine first and last name for owner
       age: 'N/A', // Optional: Replace with actual age if available

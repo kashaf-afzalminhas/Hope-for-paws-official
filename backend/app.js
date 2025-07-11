@@ -5,6 +5,9 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -12,8 +15,12 @@ const postRoutes = require('./routes/posts');
 const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
+const notificationRoutes = require('./routes/notifications');
 const rateLimit = require('express-rate-limit');
 const adminRoutes = require('./routes/adminRoutes');
+
+// Import notification service
+const NotificationService = require('./services/notificationService');
 
 dotenv.config();
 
@@ -32,6 +39,76 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   });
 
 const app = express();
+const server = createServer(app);
+
+// Socket.IO setup
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'https://www.hopeforpaws.club',
+      'https://hope-for-paws-official-backend.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 10000,
+  maxHttpBufferSize: 1e6
+});
+
+// Initialize notification service
+const notificationService = new NotificationService(io);
+
+// Socket.IO authentication middleware
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      console.log('Socket connection attempt without token');
+      return next(new Error('Authentication error: No token provided'));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded || !decoded.userId) {
+      console.log('Socket connection attempt with invalid token');
+      return next(new Error('Authentication error: Invalid token'));
+    }
+    
+    socket.userId = decoded.userId;
+    console.log('Socket authentication successful for user:', socket.userId);
+    next();
+  } catch (error) {
+    console.error('Socket authentication error:', error.message);
+    return next(new Error('Authentication error: ' + error.message));
+  }
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('User connected via Socket.IO:', socket.userId);
+  
+  // Add user to notification service
+  notificationService.addUserSocket(socket.userId, socket.id);
+
+  socket.on('disconnect', (reason) => {
+    console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
+    notificationService.removeUserSocket(socket.userId);
+  });
+
+  socket.on('error', (error) => {
+    console.error('Socket error for user:', socket.userId, error);
+  });
+});
+
+// Make notification service available globally
+global.notificationService = notificationService;
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -46,9 +123,11 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: [
     'https://www.hopeforpaws.club',
-    //'http://localhost:3000', // Removed as requested
     'https://hope-for-paws-official-backend.vercel.app',
-    'http://localhost:5173' // Keep this for local frontend
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
@@ -90,7 +169,21 @@ app.use((req, res, next) => {
 });
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 5000, // Increased from 1000 to 5000 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks and test endpoints
+    return req.path === '/health' || 
+           req.path === '/socket-health' || 
+           req.path === '/api/notifications/test' ||
+           req.path === '/api/test' ||
+           req.path === '/test';
+  }
 });
 
 app.use(limiter);
@@ -100,6 +193,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Add route logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Add a test endpoint for notifications (without auth)
+app.get('/api/notifications/test', (req, res) => {
+  res.json({ 
+    message: 'Notification endpoint is accessible',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 //app.use('/animal', animalRoutes);
@@ -108,10 +216,30 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
+
 // Root route handler
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    socketConnections: io.engine.clientsCount
+  });
+});
+
+// Socket.IO health check
+app.get('/socket-health', (req, res) => {
+  res.json({ 
+    socketConnections: io.engine.clientsCount,
+    notificationServiceActive: !!notificationService
+  });
 });
 
 // Your routes here
@@ -139,7 +267,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
 

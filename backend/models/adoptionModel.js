@@ -30,6 +30,15 @@ const adoptionSchema = new mongoose.Schema({
     type: String,
     enum: ['available', 'pending', 'adopted'],
     default: 'available'
+  },
+  requests: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdoptionRequest'
+  }],
+  location: {
+    type: String,
+    required: true,
+    default: 'Location not specified'
   }
 }, { timestamps: true });
 

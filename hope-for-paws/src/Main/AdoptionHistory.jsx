@@ -29,14 +29,14 @@ const AdoptionHistory = () => {
   }, [user]);
 
   useEffect(() => {
-    if (!effectiveUser) {
+    if (!user) {
       setLoading(false);
       setError('Please log in to view your adoption history');
       return;
     }
     
     fetchHistory();
-  }, [effectiveUser]);
+  }, [user]);
 
   const fetchHistory = async () => {
     try {
@@ -114,7 +114,7 @@ const AdoptionHistory = () => {
     );
   }
 
-  if (error) {
+  if (error && (!history || history.length === 0)) {
     return (
       <div className="bg-red-100 text-red-700 p-4 rounded-lg">
         <p className="font-semibold">Error</p>

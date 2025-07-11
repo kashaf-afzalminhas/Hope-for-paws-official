@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PostUploadForm from './PostUploadForm';
 import { FaHeart, FaComment, FaEdit, FaTrash } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
-import UserBadge from '../components/UserBadge';
+import UserBadge from '../Components/UserBadge';
 
 const Postpages = () => {
   const [animals, setAnimals] = useState([]);

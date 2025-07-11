@@ -252,7 +252,7 @@ const verifyCode = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user || user.verificationCode !== code) {
+    if (!user || user.verificationCode.trim() !== code.trim()) {
       return res.status(400).json({ error: 'Invalid verification code.' });
     }
 
@@ -482,7 +482,7 @@ googleLogins = async (req, res) => {
     }
 
     //const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
-    const CLIENT_ID = '495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com';
+    const CLIENT_ID = "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
     const client = new OAuth2Client(CLIENT_ID);
 
     const ticket = await client.verifyIdToken({

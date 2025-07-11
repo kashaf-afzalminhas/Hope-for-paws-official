@@ -1,28 +1,24 @@
-<<<<<<< HEAD
-//------const express = require('express');
-//------const Adoptcontroller = require('../controllers/adoptreqcontroller');
-const AdoptReq = require('../models/adoptreq');
-
-//------const app = express();
-//------const router = express.Router();
-
-//mongoose.connect("mongodb://127.0.0.1:27017/Adoptions");))
-// Middleware to parse JSON request bodies
-//-------app.use(express.json());
-
-/*app.post('/submit', async (req, res) => {
-    const { fname, lname, animal,owner,address,number,cnic,createdAt,reason } = req.body;
-    const newData = new Data({
-        fname, 
-        lname, 
-=======
 // /routes/adoptreqroute.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 const AdoptReq = require('../models/adoptreq'); // Import the AdoptReq model
+const adoptreqcontroller = require('../controllers/adoptreqcontroller');
+
+// Configure Cloudinary
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET 
+});
+
+// Configure Multer
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Route to handle POST requests to create an adoption request
-router.post('/', async (req, res) => {
+router.post('/', upload.single('petHistoryImage'), async (req, res) => {
     // Destructure data from the request body
     const { fname, lname, animal, owner, address, number, cnic, reason } = req.body;
 
@@ -31,78 +27,31 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Create a new adoption request entry
-    const newAdoptReq = new AdoptReq({
-        fname,
-        lname,
->>>>>>> 37331b43ffca00de6551be2034f6bfb33eb19237
-        animal,
-        owner,
-        address,
-        number,
-        cnic,
-<<<<<<< HEAD
-        createdAt,
-        reason
-    });
+    // Check if image was uploaded
+    if (!req.file) {
+        return res.status(400).json({ error: "Pet history image is required" });
+    }
 
     try {
-        await newData.save();
-        res.json({ message: 'Data saved successfully' });
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server Error' });
-      }
-    });
-    
-    app.listen(port, () => {
-      console.log(`Server listening on port ${port}`);
-    });*/
+        // Upload image to Cloudinary
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+        const uploadResponse = await cloudinary.uploader.upload(dataURI);
 
-    //-------router.get('/', Adoptcontroller.getadoptreq);
+        // Create a new adoption request entry
+        const newAdoptReq = new AdoptReq({
+            fname,
+            lname,
+            animal,
+            owner,
+            address,
+            number,
+            cnic,
+            reason,
+            petHistoryImage: uploadResponse.secure_url
+        });
 
-
-//------module.exports = router;
-const express = require('express');
-const router = express.Router();
-//-----const Adoptcontroller = require('../controllers/adoptreqcontroller');
-const adoptreqcontroller = require('../controllers/adoptreqcontroller');
-
-// Route to handle adoption request submissions
-router.post('/', adoptreqcontroller.createAdoptionRequest);
-//------router.get('/', async (req, res) => {
-  router.post('/', async (req, res) => {
-    //------const adoptreq = await Adoptcontroller.getadoptreq();
-    const { fname, lname, animal, owner, address, number, cnic, reason } = req.body;
-  const newAdoptReq = new AdoptReq({
-    fname,
-    lname,
-    animal,
-    owner,
-    address,
-    number,
-    cnic,
-    reason,
-  });
-  //----const adoptreq = await Adoptcontroller.getadoptreq(req.body);
-  //-----res.status(200).json(adoptreq);
-  //-----} catch (error) {
-  //------ res.status(500).json({ message: error.message });
-  try {
-    await newAdoptReq.save();
-    res.status(201).json({ message: 'Request submitted successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server Error' });
-  }
-});
-    module.exports = router;
-=======
-        reason,
-    });
-
-    // Save the new adoption request to the database
-    try {
+        // Save the new adoption request to the database
         await newAdoptReq.save();
         res.status(201).json({ message: 'Request submitted successfully' });
     } catch (err) {
@@ -111,6 +60,28 @@ router.post('/', adoptreqcontroller.createAdoptionRequest);
     }
 });
 
+// Route to handle adoption request submissions using controller
+router.post('/controller', upload.single('petHistoryImage'), async (req, res) => {
+    try {
+        // Upload image to Cloudinary if provided
+        let petHistoryImage = '';
+        if (req.file) {
+            const b64 = Buffer.from(req.file.buffer).toString('base64');
+            const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+            const uploadResponse = await cloudinary.uploader.upload(dataURI);
+            petHistoryImage = uploadResponse.secure_url;
+        }
+
+        // Add the image URL to the request body
+        req.body.petHistoryImage = petHistoryImage;
+        
+        // Call the controller
+        await adoptreqcontroller.createAdoptionRequest(req, res);
+    } catch (error) {
+        console.error('Error in adoption request route:', error);
+        res.status(500).json({ error: 'Server Error' });
+    }
+});
+
 // Export the router to be used in your main app
 module.exports = router;
->>>>>>> 37331b43ffca00de6551be2034f6bfb33eb19237

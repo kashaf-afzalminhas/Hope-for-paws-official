@@ -12,6 +12,8 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
     phone: '',
     message: ''
   });
+  const [petHistoryImage, setPetHistoryImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,6 +54,33 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
     }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size should be less than 5MB');
+        return;
+      }
+
+      setPetHistoryImage(file);
+      setError('');
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -68,6 +97,11 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
         throw new Error('All fields are required');
       }
 
+      // Validate image is uploaded
+      if (!petHistoryImage) {
+        throw new Error('Please upload an image as proof of your previous history with pets');
+      }
+
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
@@ -81,7 +115,16 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       }
 
       console.log('Submitting adoption request with data:', formData);
-      await requestAdoption(postId, formData);
+      
+      // Create FormData to send both form data and image
+      const submitData = new FormData();
+      submitData.append('name', formData.name);
+      submitData.append('email', formData.email);
+      submitData.append('phone', formData.phone);
+      submitData.append('message', formData.message);
+      submitData.append('petHistoryImage', petHistoryImage);
+      
+      await requestAdoption(postId, submitData);
       
       // Show success message
       alert('Adoption request submitted successfully! The pet owner will review your request.');
@@ -98,7 +141,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-[#6b493d] mb-4">Request Adoption</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -148,6 +191,30 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
               rows={4}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b493d] focus:ring-[#6b493d]"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Pet History Proof (Image) <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Please upload an image showing your previous experience with pets (max 5MB)
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#6b493d] file:text-white hover:file:bg-[#5a3d32]"
+            />
+            {imagePreview && (
+              <div className="mt-2">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="w-32 h-32 object-cover rounded-md border"
+                />
+              </div>
+            )}
           </div>
 
           {error && (

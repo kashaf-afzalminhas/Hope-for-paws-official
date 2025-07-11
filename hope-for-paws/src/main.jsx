@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
+import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -34,6 +35,7 @@ import AdminDashboardLayout from './Main/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
 import AdminAdoptions from './Main/AdminAdoptions';
 import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import NotificationsPage from './Main/NotificationsPage';
 import AdminPosts from './Main/AdminPosts';
 import AdminUserPosts from './Main/AdminUserPosts';
 import AdminComments from './Main/AdminComments';
@@ -229,6 +231,7 @@ const router = createBrowserRouter(
       <Route path="/profile" element={<Createprofile />} />
       <Route path="/my-posts" element={<MyPosts />} />
       <Route path="/team" element={<FullTeamPage />} />
+      <Route path="/notifications" element={<NotificationsPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
     </Route>
@@ -238,7 +241,9 @@ const router = createBrowserRouter(
 const AppWithProviders = () => (
   <AuthProvider>
     <AdoptionProvider>
-      <RouterProvider router={router} />
+      <NotificationProvider>
+        <RouterProvider router={router} />
+      </NotificationProvider>
     </AdoptionProvider>
   </AuthProvider>
 );
