@@ -448,11 +448,84 @@ const AdoptionList = () => {
                     )}
                   </div>
                 </div>
+                {/* Action Buttons - Fixed at bottom */}
+                <div className="space-y-3 mt-auto">
+                  {/* View Details Button - Always visible */}
+                  <button 
+                    onClick={() => setViewDetailsPost(post)}
+                    className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 border border-gray-200 hover:border-gray-300"
+                  >
+                    View Details
+                  </button>
+                  
+                  {isOwner && (
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => deleteAdoptionPost(post._id)}
+                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 border border-red-200 hover:border-red-300"
+                      >
+                        Delete Post
+                      </button>
+                      <button 
+                        onClick={() => {/* Open edit form */}}
+                        className="flex-1 bg-[#e2d6cb] hover:bg-[#d6c7b8] text-[#6F4C3E] py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 border border-[#d6c7b8] hover:border-[#c9b8a9]"
+                      >
+                        Edit Post
+                      </button>
+                    </div>
+                  )}
+                  
+                  {canRequest && !isOwner && (
+                    <button 
+                      onClick={() => handleRequestClick(post)}
+                      className="w-full bg-gradient-to-r from-[#8B5A2B] to-[#6F4C3E] hover:from-[#6F4C3E] hover:to-[#5a3a2e] text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    >
+                      Request Adoption
+                    </button>
+                  )}
+                  
+                  {hasPendingRequest && !isOwner && (
+                    <div className="text-center py-3 bg-yellow-50 text-yellow-700 rounded-lg border border-yellow-200">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">Adoption request pending review</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {isAdopted && (
+                    <div className="text-center py-3 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">This pet has found a forever home!</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Adoption Request Modal */}
+      {selectedPost && (
+        <AdoptionRequestForm
+          postId={selectedPost._id}
+          onClose={() => setSelectedPost(null)}
+        />
+      )}
+      {/* View Details Modal */}
+      {viewDetailsPost && (
+        <ViewDetailsModal 
+          post={viewDetailsPost}
+          onClose={() => setViewDetailsPost(null)}
+        />
+      )}
     </div>
   );
 };
