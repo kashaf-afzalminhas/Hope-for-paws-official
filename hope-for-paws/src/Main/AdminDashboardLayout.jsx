@@ -48,6 +48,14 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
             Show Adoptions
           </NavLink>
           <NavLink
+            to="/admin-dashboard/adoption-requests"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            Show Adoption Requests
+          </NavLink>
+          <NavLink
             to="/admin-dashboard/posts"
             className={({ isActive }) =>
               `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`

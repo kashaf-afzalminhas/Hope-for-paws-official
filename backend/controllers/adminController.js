@@ -342,6 +342,67 @@ const getAllUsersWithStats = async (req, res) => {
   }
 };
 
+// --- Admin Adoption Requests Management ---
+const getAllAdoptionRequestsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    
+    const requests = await AdoptionRequest.find({})
+      .populate('requester', 'username email')
+      .populate('adId', 'name petType imageUrl')
+      .sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching all adoption requests for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get adoption requests for a specific user (admin)
+const getUserAdoptionRequestsForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { userId } = req.params;
+    const requests = await AdoptionRequest.find({ requester: userId })
+      .populate('requester', 'username email')
+      .populate('adId', 'name petType imageUrl')
+      .sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching user adoption requests for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete any adoption request (admin)
+const deleteAdoptionRequestForAdmin = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id);
+    if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
+    const { requestId } = req.params;
+    const request = await AdoptionRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: 'Adoption request not found' });
+    
+    // Delete the request
+    await request.deleteOne();
+    res.json({ message: 'Adoption request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting adoption request for admin:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getAllUsersForAdmin,
   getAllUsersWithStats,
@@ -357,4 +418,7 @@ module.exports = {
   getUserCommentsForAdmin,
   getPostCommentsForAdmin,
   deleteCommentForAdmin,
+  getAllAdoptionRequestsForAdmin,
+  getUserAdoptionRequestsForAdmin,
+  deleteAdoptionRequestForAdmin,
 }; 

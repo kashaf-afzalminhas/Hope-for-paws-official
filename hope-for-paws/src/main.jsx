@@ -41,6 +41,8 @@ import AdminUserPosts from './Main/AdminUserPosts';
 import AdminComments from './Main/AdminComments';
 import AdminUserComments from './Main/AdminUserComments';
 import AdminPostComments from './Main/AdminPostComments';
+import AdminAdoptionRequests from './Main/AdminAdoptionRequests';
+import AdminUserAdoptionRequests from './Main/AdminUserAdoptionRequests';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -200,6 +202,8 @@ const AdminDashboardRoutes = () => {
         } />
         <Route path="adoptions" element={<AdminAdoptions />} />
         <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
+        <Route path="adoption-requests" element={<AdminAdoptionRequests />} />
+        <Route path="adoption-requests/user/:userId" element={<AdminUserAdoptionRequests />} />
         <Route path="posts" element={<AdminPosts />} />
         <Route path="posts/user/:userId" element={<AdminUserPosts />} />
         <Route path="comments" element={<AdminComments />} />

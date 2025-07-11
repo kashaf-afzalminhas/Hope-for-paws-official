@@ -144,6 +144,36 @@ export const adminAPI = {
     return response;
   },
 
+  // Get all adoption requests
+  async getAllAdoptionRequests() {
+    const cacheKey = 'admin-all-adoption-requests';
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+
+    const token = getToken();
+    const response = await apiFetch(`${API_BASE_URL}/admin/adoption-requests`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    setCachedData(cacheKey, response);
+    return response;
+  },
+
+  // Get adoption requests for a specific user
+  async getUserAdoptionRequests(userId) {
+    const cacheKey = `admin-user-adoption-requests-${userId}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+
+    const token = getToken();
+    const response = await apiFetch(`${API_BASE_URL}/admin/adoption-requests/user/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    setCachedData(cacheKey, response);
+    return response;
+  },
+
   // Delete operations
   async deleteUser(userId) {
     const token = getToken();
@@ -180,6 +210,15 @@ export const adminAPI = {
       headers: { Authorization: `Bearer ${token}` }
     });
     cache.delete('admin-all-comments');
+  },
+
+  async deleteAdoptionRequest(requestId) {
+    const token = getToken();
+    await apiFetch(`${API_BASE_URL}/admin/adoption-requests/${requestId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    cache.delete('admin-all-adoption-requests');
   },
 
   // Clear all cache

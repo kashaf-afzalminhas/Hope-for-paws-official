@@ -411,7 +411,7 @@ export const NotificationProvider = ({ children }) => {
           timeout: 5000
         }
       );
-
+      
       // Only mark notifications that are currently in the list as read
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))

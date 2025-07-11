@@ -139,7 +139,18 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-center">{stats.requests}</td>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {stats.requests}
+                      <button
+                        className="ml-2 px-2 py-1 text-xs bg-[#e2d6cb] text-[#6b493d] rounded hover:bg-[#d6c7b8] border border-[#a07855]"
+                        onClick={() => navigate(`/admin-dashboard/adoption-requests/user/${user._id}`)}
+                        title={`Show ${user.username}'s adoption requests`}
+                      >
+                        Show
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-2 text-center">
                     <button
                       className="bg-red-100 border border-red-300 text-red-700 px-3 py-1 rounded hover:bg-red-200 text-xs font-semibold"
