@@ -41,6 +41,12 @@ export const NotificationProvider = ({ children }) => {
     if (token && user && !initializationRef.current) {
       initializationRef.current = true;
       
+      // Ensure token is just the JWT, not 'Bearer ...'
+      let socketToken = token;
+      if (socketToken && socketToken.startsWith('Bearer ')) {
+        socketToken = socketToken.replace('Bearer ', '');
+      }
+      console.log('Socket.IO token being sent:', socketToken); // Debug log
       // First check if backend is available
       const checkBackendHealth = async () => {
         try {
@@ -75,7 +81,7 @@ export const NotificationProvider = ({ children }) => {
             }
 
             const newSocket = io(API_BASE_URL.replace('/api', ''), {
-              auth: { token },
+              auth: { token: socketToken },
               transports: ['polling', 'websocket'],
               forceNew: true,
               timeout: 10000,
@@ -102,7 +108,7 @@ export const NotificationProvider = ({ children }) => {
 
             newSocket.on('notification', (notification) => {
               console.log('New notification received:', notification);
-              setNotifications(prev => [notification, ...prev]);
+              setNotifications(prev => [{ ...notification, read: false }, ...prev]); // Always unread
               setUnreadCount(prev => prev + 1);
               
               // Show browser notification if permission is granted
@@ -405,7 +411,8 @@ export const NotificationProvider = ({ children }) => {
           timeout: 5000
         }
       );
-      
+
+      // Only mark notifications that are currently in the list as read
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       );

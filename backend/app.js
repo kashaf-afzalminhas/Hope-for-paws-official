@@ -70,18 +70,19 @@ const notificationService = new NotificationService(io);
 io.use((socket, next) => {
   try {
     const token = socket.handshake.auth.token;
+    console.log('Socket.IO token received:', token); // Debug log
     if (!token) {
       console.log('Socket connection attempt without token');
       return next(new Error('Authentication error: No token provided'));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded || !decoded.userId) {
+    const userId = decoded.userId || decoded.id; // Accept either field
+    if (!userId) {
       console.log('Socket connection attempt with invalid token');
       return next(new Error('Authentication error: Invalid token'));
     }
-    
-    socket.userId = decoded.userId;
+    socket.userId = userId;
     console.log('Socket authentication successful for user:', socket.userId);
     next();
   } catch (error) {
