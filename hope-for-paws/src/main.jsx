@@ -27,23 +27,23 @@ import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
 import AdoptionHistory from './Main/AdoptionHistory';
 import FullTeamPage from './Main/FullTeamPage'; // Import FullTeamPage component
-import AdminDashboard from './Main/AdminDashboard';
-import AdminManageUsers from './Main/AdminManageUsers';
+import AdminDashboard from './admin/AdminDashboard.jsx';
+import AdminManageUsers from './admin/AdminManageUsers';
 import { useEffect, useState } from 'react';
 import { ADMIN_BASE_URL, AUTH_BASE_URL } from './config';
-import AdminDashboardLayout from './Main/AdminDashboardLayout';
+import AdminDashboardLayout from './admin/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
-import AdminAdoptions from './Main/AdminAdoptions';
-import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import AdminAdoptions from './admin/AdminAdoptions';
+import AdminUserAdoptions from './admin/AdminUserAdoptions';
 import NotificationsPage from './Main/NotificationsPage';
 import PostDetail from './Main/PostDetail';
-import AdminPosts from './Main/AdminPosts';
-import AdminUserPosts from './Main/AdminUserPosts';
-import AdminComments from './Main/AdminComments';
-import AdminUserComments from './Main/AdminUserComments';
-import AdminPostComments from './Main/AdminPostComments';
-import AdminAdoptionRequests from './Main/AdminAdoptionRequests';
-import AdminUserAdoptionRequests from './Main/AdminUserAdoptionRequests';
+import AdminPosts from './admin/AdminPosts';
+import AdminUserPosts from './admin/AdminUserPosts';
+import AdminComments from './admin/AdminComments';
+import AdminUserComments from './admin/AdminUserComments';
+import AdminPostComments from './admin/AdminPostComments';
+import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
+import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
