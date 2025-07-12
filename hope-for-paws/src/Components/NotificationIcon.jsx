@@ -37,25 +37,33 @@ const NotificationIcon = () => {
   };
 
   const handleNotificationClick = async (notification) => {
+    console.log('Notification clicked:', notification);
+    console.log('Notification type:', notification.type);
+    console.log('Notification data:', notification.data);
+    
     if (!notification.read) {
-      await markAsRead(notification.id);
+      await markAsRead(notification._id || notification.id);
     }
 
     // Navigate based on notification type
     switch (notification.type) {
       case 'post_like':
       case 'post_comment':
+      case 'new_post_vet_notification':
+        console.log('Navigating to post:', notification.data.postId);
         navigate(`/posts/${notification.data.postId}`);
         break;
       case 'adoption_request':
-      case 'adoption_request_accepted':
-      case 'adoption_request_rejected':
+        console.log('Navigating to my-adoptions');
         navigate('/my-adoptions');
         break;
-      case 'new_post_vet_notification':
-        navigate('/posts');
+      case 'adoption_request_accepted':
+      case 'adoption_request_rejected':
+        console.log('Navigating to adoption history');
+        navigate('/adoptionhistory');
         break;
       default:
+        console.log('No navigation for notification type:', notification.type);
         break;
     }
 
@@ -202,7 +210,7 @@ const NotificationIcon = () => {
               <div className="divide-y divide-gray-100">
                 {notifications.map((notification) => (
                   <div
-                    key={notification.id}
+                    key={notification._id || notification.id}
                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !notification.read ? 'bg-blue-50' : ''
                     }`}

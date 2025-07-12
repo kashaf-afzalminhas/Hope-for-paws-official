@@ -36,6 +36,7 @@ import ResetPassword from './Main/ResetPassword';
 import AdminAdoptions from './Main/AdminAdoptions';
 import AdminUserAdoptions from './Main/AdminUserAdoptions';
 import NotificationsPage from './Main/NotificationsPage';
+import PostDetail from './Main/PostDetail';
 import AdminPosts from './Main/AdminPosts';
 import AdminUserPosts from './Main/AdminUserPosts';
 import AdminComments from './Main/AdminComments';
@@ -221,6 +222,7 @@ const router = createBrowserRouter(
       <Route path="/contactus" element={<ContactUs />} />
       <Route path="/clinics" element={<Clinics />} />
       <Route path="/posts" element={<Postpages />} />
+      <Route path="/posts/:id" element={<PostDetail />} />
       <Route path="/ngo" element={<NGO />} />
       <Route path="/faq" element={<Faq />} />
       <Route path="/createpost" element={<CreatePost />} />

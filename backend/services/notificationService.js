@@ -194,6 +194,8 @@ class NotificationService {
   // Notification for adoption request status change
   async notifyAdoptionRequestStatus(adoptionId, requesterId, status, adoptionName) {
     try {
+      console.log('notifyAdoptionRequestStatus called with:', { adoptionId, requesterId, status, adoptionName });
+      
       const requester = await User.findById(requesterId);
       if (!requester) return;
 
@@ -205,13 +207,15 @@ class NotificationService {
         ? `Congratulations! Your adoption request for ${adoptionName} has been accepted.`
         : `Your adoption request for ${adoptionName} has been ${status}.`;
 
+      console.log('Creating notification with message:', message);
+
       await this.createNotification({
         recipient: requesterId,
         sender: null, // System notification
         type: status === 'accepted' ? 'adoption_request_accepted' : 'adoption_request_rejected',
         title: title,
         message: message,
-        data: { adoptionId: adoptionId }
+        data: { adoptionId: adoptionId, adoptionName: adoptionName }
       });
     } catch (error) {
       console.error('Error notifying adoption request status:', error);
@@ -219,11 +223,14 @@ class NotificationService {
   }
 
   // Notify all veterinarians about new post
-  async notifyVetsNewPost(postId, postCaption) {
+  async notifyVetsNewPost(postId, postCaption, postCreatorId) {
     try {
       const vets = await User.find({ isVeterinarian: true });
       
       for (const vet of vets) {
+        // Don't notify the post creator
+        if (vet._id.toString() === postCreatorId.toString()) continue;
+        
         await this.createNotification({
           recipient: vet._id,
           sender: null, // System notification

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Check, Trash2, X } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationsPage = () => {
   const { 
     notifications, 
     loading, 
-    error, 
     markAsRead, 
     markAllAsRead, 
     deleteNotification,
@@ -16,6 +16,7 @@ const NotificationsPage = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications(1);
@@ -46,6 +47,35 @@ const NotificationsPage = () => {
       } catch (error) {
         console.error('Error deleting all notifications:', error);
       }
+    }
+  };
+
+  const handleNotificationClick = async (notification, event) => {
+    // Prevent click if user clicked on action buttons
+    if (event.target.closest('button')) {
+      return;
+    }
+
+    if (!notification.read) {
+      await markAsRead(notification._id || notification.id);
+    }
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case 'post_like':
+      case 'post_comment':
+      case 'new_post_vet_notification':
+        navigate(`/posts/${notification.data.postId}`);
+        break;
+      case 'adoption_request':
+        navigate('/my-adoptions');
+        break;
+      case 'adoption_request_accepted':
+      case 'adoption_request_rejected':
+        navigate('/adoptionhistory');
+        break;
+      default:
+        break;
     }
   };
 
@@ -132,10 +162,11 @@ const NotificationsPage = () => {
           ) : (
             notifications.map((notification) => (
               <div
-                key={notification.id}
-                className={`bg-white rounded-xl shadow-md p-6 transition-colors ${
+                key={notification._id || notification.id}
+                className={`bg-white rounded-xl shadow-md p-6 transition-colors cursor-pointer hover:shadow-lg ${
                   !notification.read ? 'border-l-4 border-blue-500 bg-blue-50' : ''
                 }`}
+                onClick={(event) => handleNotificationClick(notification, event)}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 text-2xl">

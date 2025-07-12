@@ -302,6 +302,7 @@ export const NotificationProvider = ({ children }) => {
       });
       
       if (page === 1) {
+        console.log('Fetched notifications:', response.data.notifications);
         setNotifications(response.data.notifications);
       } else {
         setNotifications(prev => [...prev, ...response.data.notifications]);
@@ -383,7 +384,7 @@ export const NotificationProvider = ({ children }) => {
       
       setNotifications(prev => 
         prev.map(notification => 
-          notification.id === notificationId 
+          (notification._id === notificationId || notification.id === notificationId)
             ? { ...notification, read: true }
             : notification
         )
@@ -437,11 +438,11 @@ export const NotificationProvider = ({ children }) => {
       );
       
       setNotifications(prev => 
-        prev.filter(notification => notification.id !== notificationId)
+        prev.filter(notification => notification._id !== notificationId && notification.id !== notificationId)
       );
       
       // Update unread count if notification was unread
-      const notification = notifications.find(n => n.id === notificationId);
+      const notification = notifications.find(n => n._id === notificationId || n.id === notificationId);
       if (notification && !notification.read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }

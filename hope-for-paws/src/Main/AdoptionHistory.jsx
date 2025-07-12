@@ -136,9 +136,6 @@ const AdoptionHistory = () => {
       <div className="text-center py-10">
         <h2 className="text-xl font-semibold text-gray-700">No Adoption History</h2>
         <p className="text-gray-500 mt-2">You haven't made any adoption requests yet.</p>
-        <p>
-          hello
-        </p>
       </div>
     );
   }
