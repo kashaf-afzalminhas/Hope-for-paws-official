@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAdoption } from '../context/AdoptionContext';
 import AdoptionList from './AdoptionList';
 import CreateAdoptionAdForm from './AdoptionForm';

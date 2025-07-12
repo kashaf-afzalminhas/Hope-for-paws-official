@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 const AdoptionForm = () => {
@@ -12,8 +13,8 @@ const AdoptionForm = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -32,7 +33,6 @@ const AdoptionForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-    setSuccess(false);
 
     // Check authentication status
     if (!isAuthenticated || !user) {
@@ -91,16 +91,13 @@ const AdoptionForm = () => {
       const data = await response.json();
       console.log('Adoption post created:', data);
 
-      // Reset form fields
-      setName('');
-      setAge('');
-      setPetType('');
-      setDescription('');
-      setLocation('');
-      setImage(null);
-      setImagePreview(null);
-      setError('');
-      setSuccess(true);
+      // Auto-redirect to My Adoptions page after successful submission
+      navigate('/my-adoptions', { 
+        state: { 
+          message: 'Adoption post created successfully!',
+          showSuccess: true 
+        }
+      });
     } catch (error) {
       console.error('Error submitting form:', error);
       setError(error.message || 'Failed to submit form');
@@ -141,11 +138,6 @@ const AdoptionForm = () => {
 
   return (
     <div className="bg-white rounded-lg">
-      {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
-          Your adoption post has been created successfully!
-        </div>
-      )}
       
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
