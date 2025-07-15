@@ -82,7 +82,25 @@ export const disconnectSocket = () => {
   }
 };
 
-export const sendSocketMessage = (senderId, receiverId, text, conversationId) => {
+// Updated to match how it's called in ChatWindow
+export const sendSocketMessage = (message) => {
+  const currentSocket = getSocket();
+  if (!currentSocket.connected) {
+    console.warn('Socket not connected. Attempting to reconnect...');
+    currentSocket.connect();
+  }
+  
+  // Emit the message with the conversation ID for proper routing
+  currentSocket.emit('sendMessage', {
+    conversationId: message.conversationId,
+    senderId: message.senderId,
+    text: message.text,
+    timestamp: message.createdAt
+  });
+};
+
+// Legacy function for backward compatibility
+export const sendSocketMessageLegacy = (senderId, receiverId, text, conversationId) => {
   const currentSocket = getSocket();
   if (!currentSocket.connected) {
     console.warn('Socket not connected. Attempting to reconnect...');
@@ -107,5 +125,6 @@ export default {
   getSocket,
   disconnectSocket,
   sendSocketMessage,
+  sendSocketMessageLegacy,
   isSocketConnected
 };

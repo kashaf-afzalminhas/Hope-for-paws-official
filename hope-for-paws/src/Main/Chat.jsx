@@ -35,6 +35,8 @@ const ChatPage = () => {
   const location = useLocation();
   const recipientId = location.state?.recipientId;
   const recipientEmail = location.state?.recipientEmail;
+  const existingConversationId = location.state?.existingConversationId;
+  const isNewConversation = location.state?.isNewConversation;
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -50,6 +52,10 @@ const ChatPage = () => {
   const [isSelectingConversation, setIsSelectingConversation] = useState(false);
   const [pendingConversationUserId, setPendingConversationUserId] = useState(null);
   const [conversations, setConversations] = useState([]);
+  const [conversationCache, setConversationCache] = useState(new Map());
+  const [conversationLookup, setConversationLookup] = useState(new Map());
+  const currentUserIdRef = useRef(currentUserId);
+  useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
 
   // Debug logging
   console.log('ChatPage render:', {
@@ -260,120 +266,131 @@ const ChatPage = () => {
     };
   }, [currentUserId, selectedConversation]);
 
-  // Move handleSelectUser above the useEffect that uses it
-  const handleSelectUser = React.useCallback(async (userObj) => {
-    const otherUserId = getCurrentUserId(userObj);
+  const findExistingConversation = useCallback((otherUserId) => {
+    const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
+    if (conversationLookup.has(cacheKey)) {
+      return conversationLookup.get(cacheKey);
+    }
+    const existing = conversations.find(conv => {
+      const participants = conv.participants || [];
+      return (
+        participants.length === 2 &&
+        participants.some(id => id.toString() === currentUserIdRef.current.toString()) &&
+        participants.some(id => id.toString() === otherUserId.toString())
+      );
+    });
+    if (existing) {
+      setConversationLookup(prev => new Map(prev).set(cacheKey, existing));
+      return existing;
+    }
+    return null;
+  }, [conversations, conversationLookup]);
 
-    // Prevent duplicate calls
-    if (isSelectingConversation || pendingConversationUserId === otherUserId) {
+  const handleSelectUser = async (userObj) => {
+    const otherUserId = getCurrentUserId(userObj);
+    if (!otherUserId || otherUserId === currentUserIdRef.current) {
+      addToast({
+        title: 'Invalid User',
+        description: 'Cannot start conversation with this user',
+        variant: 'destructive'
+      });
       return;
     }
-
-    setPendingConversationUserId(otherUserId);
+    const existingConv = findExistingConversation(otherUserId);
+    if (existingConv) {
+      setSelectedConversation(existingConv);
+      setSelectedUser(userObj);
+      if (isMobile) setShowChatMobile(true);
+      return;
+    }
     setIsSelectingConversation(true);
-
+    setPendingConversationUserId(otherUserId);
     try {
-      if (!currentUserId) {
-        addToast({
-          title: 'Error',
-          description: 'User ID not found. Please log in again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Check if conversation already exists in state
-      const existingConv = conversations.find(conv => {
-        const participants = conv.members || conv.participants || [];
-        return participants.map(String).includes(String(currentUserId)) &&
-               participants.map(String).includes(String(otherUserId));
-      });
-
-      if (existingConv) {
-        const otherUser = users.find(u => u._id === otherUserId) || userObj;
-        setSelectedConversation(existingConv);
-        setSelectedUser(otherUser);
+      const findResponse = await getConversationBetweenUsers(currentUserIdRef.current, otherUserId);
+      if (findResponse.data) {
+        const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
+        setConversationLookup(prev => new Map(prev).set(cacheKey, findResponse.data));
+        setSelectedConversation(findResponse.data);
+        setSelectedUser(userObj);
         if (isMobile) setShowChatMobile(true);
         return;
       }
-
-      // Proceed with API call if not found locally
-      const response = await getConversationBetweenUsers(currentUserId, otherUserId);
-      let conversation;
-
-      if (response.data?.data) {
-        conversation = new ConversationWithUser(
-          response.data.data._id,
-          response.data.data.members,
-          response.data.data.createdAt,
-          response.data.data.updatedAt,
-          response.data.data.lastMessage,
-          response.data.data.unreadCount,
-          userObj
-        );
-      } else {
-        // Create new conversation
-        const newConvResponse = await createConversation(currentUserId, otherUserId);
-        conversation = new ConversationWithUser(
-          newConvResponse.data.data._id,
-          newConvResponse.data.data.members,
-          newConvResponse.data.data.createdAt,
-          newConvResponse.data.data.updatedAt,
-          newConvResponse.data.data.lastMessage,
-          newConvResponse.data.data.unreadCount,
-          userObj
-        );
+      const createResponse = await createConversation(currentUserIdRef.current, otherUserId);
+      if (createResponse.data) {
+        const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
+        setConversationLookup(prev => new Map(prev).set(cacheKey, createResponse.data));
+        setSelectedConversation(createResponse.data);
+        setSelectedUser(userObj);
+        if (isMobile) setShowChatMobile(true);
+        setConversations(prev => [createResponse.data, ...prev]);
       }
-
-      setSelectedConversation(conversation);
-      setSelectedUser(userObj);
-      if (isMobile) setShowChatMobile(true);
     } catch (error) {
-      console.error('Error getting/creating conversation:', error);
+      console.error('Conversation error:', error);
+      addToast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to start conversation',
+        variant: 'destructive'
+      });
     } finally {
       setIsSelectingConversation(false);
       setPendingConversationUserId(null);
     }
-  }, [currentUserId, users, isMobile, conversations, addToast]);
+  };
 
-  // Only call getConversationBetweenUsers when recipientId or currentUserId changes
+  // Enhanced: Handle navigation state for chat
   useEffect(() => {
-    // Prevent double execution for the same recipientId
-    if (!recipientId || !currentUserId || !user) return;
-    if (lastHandledRecipientId === recipientId) return; // Guard: already handled
-
-    setLastHandledRecipientId(recipientId);
-
-    // Only call handleSelectUser here for navigation-triggered chat
-    // Ensure handleSelectUser is not redundantly called elsewhere for this recipient
-    // This prevents duplicate conversations from being created
-    // Create a temporary user object if not found in users array
-    const createTempUser = () => {
-      const tempUser = {
-        _id: recipientId,
-        email: recipientEmail,
-        username: location.state?.recipientUsername || 'User',
-        status: 'offline'
+    if (!recipientId || !currentUserId) return;
+    // If we have an existing conversation ID, use that directly
+    if (existingConversationId) {
+      const existingConv = conversations.find(c => c._id === existingConversationId);
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setSelectedUser({
+          _id: recipientId,
+          username: location.state?.recipientUsername
+        });
+        if (isMobile) setShowChatMobile(true);
+        return;
+      }
+    }
+    // If marked as new conversation, create it
+    if (isNewConversation) {
+      const createNewConversation = async () => {
+        try {
+          const response = await createConversation(currentUserId, recipientId);
+          if (response.data?.data) {
+            setSelectedConversation(response.data.data);
+            setSelectedUser({
+              _id: recipientId,
+              username: location.state?.recipientUsername
+            });
+            if (isMobile) setShowChatMobile(true);
+          }
+        } catch (error) {
+          console.error('Error creating conversation:', error);
+        }
       };
-      console.log('Using temporary user object:', tempUser);
-      return tempUser;
+      createNewConversation();
+      return;
+    }
+    // Default behavior - try to find existing
+    const findExisting = async () => {
+      try {
+        const response = await getConversationBetweenUsers(currentUserId, recipientId);
+        if (response.data?.data) {
+          setSelectedConversation(response.data.data);
+          setSelectedUser({
+            _id: recipientId,
+            username: location.state?.recipientUsername
+          });
+          if (isMobile) setShowChatMobile(true);
+        }
+      } catch (error) {
+        console.error('Error finding conversation:', error);
+      }
     };
-
-    let recipient = users.find(u => getCurrentUserId(u) === String(recipientId));
-    if (!recipient && recipientEmail) {
-      recipient = users.find(u => u.email === recipientEmail);
-    }
-    if (!recipient) {
-      recipient = createTempUser();
-    }
-    console.log('Recipient for chat:', recipient);
-
-    setIsSelectingConversation(true);
-    handleSelectUser(recipient).finally(() => {
-      setIsSelectingConversation(false);
-      setShowChatMobile(true);
-    });
-  }, [recipientId, recipientEmail, currentUserId, user, users]);
+    findExisting();
+  }, [recipientId, existingConversationId, isNewConversation, currentUserId, isMobile, conversations, location.state]);
 
   // Debug users state changes
   useEffect(() => {

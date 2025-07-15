@@ -7,6 +7,7 @@ import { MessageSquare } from 'lucide-react';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
+import { getConversationBetweenUsers } from './api';
 
 const AdoptionList = () => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts } = useAdoption();
@@ -17,6 +18,7 @@ const AdoptionList = () => {
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
   const [userProfileImages, setUserProfileImages] = useState({});
+  const [conversations, setConversations] = useState([]); // Add conversations state
   const navigate = useNavigate();
 
   // Check for user in localStorage/sessionStorage if not in context
@@ -73,17 +75,77 @@ const AdoptionList = () => {
     // eslint-disable-next-line
   }, [allAdoptionPosts]);
 
-  const handleStartConversation = (postCreatorId, postCreatorUsername) => {
+  // Fetch conversations for the current user (if not already done elsewhere)
+  useEffect(() => {
+    const fetchConversations = async () => {
+      const currentUserId = getCurrentUserId(effectiveUser);
+      if (!currentUserId) return;
+      try {
+        // This should be replaced with getUserConversations if available
+        const response = await getConversationBetweenUsers(currentUserId, currentUserId); // Placeholder for getUserConversations
+        if (Array.isArray(response?.data?.data)) {
+          setConversations(response.data.data);
+        }
+      } catch (error) {
+        // Ignore for now
+      }
+    };
+    fetchConversations();
+  }, [effectiveUser]);
+
+  // Robust chat navigation handler (copied from Postnew.jsx)
+  const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
+    const currentUserId = getCurrentUserId(effectiveUser);
     if (!effectiveUser) {
       navigate('/signin');
       return;
     }
-    navigate('/chat', {
-      state: {
-        recipientId: postCreatorId,
-        recipientUsername: postCreatorUsername
+    try {
+      // First check if conversation exists in local state
+      const existingConv = conversations.find(conv =>
+        conv.participants && conv.participants.includes(currentUserId) &&
+        conv.participants.includes(postCreatorId)
+      );
+      if (existingConv) {
+        navigate('/chat', {
+          state: {
+            recipientId: postCreatorId,
+            recipientUsername: postCreatorUsername,
+            existingConversationId: existingConv._id
+          }
+        });
+        return;
       }
-    });
+      // If not found locally, check with backend
+      const response = await getConversationBetweenUsers(currentUserId, postCreatorId);
+      if (response.data) {
+        navigate('/chat', {
+          state: {
+            recipientId: postCreatorId,
+            recipientUsername: postCreatorUsername,
+            existingConversationId: response.data._id
+          }
+        });
+      } else {
+        // No existing conversation - navigate with just user info
+        navigate('/chat', {
+          state: {
+            recipientId: postCreatorId,
+            recipientUsername: postCreatorUsername,
+            isNewConversation: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error checking conversation:', error);
+      // Fallback - navigate with basic info
+      navigate('/chat', {
+        state: {
+          recipientId: postCreatorId,
+          recipientUsername: postCreatorUsername
+        }
+      });
+    }
   };
 
   // Debug logs

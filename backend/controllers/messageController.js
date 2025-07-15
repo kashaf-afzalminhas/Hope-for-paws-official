@@ -72,6 +72,11 @@ exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;
 
   try {
+    // Validate conversation ID
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: "Invalid conversation ID" });
+    }
+
     const messages = await Message.find({ conversationId })
       .sort({ timestamp: 1 })
       .populate("readBy", "username email"); // Populate readBy with user details
@@ -88,6 +93,11 @@ exports.markMessageAsRead = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // Validate message ID
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+
     const message = await Message.findById(messageId);
     if (!message) {
       return res.status(404).json({ message: "Message not found" });

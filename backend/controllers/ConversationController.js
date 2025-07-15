@@ -18,39 +18,67 @@ exports.getConversations = async (req, res) => {
 exports.createConversation = async (req, res) => {
   const { senderId, receiverId } = req.body;
   
-  console.log('createConversation endpoint called');
-  console.log('Request body:', req.body);
-  console.log('Sender ID:', senderId);
-  console.log('Receiver ID:', receiverId);
+  // Validate input more thoroughly
+  if (!senderId || !receiverId) {
+    return res.status(400).json({ 
+      message: "Both senderId and receiverId are required",
+      code: "MISSING_IDS"
+    });
+  }
+
+  if (senderId === receiverId) {
+    return res.status(400).json({ 
+      message: "Cannot create conversation with yourself",
+      code: "SELF_CONVERSATION"
+    });
+  }
 
   try {
-    // Always use ObjectId and sort
-    const sortedParticipants = [senderId, receiverId]
-      .map(id => new mongoose.Types.ObjectId(id))
-      .sort((a, b) => a.toString().localeCompare(b.toString()));
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(senderId) || 
+        !mongoose.Types.ObjectId.isValid(receiverId)) {
+      return res.status(400).json({ 
+        message: "Invalid user ID format",
+        code: "INVALID_ID_FORMAT"
+      });
+    }
 
-    // Use a transaction for atomicity
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      let conversation = await Conversation.findOne({
-        participants: sortedParticipants
-      }).session(session);
+      // Use the model method we created
+      const existingConversation = await Conversation.findByParticipants(
+        senderId, 
+        receiverId
+      ).session(session);
 
-      if (conversation) {
+      if (existingConversation) {
         await session.commitTransaction();
-        return res.status(200).json({ data: conversation, message: "Using existing conversation" });
+        return res.status(200).json({ 
+          data: existingConversation,
+          message: "Existing conversation found",
+          code: "CONVERSATION_EXISTS"
+        });
       }
 
-      conversation = new Conversation({
-        participants: sortedParticipants,
-        lastMessage: { text: "Start a conversation...", createdAt: new Date(), senderId: null },
+      const newConversation = new Conversation({
+        participants: [senderId, receiverId], // Will be sorted by pre-save hook
+        lastMessage: {
+          text: "Start a conversation...",
+          createdAt: new Date(),
+          senderId: null
+        }
       });
 
-      await conversation.save({ session });
+      await newConversation.save({ session });
       await session.commitTransaction();
-      return res.status(201).json({ data: conversation });
+      
+      return res.status(201).json({ 
+        data: newConversation,
+        message: "New conversation created",
+        code: "CONVERSATION_CREATED"
+      });
     } catch (err) {
       await session.abortTransaction();
       throw err;
@@ -59,17 +87,29 @@ exports.createConversation = async (req, res) => {
     }
   } catch (err) {
     if (err.code === 11000) {
-      // Duplicate key error: fetch and return the existing conversation
-      const sortedParticipants = [senderId, receiverId]
-        .map(id => new mongoose.Types.ObjectId(id))
-        .sort((a, b) => a.toString().localeCompare(b.toString()));
-      const conversation = await Conversation.findOne({ participants: sortedParticipants });
-      if (conversation) {
-        return res.status(200).json({ data: conversation, message: "Using existing conversation (duplicate key)" });
+      // If we still hit a duplicate key (should be very rare now)
+      const existing = await Conversation.findByParticipants(senderId, receiverId);
+      if (existing) {
+        return res.status(200).json({
+          data: existing,
+          message: "Conversation already exists (race condition resolved)",
+          code: "RACE_CONDITION_RESOLVED"
+        });
       }
     }
-    console.error("Error creating conversation:", err);
-    res.status(500).json({ message: "Failed to start conversation", error: err.message });
+    
+    console.error("Error in createConversation:", {
+      error: err,
+      senderId,
+      receiverId,
+      timestamp: new Date()
+    });
+    
+    res.status(500).json({ 
+      message: "Failed to create conversation",
+      error: err.message,
+      code: "INTERNAL_ERROR"
+    });
   }
 };
 
@@ -132,27 +172,38 @@ exports.getUserConversations = async (req, res) => {
 exports.getConversationBetweenUsers = async (req, res) => {
   try {
     const { firstUserId, secondUserId } = req.params;
+    // Validate input
     if (!firstUserId || !secondUserId) {
-      return res.status(400).json({ message: "Both user IDs are required" });
+      return res.status(400).json({ 
+        message: "Both user IDs are required",
+        code: "MISSING_IDS"
+      });
     }
-    console.log('getConversationBetweenUsers endpoint called');
-    console.log('Request params:', req.params);
-    console.log('First user ID:', firstUserId);
-    console.log('Second user ID:', secondUserId);
-    // Always sort participants for uniqueness
-    const sortedParticipants = [firstUserId, secondUserId].sort();
+    // Convert to ObjectId and sort consistently
+    const sortedParticipants = [firstUserId, secondUserId]
+      .map(id => new mongoose.Types.ObjectId(id))
+      .sort((a, b) => a.toString().localeCompare(b.toString()));
+    // Find conversation with exactly these 2 participants
     const conversation = await Conversation.findOne({
-      participants: sortedParticipants,
+      participants: { $all: sortedParticipants, $size: 2 }
     });
-    console.log('Found conversation:', conversation);
     if (!conversation) {
-      console.log('No conversation found, returning 404');
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ 
+        message: "Conversation not found",
+        code: "NOT_FOUND"
+      });
     }
-    res.json({ data: conversation });
+    res.json({ 
+      data: conversation,
+      code: "FOUND"
+    });
   } catch (err) {
-    console.error('Error fetching conversation between users:', err);
-    res.status(500).json({ message: "Failed to fetch conversation", error: err.message });
+    console.error('Error in getConversationBetweenUsers:', err);
+    res.status(500).json({ 
+      message: "Failed to fetch conversation",
+      error: err.message,
+      code: "INTERNAL_ERROR"
+    });
   }
 };
 

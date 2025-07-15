@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getUserConversations } from '../Main/api';
 import UserCard from './UserCard';
 import SearchBar from './SearchBar';
@@ -11,53 +11,77 @@ const RecentChats = ({
   onSelectConversation,
   selectedConversationId,
   users,
-  addToast,
   conversations,
-  setConversations,
+  setConversations, // Make sure this prop is passed from parent
 }) => {
-  const [filteredConversations, setFilteredConversations] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Utility to deduplicate by _id
-  const dedupeById = (arr) => {
-    const map = new Map();
-    (arr || []).forEach(item => item && item._id && map.set(item._id, item));
-    return Array.from(map.values());
-  };
+  // Memoized deduplication and filtering
+  const { filteredForDisplay, uniqueConversations } = useMemo(() => {
+    // First deduplicate by ID
+    const dedupeById = (arr) => {
+      const map = new Map();
+      arr.forEach(item => item?._id && map.set(item._id, item));
+      return Array.from(map.values());
+    };
 
-  // De-duplicate conversations by sorted participants
-  const dedupeByParticipants = (arr) => {
-    const map = new Map();
-    (arr || []).forEach(item => {
-      if (item && item.participants) {
-        const key = item.participants.map(String).sort().join('-');
-        map.set(key, item);
-      }
-    });
-    return Array.from(map.values());
-  };
-
-  useEffect(() => {
-    if (conversations && conversations.length > 0) {
-      setIsLoading(false);
-    } else {
-      setIsLoading(true);
-    }
-  }, [conversations]);
-
-  useEffect(() => {
-    if (searchQuery) {
-      const filtered = (Array.isArray(conversations) ? conversations : []).filter((conv) => {
-        const otherUserId = conv.participants.find(id => id !== currentUserId);
-        const otherUser = users.find(u => u._id === otherUserId);
-        return otherUser && otherUser.username.toLowerCase().includes(searchQuery.toLowerCase());
+    // Then deduplicate by participants
+    const dedupeByParticipants = (arr) => {
+      const map = new Map();
+      arr.forEach(item => {
+        if (item?.participants?.length === 2) {
+          const key = item.participants
+            .map(String)
+            .sort()
+            .join('-');
+          if (!map.has(key)) {
+            map.set(key, item);
+          } else {
+            // Keep the most recent conversation if duplicates exist
+            const existing = map.get(key);
+            if (new Date(item.updatedAt) > new Date(existing.updatedAt)) {
+              map.set(key, item);
+            }
+          }
+        }
       });
-      setFilteredConversations(filtered);
-    } else {
-      setFilteredConversations(Array.isArray(conversations) ? conversations : []);
+      return Array.from(map.values());
+    };
+
+    // Process conversations
+    const dedupedById = dedupeById(conversations || []);
+    const uniqueConvs = dedupeByParticipants(dedupedById);
+
+    // Update parent state if duplicates were found
+    if (uniqueConvs.length !== conversations?.length) {
+      setTimeout(() => setConversations(uniqueConvs), 0);
     }
-  }, [searchQuery, conversations, users, currentUserId]);
+
+    // Apply search filter
+    const filtered = searchQuery
+      ? uniqueConvs.filter(conv => {
+          const otherUserId = conv.participants.find(id => id !== currentUserId);
+          const otherUser = users.find(u => u._id === otherUserId);
+          return otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase());
+        })
+      : uniqueConvs;
+
+    // Filter out empty conversations not started by current user
+    const filteredForDisplay = filtered.filter(conv => {
+      if (conv.lastMessage?.text === "Start a conversation..." && 
+          conv.participants[0] !== currentUserId) {
+        return false;
+      }
+      return true;
+    });
+
+    return { filteredForDisplay, uniqueConversations: uniqueConvs };
+  }, [conversations, users, currentUserId, searchQuery, setConversations]);
+
+  useEffect(() => {
+    setIsLoading(!conversations);
+  }, [conversations]);
 
   useEffect(() => {
     if (selectedConversationId) {
@@ -87,19 +111,19 @@ const RecentChats = ({
   };
 
   // De-duplicate conversations by sorted participants
-  const uniqueConversations = dedupeByParticipants(filteredConversations);
+  // const uniqueConversations = dedupeByParticipants(filteredConversations); // This line is now handled by useMemo
 
   // Filter: Only show empty conversations to the user who started them
-  const filteredForDisplay = uniqueConversations.filter((conv) => {
-    if (
-      conv.lastMessage &&
-      conv.lastMessage.text === "Start a conversation..." &&
-      conv.participants[0] !== currentUserId
-    ) {
-      return false;
-    }
-    return true;
-  });
+  // const filteredForDisplay = uniqueConversations.filter((conv) => { // This line is now handled by useMemo
+  //   if (
+  //     conv.lastMessage &&
+  //     conv.lastMessage.text === "Start a conversation..." &&
+  //     conv.participants[0] !== currentUserId
+  //   ) {
+  //     return false;
+  //   }
+  //   return true;
+  // });
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f5f0e1]">

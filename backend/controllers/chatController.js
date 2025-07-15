@@ -5,6 +5,11 @@ exports.getRecentChats = async (req, res) => {
     try {
         const userId = req.user._id;
 
+        // Validate user ID
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
         const recentChats = await Message.aggregate([
             // Only messages from conversations the user participates in
             {
