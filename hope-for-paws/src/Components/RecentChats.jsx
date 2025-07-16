@@ -165,7 +165,9 @@ const RecentChats = ({
           <div className="divide-y divide-[#a07855]/10">
             {filteredForDisplay.map((conversation) => {
               const otherUserId = conversation.participants.find(id => id !== currentUserId);
-              const otherUser = users.find(u => u._id === otherUserId);
+              const otherUser = users.find(u => u._id === otherUserId) || { username: 'Unknown', _id: otherUserId };
+
+              console.log('Rendering conversation:', conversation._id, otherUser?.username);
 
               const timestamp = conversation.lastMessage?.createdAt
                 ? formatTimestamp(conversation.lastMessage.createdAt)
@@ -179,7 +181,10 @@ const RecentChats = ({
                   lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
                   timestamp={timestamp}
                   unreadCount={conversation.unreadCount}
-                  onClick={() => onSelectConversation({ ...conversation, user: otherUser })}
+                  onClick={() => {
+                    console.log('Clicked conversation:', conversation._id, otherUser?.username);
+                    onSelectConversation({ ...conversation, user: otherUser });
+                  }}
                   className={cn(
                     "transition-all duration-200",
                     selectedConversationId === conversation._id 

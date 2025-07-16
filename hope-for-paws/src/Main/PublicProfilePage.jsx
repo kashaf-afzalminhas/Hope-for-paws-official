@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import { FaUserCircle, FaChevronLeft, FaMapMarkerAlt, FaCalendarAlt } from 'react-icons/fa';
-import { getUserPublicProfile } from './api';
+import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User, Info } from 'lucide-react';
 
@@ -11,6 +11,12 @@ const PublicProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const [toggleView, setToggleView] = useState('ads'); // 'ads' or 'posts'
+  const [adoptionAds, setAdoptionAds] = useState([]);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loadingAds, setLoadingAds] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [conversations, setConversations] = useState([]);
 
   // Get current user
   const currentUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
@@ -19,8 +25,26 @@ const PublicProfilePage = () => {
   useEffect(() => {
     if (userId) {
       fetchPublicProfile(userId);
+      fetchUserAdoptionAds(userId);
+      fetchUserPosts(userId);
     }
   }, [userId]);
+
+  // Fetch conversations for the current user
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!currentUserId) return;
+      try {
+        const response = await getConversationBetweenUsers(currentUserId, currentUserId); // Placeholder, adjust if needed
+        if (Array.isArray(response?.data?.data)) {
+          setConversations(response.data.data);
+        }
+      } catch (error) {
+        // Ignore for now
+      }
+    };
+    fetchConversations();
+  }, [currentUserId]);
 
   const fetchPublicProfile = async (id) => {
     try {
@@ -51,17 +75,62 @@ const PublicProfilePage = () => {
     }
   };
 
-  const handleStartConversation = (profileUserId, profileUserUsername) => {
+  const fetchUserAdoptionAds = async (id) => {
+    setLoadingAds(true);
+    try {
+      const response = await getUserAdoptionAds(id);
+      setAdoptionAds(response.data || []);
+    } catch (err) {
+      setAdoptionAds([]);
+    } finally {
+      setLoadingAds(false);
+    }
+  };
+
+  const fetchUserPosts = async (id) => {
+    setLoadingPosts(true);
+    try {
+      const response = await getUserPosts(id);
+      setUserPosts(response.data || []);
+    } catch (err) {
+      setUserPosts([]);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  // Enhanced navigation handler (copied from Postnew.jsx)
+  const handleStartConversation = async (profileUserId, profileUserUsername) => {
     if (!currentUser) {
       navigate('/signin');
       return;
     }
-    navigate('/chat', {
-      state: {
-        recipientId: profileUserId,
-        recipientUsername: profileUserUsername
+
+    try {
+      // First check if conversation exists in local state
+      const existingConv = conversations.find(conv => 
+        conv.participants.includes(currentUserId) && 
+        conv.participants.includes(profileUserId)
+      );
+
+      if (existingConv) {
+        navigate(`/chat/${profileUserId}`);
+        return;
       }
-    });
+
+      // If not found locally, check with backend
+      const response = await getConversationBetweenUsers(currentUserId, profileUserId);
+      if (response.data) {
+        navigate(`/chat/${profileUserId}`);
+      } else {
+        // No existing conversation - navigate with just user info
+        navigate(`/chat/${profileUserId}`);
+      }
+    } catch (error) {
+      console.error('Error checking conversation:', error);
+      // Fallback - navigate with basic info
+      navigate(`/chat/${profileUserId}`);
+    }
   };
 
   if (loading) {
@@ -182,8 +251,71 @@ const PublicProfilePage = () => {
           </div>
         </div>
       </div>
+      {/* Toggle View Section */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 mt-8">
+        <div className="flex justify-center mb-6">
+          <button
+            className={`px-4 py-2 rounded-l-md border border-[#6b493d] font-medium transition-colors ${toggleView === 'ads' ? 'bg-[#6b493d] text-white' : 'bg-white text-[#6b493d]'}`}
+            onClick={() => setToggleView('ads')}
+          >
+            Adoption Ads
+          </button>
+          <button
+            className={`px-4 py-2 rounded-r-md border border-l-0 border-[#6b493d] font-medium transition-colors ${toggleView === 'posts' ? 'bg-[#6b493d] text-white' : 'bg-white text-[#6b493d]'}`}
+            onClick={() => setToggleView('posts')}
+          >
+            Posts
+          </button>
+        </div>
+        {/* Content Section */}
+        {toggleView === 'ads' ? (
+          loadingAds ? (
+            <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-10 w-10 border-t-4 border-b-4 border-[#6b493d]"></div></div>
+          ) : adoptionAds.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">No adoption ads found.</div>
+          ) : (
+            <div className="grid gap-6">
+              {adoptionAds.map(ad => (
+                <div key={ad._id} className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row gap-4">
+                  <img src={ad.imageUrl} alt={ad.name} className="w-32 h-32 object-cover rounded-md" />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-[#6b493d]">{ad.name}</h3>
+                    <div className="text-sm text-gray-600 mb-1">{ad.petType} • {ad.age}</div>
+                    <div className="text-sm text-gray-600 mb-1">{ad.location}</div>
+                    <div className="text-gray-700 mb-2">{ad.description}</div>
+                    <div className="text-xs text-gray-400">Status: {ad.status}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          loadingPosts ? (
+            <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-10 w-10 border-t-4 border-b-4 border-[#6b493d]"></div></div>
+          ) : userPosts.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">No posts found.</div>
+          ) : (
+            <div className="grid gap-6">
+              {userPosts.map(post => (
+                <div key={post._id} className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row gap-4">
+                  <img src={post.imageUrl} alt={post.caption} className="w-32 h-32 object-cover rounded-md" />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-[#6b493d]">{post.caption}</h3>
+                    <div className="text-xs text-gray-400 mb-2">{new Date(post.createdAt).toLocaleString()}</div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="bg-[#f8f4ed] text-[#6b493d] px-2 py-1 rounded text-xs">Likes: {post.likes?.length || 0}</span>
+                      <span className="bg-[#f8f4ed] text-[#6b493d] px-2 py-1 rounded text-xs">Comments: {post.comments?.length || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 };
 
 export default PublicProfilePage;
+

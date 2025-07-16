@@ -107,44 +107,21 @@ const AdoptionList = () => {
         conv.participants.includes(postCreatorId)
       );
       if (existingConv) {
-        navigate('/chat', {
-          state: {
-            recipientId: postCreatorId,
-            recipientUsername: postCreatorUsername,
-            existingConversationId: existingConv._id
-          }
-        });
+        navigate(`/chat/${postCreatorId}`);
         return;
       }
       // If not found locally, check with backend
       const response = await getConversationBetweenUsers(currentUserId, postCreatorId);
       if (response.data) {
-        navigate('/chat', {
-          state: {
-            recipientId: postCreatorId,
-            recipientUsername: postCreatorUsername,
-            existingConversationId: response.data._id
-          }
-        });
+        navigate(`/chat/${postCreatorId}`);
       } else {
         // No existing conversation - navigate with just user info
-        navigate('/chat', {
-          state: {
-            recipientId: postCreatorId,
-            recipientUsername: postCreatorUsername,
-            isNewConversation: true
-          }
-        });
+        navigate(`/chat/${postCreatorId}`);
       }
     } catch (error) {
       console.error('Error checking conversation:', error);
       // Fallback - navigate with basic info
-      navigate('/chat', {
-        state: {
-          recipientId: postCreatorId,
-          recipientUsername: postCreatorUsername
-        }
-      });
+      navigate(`/chat/${postCreatorId}`);
     }
   };
 

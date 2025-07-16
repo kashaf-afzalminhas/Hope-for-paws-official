@@ -279,3 +279,25 @@ export const debugToken = async () => {
     throw error;
   }
 };
+
+// Get adoption ads for a user (public)
+export const getUserAdoptionAds = async (userId) => {
+  try {
+    const response = await apiRoutes.get(`/adoptions/user/${userId}`);
+    return response;
+  } catch (error) {
+    console.error('getUserAdoptionAds error:', error);
+    return { data: [] };
+  }
+};
+
+// Get posts for a user (public)
+export const getUserPosts = async (userId) => {
+  try {
+    const response = await apiRoutes.get(`/posts/user/${userId}`);
+    return response;
+  } catch (error) {
+    console.error('getUserPosts error:', error);
+    return { data: [] };
+  }
+};

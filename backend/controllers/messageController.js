@@ -78,7 +78,7 @@ exports.getMessages = async (req, res) => {
     }
 
     const messages = await Message.find({ conversationId })
-      .sort({ timestamp: 1 })
+      .sort({ createdAt: 1 })
       .populate("readBy", "username email"); // Populate readBy with user details
 
     res.json(messages);

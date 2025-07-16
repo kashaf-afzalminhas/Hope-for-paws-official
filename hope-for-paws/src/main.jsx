@@ -139,7 +139,7 @@ const router = createBrowserRouter(
       <Route path="/team" element={<FullTeamPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
-      <Route path="/chat" element={<ChatPage />} />
+      <Route path="chat/:recipientId?" element={<ChatPage />} />
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
     </Route>
   )

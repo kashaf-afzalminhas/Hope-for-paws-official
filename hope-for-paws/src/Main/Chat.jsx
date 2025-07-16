@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
@@ -32,11 +32,8 @@ const ChatPage = () => {
   const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
-  const location = useLocation();
-  const recipientId = location.state?.recipientId;
-  const recipientEmail = location.state?.recipientEmail;
-  const existingConversationId = location.state?.existingConversationId;
-  const isNewConversation = location.state?.isNewConversation;
+  const { recipientId } = useParams();
+  const navigate = useNavigate();
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -56,6 +53,33 @@ const ChatPage = () => {
   const [conversationLookup, setConversationLookup] = useState(new Map());
   const currentUserIdRef = useRef(currentUserId);
   useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
+  useEffect(() => {
+    if (!recipientId || !currentUserId) return;
+    // Try to find existing conversation between current user and recipientId
+    const findExisting = async () => {
+      try {
+        const response = await getConversationBetweenUsers(currentUserId, recipientId);
+        if (response.data?.data) {
+          setSelectedConversation(response.data.data);
+          const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+          setSelectedUser(fullUserObj);
+          if (isMobile) setShowChatMobile(true);
+        } else {
+          // If not found, create a new conversation
+          const createResponse = await createConversation(currentUserId, recipientId);
+          if (createResponse.data?.data) {
+            setSelectedConversation(createResponse.data.data);
+            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+            setSelectedUser(fullUserObj);
+            if (isMobile) setShowChatMobile(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error finding or creating conversation:', error);
+      }
+    };
+    findExisting();
+  }, [recipientId, currentUserId, isMobile, conversations, users]);
 
   // Debug logging
   console.log('ChatPage render:', {
@@ -340,57 +364,31 @@ const ChatPage = () => {
   // Enhanced: Handle navigation state for chat
   useEffect(() => {
     if (!recipientId || !currentUserId) return;
-    // If we have an existing conversation ID, use that directly
-    if (existingConversationId) {
-      const existingConv = conversations.find(c => c._id === existingConversationId);
-      if (existingConv) {
-        setSelectedConversation(existingConv);
-        setSelectedUser({
-          _id: recipientId,
-          username: location.state?.recipientUsername
-        });
-        if (isMobile) setShowChatMobile(true);
-        return;
-      }
-    }
-    // If marked as new conversation, create it
-    if (isNewConversation) {
-      const createNewConversation = async () => {
-        try {
-          const response = await createConversation(currentUserId, recipientId);
-          if (response.data?.data) {
-            setSelectedConversation(response.data.data);
-            setSelectedUser({
-              _id: recipientId,
-              username: location.state?.recipientUsername
-            });
-            if (isMobile) setShowChatMobile(true);
-          }
-        } catch (error) {
-          console.error('Error creating conversation:', error);
-        }
-      };
-      createNewConversation();
-      return;
-    }
-    // Default behavior - try to find existing
+    // Try to find existing conversation between current user and recipientId
     const findExisting = async () => {
       try {
         const response = await getConversationBetweenUsers(currentUserId, recipientId);
         if (response.data?.data) {
           setSelectedConversation(response.data.data);
-          setSelectedUser({
-            _id: recipientId,
-            username: location.state?.recipientUsername
-          });
+          const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+          setSelectedUser(fullUserObj);
           if (isMobile) setShowChatMobile(true);
+        } else {
+          // If not found, create a new conversation
+          const createResponse = await createConversation(currentUserId, recipientId);
+          if (createResponse.data?.data) {
+            setSelectedConversation(createResponse.data.data);
+            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+            setSelectedUser(fullUserObj);
+            if (isMobile) setShowChatMobile(true);
+          }
         }
       } catch (error) {
-        console.error('Error finding conversation:', error);
+        console.error('Error finding or creating conversation:', error);
       }
     };
     findExisting();
-  }, [recipientId, existingConversationId, isNewConversation, currentUserId, isMobile, conversations, location.state]);
+  }, [recipientId, currentUserId, isMobile, conversations, users]);
 
   // Debug users state changes
   useEffect(() => {
@@ -407,35 +405,42 @@ const ChatPage = () => {
   }, []);
 
   const handleSelectConversation = (conversationData) => {
+    // Use the user attached by RecentChats, or look up if missing
     const otherUserId = conversationData.members
       ? conversationData.members.find(id => id !== currentUserId)
       : (conversationData.participants || []).find(id => id !== currentUserId);
 
-    const fullUserObj = users.find(u => u._id === otherUserId) || conversationData.user || {};
-    
-    const conversation = new ConversationWithUser(
-      conversationData._id,
-      conversationData.members || conversationData.participants,
-      conversationData.createdAt,
-      conversationData.updatedAt,
-      conversationData.lastMessage,
-      conversationData.unreadCount,
-      fullUserObj
-    );
-    
-    setSelectedConversation(conversation);
+    const fullUserObj = conversationData.user
+      || users.find(u => u._id === otherUserId)
+      || { username: 'Unknown', _id: otherUserId };
+
+    // On desktop, clear the URL param before setting the new conversation
+    if (!isMobile && recipientId) {
+      navigate('/chat');
+    }
+
+    console.log('Switching to conversation:', conversationData);
+    console.log('With user:', fullUserObj);
+
+    setSelectedConversation(conversationData);
     setSelectedUser(fullUserObj);
     if (isMobile) setShowChatMobile(true);
   };
 
-  const handleBackToList = () => setShowChatMobile(false);
+  const handleBackToList = () => {
+    setShowChatMobile(false);
+    // No need to reset any navigation state flag
+    // Optionally, you can navigate to /chat to clear the URL param
+    navigate('/chat');
+  };
 
   // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
     setConversations(prev => {
       const exists = prev.some(conv => conv._id === conversationId);
+      let updated = [];
       if (exists) {
-        return prev.map(conv =>
+        updated = prev.map(conv =>
           conv._id === conversationId
             ? { ...conv, lastMessage: message, updatedAt: message.createdAt }
             : conv
@@ -456,8 +461,10 @@ const ChatPage = () => {
           lastMessage: message,
           updatedAt: message.createdAt,
         };
-        return [newConv, ...prev];
+        updated = [newConv, ...prev];
       }
+      // Sort by updatedAt descending
+      return updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     });
   };
 
@@ -592,6 +599,7 @@ const ChatPage = () => {
           <>
             {/* Chat window */}
             <ChatWindow
+              key={selectedConversation?._id}
               conversationId={selectedConversation._id}
               currentUser={user}
               otherUser={selectedUser}

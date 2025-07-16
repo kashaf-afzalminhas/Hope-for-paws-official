@@ -83,7 +83,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get adoption posts for a specific user
-router.get('/user/:userId', auth, async (req, res) => {
+router.get('/user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
     const includeRequests = req.query.includeRequests === 'true';
