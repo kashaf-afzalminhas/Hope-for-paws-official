@@ -483,6 +483,19 @@ const ChatPage = () => {
     fetchConversations();
   }, [currentUserId]);
 
+  useEffect(() => {
+    if (selectedConversation && users.length > 0) {
+      const otherUserId = selectedConversation.members
+        ? selectedConversation.members.find(id => id !== currentUserId)
+        : (selectedConversation.participants || []).find(id => id !== currentUserId);
+
+      const fullUserObj = users.find(u => u._id === otherUserId);
+      if (fullUserObj && (!selectedUser || selectedUser._id !== fullUserObj._id)) {
+        setSelectedUser(fullUserObj);
+      }
+    }
+  }, [users, selectedConversation, currentUserId]);
+
   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center h-screen font-body text-primary">
