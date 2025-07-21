@@ -8,8 +8,9 @@ import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
 import { getConversationBetweenUsers } from './api';
+import PropTypes from 'prop-types';
 
-const AdoptionList = () => {
+const AdoptionList = ({ filter = 'all' }) => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts } = useAdoption();
   const { user } = useAuth();
   const [selectedPost, setSelectedPost] = useState(null);
@@ -131,7 +132,16 @@ const AdoptionList = () => {
   console.log('All adoption posts:', allAdoptionPosts);
 
   // Ensure allAdoptionPosts is always an array
-  const posts = Array.isArray(allAdoptionPosts) ? allAdoptionPosts : [];
+  let posts = Array.isArray(allAdoptionPosts) ? allAdoptionPosts : [];
+
+  // Filtering logic
+  if (filter === 'dog') {
+    posts = posts.filter(post => post.petType && post.petType.toLowerCase() === 'dog');
+  } else if (filter === 'cat') {
+    posts = posts.filter(post => post.petType && post.petType.toLowerCase() === 'cat');
+  } else if (filter === 'other') {
+    posts = posts.filter(post => post.petType && !['dog', 'cat'].includes(post.petType.toLowerCase()));
+  }
 
   const handleImageError = (postId) => {
     setImageErrors(prev => ({
@@ -567,6 +577,10 @@ const AdoptionList = () => {
       )}
     </div>
   );
+};
+
+AdoptionList.propTypes = {
+  filter: PropTypes.string,
 };
 
 export default AdoptionList;

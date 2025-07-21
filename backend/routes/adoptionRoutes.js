@@ -268,9 +268,13 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Validate image upload
-    if (!req.file) {
-      return res.status(400).json({ message: 'Pet history image is required' });
+    // Upload image to Cloudinary if present
+    let petHistoryImageUrl = '';
+    if (req.file) {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+      const uploadResponse = await cloudinary.uploader.upload(dataURI);
+      petHistoryImageUrl = uploadResponse.secure_url;
     }
 
     const adoptionPost = await Adoption.findById(adId);
@@ -296,11 +300,6 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       return res.status(400).json({ message: 'You already have an active request for this pet' });
     }
 
-    // Upload image to Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
-
     const adoptionRequest = new AdoptionRequest({
       adId,
       requester: requesterId,
@@ -308,7 +307,7 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       email,
       phone,
       message,
-      petHistoryImage: uploadResponse.secure_url,
+      petHistoryImage: petHistoryImageUrl,
       status: 'pending'
     });
 
@@ -326,7 +325,7 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       petName: adoptionPost.name,
       petType: adoptionPost.petType,
       petImage: adoptionPost.imageUrl,
-      image: uploadResponse.secure_url, // Store the pet history image
+      image: petHistoryImageUrl, // Store the pet history image (may be empty)
       message: message
     });
 
