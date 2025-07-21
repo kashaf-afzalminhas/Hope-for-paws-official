@@ -8,6 +8,8 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+// const http = require('http');
+// const initSocket = require('./config/socket');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -17,6 +19,9 @@ const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const notificationRoutes = require('./routes/notifications');
 const rateLimit = require('express-rate-limit');
+const messageRoutes = require('./routes/message');
+const conversationRoutes = require('./routes/conversation');
+const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/adminRoutes');
 
 // Import notification service
@@ -39,6 +44,10 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
   });
 
 const app = express();
+// const server = http.createServer(app);
+
+// Initialize Socket.IO
+// const io = initSocket(server);
 const server = createServer(app);
 
 // Socket.IO setup
@@ -219,6 +228,9 @@ app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
+app.use('/api/messages', messageRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/chats', chatRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {
@@ -231,7 +243,7 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    socketConnections: io.engine.clientsCount
+    // socketConnections: io.engine.clientsCount
   });
 });
 

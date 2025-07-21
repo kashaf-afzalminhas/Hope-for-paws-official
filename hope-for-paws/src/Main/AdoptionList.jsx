@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
 import AdoptionRequestForm from './AdoptionRequestForm';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageSquare } from 'lucide-react';
+import { getCurrentUserId } from '../lib/utils';
+import { getUserPublicProfile } from './api';
+import { API_BASE_URL } from '../config';
+import { getConversationBetweenUsers } from './api';
 
 const AdoptionList = () => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts } = useAdoption();
@@ -12,6 +17,9 @@ const AdoptionList = () => {
   const [effectiveUser, setEffectiveUser] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
+  const [userProfileImages, setUserProfileImages] = useState({});
+  const [conversations, setConversations] = useState([]); // Add conversations state
+  const navigate = useNavigate();
 
   // Check for user in localStorage/sessionStorage if not in context
   useEffect(() => {
@@ -39,6 +47,83 @@ const AdoptionList = () => {
       console.log('AdoptionList - Already have adoption posts, skipping fetch');
     }
   }, []);
+
+  // Fetch profile images for all unique userIds in posts
+  useEffect(() => {
+    const fetchProfileImages = async () => {
+      const uniqueUserIds = Array.from(new Set(allAdoptionPosts.map(post => post.userId?._id).filter(Boolean)));
+      const missingUserIds = uniqueUserIds.filter(id => !userProfileImages[id]);
+      if (missingUserIds.length === 0) return;
+      const newImages = {};
+      for (const userId of missingUserIds) {
+        try {
+          const response = await getUserPublicProfile(userId);
+          if (response.data && response.data.data && response.data.data.profileImage) {
+            newImages[userId] = response.data.data.profileImage;
+          }
+        } catch (err) {
+          // Ignore errors, fallback to initial
+        }
+      }
+      if (Object.keys(newImages).length > 0) {
+        setUserProfileImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+    if (allAdoptionPosts.length > 0) {
+      fetchProfileImages();
+    }
+    // eslint-disable-next-line
+  }, [allAdoptionPosts]);
+
+  // Fetch conversations for the current user (if not already done elsewhere)
+  useEffect(() => {
+    const fetchConversations = async () => {
+      const currentUserId = getCurrentUserId(effectiveUser);
+      if (!currentUserId) return;
+      try {
+        // This should be replaced with getUserConversations if available
+        const response = await getConversationBetweenUsers(currentUserId, currentUserId); // Placeholder for getUserConversations
+        if (Array.isArray(response?.data?.data)) {
+          setConversations(response.data.data);
+        }
+      } catch (error) {
+        // Ignore for now
+      }
+    };
+    fetchConversations();
+  }, [effectiveUser]);
+
+  // Robust chat navigation handler (copied from Postnew.jsx)
+  const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
+    const currentUserId = getCurrentUserId(effectiveUser);
+    if (!effectiveUser) {
+      navigate('/signin');
+      return;
+    }
+    try {
+      // First check if conversation exists in local state
+      const existingConv = conversations.find(conv =>
+        conv.participants && conv.participants.includes(currentUserId) &&
+        conv.participants.includes(postCreatorId)
+      );
+      if (existingConv) {
+        navigate(`/chat/${postCreatorId}`);
+        return;
+      }
+      // If not found locally, check with backend
+      const response = await getConversationBetweenUsers(currentUserId, postCreatorId);
+      if (response.data) {
+        navigate(`/chat/${postCreatorId}`);
+      } else {
+        // No existing conversation - navigate with just user info
+        navigate(`/chat/${postCreatorId}`);
+      }
+    } catch (error) {
+      console.error('Error checking conversation:', error);
+      // Fallback - navigate with basic info
+      navigate(`/chat/${postCreatorId}`);
+    }
+  };
 
   // Debug logs
   console.log('Current user:', user);
@@ -86,6 +171,8 @@ const AdoptionList = () => {
 
   const ViewDetailsModal = ({ post, onClose }) => {
     if (!post) return null;
+
+    const currentUserId = getCurrentUserId(effectiveUser);
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -171,11 +258,58 @@ const AdoptionList = () => {
               
               {/* Posted By */}
               <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center text-gray-600">
-                  <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
-                  <span>Posted by <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span></span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-gray-600">
+                    {post.userId?._id ? (
+                      userProfileImages[post.userId._id] ? (
+                        <img
+                          src={`${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`}
+                          alt={post.userId?.username || 'User'}
+                          className="w-7 h-7 rounded-full object-cover mr-2"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                          <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                            {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                        <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                          {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span>Posted by {post.userId?._id ? (
+                      <Link to={`/profile/public/${post.userId._id}`} className="font-medium text-[#6F4C3E] hover:underline">
+                        {post.userId?.username || 'Anonymous'}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span>
+                    )}</span>
+                  </div>
+                  
+                  {/* Chat Button */}
+                  {effectiveUser && post.userId?._id !== currentUserId && (
+                    <div className="relative group">
+                      <button
+                        onClick={() => handleStartConversation(
+                          post.userId?._id,
+                          post.userId?.username
+                        )}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
+                        title={`Message ${post.userId?.username || 'this user'}`}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="text-xs font-medium">Chat</span>
+                      </button>
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10">
+                        Start private conversation
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -206,6 +340,7 @@ const AdoptionList = () => {
           console.log('Post userId:', post.userId);
           console.log('Current user:', effectiveUser);
           
+          const currentUserId = getCurrentUserId(effectiveUser);
           const isOwner = effectiveUser && (effectiveUser._id === post.userId?._id || effectiveUser._id === post.userId);
           const canRequest = post.status === 'available';
           const hasPendingRequest = post.status === 'pending';
@@ -298,14 +433,60 @@ const AdoptionList = () => {
                 
                 {/* Posted By */}
                 <div className="mb-6 pb-4 border-b border-gray-100 mt-auto">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                    <span>Posted by <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span></span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-sm text-gray-500">
+                      {post.userId?._id ? (
+                        userProfileImages[post.userId._id] ? (
+                          <img
+                            src={`${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`}
+                            alt={post.userId?.username || 'User'}
+                            className="w-5 h-5 rounded-full object-cover mr-2"
+                            onError={e => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                            <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                              {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )
+                      ) : (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                          <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                            {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span>Posted by {post.userId?._id ? (
+                        <Link to={`/profile/public/${post.userId._id}`} className="font-medium text-[#6F4C3E] hover:underline">
+                          {post.userId?.username || 'Anonymous'}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span>
+                      )}</span>
+                    </div>
+                    
+                    {/* Chat Button */}
+                    {effectiveUser && post.userId?._id !== currentUserId && (
+                      <div className="relative group">
+                        <button
+                          onClick={() => handleStartConversation(
+                            post.userId?._id,
+                            post.userId?.username
+                          )}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
+                          title={`Message ${post.userId?.username || 'this user'}`}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          <span className="text-xs font-medium">Chat</span>
+                        </button>
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10">
+                          Start private conversation
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
                 {/* Action Buttons - Fixed at bottom */}
                 <div className="space-y-3 mt-auto">
                   {/* View Details Button - Always visible */}
@@ -377,7 +558,6 @@ const AdoptionList = () => {
           onClose={() => setSelectedPost(null)}
         />
       )}
-      
       {/* View Details Modal */}
       {viewDetailsPost && (
         <ViewDetailsModal 

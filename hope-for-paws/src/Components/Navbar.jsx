@@ -173,6 +173,17 @@ const Navbar = ({ handleSignOut }) => {
               FAQ's
             </NavLink>
           </li>
+          <li className="hover:text-black text-[#a07855] font-bold">
+            <NavLink 
+              to="/chat" 
+              onClick={closeMobileMenu} 
+              className={({ isActive }) => 
+                `block py-2 ${isActive ? activeStyle : ''}`
+              }
+            >
+              Inbox
+            </NavLink>
+          </li>
         </ul>
 
         {/* Mobile Sign In (only show when not logged in) */}
@@ -212,6 +223,11 @@ const Navbar = ({ handleSignOut }) => {
           </li>
           <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
             <NavLink to="/faq" className={({ isActive }) => isActive ? activeStyle : ''}>FAQ's</NavLink>
+          </li>
+          <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
+            <NavLink to="/chat" className={({ isActive }) => isActive ? activeStyle : ''}>
+              Inbox
+            </NavLink>
           </li>
         </ul>
 

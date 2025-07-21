@@ -1,4 +1,3 @@
-import React from 'react';
 import HeroSection from './HeroSection';
 import HowItWorks from './HowItWorks';
 import WhatWeOffer from './WhatWeOffer';
@@ -11,7 +10,6 @@ function Home() {
     <>
       <HeroSection />
       <HowItWorks />
-  
       <WhatWeOffer />
       <Support />
       <TeamSupport/>

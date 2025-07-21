@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check, Trash2, X } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,25 +11,52 @@ const NotificationsPage = () => {
     markAllAsRead, 
     deleteNotification,
     deleteAllNotifications,
-    fetchNotifications 
+    fetchNotifications,
+    setNotifications // Added setNotifications to the context
   } = useNotifications();
   
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
 
+  // Helper to fetch notifications with limit and update hasMore
+  const fetchAndSetNotifications = async (page) => {
+    try {
+      // Always fetch 5 per page
+      const response = await fetchNotifications(page, 5);
+      if (response && response.notifications) {
+        if (page === 1) {
+          setNotifications(response.notifications); // Replace for page 1
+          setCurrentPage(1);
+        } else {
+          setNotifications(prev => {
+            const existingIds = new Set(prev.map(n => n._id));
+            const uniqueNew = response.notifications.filter(n => !existingIds.has(n._id));
+            return [...prev, ...uniqueNew];
+          });
+        }
+      }
+      if (response && response.pagination) {
+        setHasMore(response.pagination.hasMore);
+      } else if (response && typeof response.hasMore !== 'undefined') {
+        setHasMore(response.hasMore);
+      } else {
+        setHasMore(Array.isArray(response?.notifications) ? response.notifications.length === 5 : notifications.length % 5 === 0);
+      }
+    } catch {
+      setHasMore(false);
+    }
+  };
+
   useEffect(() => {
-    fetchNotifications(1);
+    // On mount, fetch first page
+    fetchAndSetNotifications(1);
   }, []);
 
   const handleLoadMore = async () => {
     const nextPage = currentPage + 1;
-    try {
-      await fetchNotifications(nextPage);
-      setCurrentPage(nextPage);
-    } catch (error) {
-      console.error('Error loading more notifications:', error);
-    }
+    await fetchAndSetNotifications(nextPage);
+    setCurrentPage(nextPage);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -157,7 +184,7 @@ const NotificationsPage = () => {
             <div className="bg-white rounded-xl shadow-md p-8 text-center">
               <Bell className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <h2 className="text-xl font-semibold text-gray-600 mb-2">No notifications yet</h2>
-              <p className="text-gray-500">You'll see notifications here when you receive likes, comments, or adoption requests.</p>
+              <p className="text-gray-500">You&apos;ll see notifications here when you receive likes, comments, or adoption requests.</p>
             </div>
           ) : (
             notifications.map((notification) => (
@@ -180,7 +207,7 @@ const NotificationsPage = () => {
                       <div className="flex items-center gap-2">
                         {!notification.read && (
                           <button
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={() => markAsRead(notification._id)}
                             className="p-1 text-blue-500 hover:text-blue-700 transition-colors"
                             title="Mark as read"
                           >
@@ -188,7 +215,7 @@ const NotificationsPage = () => {
                           </button>
                         )}
                         <button
-                          onClick={() => deleteNotification(notification.id)}
+                          onClick={() => deleteNotification(notification._id)}
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                           title="Delete notification"
                         >

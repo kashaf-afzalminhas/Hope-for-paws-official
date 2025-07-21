@@ -2,7 +2,33 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // Adjust the path according to your project structure
 const bcrypt = require('bcryptjs');
-const { signUp, signIn, forgotPassword, verifyCode, updateProfile, signOut, changePassword, verifyRegistrationOTP, resendOTP, googleLogins, completeGoogleRegistration, validateUser } = require('../controllers/userController');
+const auth = require('../middleware/auth');
+const { uploadProfileImage } = require('../middleware/multer_middleware');
+const { 
+  signUp, 
+  signIn, 
+  forgotPassword, 
+  verifyCode, 
+  updateProfile, 
+  signOut, 
+  changePassword, 
+  verifyRegistrationOTP, 
+  resendOTP,
+  getUserById, 
+  getAllUsers, 
+  searchUsers,
+  uploadProfileImage: uploadProfileImageController,
+  getUserPublicProfile,
+  getUserProfile,
+  removeProfileImage,
+  validateToken,
+  googleLogins,
+  completeGoogleRegistration,
+  validateUser,
+  verifyResetCode,
+  resetPassword,
+  resendResetCode
+} = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
 router.post('/verify-registration', verifyRegistrationOTP);
@@ -13,40 +39,39 @@ router.post('/verify-code', verifyCode);
 router.post('/update-profile', updateProfile);
 router.post('/signout', signOut); 
 router.post('/changePassword',changePassword);
+// User management routes
+router.post('/getUserById', getUserById);
+router.post('/getAllUsers', getAllUsers);
+router.post('/searchUsers', searchUsers);
+
+// Token validation route
+router.get('/user/validate', auth, validateToken);
+
+// Debug route to check token (remove this in production)
+router.get('/debug-token', (req, res) => {
+  const authHeader = req.headers.authorization;
+  console.log('Debug - Authorization header:', authHeader);
+  res.json({ 
+    hasAuthHeader: !!authHeader,
+    authHeader: authHeader,
+    message: 'Debug endpoint - check server logs'
+  });
+});
+
+// Profile management routes
+router.post('/upload-profile-image', auth, uploadProfileImage.single('image'), uploadProfileImageController);
+router.get('/profile', auth, getUserProfile);
+router.get('/profile/:id', getUserPublicProfile);
+router.delete('/remove-profile-image', auth, removeProfileImage);
+
 // Google Auth Routes
 router.post("/login-google", googleLogins);
 router.post("/complete-google-registration", completeGoogleRegistration);
-router.post('/change-password', async (req, res) => {
-  const { id, currentPassword, newPassword } = req.body;
 
-  try {
-    // Fetch the user by ID
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if the current password is correct
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
-    }
-
-    // Hash the new password and update it
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
-
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-router.get('/user/validate', validateUser);
-router.post('/verify-reset-code', require('../controllers/userController').verifyResetCode);
-router.post('/reset-password', require('../controllers/userController').resetPassword);
-router.post('/resend-reset-code', require('../controllers/userController').resendResetCode);
+// Validation and reset password routes
+router.post('/verify-reset-code', verifyResetCode);
+router.post('/reset-password', resetPassword);
+router.post('/resend-reset-code', resendResetCode);
 
 module.exports = router;
 
