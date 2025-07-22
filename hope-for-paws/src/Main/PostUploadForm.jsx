@@ -1,134 +1,109 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '../config';
+import PropTypes from 'prop-types';
 
-function AdoptionUploadForm({ onAddAnimal, onClose }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [age, setAge] = useState('');
-  const [color, setColor] = useState('');
+function PostUploadForm({ onAddPost, onCancel }) {
+  const [caption, setCaption] = useState('');
   const [image, setImage] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('description', description);
-    formData.append('age', age);
-    formData.append('color', color);
-    if (image) {
-      formData.append('animalImage', image); // Make sure the key matches what multer expects
-    }
-  
-    const response = await fetch(`${API_BASE_URL}/animal`, {
-      method: 'POST',
-      body: formData,
-    });
-  
-    if (response.ok) {
-      const newAnimal = await response.json();
-      onAddAnimal(newAnimal);
-      onClose(); // Close the form after submission
-    } else {
-      console.error('Failed to submit form');
-      const errorData = await response.json();
-      console.error('Error details:', errorData);
+    setSubmitting(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('caption', caption);
+      if (image) {
+        formData.append('image', image);
+      }
+      const response = await fetch(`${API_BASE_URL}/posts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      if (response.ok) {
+        const newPost = await response.json();
+        if (onAddPost) onAddPost(newPost);
+        if (onCancel) onCancel();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to create post');
+      }
+    } catch {
+      setError('Failed to create post');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImage(file); // Save the file object
+      setImage(file);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#F8F4ED] px-4">
+    <div className="flex justify-center w-full mb-8">
       <form onSubmit={handleSubmit} className="w-full max-w-lg bg-white p-6 rounded-lg shadow-lg">
         <h3 className="font-bold mb-6 text-lg text-[#6b493d]">
-          Please complete this form to add your pet for adoption.
+          Create a New Post
         </h3>
-
+        {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
         <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="animal-name">
-            Name
-          </label>
-          <input
-            type="text"
-            id="animal-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded"
-          />
-        </div>
-
-        
-
-        <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="animal-age">
-            Age
-          </label>
-          <input
-            type="text"
-            id="animal-age"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="animal-color">
-            Color (Optional)
-          </label>
-          <input
-            type="text"
-            id="animal-color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="animal-description">
-            Description
+          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="post-caption">
+            Caption
           </label>
           <textarea
-            id="animal-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            id="post-caption"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
             required
             className="w-full px-4 py-2 border border-gray-300 rounded"
+            placeholder="Write something about your post..."
           />
         </div>
-
         <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="animal-image">
+          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="post-image">
             Upload Image
           </label>
           <input
             type="file"
-            id="animal-image"
+            id="post-image"
             onChange={handleImageUpload}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-[#6b493d] focus:border-[#6b493d]"
             accept="image/*"
-            name="animalImage"
+            name="image"
+            required
           />
         </div>
-
         <button
           type="submit"
-          className="w-full bg-[#6b493d] text-white font-bold py-2 px-4 rounded hover:bg-[#573a2f] transition-colors"
+          disabled={submitting}
+          className="w-full bg-[#6b493d] text-white font-bold py-2 px-4 rounded hover:bg-[#573a2f] transition-colors mb-2 disabled:opacity-60"
         >
-          Submit
+          {submitting ? 'Posting...' : 'Submit'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="w-full bg-gray-200 text-[#6b493d] font-bold py-2 px-4 rounded hover:bg-gray-300 transition-colors"
+        >
+          Cancel
         </button>
       </form>
     </div>
   );
 }
 
-export default AdoptionUploadForm;
+PostUploadForm.propTypes = {
+  onAddPost: PropTypes.func,
+  onCancel: PropTypes.func,
+};
+
+export default PostUploadForm;

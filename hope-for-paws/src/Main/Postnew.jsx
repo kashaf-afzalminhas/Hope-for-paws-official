@@ -2,22 +2,23 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from '../config';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { getConversationBetweenUsers } from './api'; // <-- Make sure this is imported
+import PostUploadForm from './PostUploadForm';
 
 const Postnew = () => {
   const [posts, setPosts] = useState([]);
   const [newComment, setNewComment] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { userd } = useAuth();
+  // const { userd } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
   const navigate = useNavigate();
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add this if not already present
+  const [showPostForm, setShowPostForm] = useState(false);
   
   // Check user authentication state
   const user =
@@ -38,9 +39,9 @@ const Postnew = () => {
       const response = await axios.get(`${API_BASE_URL}/posts`);
       setPosts(response.data);
       setError("");
-    } catch (error) {
+    } catch {
       setError("Failed to load posts. Please try again later.");
-      console.error("Error fetching posts:", error);
+      // console.error("Error fetching posts:", error);
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ const Postnew = () => {
           if (response.data && response.data.data && response.data.data.profileImage) {
             newImages[userId] = response.data.data.profileImage;
           }
-        } catch (err) {
+        } catch {
           // Ignore errors, fallback to initial
         }
       }
@@ -179,7 +180,7 @@ const Postnew = () => {
   };
 
   // Enhanced navigation handler
-  const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
+  const handleStartConversation = async (postCreatorId) => {
     if (!user) {
       navigate('/signin');
       return;
@@ -210,6 +211,20 @@ const Postnew = () => {
       // Fallback - navigate with basic info
       navigate(`/chat/${postCreatorId}`);
     }
+  };
+
+  // Add new post to the top of the list and redirect to My Posts
+  const handleAddPost = (newPost) => {
+    setPosts((prevPosts) => [
+      {
+        ...newPost,
+        comments: newPost.comments || [],
+        likes: newPost.likes || [],
+      },
+      ...prevPosts,
+    ]);
+    setShowPostForm(false);
+    navigate('/my-posts');
   };
 
   if (loading) {
@@ -243,34 +258,44 @@ const Postnew = () => {
           </p>
           
           {/* Action Bar - Full width on mobile */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            {user ? (
-              <>
+          {!showPostForm && (
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setShowPostForm(true)}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
+                  >
+                    <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>Create Post</span>
+                  </button>
+                  <Link
+                    to="/my-posts"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] font-poppins text-sm sm:text-base"
+                  >
+                    <UserCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>My Posts</span>
+                  </Link>
+                </>
+              ) : (
                 <Link
-                  to="/createpost"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
+                  to="/signin"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
                 >
-                  <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>Create Post</span>
+                  Sign in to Post
                 </Link>
-                <Link
-                  to="/my-posts"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] font-poppins text-sm sm:text-base"
-                >
-                  <UserCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>My Posts</span>
-                </Link>
-              </>
-            ) : (
-              <Link
-                to="/signin"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
-              >
-                Sign in to Post
-              </Link>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Post Upload Form at the top */}
+        {showPostForm && (
+          <PostUploadForm
+            onAddPost={handleAddPost}
+            onCancel={() => setShowPostForm(false)}
+          />
+        )}
 
         {/* Posts Feed */}
         <div className="space-y-4 sm:space-y-6">
@@ -333,8 +358,7 @@ const Postnew = () => {
                     <div className="relative group ml-2 flex items-center">
                       <button
                         onClick={() => handleStartConversation(
-                          post.userId?._id,
-                          post.userId?.username
+                          post.userId?._id
                         )}
                         className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
                         title={`Message ${post.userId?.username || 'this user'}`}
