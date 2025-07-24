@@ -1,6 +1,68 @@
+// import React from 'react';
+// import { cn } from '../lib/utils';
+
+// function formatMessageTime(ts) {
+//   if (!ts) return '';
+//   const d = new Date(ts);
+//   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// }
+
+// const ChatBubble = ({
+//   message,
+//   timestamp,
+//   isCurrentUser,
+//   status = 'sent',
+//   className,
+// }) => (
+//   <div className={cn(
+//     "flex",
+//     isCurrentUser ? "justify-end" : "justify-start",
+//     className
+//   )}>
+//     <div
+//       className={cn(
+//         "relative px-4 py-2 rounded-2xl shadow",
+//         isCurrentUser
+//           ? "bg-[#6b493d] text-[#ffd8b8] rounded-br-sm"
+//           : "bg-[#f8f4ed] text-[#2c1810] rounded-bl-sm",
+//         "max-w-[80%] sm:max-w-[60%] break-words whitespace-pre-line",
+//         "text-sm sm:text-base"
+//       )}
+//       style={{
+//         wordBreak: "break-word",
+//         overflowWrap: "break-word",
+//         whiteSpace: "pre-line"
+//       }}
+//     >
+//       <span className="font-body">{message}</span>
+//       <div className="text-xs mt-1 text-[#a07855]/80 text-right">
+//         {formatMessageTime(timestamp)}
+//         {isCurrentUser && (
+//           <span className="ml-2">
+//             {status === 'read' ? (
+//               <span className="text-[#ffd8b8]">✓✓</span>
+//             ) : status === 'delivered' ? (
+//               <span className="text-[#a07855]/80">✓✓</span>
+//             ) : (
+//               <span className="text-[#a07855]/80">✓</span>
+//             )}
+//           </span>
+//         )}
+//       </div>
+//     </div>
+//   </div>
+// );
+
+// export default ChatBubble;
+
 import React from 'react';
 import { cn } from '../lib/utils';
-import { format } from 'date-fns';
+
+function formatMessageTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 const ChatBubble = ({
   message,
@@ -8,47 +70,49 @@ const ChatBubble = ({
   isCurrentUser,
   status = 'sent',
   className,
-}) => {
-  return (
-    <div className={cn(
-      "flex flex-col mb-4 max-w-[85%]",
-      isCurrentUser ? "items-end ml-auto" : "items-start mr-auto",
-      className
-    )}>
+}) => (
+  <div className={cn(
+    "flex mb-3",
+    isCurrentUser ? "justify-end" : "justify-start",
+    className
+  )}>
+    <div
+      className={cn(
+        "relative px-4 py-3 rounded-2xl",
+        isCurrentUser
+          ? "bg-[#6b493d] text-[#ffd8b8] rounded-br-sm"
+          : "bg-[#f0e8db] text-[#2c1810] rounded-bl-sm",
+        "max-w-[85%] break-words whitespace-pre-line",
+        "text-base shadow-sm"
+      )}
+      style={{
+        wordBreak: "break-word",
+        overflowWrap: "break-word",
+      }}
+    >
+      <p className="font-body leading-snug">{message}</p>
+      
       <div className={cn(
-        "rounded-2xl px-4 py-3 text-sm md:text-base",
-        "whitespace-pre-wrap break-words",
+        "flex items-center mt-1.5 text-xs",
         isCurrentUser 
-          ? "bg-[#6b493d] text-[#ffd8b8] rounded-br-none" 
-          : "bg-[#a07855]/20 text-[#2c1810] rounded-bl-none",
-        "transition-colors duration-200 shadow-sm"
+          ? "text-[#ffd8b8]/90 justify-end" 
+          : "text-[#2c1810]/70 justify-start"
       )}>
-        <p className="font-body">{message}</p>
-      </div>
-
-      <div className={cn(
-        "flex items-center mt-1 text-xs text-[#2c1810]/70",
-        isCurrentUser ? "flex-row-reverse" : ""
-      )}>
-        <span className="font-body mx-1">
-          {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
-
+        <span>{formatMessageTime(timestamp)}</span>
         {isCurrentUser && (
-          <span className="mx-1">
+          <span className="ml-1.5">
             {status === 'read' ? (
-              <span className="text-[#6b493d]">✓✓</span>
+              <span className="text-[#ffd8b8]">✓✓</span>
             ) : status === 'delivered' ? (
-              <span className="text-[#a07855]/50">✓✓</span>
+              <span className="text-[#ffd8b8]/70">✓✓</span>
             ) : (
-              <span className="text-[#a07855]/50">✓</span>
+              <span className="text-[#ffd8b8]/70">✓</span>
             )}
           </span>
         )}
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 export default ChatBubble;
-
