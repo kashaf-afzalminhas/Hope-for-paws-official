@@ -1032,8 +1032,8 @@ const ProfilePage = () => {
               </div>
             )}
             {currentView === 'myadoptions' && (
-              <section className="min-h-screen bg-[#f5f3ed] py-4">
-                <div className="max-w-6xl mx-auto px-4">
+              <section className="min-h-screen  py-4">
+                <div className="max-w-4xl mx-auto px-2 md:px-4">
                   <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
                     My Adoption Posts
                   </h3>
@@ -1055,14 +1055,14 @@ const ProfilePage = () => {
                       <p className="text-xl text-[#6b493d]/80 italic">No adoption posts yet. Create your first adoption post!</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {adoptions.map((post) => (
-                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 max-w-xl w-full mx-auto">
                           <div className="relative group">
                             <img 
                               src={post.imageUrl} 
                               alt={post.name} 
-                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                              className="w-full h-56 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
                               loading="lazy"
                               onError={(e) => {
                                 e.target.onerror = null;
@@ -1071,7 +1071,7 @@ const ProfilePage = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
                           </div>
-                          <div className="p-6">
+                          <div className="p-4">
                             {editingAdoptionPost === post._id ? (
                               <div className="space-y-4">
                                 <input
@@ -1238,7 +1238,7 @@ const ProfilePage = () => {
               </section>
             )}
             {currentView === 'myposts' && (
-              <section className="min-h-screen bg-[#f5f3ed] py-4">
+              <section className="min-h-screen py-4">
                 <div className="max-w-6xl mx-auto px-2 md:px-4">
                   <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
                     My Shared Posts
