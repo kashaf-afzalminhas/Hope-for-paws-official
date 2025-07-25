@@ -50,13 +50,16 @@ function PostUploadForm({ onAddPost, onCancel }) {
 
   return (
     <div className="flex justify-center w-full mb-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-lg bg-white p-6 rounded-lg shadow-lg">
-        <h3 className="font-bold mb-6 text-lg text-[#6b493d]">
-          Create a New Post
-        </h3>
-        {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
-        <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="post-caption">
+      <form onSubmit={handleSubmit} className="w-full max-w-lg bg-[#f7f4f0] p-8 rounded-lg shadow-lg">
+        {/* Heading styled like the adoption form */}
+        <div className="rounded-tl-xl rounded-tr-xl bg-gradient-to-r from-[#8B5A2B] to-[#4E3B31] px-6 py-5 mb-4">
+          <h3 className="font-bold text-xl text-white text-left m-0">
+            Create a New Post
+          </h3>
+        </div>
+        {error && <div className="mb-4 text-red-600 text-sm text-center">{error}</div>}
+        <div className="mb-6">
+          <label className="block text-[#6b493d] text-sm font-semibold mb-2" htmlFor="post-caption">
             Caption
           </label>
           <textarea
@@ -64,35 +67,42 @@ function PostUploadForm({ onAddPost, onCancel }) {
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded"
+            className="w-full px-4 py-3 border-2 border-[#bca18a] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#bca18a] focus:border-[#bca18a] text-[#6b493d] bg-white resize-none"
             placeholder="Write something about your post..."
+            rows={4}
           />
         </div>
-        <div className="mb-4">
-          <label className="block text-[#6b493d] text-xs font-bold mb-2" htmlFor="post-image">
-            Upload Image
+        <div className="mb-8">
+          <label className="block text-[#6b493d] text-sm font-semibold mb-2" htmlFor="post-image">
+            Image
           </label>
-          <input
-            type="file"
-            id="post-image"
-            onChange={handleImageUpload}
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-[#6b493d] focus:border-[#6b493d]"
-            accept="image/*"
-            name="image"
-            required
-          />
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative cursor-pointer hover:bg-[#f3ede7] transition-colors">
+            <input
+              type="file"
+              id="post-image"
+              onChange={handleImageUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              accept="image/png,image/jpeg,image/jpg,image/gif"
+              name="image"
+              required
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#6b493d] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="text-[#6b493d] font-semibold">Upload a file</span>
+            <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 10MB</span>
+            {image && <span className="text-xs text-[#6b493d] mt-2">{image.name}</span>}
+          </div>
         </div>
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-[#6b493d] text-white font-bold py-2 px-4 rounded hover:bg-[#573a2f] transition-colors mb-2 disabled:opacity-60"
+          className="w-full bg-[#6b493d] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#573a2f] transition-colors mb-3 disabled:opacity-60"
         >
-          {submitting ? 'Posting...' : 'Submit'}
+          {submitting ? 'Posting...' : 'Create Post'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="w-full bg-gray-200 text-[#6b493d] font-bold py-2 px-4 rounded hover:bg-gray-300 transition-colors"
+          className="w-full bg-[#e5d6c6] text-[#6b493d] font-bold py-2 px-4 rounded-lg hover:bg-[#d6c2b0] transition-colors"
         >
           Cancel
         </button>
