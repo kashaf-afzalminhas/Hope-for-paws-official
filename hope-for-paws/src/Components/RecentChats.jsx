@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
+import { FaChevronLeft } from 'react-icons/fa';
 import { getUserConversations } from '../Main/api';
 import UserCard from './UserCard';
 import SearchBar from './SearchBar';
@@ -12,10 +14,19 @@ const RecentChats = ({
   selectedConversationId,
   users,
   conversations,
-  setConversations, // Make sure this prop is passed from parent
+  setConversations,
+  onBackToSidebar, // <-- Add this prop
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Memoized deduplication and filtering
   const { filteredForDisplay, uniqueConversations } = useMemo(() => {
@@ -129,6 +140,24 @@ const RecentChats = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea]">
+      {/* Header with search and back button */}
+      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10 flex items-center">
+        <button
+          onClick={() => {
+            if (isMobile && onBackToSidebar) {
+              onBackToSidebar(); // Show sidebar on mobile
+            } else {
+              navigate(-1); // Use browser history on desktop
+            }
+          }}
+          className="flex items-center p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors"
+          aria-label="Back"
+        >
+          <FaChevronLeft className="text-[#6b493d]" />
+        </button>
+        <div className="flex-1"></div>
+      </div>
+
       {/* Header with search */}
       <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10">
         <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>

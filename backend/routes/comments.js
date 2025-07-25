@@ -30,6 +30,31 @@ router.post('/:postId', auth, async (req, res) => {
   }
 });
 
+// Add comment to post (nested comments)
+router.post('/:postId/comments', auth, async (req, res) => {
+  try {
+    const { content, parentCommentId } = req.body;
+    const postId = req.params.postId;
+
+    const comment = new Comment({
+      postId,
+      userId: req.user.userId,
+      content,
+      parentCommentId: parentCommentId || null,
+    });
+
+    await comment.save();
+
+    // Optionally populate user
+    const populatedComment = await Comment.findById(comment._id)
+      .populate('userId', 'username isVeterinarian');
+
+    res.status(201).json(populatedComment);
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // Delete comment
 router.delete('/:id', auth, async (req, res) => {
@@ -45,6 +70,40 @@ router.delete('/:id', auth, async (req, res) => {
 
     res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get comments for a post
+router.get('/:postId/comments', async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const comments = await Comment.find({ postId })
+      .populate('userId', 'username isVeterinarian')
+      .sort({ createdAt: 1 });
+
+    // Organize comments into threads (one level deep)
+    const commentMap = {};
+    const topLevel = [];
+
+    comments.forEach(comment => {
+      comment = comment.toObject();
+      comment.replies = [];
+      commentMap[comment._id] = comment;
+      if (!comment.parentCommentId) {
+        topLevel.push(comment);
+      }
+    });
+
+    comments.forEach(comment => {
+      if (comment.parentCommentId && commentMap[comment.parentCommentId]) {
+        commentMap[comment.parentCommentId].replies.push(comment);
+      }
+    });
+
+    res.json(topLevel);
+  } catch (error) {
+    console.error('Error fetching comments:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

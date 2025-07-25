@@ -138,7 +138,16 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   useEffect(() => {
     if (!otherUser.username) {
       getUserById(otherUser._id)
-        .then(res => setUserDetails(res.data))
+        .then(res => {
+          // Some APIs return { data: { ...user } }
+          if (res.data && res.data.data) {
+            setUserDetails(res.data.data);
+          } else if (res.data) {
+            setUserDetails(res.data);
+          } else {
+            setUserDetails(otherUser);
+          }
+        })
         .catch(() => setUserDetails(otherUser));
     } else {
       setUserDetails(otherUser);

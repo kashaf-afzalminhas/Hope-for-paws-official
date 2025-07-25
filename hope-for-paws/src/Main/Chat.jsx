@@ -606,6 +606,7 @@ return (
               addToast={addToast}
               conversations={conversations}
               setConversations={setConversations}
+              onBackToSidebar={() => setShowChatMobile(false)} // <-- Add this
             />
           </div>
         </div>
