@@ -548,102 +548,131 @@ const ChatPage = () => {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-[#f5f0e1]">
-      {/* Toast notifications */}
-      {toasts.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 space-y-2">
-          {toasts.map((toast, index) => (
-            <div 
-              key={index}
-              className={`p-4 rounded-lg shadow-lg font-body ${
-                toast.variant === 'destructive' 
-                  ? 'bg-red-100 text-red-800 border-l-4 border-red-500' 
-                  : 'bg-[#a07855] text-[#ffd8b8] border-l-4 border-[#6b493d]'
-              }`}
-            >
-              <h3 className="font-bold font-heading">{toast.title}</h3>
-              <p>{toast.description}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
+return (
+  <div className="flex flex-col h-screen bg-[#f8f4ea]">
+    {/* Toast notifications - updated design */}
+    {toasts.length > 0 && (
+      <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-xs">
+        {toasts.map((toast, index) => (
+          <div 
+            key={index}
+            className={`p-4 rounded-xl shadow-lg transition-all duration-300 transform ${
+              toast.variant === 'destructive' 
+                ? 'bg-red-50 text-red-800 border border-red-200 shadow-red-100' 
+                : 'bg-[#fff7f0] text-[#2c1810] border border-[#e5d9c8]'
+            } flex items-start space-x-3 animate-fadeIn`}
+          >
+            <div className={`flex-shrink-0 mt-0.5 ${
+              toast.variant === 'destructive' ? 'text-red-500' : 'text-[#a07855]'
+            }`}>
+              {toast.variant === 'destructive' ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <h3 className="font-semibold font-heading">{toast.title}</h3>
+              <p className="text-sm mt-1">{toast.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Main content area */}
+    <div className="flex flex-1 overflow-hidden">
       {/* Sidebar - Recent Chats */}
       <div className={`
-        h-full w-full md:w-96 lg:w-80 border-r border-[#a07855]/30
-        bg-[#fff7f0] shadow-sm
-        ${isMobile && showChatMobile ? 'hidden' : 'flex flex-col'}
+        h-full w-full md:w-80 lg:w-96
+        bg-[#f8f4ea] shadow-sm md:shadow-none
+        transform transition-transform duration-300 ease-in-out
+        ${isMobile && showChatMobile ? 'hidden md:flex' : 'flex'}
+        ${isMobile ? 'absolute inset-0 z-20' : 'relative'}
       `}>
-        {/* Header */}
-        <div className="p-4 border-b border-[#a07855]/30 bg-[#fff7f0]">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-heading font-bold text-[#2c1810]">
-              Messages
-            </h2>
+        <div className="flex flex-col w-full">
+          {/* Recent chats list */}
+          <div className="flex-1 overflow-y-auto">
+            <RecentChats
+              currentUserId={currentUserId}
+              onSelectConversation={handleSelectConversation}
+              selectedConversationId={selectedConversation?._id}
+              users={users}
+              addToast={addToast}
+              conversations={conversations}
+              setConversations={setConversations}
+              onBackToSidebar={() => setShowChatMobile(false)} // <-- Add this
+            />
           </div>
-        </div>
-
-        {/* Recent chats list */}
-        <div className="flex-1 overflow-y-auto">
-          <RecentChats
-            currentUserId={currentUserId}
-            onSelectConversation={handleSelectConversation}
-            selectedConversationId={selectedConversation?._id}
-            users={users}
-            addToast={addToast}
-            conversations={conversations}
-            setConversations={setConversations}
-          />
         </div>
       </div>
 
       {/* Main Chat Area */}
       <div className={`
-        flex-1 flex flex-col bg-[#f5f0e1]
+        flex-1 flex flex-col bg-[#fff7f0]
         ${isMobile && !showChatMobile ? 'hidden' : 'flex'}
+        transition-all duration-300
       `}>
         {isSelectingConversation ? (
-          <div className="flex flex-col items-center justify-center h-full text-[#2c1810] p-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#a07855] mx-auto mb-4"></div>
-            <p>Loading conversation...</p>
+          <div className="flex flex-col items-center justify-center h-full p-4 text-[#2c1810]">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-14 w-14 border-[3px] border-[#a07855] border-t-transparent"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-full bg-[#a07855]/20 animate-ping"></div>
+              </div>
+            </div>
+            <p className="mt-4 font-body">Loading conversation...</p>
           </div>
         ) : selectedConversation ? (
-          <>
-            {/* Chat window */}
-            <ChatWindow
-              key={selectedConversation?._id}
-              conversationId={selectedConversation._id}
-              currentUser={user}
-              otherUser={selectedUser}
-              onBack={handleBackToList}
-              updateConversationLastMessage={updateConversationLastMessage}
-            />
-          </>
+          <ChatWindow
+            key={selectedConversation?._id}
+            conversationId={selectedConversation._id}
+            currentUser={user}
+            otherUser={selectedUser}
+            onBack={handleBackToList}
+            updateConversationLastMessage={updateConversationLastMessage}
+          />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-[#2c1810] p-6 text-center">
-            <div className="w-24 h-24 bg-[#a07855]/10 rounded-full flex items-center justify-center mb-6">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-12 w-12 text-[#a07855]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+            <div className="relative mb-8">
+              <div className="w-32 h-32 bg-[#f0e6d8] rounded-full flex items-center justify-center">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-16 w-16 text-[#a07855]" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <div className="absolute -top-2 -right-2">
+                <div className="w-10 h-10 rounded-full bg-[#a07855] flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <h3 className="text-2xl font-heading font-bold text-[#2c1810] mb-2">
-              Select a conversation
+            <h3 className="text-2xl font-heading font-bold text-[#2c1810] mb-3">
+              Start a Conversation
             </h3>
-            <p className="font-body text-[#2c1810]/80 max-w-md mb-6">
-              Choose an existing chat from the sidebar or start a new conversation
+            <p className="font-body text-[#2c1810]/80 max-w-md mb-8">
+              Select a chat from your conversations or create a new one to begin messaging
             </p>
             {isMobile && (
               <button
                 onClick={() => setShowChatMobile(false)}
-                className="px-6 py-2 bg-[#a07855] text-[#ffd8b8] rounded-full hover:bg-[#8a6a4d] transition-colors"
+                className="px-6 py-3 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center"
               >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
                 View Conversations
               </button>
             )}
@@ -651,7 +680,7 @@ const ChatPage = () => {
         )}
       </div>
     </div>
-  );
-};
-
+  </div>
+);
+}
 export default ChatPage;

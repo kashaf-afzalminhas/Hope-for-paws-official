@@ -7,7 +7,7 @@ import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { getConversationBetweenUsers } from './api'; // <-- Make sure this is imported
 import PostUploadForm from './PostUploadForm';
-
+ 
 const Postnew = () => {
   const [posts, setPosts] = useState([]);
   const [newComment, setNewComment] = useState({});
@@ -19,6 +19,8 @@ const Postnew = () => {
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add this if not already present
   const [showPostForm, setShowPostForm] = useState(false);
+  const [replyInput, setReplyInput] = useState({}); // Add this line
+  const [replyingTo, setReplyingTo] = useState(null); // commentId being replied to
   
   // Check user authentication state
   const user =
@@ -179,6 +181,32 @@ const Postnew = () => {
     }
   };
 
+  const handleReply = async (postId, parentCommentId) => {
+    if (!user || !replyInput[parentCommentId]) return;
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.post(
+        `${API_BASE_URL}/comments/${postId}/comments`,
+        { content: replyInput[parentCommentId], parentCommentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Update comments in posts state
+      setPosts(posts.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            comments: [...post.comments, response.data],
+          };
+        }
+        return post;
+      }));
+      setReplyInput({ ...replyInput, [parentCommentId]: "" });
+      setReplyingTo(null);
+    } catch (error) {
+      console.error("Error posting reply:", error);
+    }
+  };
+
   // Enhanced navigation handler
   const handleStartConversation = async (postCreatorId) => {
     if (!user) {
@@ -225,6 +253,93 @@ const Postnew = () => {
     ]);
     setShowPostForm(false);
     navigate('/my-posts');
+  };
+
+  const renderComments = (comments, postId, parent = null) => {
+    return comments
+      .filter(comment => comment.parentCommentId === parent)
+      .map(comment => (
+        <div key={comment._id} className="flex flex-col">
+          <div className="flex gap-2 sm:gap-3 bg-[#f5f3ed] rounded-lg p-2 sm:p-3">
+            {/* Avatar and main comment content */}
+            <div className="h-7 w-7 bg-[#6b493d] rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-medium text-xs">
+                {comment.userId?.username?.[0]?.toUpperCase() || "?"}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                <h4 className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate">
+                  {comment.userId?.username || "Unknown User"}
+                </h4>
+                {comment.userId?.isVeterinarian && (
+                  <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
+                    Veterinarian
+                  </span>
+                )}
+              </div>
+              <p className="text-[#4E3B31] font-poppins text-xs sm:text-sm break-words">
+                {comment.content}
+              </p>
+              <p className="text-xs text-[#a07855] mt-1 font-poppins">
+                {new Date(comment.createdAt).toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }
+                )}
+              </p>
+              {/* Reply button */}
+              {user && (
+                <button
+                  className="text-xs text-[#a07855] hover:underline mt-1"
+                  onClick={() => setReplyingTo(comment._id)}
+                >
+                  Reply
+                </button>
+              )}
+              {/* Reply input */}
+              {replyingTo === comment._id && (
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={replyInput[comment._id] || ""}
+                    onChange={e =>
+                      setReplyInput({ ...replyInput, [comment._id]: e.target.value })
+                    }
+                    placeholder="Write a reply..."
+                    className="flex-1 bg-[#f5f3ed] rounded-full px-3 py-1 text-xs text-[#4E3B31] placeholder-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
+                    onKeyPress={e =>
+                      e.key === "Enter" && handleReply(postId, comment._id)
+                    }
+                  />
+                  <button
+                    onClick={() => handleReply(postId, comment._id)}
+                    className="px-2 py-1 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins text-xs"
+                  >
+                    Reply
+                  </button>
+                </div>
+              )}
+            </div>
+            {user && comment.userId?._id === user.id && (
+              <button
+                onClick={() => handleDeleteComment(comment._id, postId)}
+                className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
+              >
+                <Trash2 className="h-4 w-4 text-[#6b493d]" />
+              </button>
+            )}
+          </div>
+          {/* Render replies (one level deep) */}
+          <div className="ml-8 mt-2">
+            {renderComments(comments, postId, comment._id)}
+          </div>
+        </div>
+      ));
   };
 
   if (loading) {
@@ -450,57 +565,11 @@ const Postnew = () => {
                     )}
 
                     <div className="space-y-2 sm:space-y-3">
-                      {(expandedComments[post._id]
-                        ? post.comments
-                        : post.comments.slice(0, 2)
-                      ).map((comment) => (
-                        <div
-                          key={comment._id}
-                          className="flex gap-2 sm:gap-3 bg-[#f5f3ed] rounded-lg p-2 sm:p-3"
-                        >
-                          <div className="h-7 w-7 bg-[#6b493d] rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-medium text-xs">
-                              {comment.userId?.username?.[0]?.toUpperCase() || "?"}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <h4 className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate">
-                                {comment.userId?.username || "Unknown User"}
-                              </h4>
-                              {comment.userId?.isVeterinarian && (
-                                <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
-                                  Veterinarian
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[#4E3B31] font-poppins text-xs sm:text-sm break-words">
-                              {comment.content}
-                            </p>
-                            <p className="text-xs text-[#a07855] mt-1 font-poppins">
-                              {new Date(comment.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </p>
-                          </div>
-                          {user && comment.userId?._id === user.id && (
-                            <button
-                              onClick={() =>
-                                handleDeleteComment(comment._id, post._id)
-                              }
-                              className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
-                            >
-                              <Trash2 className="h-4 w-4 text-[#6b493d]" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      {renderComments(
+                        expandedComments[post._id] ? post.comments : post.comments.slice(0, 2),
+                        post._id,
+                        null
+                      )}
                       {post.comments.length > 2 && (
                         <button
                           onClick={() => toggleComments(post._id)}
@@ -524,3 +593,4 @@ const Postnew = () => {
 };
 
 export default Postnew;
+
