@@ -93,6 +93,18 @@ router.put('/mark-all-read', auth, async (req, res) => {
   }
 });
 
+// Delete all notifications
+router.delete('/delete-all', auth, async (req, res) => {
+  try {
+    console.log('Delete all notifications for user:', req.user);
+    await Notification.deleteMany({ recipient: req.user.userId });
+    res.json({ message: 'All notifications deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting all notifications:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Delete notification
 router.delete('/:id', auth, async (req, res) => {
   try {
@@ -108,17 +120,6 @@ router.delete('/:id', auth, async (req, res) => {
     res.json({ message: 'Notification deleted successfully' });
   } catch (error) {
     console.error('Error deleting notification:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Delete all notifications
-router.delete('/delete-all', auth, async (req, res) => {
-  try {
-    await Notification.deleteMany({ recipient: req.user.userId });
-    res.json({ message: 'All notifications deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting all notifications:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

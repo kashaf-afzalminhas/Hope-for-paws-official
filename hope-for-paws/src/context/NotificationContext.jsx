@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
@@ -20,7 +21,6 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [usePolling, setUsePolling] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
@@ -267,7 +267,7 @@ export const NotificationProvider = ({ children }) => {
     }, 120000); // Poll every 2 minutes instead of 60 seconds
     
     pollingRef.current = interval;
-    setPollingInterval(interval);
+    // setPollingInterval(interval); // removed unused
   };
 
   // Fetch initial notifications only once after initialization
@@ -281,7 +281,7 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isInitialized]);
 
-  const fetchNotifications = async (page = 1) => {
+  const fetchNotifications = async (page = 1, limit = 20) => {
     // Skip if rate limited
     if (rateLimited) {
       console.log('Skipping fetchNotifications due to rate limiting');
@@ -296,7 +296,7 @@ export const NotificationProvider = ({ children }) => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/notifications?page=${page}`, {
+      const response = await axios.get(`${API_BASE_URL}/notifications?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
       });
@@ -309,6 +309,7 @@ export const NotificationProvider = ({ children }) => {
       }
       
       setError(null);
+      return response.data;
     } catch (err) {
       console.error('Error fetching notifications:', err);
       
@@ -494,7 +495,8 @@ export const NotificationProvider = ({ children }) => {
     markAllAsRead,
     deleteNotification,
     deleteAllNotifications,
-    requestNotificationPermission
+    requestNotificationPermission,
+    setNotifications
   };
 
   return (
@@ -502,4 +504,8 @@ export const NotificationProvider = ({ children }) => {
       {children}
     </NotificationContext.Provider>
   );
+}; 
+
+NotificationProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 }; 

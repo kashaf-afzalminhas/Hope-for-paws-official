@@ -6,6 +6,7 @@ import CreateAdoptionAdForm from './AdoptionForm';
 const AdoptionPage = () => {
   const { loading, error } = useAdoption();
   const [isCreating, setIsCreating] = useState(false);
+  const [petFilter, setPetFilter] = useState('all');
 
   if (loading.all) return (
     <div className="min-h-screen bg-[#e2d6cb]/10">
@@ -53,12 +54,11 @@ const AdoptionPage = () => {
   return (
     <div className="min-h-screen bg-[#e2d6cb]/10 pb-12">
       {/* Hero Section */}
-      <div className="bg-[#8B5A2B] text-white py-12 mb-8 shadow-md">
+      <div className="bg-[#8B5A2B] text-white py-12 mb-0 shadow-md">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl font-bold mb-4">Find Your Perfect Companion</h1>
             <p className="text-lg mb-8 text-[#e2d6cb]">Connecting loving homes with pets in need</p>
-            
             <button 
               onClick={() => setIsCreating(!isCreating)}
               className="px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
@@ -68,42 +68,60 @@ const AdoptionPage = () => {
           </div>
         </div>
       </div>
+      {/* Disclaimer Banner - now flush below hero section */}
+      <div className="w-full bg-yellow-100 border-b border-yellow-300 py-3 px-4 flex items-center justify-center shadow-sm">
+        <span className="text-yellow-900 text-sm font-medium text-center">
+          ⚠️ Note: All adoption ads are user-generated. Please verify all information independently. We maintain a neutral stance in all third-party interactions between adopters and pet owners.
+        </span>
+      </div>
       
       <div className="container mx-auto px-4">
         {/* Form Section */}
         {isCreating && (
-          <div className="max-w-3xl mx-auto mb-12 bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-[#4E3B31] text-white py-4 px-6">
-              <h2 className="text-xl font-semibold">Create a New Adoption Advertisement</h2>
+          <div className="max-w-3xl mx-auto mb-12 mt-10 bg-white rounded-2xl shadow-2xl overflow-hidden border border-[#e2d6cb]">
+            <div className="bg-gradient-to-r from-[#8B5A2B] to-[#4E3B31] text-white py-6 px-8 rounded-t-2xl">
+              <h2 className="text-2xl font-bold tracking-tight">Create a New Adoption Advertisement</h2>
             </div>
-            <div className="p-6">
+            <div className="p-8 sm:p-10">
               <CreateAdoptionAdForm />
             </div>
           </div>
         )}
         
         {/* Filter Bar - Optional, can be implemented later */}
-        <div className="max-w-6xl mx-auto mb-8 bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center justify-between">
+        <div className="max-w-6xl mx-auto mb-8 mt-8 bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center justify-between">
           <h2 className="text-2xl font-bold text-[#4E3B31] mb-2 md:mb-0">Available Pets</h2>
           
           <div className="flex flex-wrap gap-2">
-            <button className="px-4 py-2 rounded-md bg-[#e2d6cb] text-[#6F4C3E] hover:bg-[#d6c7b8] transition-colors">
+            <button
+              className={`px-4 py-2 rounded-md transition-colors font-medium ${petFilter === 'all' ? 'bg-[#e2d6cb] text-[#6F4C3E]' : 'text-[#8B5A2B] hover:bg-[#e2d6cb]'}`}
+              onClick={() => setPetFilter('all')}
+            >
               All Pets
             </button>
-            <button className="px-4 py-2 rounded-md text-[#8B5A2B] hover:bg-[#e2d6cb] transition-colors">
+            <button
+              className={`px-4 py-2 rounded-md transition-colors font-medium ${petFilter === 'dog' ? 'bg-[#e2d6cb] text-[#6F4C3E]' : 'text-[#8B5A2B] hover:bg-[#e2d6cb]'}`}
+              onClick={() => setPetFilter('dog')}
+            >
               Dogs
             </button>
-            <button className="px-4 py-2 rounded-md text-[#8B5A2B] hover:bg-[#e2d6cb] transition-colors">
+            <button
+              className={`px-4 py-2 rounded-md transition-colors font-medium ${petFilter === 'cat' ? 'bg-[#e2d6cb] text-[#6F4C3E]' : 'text-[#8B5A2B] hover:bg-[#e2d6cb]'}`}
+              onClick={() => setPetFilter('cat')}
+            >
               Cats
             </button>
-            <button className="px-4 py-2 rounded-md text-[#8B5A2B] hover:bg-[#e2d6cb] transition-colors">
+            <button
+              className={`px-4 py-2 rounded-md transition-colors font-medium ${petFilter === 'other' ? 'bg-[#e2d6cb] text-[#6F4C3E]' : 'text-[#8B5A2B] hover:bg-[#e2d6cb]'}`}
+              onClick={() => setPetFilter('other')}
+            >
               Other Pets
             </button>
           </div>
         </div>
         
         {/* Main Content - Adoption List */}
-        <AdoptionList />
+        <AdoptionList filter={petFilter} />
       </div>
     </div>
   );
