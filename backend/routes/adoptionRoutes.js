@@ -377,7 +377,7 @@ router.put('/requests/:requestId', auth, async (req, res) => {
     const requestId = req.params.requestId;
 
     const adoptionRequest = await AdoptionRequest.findById(requestId)
-      .populate('adId', 'userId');
+      .populate('adId', 'userId name');
 
     if (!adoptionRequest) {
       return res.status(404).json({ message: 'Request not found' });
@@ -403,11 +403,16 @@ router.put('/requests/:requestId', auth, async (req, res) => {
 
     // Send notification for adoption request status change
     if (global.notificationService) {
+      // Fetch adoption data directly to ensure we have the name
+      const adoption = await Adoption.findById(adoptionRequest.adId._id);
+      const adoptionName = adoption ? adoption.name : 'Unknown Pet';
+      
+      console.log('Adoption name for notification:', adoptionName);
       global.notificationService.notifyAdoptionRequestStatus(
         adoptionRequest.adId._id, 
         adoptionRequest.requester, 
         status, 
-        adoptionRequest.adId.name
+        adoptionName
       );
     }
 

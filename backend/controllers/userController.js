@@ -342,7 +342,7 @@ const updateProfile = async (req, res) => {
         phone: user.phone || "",  // Explicitly include phone, city, about
         city: user.city || "",
         about: user.about || "",
-        userType: user.userType
+        isVeterinarian: user.isVeterinarian
       }
     });
   } catch (error) {

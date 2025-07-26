@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft } from 'react-icons/fa';
 import { MdPets  } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
 
 const ProfilePage = () => {
-  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState({
@@ -33,6 +31,13 @@ const ProfilePage = () => {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
     if (userData) {
+      // Convert isVeterinarian to userType for display
+      const getUserType = (user) => {
+        if (user.userType) return user.userType;
+        if (user.isVeterinarian) return 'Veterinarian';
+        return 'Regular User';
+      };
+
       setProfile({
         id: userData.id,
         name: userData.username,
@@ -40,7 +45,7 @@ const ProfilePage = () => {
         phone: userData.phone || '',
         city: userData.city || '',
         about: userData.about || '',
-        userType: userData.userType,
+        userType: getUserType(userData),
       });
     } else {
       setError('No user data found. Please log in.');
@@ -82,6 +87,14 @@ const ProfilePage = () => {
         const updatedUser = data.user;
         localStorage.setItem('user', JSON.stringify(updatedUser));
         sessionStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Convert isVeterinarian to userType for display
+        const getUserType = (user) => {
+          if (user.userType) return user.userType;
+          if (user.isVeterinarian) return 'Veterinarian';
+          return 'Regular User';
+        };
+
         setProfile({
           id: updatedUser.id,
           name: updatedUser.username,
@@ -89,7 +102,7 @@ const ProfilePage = () => {
           phone: updatedUser.phone || '',
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          userType: updatedUser.userType
+          userType: getUserType(updatedUser)
         });
         alert('Profile updated successfully!');
         setCurrentView('profile');
@@ -501,7 +514,7 @@ const ProfilePage = () => {
                       </div>
                       <div>
                         <h4 className="font-medium">Sign Out All Devices</h4>
-                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you're currently signed in</p>
+                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you&apos;re currently signed in</p>
                         <button className="mt-2 bg-red-500 hover:bg-red-600 text-white text-sm py-1 px-3 rounded">
                           Sign Out All
                         </button>

@@ -1,24 +1,19 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { API_BASE_URL } from '../config';
+import { adminAPI } from './api';
 
-const AdminUserAdoptions = () => {
-  const { userId } = useParams();
+const AdminAdoptions = () => {
   const [adoptions, setAdoptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const fetchAdoptions = async () => {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/adoptions/user/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to fetch adoptions');
-      setAdoptions(await res.json());
+      const data = await adminAPI.getAllAdoptions();
+      setAdoptions(data);
     } catch (err) {
       setError(err.message || 'Failed to fetch adoptions');
     } finally {
@@ -26,18 +21,13 @@ const AdminUserAdoptions = () => {
     }
   };
 
-  useEffect(() => { fetchAdoptions(); }, [userId]);
+  useEffect(() => { fetchAdoptions(); }, []);
 
   const handleDelete = async (adoptionId) => {
     if (!window.confirm('Are you sure you want to delete this adoption post?')) return;
     setDeleting(adoptionId);
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/admin/adoptions/${adoptionId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to delete adoption');
+      await adminAPI.deleteAdoption(adoptionId);
       setAdoptions(adoptions.filter(a => a._id !== adoptionId));
     } catch (err) {
       alert(err.message || 'Failed to delete adoption');
@@ -51,9 +41,9 @@ const AdminUserAdoptions = () => {
 
   return (
     <div className="bg-white rounded-xl shadow p-6">
-      <h2 className="text-2xl font-bold mb-6 text-[#4E3B31]">User&apos;s Adoptions</h2>
+      <h2 className="text-2xl font-bold mb-6 text-[#4E3B31]">All Adoptions</h2>
       {adoptions.length === 0 ? (
-        <div className="text-center text-gray-500">No adoptions found for this user.</div>
+        <div className="text-center text-gray-500">No adoptions found.</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#f3e7d8]">
@@ -65,7 +55,8 @@ const AdminUserAdoptions = () => {
                 <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase">Description</th>
                 <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase">Status</th>
                 <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase">Image</th>
-                <th className="px-4 py-2 text-xs font-bold text-[#6b493d] uppercase">Created</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase">User</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-[#6b493d] uppercase">Created</th>
                 <th className="px-4 py-2 text-center text-xs font-bold text-[#6b493d] uppercase">Actions</th>
               </tr>
             </thead>
@@ -75,10 +66,20 @@ const AdminUserAdoptions = () => {
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{adoption.name}</td>
                   <td className="px-4 py-2">{adoption.petType}</td>
                   <td className="px-4 py-2">{adoption.age}</td>
-                  <td className="px-4 py-2 max-w-xs truncate">{adoption.description}</td>
+                  <td className="px-4 py-2 min-w-[300px] text-sm align-top">{adoption.description}</td>
                   <td className="px-4 py-2 capitalize">{adoption.status}</td>
                   <td className="px-4 py-2">
-                    <img src={adoption.imageUrl} alt={adoption.name} className="h-12 w-12 object-cover rounded" onError={e => {e.target.onerror=null;e.target.src='https://via.placeholder.com/48x48?text=Pet';}} />
+                    <img
+                      src={adoption.imageUrl}
+                      alt={adoption.name}
+                      className="h-12 w-12 object-cover rounded cursor-pointer hover:shadow-lg"
+                      onClick={() => setSelectedImage(adoption.imageUrl)}
+                      onError={e => {e.target.onerror=null;e.target.src='https://via.placeholder.com/48x48?text=Pet';}}
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    {adoption.userId?.username}<br/>
+                    <span className="text-xs text-gray-500">{adoption.userId?.email}</span>
                   </td>
                   <td className="px-4 py-2 text-xs">{new Date(adoption.createdAt).toLocaleString()}</td>
                   <td className="px-4 py-2 text-center">
@@ -96,8 +97,16 @@ const AdminUserAdoptions = () => {
           </table>
         </div>
       )}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={() => setSelectedImage(null)}>
+          <div className="bg-white p-4 rounded shadow-lg max-w-2xl max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <img src={selectedImage} alt="Large Pet" className="max-h-[70vh] max-w-full rounded" />
+            <button className="mt-4 px-4 py-2 bg-[#6b493d] text-white rounded hover:bg-[#4E3B31]" onClick={() => setSelectedImage(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default AdminUserAdoptions; 
+export default AdminAdoptions; 

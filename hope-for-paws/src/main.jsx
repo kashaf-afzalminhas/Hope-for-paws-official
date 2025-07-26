@@ -27,15 +27,23 @@ import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
 import AdoptionHistory from './Main/AdoptionHistory';
 import FullTeamPage from './Main/FullTeamPage'; // Import FullTeamPage component
-import AdminDashboard from './Main/AdminDashboard';
-import AdminManageUsers from './Main/AdminManageUsers';
+import AdminDashboard from './admin/AdminDashboard.jsx';
+import AdminManageUsers from './admin/AdminManageUsers';
 import { useEffect, useState } from 'react';
 import { ADMIN_BASE_URL, AUTH_BASE_URL } from './config';
-import AdminDashboardLayout from './Main/AdminDashboardLayout';
+import AdminDashboardLayout from './admin/AdminDashboardLayout';
 import ResetPassword from './Main/ResetPassword';
-import AdminAdoptions from './Main/AdminAdoptions';
-import AdminUserAdoptions from './Main/AdminUserAdoptions';
+import AdminAdoptions from './admin/AdminAdoptions';
+import AdminUserAdoptions from './admin/AdminUserAdoptions';
 import NotificationsPage from './Main/NotificationsPage';
+import PostDetail from './Main/PostDetail';
+import AdminPosts from './admin/AdminPosts';
+import AdminUserPosts from './admin/AdminUserPosts';
+import AdminComments from './admin/AdminComments';
+import AdminUserComments from './admin/AdminUserComments';
+import AdminPostComments from './admin/AdminPostComments';
+import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
+import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -55,7 +63,9 @@ const AdminDashboardRoutes = () => {
       navigate('/');
       return;
     }
-    fetch(`${ADMIN_BASE_URL}/users`, {
+    
+    // Use the new bulk API endpoint
+    fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -75,6 +85,10 @@ const AdminDashboardRoutes = () => {
         if (!data) return;
         setVets(data.veterinarians || []);
         setUsers(data.regularUsers || []);
+        // Set all user stats at once
+        if (data.userStats) {
+          setUserStats(data.userStats);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -84,8 +98,17 @@ const AdminDashboardRoutes = () => {
     // eslint-disable-next-line
   }, [navigate]);
 
-  const fetchUserStats = async (userId) => {
-    if (userStats[userId]) return; // Already fetched
+  const fetchUserStats = async (userId, preFetchedStats = null) => {
+    // If stats are already loaded, don't fetch again
+    if (userStats[userId] && !preFetchedStats) return;
+    
+    // If pre-fetched stats are provided, use them
+    if (preFetchedStats) {
+      setUserStats(prev => ({ ...prev, [userId]: preFetchedStats }));
+      return;
+    }
+    
+    // Fallback to individual API call if needed
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     try {
       const res = await fetch(`${ADMIN_BASE_URL}/user-stats/${userId}`, {
@@ -142,7 +165,9 @@ const AdminDashboardRoutes = () => {
           'Authorization': `Bearer ${token}`
         },
       });
-    } catch {}
+    } catch (error) {
+      console.error('Error during signout:', error);
+    }
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     sessionStorage.removeItem('user');
@@ -157,27 +182,34 @@ const AdminDashboardRoutes = () => {
     <AdminDashboardLayout admin={admin} onSignOut={handleSignOut}>
       <Routes>
         <Route path="" element={
-          <AdminDashboard 
-            vets={vets}
-            users={users}
-            admin={admin}
-            onSignOut={handleSignOut}
-          />
+        <AdminDashboard 
+          vets={vets}
+          users={users}
+          admin={admin}
+          onSignOut={handleSignOut}
+        />
         } />
         <Route path="manage-users" element={
-          <AdminManageUsers
-            vets={vets}
-            users={users}
-            userStats={userStats}
-            fetchUserStats={fetchUserStats}
-            handleDeleteUser={handleDeleteUser}
-            deleting={deleting}
-            search={search}
-            setSearch={setSearch}
-          />
+        <AdminManageUsers
+          vets={vets}
+          users={users}
+          userStats={userStats}
+          fetchUserStats={fetchUserStats}
+          handleDeleteUser={handleDeleteUser}
+          deleting={deleting}
+          search={search}
+          setSearch={setSearch}
+        />
         } />
         <Route path="adoptions" element={<AdminAdoptions />} />
         <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
+        <Route path="adoption-requests" element={<AdminAdoptionRequests />} />
+        <Route path="adoption-requests/user/:userId" element={<AdminUserAdoptionRequests />} />
+        <Route path="posts" element={<AdminPosts />} />
+        <Route path="posts/user/:userId" element={<AdminUserPosts />} />
+        <Route path="comments" element={<AdminComments />} />
+        <Route path="comments/user/:userId" element={<AdminUserComments />} />
+        <Route path="comments/post/:postId" element={<AdminPostComments />} />
       </Routes>
     </AdminDashboardLayout>
   );
@@ -190,6 +222,7 @@ const router = createBrowserRouter(
       <Route path="/contactus" element={<ContactUs />} />
       <Route path="/clinics" element={<Clinics />} />
       <Route path="/posts" element={<Postpages />} />
+      <Route path="/posts/:id" element={<PostDetail />} />
       <Route path="/ngo" element={<NGO />} />
       <Route path="/faq" element={<Faq />} />
       <Route path="/createpost" element={<CreatePost />} />

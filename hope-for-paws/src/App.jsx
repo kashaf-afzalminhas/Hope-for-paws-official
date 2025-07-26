@@ -56,12 +56,14 @@ function App() {
   }
 
   return (
-    <>
+    <div id="app-root" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <DisclaimerBanner />
       <Navbar handleSignOut={handleSignOut} />
-      <Outlet/>
+      <div className="app-content" style={{ flex: 1 }}>
+        <Outlet/>
+      </div>
       <Footer/>
-    </>
+    </div>
   );
 }
 

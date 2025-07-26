@@ -41,6 +41,12 @@ export const NotificationProvider = ({ children }) => {
     if (token && user && !initializationRef.current) {
       initializationRef.current = true;
       
+      // Ensure token is just the JWT, not 'Bearer ...'
+      let socketToken = token;
+      if (socketToken && socketToken.startsWith('Bearer ')) {
+        socketToken = socketToken.replace('Bearer ', '');
+      }
+      console.log('Socket.IO token being sent:', socketToken); // Debug log
       // First check if backend is available
       const checkBackendHealth = async () => {
         try {
@@ -75,7 +81,7 @@ export const NotificationProvider = ({ children }) => {
             }
 
             const newSocket = io(API_BASE_URL.replace('/api', ''), {
-              auth: { token },
+              auth: { token: socketToken },
               transports: ['polling', 'websocket'],
               forceNew: true,
               timeout: 10000,
@@ -102,7 +108,7 @@ export const NotificationProvider = ({ children }) => {
 
             newSocket.on('notification', (notification) => {
               console.log('New notification received:', notification);
-              setNotifications(prev => [notification, ...prev]);
+              setNotifications(prev => [{ ...notification, read: false }, ...prev]); // Always unread
               setUnreadCount(prev => prev + 1);
               
               // Show browser notification if permission is granted
@@ -296,6 +302,7 @@ export const NotificationProvider = ({ children }) => {
       });
       
       if (page === 1) {
+        console.log('Fetched notifications:', response.data.notifications);
         setNotifications(response.data.notifications);
       } else {
         setNotifications(prev => [...prev, ...response.data.notifications]);
@@ -377,7 +384,7 @@ export const NotificationProvider = ({ children }) => {
       
       setNotifications(prev => 
         prev.map(notification => 
-          notification.id === notificationId 
+          (notification._id === notificationId || notification.id === notificationId)
             ? { ...notification, read: true }
             : notification
         )
@@ -406,6 +413,7 @@ export const NotificationProvider = ({ children }) => {
         }
       );
       
+      // Only mark notifications that are currently in the list as read
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       );
@@ -430,11 +438,11 @@ export const NotificationProvider = ({ children }) => {
       );
       
       setNotifications(prev => 
-        prev.filter(notification => notification.id !== notificationId)
+        prev.filter(notification => notification._id !== notificationId && notification.id !== notificationId)
       );
       
       // Update unread count if notification was unread
-      const notification = notifications.find(n => n.id === notificationId);
+      const notification = notifications.find(n => n._id === notificationId || n.id === notificationId);
       if (notification && !notification.read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }

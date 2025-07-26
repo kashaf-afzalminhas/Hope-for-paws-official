@@ -39,25 +39,33 @@ const NotificationBell = () => {
   }, []);
 
   const handleNotificationClick = async (notification) => {
+    console.log('Notification clicked:', notification);
+    console.log('Notification type:', notification.type);
+    console.log('Notification data:', notification.data);
+    
     if (!notification.read) {
-      await markAsRead(notification.id);
+      await markAsRead(notification._id || notification.id);
     }
 
     // Navigate based on notification type
     switch (notification.type) {
       case 'post_like':
       case 'post_comment':
+      case 'new_post_vet_notification':
+        console.log('Navigating to post:', notification.data.postId);
         navigate(`/posts/${notification.data.postId}`);
         break;
       case 'adoption_request':
-      case 'adoption_request_accepted':
-      case 'adoption_request_rejected':
+        console.log('Navigating to my-adoptions');
         navigate('/my-adoptions');
         break;
-      case 'new_post_vet_notification':
-        navigate('/posts');
+      case 'adoption_request_accepted':
+      case 'adoption_request_rejected':
+        console.log('Navigating to adoption history');
+        navigate('/adoptionhistory');
         break;
       default:
+        console.log('No navigation for notification type:', notification.type);
         break;
     }
 
@@ -168,7 +176,7 @@ const NotificationBell = () => {
 
       {/* Notifications Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-hidden z-50">
+        <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 z-50">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="font-semibold text-[#6b493d]">Notifications</h3>
@@ -201,7 +209,7 @@ const NotificationBell = () => {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-96">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
                 <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
@@ -211,7 +219,7 @@ const NotificationBell = () => {
               <div className="divide-y divide-gray-100">
                 {notifications.map((notification) => (
                   <div
-                    key={notification.id}
+                    key={notification._id || notification.id}
                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !notification.read ? 'bg-blue-50' : ''
                     }`}

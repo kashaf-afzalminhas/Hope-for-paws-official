@@ -136,7 +136,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
     // Notify veterinarians about new post
     if (global.notificationService) {
-      global.notificationService.notifyVetsNewPost(post._id, caption);
+      global.notificationService.notifyVetsNewPost(post._id, caption, req.user.userId);
     }
 
     // Populate user data before sending response
