@@ -55,11 +55,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       'https://www.hopeforpaws.club',
-      'https://hope-for-paws-official-backend.vercel.app',
-      'http://localhost:5173',
-      
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
+      'http://localhost:5173'
+     
     ],
     methods: ['GET', 'POST'],
     credentials: true
