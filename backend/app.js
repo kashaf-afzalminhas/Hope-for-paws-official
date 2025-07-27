@@ -57,7 +57,7 @@ const io = new Server(server, {
       'https://www.hopeforpaws.club',
       'https://hope-for-paws-official-backend.vercel.app',
       'http://localhost:5173',
-      'http://localhost:3000',
+      
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000'
     ],
@@ -133,11 +133,9 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: [
     'https://www.hopeforpaws.club',
-    'https://hope-for-paws-official-backend.vercel.app',
+
     'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000'
+
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
@@ -280,7 +278,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
 
 
 
