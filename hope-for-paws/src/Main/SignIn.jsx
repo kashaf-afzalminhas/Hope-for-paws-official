@@ -50,7 +50,7 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await fetch(`${AUTH_BASE_URL}/signin`, {
+      const response = await fetch(`http://16.171.159.252:3000/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
