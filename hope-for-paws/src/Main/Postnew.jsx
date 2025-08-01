@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -21,6 +21,8 @@ const Postnew = () => {
   const [showPostForm, setShowPostForm] = useState(false);
   const [replyInput, setReplyInput] = useState({}); // Add this line
   const [replyingTo, setReplyingTo] = useState(null); // commentId being replied to
+  const intervalRef = useRef(null); // Ref to track the interval
+  const [isRefreshing, setIsRefreshing] = useState(false); // For subtle background refresh indicator
   
   // Check user authentication state
   const user =
@@ -35,9 +37,13 @@ const Postnew = () => {
     }));
   };
   
-  const fetchPosts = async () => {
+  const fetchPosts = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       const response = await axios.get(`${API_BASE_URL}/posts`);
       setPosts(response.data);
       setError("");
@@ -45,15 +51,36 @@ const Postnew = () => {
       setError("Failed to load posts. Please try again later.");
       // console.error("Error fetching posts:", error);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchPosts();
-    const interval = setInterval(fetchPosts, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPosts(true); // Show loading for initial load
+    
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Only set up the interval if the form is not shown
+    if (!showPostForm) {
+      intervalRef.current = setInterval(() => fetchPosts(false), 30000); // No loading for auto-refresh
+    }
+    
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [showPostForm]);
 
   // Fetch profile images for all unique userIds in posts
   useEffect(() => {
@@ -97,6 +124,16 @@ const Postnew = () => {
     };
     fetchConversations();
   }, [currentUserId]);
+
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   const handleLike = async (postId) => {
     if (!user) return; // Only allow likes if the user is logged in
@@ -363,14 +400,19 @@ const Postnew = () => {
   return (
     <div className="min-h-screen bg-[#f5f3ed]">
       <div className="max-w-md mx-auto px-3 py-4 sm:px-4 sm:py-6 md:max-w-2xl lg:max-w-4xl">
-        {/* Header Section - More compact on mobile */}
-        <div className="mb-6 sm:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#4E3B31] text-center mb-3 sm:mb-5 font-playfair">
-            Community Posts
-          </h1>
-          <p className="text-[#6b493d] text-center mb-4 sm:mb-6 font-poppins text-sm sm:text-base">
-            Get your queries answered by our professional veterinarians
-          </p>
+         {/* Header Section - More compact on mobile */}
+         <div className="mb-6 sm:mb-10">
+           <div className="flex items-center justify-center gap-3 mb-3 sm:mb-5">
+             <h1 className="text-3xl sm:text-4xl font-bold text-[#4E3B31] font-playfair">
+               Community Posts
+             </h1>
+             {isRefreshing && (
+               <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#6b493d] border-t-transparent opacity-60"></div>
+             )}
+           </div>
+           <p className="text-[#6b493d] text-center mb-4 sm:mb-6 font-poppins text-sm sm:text-base">
+             Get your queries answered by our professional veterinarians
+           </p>
           
           {/* Action Bar - Full width on mobile */}
           {!showPostForm && (
