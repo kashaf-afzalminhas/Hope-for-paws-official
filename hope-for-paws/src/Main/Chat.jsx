@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
@@ -19,10 +19,15 @@ const useToast = () => {
 };
 
 const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768); // Changed from 1024 to 768
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    const handleResize = () => {
+      const newIsMobile = window.innerWidth <= 768; // Changed from 1024 to 768
+      console.log('Chat useIsMobile - window width:', window.innerWidth, 'isMobile:', newIsMobile);
+      setIsMobile(newIsMobile);
+    };
     window.addEventListener('resize', handleResize);
+    console.log('Chat initial isMobile:', isMobile, 'window width:', window.innerWidth);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   return isMobile;
@@ -34,6 +39,7 @@ const ChatPage = () => {
   const currentUserId = getCurrentUserId(user);
   const { recipientId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -51,35 +57,97 @@ const ChatPage = () => {
   const [conversations, setConversations] = useState([]);
   const [conversationCache, setConversationCache] = useState(new Map());
   const [conversationLookup, setConversationLookup] = useState(new Map());
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [cameFromPage, setCameFromPage] = useState(null);
   const currentUserIdRef = useRef(currentUserId);
+  
   useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
+
+  // Track where user came from
   useEffect(() => {
-    if (!recipientId || !currentUserId) return;
-    // Try to find existing conversation between current user and recipientId
-    const findExisting = async () => {
+    // Check if we came from a specific page by looking at the location state
+    const locationState = window.history.state?.usr;
+    if (locationState?.fromAdoption) {
+      setCameFromPage('/adoption');
+      console.log('User came from adoption page');
+    } else if (locationState?.fromPage) {
+      setCameFromPage(locationState.fromPage);
+      console.log('User came from:', locationState.fromPage);
+    }
+  }, []);
+
+  // Enhanced mobile navigation state management
+  useEffect(() => {
+    if (!recipientId || !currentUserId) {
+      // If no recipientId, show conversation list on mobile
+      if (isMobile && showChatMobile) {
+        console.log('No recipientId, switching to conversation list view');
+        setShowChatMobile(false);
+      }
+      return;
+    }
+
+    // Prevent duplicate processing
+    if (lastHandledRecipientId === recipientId) return;
+    setLastHandledRecipientId(recipientId);
+
+    const handleRecipientNavigation = async () => {
+      setIsTransitioning(true);
       try {
         const response = await getConversationBetweenUsers(currentUserId, recipientId);
         if (response.data?.data) {
           setSelectedConversation(response.data.data);
           const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
           setSelectedUser(fullUserObj);
-          if (isMobile) setShowChatMobile(true);
+          if (isMobile) {
+            // Smooth transition to chat view
+            setTimeout(() => setShowChatMobile(true), 100);
+          }
         } else {
-          // If not found, create a new conversation
+          // Create new conversation
           const createResponse = await createConversation(currentUserId, recipientId);
           if (createResponse.data?.data) {
             setSelectedConversation(createResponse.data.data);
             const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
             setSelectedUser(fullUserObj);
-            if (isMobile) setShowChatMobile(true);
+            if (isMobile) {
+              setTimeout(() => setShowChatMobile(true), 100);
+            }
           }
         }
       } catch (error) {
-        console.error('Error finding or creating conversation:', error);
+        console.error('Error handling recipient navigation:', error);
+        addToast({
+          title: 'Error',
+          description: 'Failed to start conversation',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsTransitioning(false);
       }
     };
-    findExisting();
-  }, [recipientId, currentUserId, isMobile, conversations, users]);
+
+    handleRecipientNavigation();
+  }, [recipientId, currentUserId, isMobile, users, lastHandledRecipientId, addToast]);
+
+  // Handle URL changes for mobile view switching
+  useEffect(() => {
+    console.log('URL change detected - pathname:', location.pathname, 'recipientId:', recipientId);
+    
+    // If we're on /chat without a recipientId, show conversation list on mobile
+    if (location.pathname === '/chat' && !recipientId && isMobile) {
+      console.log('On /chat without recipientId, showing conversation list');
+      setShowChatMobile(false);
+      setSelectedConversation(null);
+      setSelectedUser(null);
+    }
+    
+    // If we're on /chat with a recipientId, show chat view on mobile
+    if (location.pathname.startsWith('/chat/') && recipientId && isMobile) {
+      console.log('On /chat with recipientId, showing chat view');
+      setShowChatMobile(true);
+    }
+  }, [location.pathname, recipientId, isMobile]);
 
   // Debug logging
   console.log('ChatPage render:', {
@@ -324,7 +392,13 @@ const ChatPage = () => {
     if (existingConv) {
       setSelectedConversation(existingConv);
       setSelectedUser(userObj);
-      if (isMobile) setShowChatMobile(true);
+      if (isMobile) {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setShowChatMobile(true);
+          setIsTransitioning(false);
+        }, 150);
+      }
       return;
     }
     setIsSelectingConversation(true);
@@ -336,7 +410,13 @@ const ChatPage = () => {
         setConversationLookup(prev => new Map(prev).set(cacheKey, findResponse.data));
         setSelectedConversation(findResponse.data);
         setSelectedUser(userObj);
-        if (isMobile) setShowChatMobile(true);
+        if (isMobile) {
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setShowChatMobile(true);
+            setIsTransitioning(false);
+          }, 150);
+        }
         return;
       }
       const createResponse = await createConversation(currentUserIdRef.current, otherUserId);
@@ -345,7 +425,13 @@ const ChatPage = () => {
         setConversationLookup(prev => new Map(prev).set(cacheKey, createResponse.data));
         setSelectedConversation(createResponse.data);
         setSelectedUser(userObj);
-        if (isMobile) setShowChatMobile(true);
+        if (isMobile) {
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setShowChatMobile(true);
+            setIsTransitioning(false);
+          }, 150);
+        }
         setConversations(prev => [createResponse.data, ...prev]);
       }
     } catch (error) {
@@ -360,35 +446,6 @@ const ChatPage = () => {
       setPendingConversationUserId(null);
     }
   };
-
-  // Enhanced: Handle navigation state for chat
-  useEffect(() => {
-    if (!recipientId || !currentUserId) return;
-    // Try to find existing conversation between current user and recipientId
-    const findExisting = async () => {
-      try {
-        const response = await getConversationBetweenUsers(currentUserId, recipientId);
-        if (response.data?.data) {
-          setSelectedConversation(response.data.data);
-          const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
-          setSelectedUser(fullUserObj);
-          if (isMobile) setShowChatMobile(true);
-        } else {
-          // If not found, create a new conversation
-          const createResponse = await createConversation(currentUserId, recipientId);
-          if (createResponse.data?.data) {
-            setSelectedConversation(createResponse.data.data);
-            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
-            setSelectedUser(fullUserObj);
-            if (isMobile) setShowChatMobile(true);
-          }
-        }
-      } catch (error) {
-        console.error('Error finding or creating conversation:', error);
-      }
-    };
-    findExisting();
-  }, [recipientId, currentUserId, isMobile, conversations, users]);
 
   // Debug users state changes
   useEffect(() => {
@@ -424,14 +481,23 @@ const ChatPage = () => {
 
     setSelectedConversation(conversationData);
     setSelectedUser(fullUserObj);
-    if (isMobile) setShowChatMobile(true);
+    if (isMobile) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setShowChatMobile(true);
+        setIsTransitioning(false);
+      }, 150);
+    }
   };
 
   const handleBackToList = () => {
+    setIsTransitioning(true);
     setShowChatMobile(false);
-    // No need to reset any navigation state flag
-    // Optionally, you can navigate to /chat to clear the URL param
-    navigate('/chat');
+    // Clear URL parameter for mobile
+    if (isMobile && recipientId) {
+      navigate('/chat');
+    }
+    setTimeout(() => setIsTransitioning(false), 300);
   };
 
   // Update last message in conversations
@@ -548,9 +614,8 @@ const ChatPage = () => {
     );
   }
 
-
 return (
-  <div className="flex flex-col h-screen bg-[#f8f4ea]">
+  <div className="flex flex-col h-full bg-[#f8f4ea]">
     {/* Toast notifications - updated design */}
     {toasts.length > 0 && (
       <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-xs">
@@ -585,17 +650,19 @@ return (
       </div>
     )}
 
-    {/* Main content area */}
+    {/* Main content area - Adjusted for navbar on mobile */}
     <div className="flex flex-1 overflow-hidden">
       {/* Sidebar - Recent Chats */}
       <div className={`
         h-full w-full md:w-80 lg:w-96
         bg-[#f8f4ea] shadow-sm md:shadow-none
-        transform transition-transform duration-300 ease-in-out
+        transform transition-all duration-300 ease-in-out
         ${isMobile && showChatMobile ? 'hidden md:flex' : 'flex'}
-        ${isMobile ? 'absolute inset-0 z-20' : 'relative'}
+        ${isMobile ? 'relative' : 'relative'}
+        ${isTransitioning ? 'opacity-50' : 'opacity-100'}
+        ${isMobile && !showChatMobile ? 'animate-fadeIn' : ''}
       `}>
-        <div className="flex flex-col w-full">
+        <div className="flex flex-col w-full h-full">
           {/* Recent chats list */}
           <div className="flex-1 overflow-y-auto">
             <RecentChats
@@ -606,7 +673,33 @@ return (
               addToast={addToast}
               conversations={conversations}
               setConversations={setConversations}
-              onBackToSidebar={() => setShowChatMobile(false)} // <-- Add this
+              onBackToSidebar={() => {
+                console.log('Chat onBackToSidebar called');
+                console.log('Current showChatMobile:', showChatMobile);
+                console.log('Came from page:', cameFromPage);
+                
+                // If we're already showing the conversation list, navigate back
+                if (!showChatMobile) {
+                  console.log('Already on conversation list, navigating back');
+                  
+                  // Navigate back to the page we came from
+                  if (cameFromPage) {
+                    console.log('Navigating back to:', cameFromPage);
+                    navigate(cameFromPage);
+                  } else {
+                    console.log('No cameFromPage, using navigate(-1)');
+                    navigate(-1);
+                  }
+                  return;
+                }
+                
+                setIsTransitioning(true);
+                setShowChatMobile(false);
+                setTimeout(() => {
+                  setIsTransitioning(false);
+                  console.log('Transition completed');
+                }, 300);
+              }}
             />
           </div>
         </div>
@@ -616,9 +709,11 @@ return (
       <div className={`
         flex-1 flex flex-col bg-[#fff7f0]
         ${isMobile && !showChatMobile ? 'hidden' : 'flex'}
-        transition-all duration-300
+        transition-all duration-300 ease-in-out
+        ${isTransitioning ? 'opacity-50' : 'opacity-100'}
+        ${isMobile && showChatMobile ? 'animate-slideInRight' : ''}
       `}>
-        {isSelectingConversation ? (
+        {isSelectingConversation || isTransitioning ? (
           <div className="flex flex-col items-center justify-center h-full p-4 text-[#2c1810]">
             <div className="relative">
               <div className="animate-spin rounded-full h-14 w-14 border-[3px] border-[#a07855] border-t-transparent"></div>
@@ -667,8 +762,12 @@ return (
             </p>
             {isMobile && (
               <button
-                onClick={() => setShowChatMobile(false)}
-                className="px-6 py-3 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center"
+                onClick={() => {
+                  setIsTransitioning(true);
+                  setShowChatMobile(false);
+                  setTimeout(() => setIsTransitioning(false), 300);
+                }}
+                className="px-6 py-3 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center mobile-transition"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />

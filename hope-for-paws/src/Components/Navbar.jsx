@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FaUser, FaPaw } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 
@@ -8,9 +8,28 @@ const Navbar = ({ handleSignOut }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
+  const profileRef = useRef(null);
   
   const handleMouseEnter = () => setIsHovered(true);
   const handleMouseLeave = () => setIsHovered(false);
+
+  // Click outside handler for mobile menu and profile dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setIsMobileMenuOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prevState) => !prevState);
@@ -20,6 +39,8 @@ const Navbar = ({ handleSignOut }) => {
 
   const toggleProfile = () => {
     setIsProfileOpen((prevState) => !prevState);
+    // Close mobile menu when profile is toggled
+    setIsMobileMenuOpen(false);
   };
 
   const closeMobileMenu = () => {
@@ -42,7 +63,7 @@ const Navbar = ({ handleSignOut }) => {
       <div className="md:hidden flex items-center space-x-3">
         {/* Username and User Profile Icon - Always visible */}
         {user ? (
-          <div className="relative flex items-center">
+          <div className="relative flex items-center" ref={profileRef}>
             <span className="text-[#a07855] font-medium text-sm mr-2">
               {user.username}
             </span>
@@ -92,7 +113,10 @@ const Navbar = ({ handleSignOut }) => {
       </div>
 
       {/* Mobile Menu Dropdown */}
-      <div className={`md:hidden w-full ${isMobileMenuOpen ? 'block' : 'hidden'} mt-4 border-t border-[#a07855] pt-4`}>
+      <div 
+        ref={mobileMenuRef}
+        className={`md:hidden w-full ${isMobileMenuOpen ? 'block' : 'hidden'} mt-4 border-t border-[#a07855] pt-4`}
+      >
         <ul className="flex flex-col space-y-4">
           <li className="hover:text-black text-[#a07855] font-bold">
             <NavLink 

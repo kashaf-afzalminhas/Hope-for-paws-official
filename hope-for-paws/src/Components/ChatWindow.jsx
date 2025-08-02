@@ -199,6 +199,12 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     }
   };
 
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
   console.log('Messages state:', messages);
 
   return (
@@ -208,8 +214,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     <div className="sticky top-0 z-10 p-4 bg-white border-b border-[#e5d9c8] shadow-sm flex items-center gap-4">
       {isMobile && onBack && (
         <button
-          onClick={onBack}
-          className="p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors focus:outline-none focus:ring-1 focus:ring-[#a07855]"
+          onClick={handleBackClick}
+          className="p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a07855]/30"
           aria-label="Back to conversations"
         >
           <svg 
