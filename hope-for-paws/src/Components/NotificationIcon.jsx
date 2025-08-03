@@ -146,9 +146,9 @@ const NotificationIcon = () => {
           </span>
         )}
         {/* Connection status indicator */}
-        <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full ${
+        {/* <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full ${
           socketConnected ? 'bg-green-500' : usePolling ? 'bg-yellow-500' : 'bg-gray-400'
-        }`} />
+        }`} /> */}
       </button>
 
       {/* Notifications Dropdown */}
