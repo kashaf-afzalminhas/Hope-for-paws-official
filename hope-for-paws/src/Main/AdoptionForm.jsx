@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 const AdoptionForm = () => {
@@ -12,8 +13,8 @@ const AdoptionForm = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -32,7 +33,6 @@ const AdoptionForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-    setSuccess(false);
 
     // Check authentication status
     if (!isAuthenticated || !user) {
@@ -91,16 +91,13 @@ const AdoptionForm = () => {
       const data = await response.json();
       console.log('Adoption post created:', data);
 
-      // Reset form fields
-      setName('');
-      setAge('');
-      setPetType('');
-      setDescription('');
-      setLocation('');
-      setImage(null);
-      setImagePreview(null);
-      setError('');
-      setSuccess(true);
+      // Auto-redirect to My Adoptions page after successful submission
+      navigate('/my-adoptions', { 
+        state: { 
+          message: 'Adoption post created successfully!',
+          showSuccess: true 
+        }
+      });
     } catch (error) {
       console.error('Error submitting form:', error);
       setError(error.message || 'Failed to submit form');
@@ -141,11 +138,6 @@ const AdoptionForm = () => {
 
   return (
     <div className="bg-white rounded-lg">
-      {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
-          Your adoption post has been created successfully!
-        </div>
-      )}
       
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -236,33 +228,48 @@ const AdoptionForm = () => {
           <label className="block text-sm font-medium text-[#4E3B31]">
             Pet Photo
           </label>
-          <div className="flex items-center justify-center w-full">
-            <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-              {imagePreview ? (
-                <div className="w-full h-full flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px]">
+            {imagePreview ? (
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="relative mb-2 group">
                   <img 
                     src={imagePreview} 
                     alt="Preview" 
-                    className="max-h-full max-w-full object-contain rounded-lg" 
+                    className="max-w-full max-h-48 object-contain rounded-lg border border-[#bca18a] cursor-pointer"
+                    onClick={() => document.getElementById('adoption-image').click()}
                   />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImage(null);
+                      setImagePreview(null);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
+                  >
+                    ×
+                  </button>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                  </svg>
-                  <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                  <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 2MB)</p>
-                </div>
-              )}
-              <input 
-                type="file" 
-                className="hidden"
-                onChange={handleImageChange}
-                accept="image/*"
-                required={!image}
-              />
-            </label>
+                <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <svg className="w-10 h-10 mb-3 text-[#6b493d]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p className="mb-2 text-sm text-[#6b493d]"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. 2MB)</p>
+              </div>
+            )}
+            <input 
+              type="file" 
+              id="adoption-image"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={handleImageChange}
+              accept="image/*"
+              required={!image}
+            />
           </div>
         </div>
         

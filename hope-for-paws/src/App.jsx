@@ -61,15 +61,25 @@ function App() {
   }
 
   return (
-    <div className={`flex flex-col min-h-screen ${isChatRoute ? 'h-screen' : ''}`}>
+    // <div id="app-root" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    //   <DisclaimerBanner />
+    //   <Navbar handleSignOut={handleSignOut} />
+    //   <div className="app-content" style={{ flex: 1 }}>
+    //     <Outlet/>
+    //   </div>
+    //   <Footer/>
+    // </div>
+    <>
       {/* <DisclaimerBanner /> */}
-      <RandomPopups />
-      <Navbar handleSignOut={handleSignOut} />
-      <div className={`flex-1 ${isChatRoute ? 'h-full' : ''}`}>
+        <div className="min-h-screen flex flex-col">
+        <RandomPopups />
+        <Navbar handleSignOut={handleSignOut} />
+        <div className="flex-1">
         <Outlet />
-      </div>
-      {!hideFooter && <Footer />}
-    </div>
+        </div>
+        {!hideFooter && <Footer />}
+        </div>
+    </>
   );
 }
 

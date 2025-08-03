@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { Pencil, Trash2, X, Check, X as XIcon } from "lucide-react";
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -16,14 +17,32 @@ const MyAdoptions = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const { user } = useAuth();
   const [storedUser, setStoredUser] = useState(null);
+  const location = useLocation();
 
   // Get user from storage if context user is not available
   useEffect(() => {
     const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
     setStoredUser(userFromStorage);
   }, []);
+
+  // Check for success message from navigation state
+  useEffect(() => {
+    if (location.state?.showSuccess && location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the navigation state to prevent showing the message again on refresh
+      window.history.replaceState({}, document.title);
+      
+      // Auto-hide success message after 5 seconds
+      const timer = setTimeout(() => {
+        setSuccessMessage('');
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
   // Fetch adoptions when user is available
   useEffect(() => {
@@ -173,6 +192,12 @@ const MyAdoptions = () => {
         <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
           My Adoption Posts
         </h3>
+
+        {successMessage && (
+          <div className="mt-4 mb-8 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center">
+            <p>{successMessage}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {adoptions.map((post) => (

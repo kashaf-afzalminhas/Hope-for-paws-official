@@ -8,8 +8,33 @@
   ],
   "routes": [
     {
+      "src": "/socket.io/(.*)",
+      "dest": "app.js",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
+    },
+    {
+      "src": "/health",
+      "dest": "app.js"
+    },
+    {
+      "src": "/socket-health",
+      "dest": "app.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "app.js"
     }
-  ]
+  ],
+  "functions": {
+    "app.js": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
 }

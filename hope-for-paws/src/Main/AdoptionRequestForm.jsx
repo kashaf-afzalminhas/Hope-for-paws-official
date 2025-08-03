@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -92,16 +93,12 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
         throw new Error('You must be logged in to request adoption');
       }
 
+      // Remove image required validation
       // Validate all required fields
       if (!formData.name || !formData.email || !formData.phone || !formData.message) {
         throw new Error('All fields are required');
       }
-
-      // Validate image is uploaded
-      if (!petHistoryImage) {
-        throw new Error('Please upload an image as proof of your previous history with pets');
-      }
-
+      // Remove image required check
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
@@ -122,12 +119,11 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       submitData.append('email', formData.email);
       submitData.append('phone', formData.phone);
       submitData.append('message', formData.message);
-      submitData.append('petHistoryImage', petHistoryImage);
+      if (petHistoryImage) {
+        submitData.append('petHistoryImage', petHistoryImage);
+      }
       
       await requestAdoption(postId, submitData);
-      
-      // Show success message
-      alert('Adoption request submitted successfully! The pet owner will review your request.');
       
       // Close the form
       onClose();
@@ -195,16 +191,17 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Pet History Proof (Image) <span className="text-red-500">*</span>
+              Pet History Proof (Image)
             </label>
             <p className="text-xs text-gray-500 mb-2">
-              Please upload an image showing your previous experience with pets (max 5MB)
+              (Optional) You may upload an image showing your previous experience with pets (max 5MB)
             </p>
             <input
               type="file"
               accept="image/*"
               onChange={handleImageChange}
               className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#6b493d] file:text-white hover:file:bg-[#5a3d32]"
+              // required removed
             />
             {imagePreview && (
               <div className="mt-2">
@@ -241,6 +238,11 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       </div>
     </div>
   );
+};
+
+AdoptionRequestForm.propTypes = {
+  postId: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default AdoptionRequestForm;

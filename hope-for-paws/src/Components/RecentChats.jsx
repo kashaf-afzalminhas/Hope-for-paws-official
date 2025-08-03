@@ -164,7 +164,7 @@ const RecentChats = ({
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea]">
       {/* Header with search and back button */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10 flex items-center">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea] flex items-center">
         <button
           onClick={(e) => {
             console.log('Back button clicked!');
@@ -188,7 +188,7 @@ const RecentChats = ({
       </div>
 
       {/* Header with search */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea]">
         <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
         <SearchBar
           onSearch={setSearchQuery}
@@ -197,8 +197,8 @@ const RecentChats = ({
         />
       </div>
 
-      {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
+      {/* Conversation list - Flexible height */}
+      <div className="flex-1 overflow-y-auto px-2 pb-4 min-h-0">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>

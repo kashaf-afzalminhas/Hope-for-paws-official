@@ -6,6 +6,7 @@ import { User, ConversationWithUser } from '../types/index';
 import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
 import { getSocket, initSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
+import { API_BASE_URL } from '../config';
 
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
@@ -179,8 +180,7 @@ const ChatPage = () => {
       // Test backend connectivity first
       const testBackendConnection = async () => {
         try {
-          const baseURL = import.meta.env.VITE_API_URL || 'https://hope-for-paws-official-backend.vercel.app/api';
-          const response = await fetch(`${baseURL.replace('/api', '')}/health`);
+          const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
           const data = await response.json();
           console.log('Backend health check:', data);
         } catch (error) {
@@ -229,7 +229,7 @@ const ChatPage = () => {
     }
     
     console.log('Loading users for currentUserId:', currentUserId);
-    console.log('API configuration:', { AUTH_BASE_URL: import.meta.env.VITE_API_URL || 'https://hope-for-paws-official-backend.vercel.app', API_ROUTES_BASE_URL: `${(import.meta.env.VITE_API_URL || 'https://hope-for-paws-official-backend.vercel.app').replace('/api', '')}/api` });
+    console.log('API configuration:', { AUTH_BASE_URL: API_BASE_URL , API_ROUTES_BASE_URL: `${API_BASE_URL}` });
     
     setIsLoadingUsersInProgress(true);
     console.log('Set isLoadingUsersInProgress to true');
@@ -615,7 +615,7 @@ const ChatPage = () => {
   }
 
 return (
-  <div className="flex flex-col h-full bg-[#f8f4ea]">
+  <div className="flex flex-col h-screen bg-[#f8f4ea] chat-container">
     {/* Toast notifications - updated design */}
     {toasts.length > 0 && (
       <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-xs">
@@ -650,8 +650,8 @@ return (
       </div>
     )}
 
-    {/* Main content area - Adjusted for navbar on mobile */}
-    <div className="flex flex-1 overflow-hidden">
+    {/* Main content area - Fixed height constraints */}
+    <div className="flex flex-1 overflow-hidden h-full min-h-0">
       {/* Sidebar - Recent Chats */}
       <div className={`
         h-full w-full md:w-80 lg:w-96
@@ -661,6 +661,7 @@ return (
         ${isMobile ? 'relative' : 'relative'}
         ${isTransitioning ? 'opacity-50' : 'opacity-100'}
         ${isMobile && !showChatMobile ? 'animate-fadeIn' : ''}
+        flex-shrink-0
       `}>
         <div className="flex flex-col w-full h-full">
           {/* Recent chats list */}
@@ -705,13 +706,14 @@ return (
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Chat Area - Fixed height and flex constraints */}
       <div className={`
-        flex-1 flex flex-col bg-[#fff7f0]
+        flex-1 flex flex-col bg-[#fff7f0] h-full
         ${isMobile && !showChatMobile ? 'hidden' : 'flex'}
         transition-all duration-300 ease-in-out
         ${isTransitioning ? 'opacity-50' : 'opacity-100'}
         ${isMobile && showChatMobile ? 'animate-slideInRight' : ''}
+        min-h-0
       `}>
         {isSelectingConversation || isTransitioning ? (
           <div className="flex flex-col items-center justify-center h-full p-4 text-[#2c1810]">

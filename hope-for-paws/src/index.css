@@ -103,3 +103,78 @@ body {
   }
 }
 
+/* Chat layout improvements */
+.chat-container {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+.chat-messages-container {
+  scrollbar-width: thin;
+  scrollbar-color: #a07855 #f0e6d8;
+}
+
+.chat-messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages-container::-webkit-scrollbar-track {
+  background: #f0e6d8;
+  border-radius: 3px;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb {
+  background: #a07855;
+  border-radius: 3px;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb:hover {
+  background: #8a6a4d;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .chat-container {
+    height: 100vh;
+    height: 100dvh;
+  }
+  
+  .chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .chat-input {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+}
+
+/* Animation delays for typing indicator */
+.animation-delay-150 {
+  animation-delay: 150ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+/* Prevent text selection during mobile interactions */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Improved focus states for accessibility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:ring-offset-2;
+}
+
+/* Smooth scrolling for message containers */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}

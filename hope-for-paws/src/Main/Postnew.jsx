@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from '../config';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { getConversationBetweenUsers } from './api'; // <-- Make sure this is imported
+import PostUploadForm from './PostUploadForm';
  
 const Postnew = () => {
   const [posts, setPosts] = useState([]);
   const [newComment, setNewComment] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { userd } = useAuth();
+  // const { userd } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
   const navigate = useNavigate();
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add this if not already present
+  const [showPostForm, setShowPostForm] = useState(false);
   const [replyInput, setReplyInput] = useState({}); // Add this line
   const [replyingTo, setReplyingTo] = useState(null); // commentId being replied to
+  const intervalRef = useRef(null); // Ref to track the interval
+  const [isRefreshing, setIsRefreshing] = useState(false); // For subtle background refresh indicator
   
   // Check user authentication state
   const user =
@@ -34,25 +37,50 @@ const Postnew = () => {
     }));
   };
   
-  const fetchPosts = async () => {
+  const fetchPosts = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       const response = await axios.get(`${API_BASE_URL}/posts`);
       setPosts(response.data);
       setError("");
-    } catch (error) {
+    } catch {
       setError("Failed to load posts. Please try again later.");
-      console.error("Error fetching posts:", error);
+      // console.error("Error fetching posts:", error);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchPosts();
-    const interval = setInterval(fetchPosts, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPosts(true); // Show loading for initial load
+    
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Only set up the interval if the form is not shown
+    if (!showPostForm) {
+      intervalRef.current = setInterval(() => fetchPosts(false), 30000); // No loading for auto-refresh
+    }
+    
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [showPostForm]);
 
   // Fetch profile images for all unique userIds in posts
   useEffect(() => {
@@ -67,7 +95,7 @@ const Postnew = () => {
           if (response.data && response.data.data && response.data.data.profileImage) {
             newImages[userId] = response.data.data.profileImage;
           }
-        } catch (err) {
+        } catch {
           // Ignore errors, fallback to initial
         }
       }
@@ -96,6 +124,16 @@ const Postnew = () => {
     };
     fetchConversations();
   }, [currentUserId]);
+
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   const handleLike = async (postId) => {
     if (!user) return; // Only allow likes if the user is logged in
@@ -207,7 +245,7 @@ const Postnew = () => {
   };
 
   // Enhanced navigation handler
-  const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
+  const handleStartConversation = async (postCreatorId) => {
     if (!user) {
       navigate('/signin');
       return;
@@ -238,6 +276,20 @@ const Postnew = () => {
       // Fallback - navigate with basic info
       navigate(`/chat/${postCreatorId}`);
     }
+  };
+
+  // Add new post to the top of the list and redirect to My Posts
+  const handleAddPost = (newPost) => {
+    setPosts((prevPosts) => [
+      {
+        ...newPost,
+        comments: newPost.comments || [],
+        likes: newPost.likes || [],
+      },
+      ...prevPosts,
+    ]);
+    setShowPostForm(false);
+    navigate('/my-posts');
   };
 
   const renderComments = (comments, postId, parent = null) => {
@@ -348,44 +400,59 @@ const Postnew = () => {
   return (
     <div className="min-h-screen bg-[#f5f3ed]">
       <div className="max-w-md mx-auto px-3 py-4 sm:px-4 sm:py-6 md:max-w-2xl lg:max-w-4xl">
-        {/* Header Section - More compact on mobile */}
-        <div className="mb-6 sm:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#4E3B31] text-center mb-3 sm:mb-5 font-playfair">
-            Community Posts
-          </h1>
-          <p className="text-[#6b493d] text-center mb-4 sm:mb-6 font-poppins text-sm sm:text-base">
-            Get your queries answered by our professional veterinarians
-          </p>
+         {/* Header Section - More compact on mobile */}
+         <div className="mb-6 sm:mb-10">
+           <div className="flex items-center justify-center gap-3 mb-3 sm:mb-5">
+             <h1 className="text-3xl sm:text-4xl font-bold text-[#4E3B31] font-playfair">
+               Community Posts
+             </h1>
+             {isRefreshing && (
+               <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#6b493d] border-t-transparent opacity-60"></div>
+             )}
+           </div>
+           <p className="text-[#6b493d] text-center mb-4 sm:mb-6 font-poppins text-sm sm:text-base">
+             Get your queries answered by our professional veterinarians
+           </p>
           
           {/* Action Bar - Full width on mobile */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            {user ? (
-              <>
+          {!showPostForm && (
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setShowPostForm(true)}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
+                  >
+                    <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>Create Post</span>
+                  </button>
+                  <Link
+                    to="/my-posts"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] font-poppins text-sm sm:text-base"
+                  >
+                    <UserCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>My Posts</span>
+                  </Link>
+                </>
+              ) : (
                 <Link
-                  to="/createpost"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
+                  to="/signin"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
                 >
-                  <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>Create Post</span>
+                  Sign in to Post
                 </Link>
-                <Link
-                  to="/my-posts"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] font-poppins text-sm sm:text-base"
-                >
-                  <UserCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>My Posts</span>
-                </Link>
-              </>
-            ) : (
-              <Link
-                to="/signin"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all shadow-md font-poppins text-sm sm:text-base"
-              >
-                Sign in to Post
-              </Link>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Post Upload Form at the top */}
+        {showPostForm && (
+          <PostUploadForm
+            onAddPost={handleAddPost}
+            onCancel={() => setShowPostForm(false)}
+          />
+        )}
 
         {/* Posts Feed */}
         <div className="space-y-4 sm:space-y-6">
@@ -448,8 +515,7 @@ const Postnew = () => {
                     <div className="relative group ml-2 flex items-center">
                       <button
                         onClick={() => handleStartConversation(
-                          post.userId?._id,
-                          post.userId?.username
+                          post.userId?._id
                         )}
                         className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
                         title={`Message ${post.userId?.username || 'this user'}`}

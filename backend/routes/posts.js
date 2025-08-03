@@ -134,6 +134,11 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
     await post.save();
 
+    // Notify veterinarians about new post
+    if (global.notificationService) {
+      global.notificationService.notifyVetsNewPost(post._id, caption, req.user.userId);
+    }
+
     // Populate user data before sending response
     const populatedPost = await Post.findById(post._id)
       .populate('userId', 'username isVeterinarian');
@@ -237,6 +242,8 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     const likeIndex = post.likes.indexOf(req.user.userId);
+    const wasLiked = likeIndex !== -1;
+    
     if (likeIndex === -1) {
       post.likes.push(req.user.userId);
     } else {
@@ -244,6 +251,11 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     await post.save();
+
+    // Send notification for new like (not for unlike)
+    if (!wasLiked && global.notificationService) {
+      global.notificationService.notifyPostLike(req.params.id, req.user.userId);
+    }
 
     // Populate user data before sending response
     const populatedPost = await Post.findById(post._id)

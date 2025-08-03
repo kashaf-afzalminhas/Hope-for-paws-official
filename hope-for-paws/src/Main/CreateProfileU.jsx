@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash } from 'react-icons/fa';
 import { MdPets  } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
+import { useAuth } from '../context/AuthContext';
 
 // Simple Toast component
 const Toast = ({ toasts, removeToast }) => (
@@ -16,8 +17,8 @@ const Toast = ({ toasts, removeToast }) => (
 );
 
 const ProfilePage = () => {
-  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [profile, setProfile] = useState({
     name: '',
@@ -63,6 +64,13 @@ const ProfilePage = () => {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
     if (userData) {
+      // Convert isVeterinarian to userType for display
+      const getUserType = (user) => {
+        if (user.userType) return user.userType;
+        if (user.isVeterinarian) return 'Veterinarian';
+        return 'Regular User';
+      };
+
       setProfile({
         id: userData.id,
         name: userData.username,
@@ -70,7 +78,8 @@ const ProfilePage = () => {
         phone: userData.phone || '',
         city: userData.city || '',
         about: userData.about || '',
-        userType: userData.userType,
+        userType: getUserType(userData),
+        // userType: userData.userType,
         profileImage: userData.profileImage || '',
       });
       
@@ -227,6 +236,14 @@ const ProfilePage = () => {
         const updatedUser = data.user;
         localStorage.setItem('user', JSON.stringify(updatedUser));
         sessionStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Convert isVeterinarian to userType for display
+        const getUserType = (user) => {
+          if (user.userType) return user.userType;
+          if (user.isVeterinarian) return 'Veterinarian';
+          return 'Regular User';
+        };
+
         setProfile({
           id: updatedUser.id,
           name: updatedUser.username,
@@ -234,7 +251,8 @@ const ProfilePage = () => {
           phone: updatedUser.phone || '',
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          userType: updatedUser.userType,
+          userType: getUserType(updatedUser),
+          // userType: updatedUser.userType,
           profileImage: profile.profileImage, // Keep the current profile image
         });
         addToast('Profile updated successfully!');
@@ -319,14 +337,242 @@ const ProfilePage = () => {
     }
   };
 
+  // 1. Add new sidebar links for the three pages
   const profileLinks = [
     { name: 'View Profile', view: 'profile', icon: <FaUserCircle /> },
     { name: 'Edit Profile', view: 'edit', icon: <FaEdit /> },
     { name: 'Security Settings', view: 'security', icon: <FaLock /> },
-    { name: 'My Posts', path: '/my-posts', external: true, icon: <FaListAlt /> },
-    { name: 'My Adoptions', path: '/my-adoptions', external: true, icon: < MdPets/> },
-    { name: 'Adoption History', path: '/adoptionhistory', external: true, icon: <FaHistory /> },
+    { name: 'My Posts', view: 'myposts', icon: <FaListAlt /> },
+    { name: 'My Adoptions', view: 'myadoptions', icon: <MdPets /> },
+    { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> },
   ];
+
+  // 2. Add state for the three new pages
+  // AdoptionHistory state
+  const [adoptionHistory, setAdoptionHistory] = useState([]);
+  const [adoptionHistoryLoading, setAdoptionHistoryLoading] = useState(false);
+  const [adoptionHistoryError, setAdoptionHistoryError] = useState('');
+  const [adoptionHistoryEffectiveUser, setAdoptionHistoryEffectiveUser] = useState(null);
+  // MyAdoptions state
+  const [adoptions, setAdoptions] = useState([]);
+  const [editingAdoptionPost, setEditingAdoptionPost] = useState(null);
+  const [editAdoptionData, setEditAdoptionData] = useState({ name: '', age: '', petType: '', description: '', location: '' });
+  const [adoptionsLoading, setAdoptionsLoading] = useState(false);
+  const [adoptionsError, setAdoptionsError] = useState('');
+  const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
+  // MyPosts state
+  const [posts, setPosts] = useState([]);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editCaption, setEditCaption] = useState("");
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState("");
+  const [expandedComments, setExpandedComments] = useState({});
+
+  // 3. Add useEffects and functions for the three pages
+  // AdoptionHistory logic
+  useEffect(() => {
+    if (currentView !== 'adoptionhistory') return;
+    // Check for user in localStorage/sessionStorage if not in context
+    const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    if (!user && storedUser) {
+      setAdoptionHistoryEffectiveUser(storedUser);
+    } else {
+      setAdoptionHistoryEffectiveUser(user);
+    }
+  }, [user, currentView]);
+
+  useEffect(() => {
+    if (currentView !== 'adoptionhistory') return;
+    const effectiveUser = user || adoptionHistoryEffectiveUser;
+    if (!effectiveUser) {
+      setAdoptionHistoryLoading(false);
+      setAdoptionHistoryError('Please log in to view your adoption history');
+      return;
+    }
+    fetchAdoptionHistory();
+    // eslint-disable-next-line
+  }, [user, adoptionHistoryEffectiveUser, currentView]);
+
+  const fetchAdoptionHistory = async () => {
+    try {
+      setAdoptionHistoryLoading(true);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) throw new Error('No token found. Please log in again.');
+      const response = await fetch(`${API_BASE_URL}/adoptions/history`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      if (!response.ok) {
+        let errorMessage = `Server error: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {/* ignore error parsing error response */}
+        throw new Error(errorMessage);
+      }
+      const data = await response.json();
+      setAdoptionHistory(data);
+      setAdoptionHistoryError('');
+    } catch (err) {
+      setAdoptionHistoryError(err.message || 'Failed to fetch adoption history');
+    } finally {
+      setAdoptionHistoryLoading(false);
+    }
+  };
+  const formatAdoptionDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'accepted': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  // MyAdoptions logic
+  useEffect(() => {
+    if (currentView !== 'myadoptions') return;
+    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    setAdoptionsStoredUser(userFromStorage);
+  }, [currentView]);
+  useEffect(() => {
+    if (currentView !== 'myadoptions') return;
+    const effectiveUser = user || adoptionsStoredUser;
+    if (!effectiveUser?.id) return;
+    fetchUserAdoptions(effectiveUser.id);
+    // eslint-disable-next-line
+  }, [user, adoptionsStoredUser, currentView]);
+  const fetchUserAdoptions = async (userId) => {
+    try {
+      setAdoptionsLoading(true);
+      setAdoptionsError('');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) throw new Error('Authentication token missing');
+      const response = await fetch(`${API_BASE_URL}/adoptions/user/${userId}?includeRequests=true`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to load adoption posts');
+      const data = await response.json();
+      setAdoptions(data);
+    } catch (err) {
+      setAdoptionsError(err.message || 'Failed to load adoption posts');
+    } finally {
+      setAdoptionsLoading(false);
+    }
+  };
+  const handleDeleteAdoption = async (postId) => {
+    if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const effectiveUser = user || adoptionsStoredUser;
+      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
+    } catch (err) {
+      setAdoptionsError(err.message || 'Failed to delete post');
+    }
+  };
+  const handleEditAdoption = (post) => {
+    setEditingAdoptionPost(post._id);
+    setEditAdoptionData({ name: post.name, age: post.age, petType: post.petType, description: post.description, location: post.location || '' });
+  };
+  const handleSaveEditAdoption = async (postId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(editAdoptionData)
+      });
+      setEditingAdoptionPost(null);
+      const effectiveUser = user || adoptionsStoredUser;
+      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
+    } catch (err) {
+      setAdoptionsError(err.message || 'Failed to update post');
+    }
+  };
+  const handleRequestAction = async (postId, requestId, action) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/adoptions/requests/${requestId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: action === 'accept' ? 'accepted' : 'rejected' })
+      });
+      alert(`Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`);
+      const effectiveUser = user || adoptionsStoredUser;
+      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
+    } catch (err) {
+      alert(`Failed to ${action} request: ${err.message}`);
+    }
+  };
+  // MyPosts logic
+  useEffect(() => {
+    if (currentView !== 'myposts') return;
+    const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    if (!userr || !userr.id) return;
+    fetchUserPosts(userr.id);
+    // eslint-disable-next-line
+  }, [currentView]);
+  const fetchUserPosts = async (userId) => {
+    if (!userId) return;
+    try {
+      setPostsLoading(true);
+      setPostsError("");
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (!token) throw new Error("Token is missing. Please log in again.");
+      const response = await fetch(`${API_BASE_URL}/posts/user/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to load posts. Please try again later.');
+      const data = await response.json();
+      setPosts(data);
+    } catch {
+      setPostsError("Failed to load posts. Please try again later.");
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+  const handleEditPost = (post) => {
+    setEditingPost(post._id);
+    setEditCaption(post.caption);
+  };
+  const handleSaveEditPost = async (postId) => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ caption: editCaption })
+      });
+      setEditingPost(null);
+      const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      fetchUserPosts(userr.id);
+    } catch {
+      setPostsError("Failed to update post. Please try again.");
+    }
+  };
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      fetchUserPosts(userr.id);
+    } catch {
+      setPostsError("Failed to delete post. Please try again.");
+    }
+  };
+  const toggleComments = (postId) => {
+    setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  };
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -699,7 +945,7 @@ const ProfilePage = () => {
                       </div>
                       <div>
                         <h4 className="font-medium">Sign Out All Devices</h4>
-                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you're currently signed in</p>
+                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you&apos;re currently signed in</p>
                         <button className="mt-2 bg-red-500 hover:bg-red-600 text-white text-sm py-1 px-3 rounded">
                           Sign Out All
                         </button>
@@ -708,6 +954,414 @@ const ProfilePage = () => {
                   </div>
                 </div>
               </div>
+            )}
+            {currentView === 'adoptionhistory' && (
+              <div>
+                <h2 className="text-2xl font-bold text-[#4E3B31] mb-6">My Adoption History</h2>
+                {adoptionHistoryLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8B5A2B]"></div>
+                  </div>
+                ) : adoptionHistoryError && (!adoptionHistory || adoptionHistory.length === 0) ? (
+                  <div className="bg-red-100 text-red-700 p-4 rounded-lg">
+                    <p className="font-semibold">Error</p>
+                    <p>{adoptionHistoryError}</p>
+                    {!adoptionHistoryEffectiveUser && (
+                      <button 
+                        onClick={() => navigate('/login')}
+                        className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
+                      >
+                        Log In
+                      </button>
+                    )}
+                  </div>
+                ) : adoptionHistory.length === 0 ? (
+                  <div className="text-center py-10">
+                    <h2 className="text-xl font-semibold text-gray-700">No Adoption History</h2>
+                    <p className="text-gray-500 mt-2">You haven&apos;t made any adoption requests yet.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
+                      <thead className="bg-[#8B5A2B] text-white">
+                        <tr>
+                          <th className="px-6 py-3 text-left">Pet</th>
+                          <th className="px-6 py-3 text-left">Type</th>
+                          <th className="px-6 py-3 text-left">Request Date</th>
+                          <th className="px-6 py-3 text-left">Status</th>
+                          <th className="px-6 py-3 text-left">Response Date</th>
+                          <th className="px-6 py-3 text-left">Message</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {adoptionHistory.map((item) => (
+                          <tr key={item._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <img 
+                                  src={item.petImage} 
+                                  alt={item.petName}
+                                  className="h-10 w-10 rounded-full object-cover mr-3"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://via.placeholder.com/40?text=Pet';
+                                  }}
+                                />
+                                <span className="font-medium text-gray-900">{item.petName}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-gray-700">{item.petType}</td>
+                            <td className="px-6 py-4 text-gray-700">{formatAdoptionDate(item.requestDate)}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
+                                {item.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-700">
+                              {item.responseDate ? formatAdoptionDate(item.responseDate) : '-'}
+                            </td>
+                            <td className="px-6 py-4 text-gray-700">
+                              {item.message || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+            {currentView === 'myadoptions' && (
+              <section className="min-h-screen  py-4">
+                <div className="max-w-4xl mx-auto px-2 md:px-4">
+                  <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
+                    My Adoption Posts
+                  </h3>
+                  {adoptionsLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
+                    </div>
+                  ) : adoptionsError ? (
+                    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
+                      <p className="font-semibold">Error loading adoption posts</p>
+                      <p className="text-sm mt-2">{adoptionsError}</p>
+                    </div>
+                  ) : (!user && !adoptionsStoredUser) ? (
+                    <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl text-center">
+                      <p>Please log in to view your adoption posts.</p>
+                    </div>
+                  ) : adoptions.length === 0 ? (
+                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
+                      <p className="text-xl text-[#6b493d]/80 italic">No adoption posts yet. Create your first adoption post!</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {adoptions.map((post) => (
+                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 max-w-xl w-full mx-auto">
+                          <div className="relative group">
+                            <img 
+                              src={post.imageUrl} 
+                              alt={post.name} 
+                              className="w-full h-56 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                              loading="lazy"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://via.placeholder.com/400x300?text=Pet+Image';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+                          </div>
+                          <div className="p-4">
+                            {editingAdoptionPost === post._id ? (
+                              <div className="space-y-4">
+                                <input
+                                  type="text"
+                                  value={editAdoptionData.name}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, name: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  placeholder="Pet Name"
+                                />
+                                <input
+                                  type="text"
+                                  value={editAdoptionData.age}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, age: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  placeholder="Age"
+                                />
+                                <input
+                                  type="text"
+                                  value={editAdoptionData.petType}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, petType: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  placeholder="Pet Type"
+                                />
+                                <textarea
+                                  value={editAdoptionData.description}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, description: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                                  rows={3}
+                                  placeholder="Description"
+                                ></textarea>
+                                <input
+                                  type="text"
+                                  value={editAdoptionData.location}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, location: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  placeholder="Location"
+                                />
+                                <div className="flex justify-end space-x-3">
+                                  <button 
+                                    onClick={() => setEditingAdoptionPost(null)}
+                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                  >
+                                    <span className="h-5 w-5 text-[#6b493d]">✕</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveEditAdoption(post._id)}
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                                    style={{ fontFamily: '"Poppins", sans-serif' }}
+                                  >
+                                    Save Changes
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <h2 className="text-xl font-bold text-[#6b493d] mb-2">{post.name}</h2>
+                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Age:</span> {post.age} years</p>
+                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Type:</span> {post.petType}</p>
+                                <p className="text-[#6b493d] mb-4 italic">{post.description}</p>
+                                <p className="text-sm text-gray-500 mb-4">
+                                  Posted by: {post.userId?.username || 'Anonymous'}
+                                </p>
+                                <p className={`text-sm font-medium mb-4 ${
+                                  post.status === 'available' ? 'text-green-600' : 
+                                  post.status === 'pending' ? 'text-yellow-600' : 
+                                  'text-red-600'
+                                }`}>
+                                  Status: {post.status}
+                                </p>
+                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
+                                {post.status === 'adopted' && (
+                                  <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-md">
+                                    <p className="text-green-700 font-medium">This pet has been adopted!</p>
+                                  </div>
+                                )}
+                                <div className="flex justify-end space-x-3">
+                                  <button
+                                    onClick={() => handleEditAdoption(post)}
+                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                  >
+                                    <span className="h-5 w-5 text-[#6b493d]">✎</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAdoption(post._id)}
+                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                  >
+                                    <span className="h-5 w-5 text-[#6b493d]">🗑️</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {post.requests && post.requests.length > 0 && (
+                            <div className="mt-4 border-t border-gray-200 pt-4">
+                              <h4 className="text-lg font-semibold text-[#6b493d] mb-3">Adoption Requests ({post.requests.length})</h4>
+                              <div className="space-y-3">
+                                {post.requests.map((request) => (
+                                  <div key={request._id} className="bg-gray-50 p-3 rounded-lg">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1">
+                                        <p className="font-medium">{request.name}</p>
+                                        <p className="text-sm text-gray-600">{request.email}</p>
+                                        <p className="text-sm text-gray-600">{request.phone}</p>
+                                      </div>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                        request.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {request.status}
+                                      </span>
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-700">{request.message}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Has petHistoryImage: {request.petHistoryImage ? 'Yes' : 'No'}
+                                      {request.petHistoryImage && ` - URL: ${request.petHistoryImage}`}
+                                    </p>
+                                    {request.petHistoryImage && (
+                                      <div className="mt-3">
+                                        <p className="text-xs font-medium text-gray-600 mb-2">Pet History Proof:</p>
+                                        <div className="relative">
+                                          <img 
+                                            src={request.petHistoryImage} 
+                                            alt="Pet History Proof" 
+                                            className="w-full h-32 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => { window.open(request.petHistoryImage, '_blank'); }}
+                                            onError={(e) => {
+                                              e.target.onerror = null;
+                                              e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Available';
+                                            }}
+                                          />
+                                          <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                            Click to enlarge
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {request.status === 'pending' && post.status === 'available' && (
+                                      <div className="mt-3 flex gap-2">
+                                        <button
+                                          onClick={() => handleRequestAction(post._id, request._id, 'accept')}
+                                          className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
+                                        >
+                                          ✓ Accept
+                                        </button>
+                                        <button
+                                          onClick={() => handleRequestAction(post._id, request._id, 'reject')}
+                                          className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
+                                        >
+                                          ✕ Reject
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+            {currentView === 'myposts' && (
+              <section className="min-h-screen py-4">
+                <div className="max-w-6xl mx-auto px-2 md:px-4">
+                  <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
+                    My Shared Posts
+                  </h3>
+                  {postsLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
+                    </div>
+                  ) : posts.length === 0 ? (
+                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
+                      <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+                      {posts.map((post) => (
+                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col w-full max-w-full">
+                          <div className="relative group">
+                            <img 
+                              src={post.imageUrl} 
+                              alt="Pet" 
+                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+                          </div>
+                          <div className="p-4 md:p-6 flex flex-col justify-between w-full max-w-full">
+                            {editingPost === post._id ? (
+                              <div className="space-y-4">
+                                <textarea
+                                  value={editCaption}
+                                  onChange={(e) => setEditCaption(e.target.value)}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                                  rows={3}
+                                  style={{ fontFamily: '"Poppins", sans-serif' }}
+                                />
+                                <div className="flex justify-end space-x-3">
+                                  <button 
+                                    onClick={() => setEditingPost(null)}
+                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                  >
+                                    <span className="h-5 w-5 text-[#6b493d]">✕</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveEditPost(post._id)}
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                                    style={{ fontFamily: '"Poppins", sans-serif' }}
+                                  >
+                                    Save Changes
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col justify-between">
+                                <div>
+                                  <p 
+                                    className="text-[#6b493d] mb-4 italic text-lg leading-relaxed break-words"
+                                    style={{ fontFamily: '"Poppins", sans-serif' }}
+                                  >
+                                    &quot;{post.caption}&quot;
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between mt-4 flex-wrap gap-y-2">
+                                  <div className="flex items-center space-x-4 text-[#6b493d]/80">
+                                    <div className="flex items-center space-x-1">
+                                      <span>❤️</span>
+                                      <span>{post.likes.length}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <span>💬</span>
+                                      <span>{post.comments.length}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-3">
+                                    <button
+                                      onClick={() => handleEditPost(post)}
+                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                    >
+                                      <span className="h-5 w-5 text-[#6b493d]">✎</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePost(post._id)}
+                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                    >
+                                      <span className="h-5 w-5 text-[#6b493d]">🗑️</span>
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleComments(post._id)}
+                                    className="text-[#6b493d] hover:underline ml-4 whitespace-nowrap"
+                                  >
+                                    {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
+                                  </button>
+                                </div>
+                                {expandedComments[post._id] && (
+                                  <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
+                                    {post.comments.length > 0 ? (
+                                      post.comments.map((comment) => (
+                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words">
+                                          <p className="text-[#6b493d] font-medium break-words">
+                                            {comment.userId?.username || "Unknown User"}
+                                          </p>
+                                          <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {postsError && (
+                    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
+                      {postsError}
+                    </div>
+                  )}
+                </div>
+              </section>
             )}
           </div>
         </div>

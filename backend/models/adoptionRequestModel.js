@@ -30,7 +30,7 @@ const adoptionRequestSchema = new mongoose.Schema({
   },
   petHistoryImage: {
     type: String,
-    required: true
+    required: false
   },
   status: {
     type: String,

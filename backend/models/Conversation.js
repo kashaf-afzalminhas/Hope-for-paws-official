@@ -43,11 +43,8 @@ ConversationSchema.pre('save', function(next) {
 });
 
 ConversationSchema.index(
-  { participants: 1 },
-  { 
-    unique: true,
-    collation: { locale: 'en', strength: 2 }
-  }
+  { 'participants.0': 1, 'participants.1': 1 },
+  { unique: true }
 );
 
 ConversationSchema.statics.findByParticipants = function(id1, id2) {

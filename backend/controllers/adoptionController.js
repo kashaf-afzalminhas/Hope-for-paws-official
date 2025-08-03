@@ -25,7 +25,7 @@ exports.addPost = async (req, res) => {
     const users = await User.find({}, 'email');
     console.log('Fetched users:', users); // Log fetched users
 
-    // Send email notification to all users
+    // Send email to all users
     const subject = 'New Adoption Post Added';
     const text = `A new adoption post has been added:\n\nName: ${name}\nAge: ${age}\nLocation: ${location}\nDescription: ${description}`;
 
