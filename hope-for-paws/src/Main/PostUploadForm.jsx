@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 function PostUploadForm({ onAddPost, onCancel }) {
   const [caption, setCaption] = useState('');
   const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,8 +46,16 @@ function PostUploadForm({ onAddPost, onCancel }) {
     const file = e.target.files[0];
     if (file) {
       setImage(file);
+      // Create a preview URL for the image
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
+
+
 
   return (
     <div className="flex justify-center w-full mb-8">
@@ -76,7 +85,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
           <label className="block text-[#6b493d] text-sm font-semibold mb-2" htmlFor="post-image">
             Image
           </label>
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative cursor-pointer hover:bg-[#f3ede7] transition-colors">
+                     <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px]">
             <input
               type="file"
               id="post-image"
@@ -86,10 +95,37 @@ function PostUploadForm({ onAddPost, onCancel }) {
               name="image"
               required
             />
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#6b493d] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            <span className="text-[#6b493d] font-semibold">Upload a file</span>
-            <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 10MB</span>
-            {image && <span className="text-xs text-[#6b493d] mt-2">{image.name}</span>}
+                                      {imagePreview ? (
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <div className="relative mb-2 group">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="max-w-full max-h-48 object-contain rounded-lg border border-[#bca18a] cursor-pointer"
+                      onClick={() => document.getElementById('post-image').click()}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setImage(null);
+                        setImagePreview(null);
+                      }}
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>
+                </div>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#6b493d] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <span className="text-[#6b493d] font-semibold">Upload a file</span>
+                <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 10MB</span>
+              </>
+            )}
           </div>
         </div>
         <button

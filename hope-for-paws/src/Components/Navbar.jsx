@@ -32,35 +32,34 @@ const Navbar = ({ handleSignOut }) => {
   const activeStyle = "text-black font-bold";
 
   return (
-    <nav className="bg-[#F8F4ED] p-4 sm:p-6 flex flex-wrap justify-between items-center relative">
-      {/* Logo Section - Reduced size on mobile */}
+    <nav className="bg-[#F8F4ED] p-3 sm:p-4 lg:p-6 flex flex-wrap justify-between items-center relative shadow-md">
+      {/* Logo Section */}
       <div className="flex items-center space-x-1 md:space-x-2">
-        <FaPaw className="text-2xl md:text-3xl lg:text-4xl text-[#a07855]" />
-        <span className="text-xl md:text-2xl lg:text-3xl font-bold text-[#a07855]">HopeForPaws</span>
+        <FaPaw className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#a07855]" />
+        <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#a07855]">HopeForPaws</span>
       </div>
 
-      {/* Mobile Header Right Section (Username + User Icon + Menu Toggle) */}
-      <div className="md:hidden flex items-center space-x-3">
-        {/* Username and User Profile Icon - Always visible */}
+      {/* Mobile Header Right Section */}
+      <div className="md:hidden flex items-center space-x-2 sm:space-x-3">
+        {/* Username and User Profile Icon */}
         {user ? (
-          <div className="relative flex items-center">
-            <span className="text-[#a07855] font-medium text-sm mr-2">
+          <div className="relative flex items-center space-x-2">
+            <span className="text-[#a07855] font-medium text-xs sm:text-sm hidden sm:block">
               {user.username}
             </span>
             <NotificationIcon />
             <button 
               onClick={toggleProfile}
               aria-label="Toggle Profile"
+              className="relative"
             >
-              <NavLink to="/profile">
-                  <FaUser className="text-2xl text-[#a07855]" />
-                </NavLink>
+              <FaUser className="text-xl sm:text-2xl text-[#a07855]" />
             </button>
 
             {/* Profile Dropdown For Mobile */}
             {isProfileOpen && (
               <div
-                className="absolute right-0 mt-3 top-full w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"
+                className="absolute right-0 mt-2 top-full w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"
               >
                 <div className="flex justify-center mb-4">
                   <div className="w-12 h-12 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-xl font-bold">
@@ -79,14 +78,14 @@ const Navbar = ({ handleSignOut }) => {
           </div>
         ) : (
           <NavLink to="/signin">
-            <FaUser className="text-xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
+            <FaUser className="text-xl sm:text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
           </NavLink>
         )}
 
         {/* Mobile Menu Button */}
         <button
           onClick={toggleMobileMenu}
-          className="text-[#a07855] text-2xl focus:outline-none"
+          className="text-[#a07855] text-xl sm:text-2xl focus:outline-none ml-2"
           aria-label="Toggle Menu"
         >
           {isMobileMenuOpen ? '✕' : '☰'}
@@ -94,115 +93,117 @@ const Navbar = ({ handleSignOut }) => {
       </div>
 
       {/* Mobile Menu Dropdown */}
-      <div className={`md:hidden w-full ${isMobileMenuOpen ? 'block' : 'hidden'} mt-4 border-t border-[#a07855] pt-4`}>
-        <ul className="flex flex-col space-y-4">
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Home
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/clinics" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Clinics & Vets
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/ngo" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              NGO's
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/adoption" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Adoption
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/posts" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Posts
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/contactus" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Contact Us
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/faq" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              FAQ's
-            </NavLink>
-          </li>
-          <li className="hover:text-black text-[#a07855] font-bold">
-            <NavLink 
-              to="/chat" 
-              onClick={closeMobileMenu} 
-              className={({ isActive }) => 
-                `block py-2 ${isActive ? activeStyle : ''}`
-              }
-            >
-              Inbox
-            </NavLink>
-          </li>
-        </ul>
+      {isMobileMenuOpen && (
+        <div className="md:hidden w-full absolute top-full left-0 bg-[#F8F4ED] border-t border-[#a07855] shadow-lg z-40">
+          <ul className="flex flex-col space-y-2 p-4">
+            <li>
+              <NavLink 
+                to="/" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Home
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/clinics" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Clinics & Vets
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/ngo" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                NGO's
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/adoption" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Adoption
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/posts" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Posts
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/contactus" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Contact Us
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/faq" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                FAQ's
+              </NavLink>
+            </li>
+            <li>
+              <NavLink 
+                to="/chat" 
+                onClick={closeMobileMenu} 
+                className={({ isActive }) => 
+                  `block py-2 px-3 rounded-lg transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#a07855] hover:bg-[#e8d5c0]'}`
+                }
+              >
+                Inbox
+              </NavLink>
+            </li>
+          </ul>
 
-        {/* Mobile Sign In (only show when not logged in) */}
-        {!user && (
-          <div className="mt-4 pt-4 border-t border-[#a07855]">
-            <NavLink 
-              to="/signin" 
-              onClick={closeMobileMenu}
-              className="block w-full py-2 text-center bg-[#a07855] text-white font-bold rounded-lg hover:bg-[#6b493d] transition-colors"
-            >
-              Sign In
-            </NavLink>
-          </div>
-        )}
-      </div>
+          {/* Mobile Sign In (only show when not logged in) */}
+          {!user && (
+            <div className="p-4 border-t border-[#a07855]">
+              <NavLink 
+                to="/signin" 
+                onClick={closeMobileMenu}
+                className="block w-full py-3 text-center bg-[#a07855] text-white font-bold rounded-lg hover:bg-[#6b493d] transition-colors"
+              >
+                Sign In
+              </NavLink>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Desktop Navigation */}
-      <div className="hidden md:flex flex-1 items-center justify-between ml-4 lg:ml-8">
-        <ul className="flex flex-grow justify-center space-x-4 lg:space-x-8 2xl:space-x-12 mx-4">
+      <div className="hidden md:flex flex-1 items-center justify-between ml-4 lg:ml-8 xl:ml-12">
+        <ul className="flex flex-grow justify-center space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12 mx-4">
           <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
             <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : ''}>Home</NavLink>
           </li>
