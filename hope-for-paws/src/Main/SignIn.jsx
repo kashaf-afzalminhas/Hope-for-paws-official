@@ -49,7 +49,7 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await fetch(`${AUTH_BASE_URL}/signin`, {
+      const response = await fetch("AUTH_BASE_URL/signin", {
         method: 'POST',
         credentials: 'include',
         headers: {
