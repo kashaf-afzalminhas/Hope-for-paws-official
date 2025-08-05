@@ -130,7 +130,7 @@
 // export default Clinics;
 
 import React, { useState } from 'react';
-import SearchBar from '../Main/SearchBar';
+import SearchBar from './SearchBar';
 import ZVCImage from '../assets/ZVC.jpeg';
 import RLHimage from '../assets/RLH.jpeg';
 import FPCimage from '../assets/FPC.jpeg';
@@ -785,11 +785,10 @@ function Clinics() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-8">
+      <div className="mb-8 px-4 sm:px-6 lg:px-8">
         <SearchBar
           onSearch={handleSearch}
           placeholder="Search clinics by name or location..."
-          className="max-w-xl mx-auto"
         />
       </div>
 
