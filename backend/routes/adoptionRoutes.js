@@ -450,4 +450,27 @@ router.put('/requests/:requestId', auth, async (req, res) => {
   }
 });
 
+// Check if user has already requested adoption for a post
+router.get('/:id/check-request', auth, async (req, res) => {
+  try {
+    const adId = req.params.id;
+    const requesterId = req.user.userId;
+
+    const existingRequest = await AdoptionRequest.findOne({ 
+      adId, 
+      requester: requesterId,
+      status: { $in: ['pending', 'accepted'] }
+    });
+
+    res.json({ 
+      hasRequest: !!existingRequest,
+      requestStatus: existingRequest ? existingRequest.status : null,
+      requestId: existingRequest ? existingRequest._id : null
+    });
+  } catch (error) {
+    console.error('Error checking adoption request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
