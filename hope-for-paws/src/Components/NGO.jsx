@@ -75,7 +75,7 @@
 
 // export default NGO;
 import React, { useState } from 'react';
-import SearchBar from '../Main/SearchBar';
+import SearchBar from './SearchBar';
 import Nkh from '../assets/nkh.png';
 import Todd from '../assets/todd.jpeg';
 import Jfk from '../assets/jfk.png';
@@ -434,11 +434,10 @@ function NGO() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-8">
+      <div className="mb-8 px-4 sm:px-6 lg:px-8">
         <SearchBar
           onSearch={handleSearch}
           placeholder="Search NGOs by name or description..."
-          className="max-w-xl mx-auto"
         />
       </div>
 
