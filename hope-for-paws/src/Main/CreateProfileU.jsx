@@ -6,6 +6,7 @@ import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
 import { useAuth } from '../context/AuthContext';
+import AdoptionRequestsModal from './AdoptionRequestsModal';
 
 // Simple Toast component
 const Toast = ({ toasts, removeToast }) => (
@@ -367,6 +368,7 @@ const ProfilePage = () => {
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState("");
   const [expandedComments, setExpandedComments] = useState({});
+  const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
 
   // 3. Add useEffects and functions for the three pages
   // AdoptionHistory logic
@@ -509,6 +511,14 @@ const ProfilePage = () => {
     } catch (err) {
       alert(`Failed to ${action} request: ${err.message}`);
     }
+  };
+
+  const handleViewRequests = (post) => {
+    setSelectedPostForRequests(post);
+  };
+
+  const handleCloseRequestsModal = () => {
+    setSelectedPostForRequests(null);
   };
   // MyPosts logic
   useEffect(() => {
@@ -1164,69 +1174,21 @@ const ProfilePage = () => {
                               </div>
                             )}
                           </div>
+                          {/* Requests Summary */}
                           {post.requests && post.requests.length > 0 && (
-                            <div className="mt-4 border-t border-gray-200 pt-4">
-                              <h4 className="text-lg font-semibold text-[#6b493d] mb-3">Adoption Requests ({post.requests.length})</h4>
-                              <div className="space-y-3">
-                                {post.requests.map((request) => (
-                                  <div key={request._id} className="bg-gray-50 p-3 rounded-lg">
-                                    <div className="flex justify-between items-start">
-                                      <div className="flex-1">
-                                        <p className="font-medium">{request.name}</p>
-                                        <p className="text-sm text-gray-600">{request.email}</p>
-                                        <p className="text-sm text-gray-600">{request.phone}</p>
-                                      </div>
-                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                        request.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                        'bg-red-100 text-red-800'
-                                      }`}>
-                                        {request.status}
-                                      </span>
-                                    </div>
-                                    <p className="mt-2 text-sm text-gray-700">{request.message}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      Has petHistoryImage: {request.petHistoryImage ? 'Yes' : 'No'}
-                                      {request.petHistoryImage && ` - URL: ${request.petHistoryImage}`}
-                                    </p>
-                                    {request.petHistoryImage && (
-                                      <div className="mt-3">
-                                        <p className="text-xs font-medium text-gray-600 mb-2">Pet History Proof:</p>
-                                        <div className="relative">
-                                          <img 
-                                            src={request.petHistoryImage} 
-                                            alt="Pet History Proof" 
-                                            className="w-full h-32 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                            onClick={() => { window.open(request.petHistoryImage, '_blank'); }}
-                                            onError={(e) => {
-                                              e.target.onerror = null;
-                                              e.target.src = 'https://via.placeholder.com/300x200?text=Image+Not+Available';
-                                            }}
-                                          />
-                                          <div className="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                            Click to enlarge
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {request.status === 'pending' && post.status === 'available' && (
-                                      <div className="mt-3 flex gap-2">
-                                        <button
-                                          onClick={() => handleRequestAction(post._id, request._id, 'accept')}
-                                          className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
-                                        >
-                                          ✓ Accept
-                                        </button>
-                                        <button
-                                          onClick={() => handleRequestAction(post._id, request._id, 'reject')}
-                                          className="flex items-center gap-1 px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors"
-                                        >
-                                          ✕ Reject
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-blue-700 font-medium">
+                                    {post.requests.length} adoption request{post.requests.length !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleViewRequests(post)}
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                                >
+                                  View Requests
+                                </button>
                               </div>
                             </div>
                           )}
@@ -1366,6 +1328,22 @@ const ProfilePage = () => {
           </div>
         </div>
       </main>
+
+      {/* Requests Modal */}
+      {selectedPostForRequests && (
+        <AdoptionRequestsModal
+          post={selectedPostForRequests}
+          requests={selectedPostForRequests.requests || []}
+          onClose={handleCloseRequestsModal}
+          onRequestAction={handleRequestAction}
+          onRefresh={() => {
+            const effectiveUser = user || adoptionsStoredUser;
+            if (effectiveUser?.id) {
+              fetchUserAdoptions(effectiveUser.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

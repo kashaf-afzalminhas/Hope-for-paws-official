@@ -11,7 +11,7 @@ import { getConversationBetweenUsers } from './api';
 import PropTypes from 'prop-types';
 
 const AdoptionList = ({ filter = 'all' }) => {
-  const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts } = useAdoption();
+  const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts, checkUserRequest } = useAdoption();
   const { user } = useAuth();
   const [selectedPost, setSelectedPost] = useState(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -20,6 +20,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add conversations state
+  const [userRequests, setUserRequests] = useState({}); // Track user requests for each post
   const navigate = useNavigate();
 
   // Check for user in localStorage/sessionStorage if not in context
@@ -93,6 +94,27 @@ const AdoptionList = ({ filter = 'all' }) => {
     };
     fetchConversations();
   }, [effectiveUser]);
+
+  // Check user requests for all posts
+  useEffect(() => {
+    const checkAllUserRequests = async () => {
+      if (!effectiveUser || !allAdoptionPosts.length) return;
+      
+      const requests = {};
+      for (const post of allAdoptionPosts) {
+        try {
+          const requestInfo = await checkUserRequest(post._id);
+          requests[post._id] = requestInfo;
+        } catch (error) {
+          console.error(`Error checking request for post ${post._id}:`, error);
+          requests[post._id] = { hasRequest: false, requestStatus: null, requestId: null };
+        }
+      }
+      setUserRequests(requests);
+    };
+    
+    checkAllUserRequests();
+  }, [effectiveUser, allAdoptionPosts, checkUserRequest]);
 
   // Robust chat navigation handler (copied from Postnew.jsx)
   const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
@@ -177,6 +199,28 @@ const AdoptionList = ({ filter = 'all' }) => {
       return;
     }
     setSelectedPost(post);
+  };
+
+  const handleRequestFormClose = () => {
+    setSelectedPost(null);
+    // Refresh user requests after form closes
+    const checkAllUserRequests = async () => {
+      if (!effectiveUser || !allAdoptionPosts.length) return;
+      
+      const requests = {};
+      for (const post of allAdoptionPosts) {
+        try {
+          const requestInfo = await checkUserRequest(post._id);
+          requests[post._id] = requestInfo;
+        } catch (error) {
+          console.error(`Error checking request for post ${post._id}:`, error);
+          requests[post._id] = { hasRequest: false, requestStatus: null, requestId: null };
+        }
+      }
+      setUserRequests(requests);
+    };
+    
+    checkAllUserRequests();
   };
 
   const ViewDetailsModal = ({ post, onClose }) => {
@@ -352,13 +396,17 @@ const AdoptionList = ({ filter = 'all' }) => {
           
           const currentUserId = getCurrentUserId(effectiveUser);
           const isOwner = effectiveUser && (effectiveUser._id === post.userId?._id || effectiveUser._id === post.userId);
-          const canRequest = post.status === 'available';
-          const hasPendingRequest = post.status === 'pending';
+          const canRequest = post.status === 'available' && !isOwner;
+          const userRequestInfo = userRequests[post._id] || { hasRequest: false, requestStatus: null, requestId: null };
+          const hasPendingRequest = userRequestInfo.hasRequest && userRequestInfo.requestStatus === 'pending';
+          const hasAcceptedRequest = userRequestInfo.hasRequest && userRequestInfo.requestStatus === 'accepted';
           const isAdopted = post.status === 'adopted';
           
           console.log('Is owner:', isOwner);
           console.log('Can request:', canRequest);
+          console.log('User request info:', userRequestInfo);
           console.log('Has pending request:', hasPendingRequest);
+          console.log('Has accepted request:', hasAcceptedRequest);
           console.log('Is adopted:', isAdopted);
           
           return (
@@ -524,7 +572,7 @@ const AdoptionList = ({ filter = 'all' }) => {
                     </div>
                   )}
                   
-                  {canRequest && !isOwner && (
+                  {canRequest && !isOwner && !userRequestInfo.hasRequest && (
                     <button 
                       onClick={() => handleRequestClick(post)}
                       className="w-full bg-gradient-to-r from-[#8B5A2B] to-[#6F4C3E] hover:from-[#6F4C3E] hover:to-[#5a3a2e] text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
@@ -540,6 +588,17 @@ const AdoptionList = ({ filter = 'all' }) => {
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium">Adoption request pending review</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {hasAcceptedRequest && !isOwner && (
+                    <div className="text-center py-3 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">Adoption request accepted!</span>
                       </div>
                     </div>
                   )}
@@ -565,7 +624,7 @@ const AdoptionList = ({ filter = 'all' }) => {
       {selectedPost && (
         <AdoptionRequestForm
           postId={selectedPost._id}
-          onClose={() => setSelectedPost(null)}
+          onClose={handleRequestFormClose}
         />
       )}
       {/* View Details Modal */}

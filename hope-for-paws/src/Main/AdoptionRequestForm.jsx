@@ -82,6 +82,16 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
     }
   };
 
+  const handleRemoveImage = () => {
+    setPetHistoryImage(null);
+    setImagePreview(null);
+    // Reset the file input
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -138,98 +148,123 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold text-[#6b493d] mb-4">Request Adoption</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-[#6b493d]">Request Adoption</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
             <input
               type="text"
               name="name"
               required
               value={formData.name}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b493d] focus:ring-[#6b493d]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-[#6b493d]"
+              placeholder="Enter your full name"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               name="email"
               required
               value={formData.email}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b493d] focus:ring-[#6b493d]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-[#6b493d]"
+              placeholder="Enter your email address"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
               type="tel"
               name="phone"
               required
               value={formData.phone}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b493d] focus:ring-[#6b493d]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-[#6b493d]"
+              placeholder="Enter your phone number"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Message</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
             <textarea
               name="message"
               required
               value={formData.message}
               onChange={handleChange}
               rows={4}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#6b493d] focus:ring-[#6b493d]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-[#6b493d]"
+              placeholder="Tell us about your experience with pets and why you want to adopt..."
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Pet History Proof (Image)
             </label>
-            <p className="text-xs text-gray-500 mb-2">
+            <p className="text-xs text-gray-500 mb-3">
               (Optional) You may upload an image showing your previous experience with pets (max 5MB)
             </p>
             <input
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#6b493d] file:text-white hover:file:bg-[#5a3d32]"
-              // required removed
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#6b493d] file:text-white hover:file:bg-[#5a3d32] cursor-pointer"
             />
+            
             {imagePreview && (
-              <div className="mt-2">
-                <img 
-                  src={imagePreview} 
-                  alt="Preview" 
-                  className="w-32 h-32 object-cover rounded-md border"
-                />
+              <div className="mt-3 relative inline-block">
+                <div className="relative">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-32 h-32 object-cover rounded-md border-2 border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold hover:bg-red-600 transition-colors"
+                    aria-label="Remove image"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm">{error}</div>
+            <div className="text-red-500 text-sm bg-red-50 p-3 rounded-md border border-red-200">
+              {error}
+            </div>
           )}
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-[#6b493d] text-white rounded-md hover:bg-[#5a3d32] disabled:opacity-50"
+              className="px-4 py-2 bg-[#6b493d] text-white rounded-md hover:bg-[#5a3d32] disabled:opacity-50 transition-colors"
             >
               {loading ? 'Submitting...' : 'Submit Request'}
             </button>

@@ -365,15 +365,6 @@ export const AdoptionProvider = ({ children }) => {
         const data = await response.json();
         console.log('Adoption request response:', data);
         
-        // Update the post in both states to show it's pending
-        setAllAdoptionPosts(prev => prev.map(post => 
-          post._id === postId ? { ...post, status: 'pending' } : post
-        ));
-        
-        setUserAdoptionPosts(prev => prev.map(post => 
-          post._id === postId ? { ...post, status: 'pending' } : post
-        ));
-
         // Clear cache to ensure fresh data on next fetch
         cache.userAdoptionPosts = { data: null, timestamp: 0 };
         cache.allAdoptionPosts = { data: null, timestamp: 0 };
@@ -411,15 +402,6 @@ export const AdoptionProvider = ({ children }) => {
         const data = await response.json();
         console.log('Adoption request response:', data);
         
-        // Update the post in both states to show it's pending
-        setAllAdoptionPosts(prev => prev.map(post => 
-          post._id === postId ? { ...post, status: 'pending' } : post
-        ));
-        
-        setUserAdoptionPosts(prev => prev.map(post => 
-          post._id === postId ? { ...post, status: 'pending' } : post
-        ));
-
         // Clear cache to ensure fresh data on next fetch
         cache.userAdoptionPosts = { data: null, timestamp: 0 };
         cache.allAdoptionPosts = { data: null, timestamp: 0 };
@@ -505,6 +487,35 @@ export const AdoptionProvider = ({ children }) => {
     }
   };
 
+  const checkUserRequest = async (postId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        return { hasRequest: false, requestStatus: null, requestId: null };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}/check-request`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Error checking user request:', response.status);
+        return { hasRequest: false, requestStatus: null, requestId: null };
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error checking user request:', error);
+      return { hasRequest: false, requestStatus: null, requestId: null };
+    }
+  };
+
   return (
     <AdoptionContext.Provider
       value={{
@@ -519,7 +530,8 @@ export const AdoptionProvider = ({ children }) => {
         updateAdoptionPost,
         deleteAdoptionPost,
         requestAdoption,
-        handleAdoptionRequest
+        handleAdoptionRequest,
+        checkUserRequest
       }}
     >
       {children}
