@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, X, Check, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
+import ConfirmationModal from './ConfirmationModal';
 
 const NotificationIcon = () => {
   const { 
@@ -17,6 +18,7 @@ const NotificationIcon = () => {
   } = useNotifications();
   
   const [isOpen, setIsOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -79,12 +81,14 @@ const NotificationIcon = () => {
   };
 
   const handleDeleteAll = async () => {
-    if (window.confirm('Are you sure you want to delete all notifications?')) {
-      try {
-        await deleteAllNotifications();
-      } catch (error) {
-        console.error('Error deleting all notifications:', error);
-      }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAll = async () => {
+    try {
+      await deleteAllNotifications();
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
     }
   };
 
@@ -142,28 +146,28 @@ const NotificationIcon = () => {
           </span>
         )}
         {/* Connection status indicator */}
-        <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full ${
+        {/* <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full ${
           socketConnected ? 'bg-green-500' : usePolling ? 'bg-yellow-500' : 'bg-gray-400'
-        }`} />
+        }`} /> */}
       </button>
 
       {/* Notifications Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 z-50">
+        <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 z-50 max-w-[calc(100vw-2rem)]">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-[#6b493d]">Notifications</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-gray-100 gap-3">
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <h3 className="font-semibold text-[#6b493d] text-center sm:text-left">Notifications</h3>
               <div className={`flex items-center gap-1 ${connectionStatus.color}`}>
                 {connectionStatus.icon}
                 <span className="text-xs">{connectionStatus.text}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center sm:justify-end gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
-                  className="p-1 text-gray-500 hover:text-[#6b493d] transition-colors"
+                  className="p-2 text-gray-500 hover:text-[#6b493d] transition-colors rounded-md hover:bg-gray-100"
                   title="Mark all as read"
                 >
                   <Check className="h-4 w-4" />
@@ -172,7 +176,7 @@ const NotificationIcon = () => {
               {notifications.length > 0 && (
                 <button
                   onClick={handleDeleteAll}
-                  className="p-1 text-gray-500 hover:text-red-500 transition-colors"
+                  className="p-2 text-gray-500 hover:text-red-500 transition-colors rounded-md hover:bg-gray-100"
                   title="Delete all"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -180,7 +184,7 @@ const NotificationIcon = () => {
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 transition-colors rounded-md hover:bg-gray-100"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -221,15 +225,15 @@ const NotificationIcon = () => {
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <h4 className="font-medium text-[#6b493d] text-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-medium text-[#6b493d] text-sm break-words">
                             {notification.title}
                           </h4>
                           {!notification.read && (
                             <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></div>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-2">
@@ -248,7 +252,7 @@ const NotificationIcon = () => {
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               <button
                 onClick={() => navigate('/notifications')}
-                className="w-full text-center text-sm text-[#6b493d] hover:text-[#5a3c32] transition-colors"
+                className="w-full text-center text-sm text-[#6b493d] hover:text-[#5a3c32] transition-colors py-2 rounded-md hover:bg-gray-100"
               >
                 View all notifications
               </button>
@@ -256,6 +260,18 @@ const NotificationIcon = () => {
           )}
         </div>
       )}
+
+      {/* Delete All Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Notifications"
+        message="Are you sure you want to delete all notifications? This action cannot be undone."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

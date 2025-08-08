@@ -84,9 +84,9 @@ router.get('/:id', async (req, res) => {
 
 // Get user's posts
 
-router.get('/user/:userId', auth, async (req, res) => {
+router.get('/user/:userId', async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.userId;
+    const userId = req.params.userId;
     const posts = await Post.find({ userId })
       .populate('userId', 'username isVeterinarian')
       .sort({ createdAt: -1 });

@@ -83,7 +83,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get adoption posts for a specific user
-router.get('/user/:userId', auth, async (req, res) => {
+router.get('/user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
     const includeRequests = req.query.includeRequests === 'true';
@@ -268,9 +268,13 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Validate image upload
-    if (!req.file) {
-      return res.status(400).json({ message: 'Pet history image is required' });
+    // Upload image to Cloudinary if present
+    let petHistoryImageUrl = '';
+    if (req.file) {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+      const uploadResponse = await cloudinary.uploader.upload(dataURI);
+      petHistoryImageUrl = uploadResponse.secure_url;
     }
 
     const adoptionPost = await Adoption.findById(adId);
@@ -296,11 +300,6 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       return res.status(400).json({ message: 'You already have an active request for this pet' });
     }
 
-    // Upload image to Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
-
     const adoptionRequest = new AdoptionRequest({
       adId,
       requester: requesterId,
@@ -308,7 +307,7 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       email,
       phone,
       message,
-      petHistoryImage: uploadResponse.secure_url,
+      petHistoryImage: petHistoryImageUrl,
       status: 'pending'
     });
 
@@ -326,7 +325,7 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       petName: adoptionPost.name,
       petType: adoptionPost.petType,
       petImage: adoptionPost.imageUrl,
-      image: uploadResponse.secure_url, // Store the pet history image
+      image: petHistoryImageUrl, // Store the pet history image (may be empty)
       message: message
     });
 
@@ -447,6 +446,29 @@ router.put('/requests/:requestId', auth, async (req, res) => {
     res.json(adoptionRequest);
   } catch (error) {
     console.error('Error updating request status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Check if user has already requested adoption for a post
+router.get('/:id/check-request', auth, async (req, res) => {
+  try {
+    const adId = req.params.id;
+    const requesterId = req.user.userId;
+
+    const existingRequest = await AdoptionRequest.findOne({ 
+      adId, 
+      requester: requesterId,
+      status: { $in: ['pending', 'accepted'] }
+    });
+
+    res.json({ 
+      hasRequest: !!existingRequest,
+      requestStatus: existingRequest ? existingRequest.status : null,
+      requestId: existingRequest ? existingRequest._id : null
+    });
+  } catch (error) {
+    console.error('Error checking adoption request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

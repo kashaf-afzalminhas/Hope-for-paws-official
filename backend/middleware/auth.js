@@ -6,6 +6,7 @@ dotenv.config();
 const auth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log('Auth middleware - Authorization header:', authHeader ? 'Present' : 'Missing');
 
     if (!authHeader) {
       console.error('No authorization header provided');
@@ -43,6 +44,7 @@ const auth = async (req, res, next) => {
       userId: user._id.toString(),
       id: user._id.toString()
     };
+    console.log('req.user set:', req.user);
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

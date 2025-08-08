@@ -31,6 +31,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    profileImage: {
+      type: String,
+      default: ""
+    },
+    status: {
+      type: String,
+      enum: ['online', 'offline', 'away'],
+      default: 'offline'
+    },
+    lastActive: {
+      type: Date,
+      default: Date.now
+    },
     isAdmin: {
       type: Boolean,
       default: false

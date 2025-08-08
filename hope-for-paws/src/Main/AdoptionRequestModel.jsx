@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
   const [formData, setFormData] = useState({
@@ -41,20 +42,16 @@ const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validate image is uploaded
-    if (!petHistoryImage) {
-      setError('Please upload an image as proof of your previous history with pets');
-      return;
-    }
-
+    // Remove image required validation
     // Create FormData to send both form data and image
     const submitData = new FormData();
     submitData.append('name', formData.name);
     submitData.append('email', formData.email);
     submitData.append('phone', formData.phone);
     submitData.append('message', formData.message);
-    submitData.append('petHistoryImage', petHistoryImage);
-    
+    if (petHistoryImage) {
+      submitData.append('petHistoryImage', petHistoryImage);
+    }
     onSubmit(submitData);
   };
 
@@ -121,17 +118,17 @@ const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-[#6b493d] mb-1">
-              Pet History Proof (Image) <span className="text-red-500">*</span>
+              Pet History Proof (Image)
             </label>
             <p className="text-xs text-gray-500 mb-2">
-              Please upload an image showing your previous experience with pets (max 5MB)
+              (Optional) You may upload an image showing your previous experience with pets (max 5MB)
             </p>
             <input
               type="file"
               accept="image/*"
               onChange={handleImageChange}
               className="w-full p-2 border border-[#c9a280] rounded focus:ring-[#6b493d] focus:border-[#6b493d] text-sm"
-              required
+              // required removed
               disabled={loading}
             />
             {imagePreview && (
@@ -176,6 +173,13 @@ const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
       </div>
     </div>
   );
+};
+
+AdoptionRequestModel.propTypes = {
+  petName: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
 };
 
 export default AdoptionRequestModel;

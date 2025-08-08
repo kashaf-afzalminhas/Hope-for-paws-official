@@ -2,16 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
 import AdoptionRequestForm from './AdoptionRequestForm';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageSquare } from 'lucide-react';
+import { getCurrentUserId } from '../lib/utils';
+import { getUserPublicProfile } from './api';
+import { API_BASE_URL } from '../config';
+import { getConversationBetweenUsers } from './api';
+import PropTypes from 'prop-types';
 
-const AdoptionList = () => {
-  const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts } = useAdoption();
+const AdoptionList = ({ filter = 'all' }) => {
+  const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts, checkUserRequest } = useAdoption();
   const { user } = useAuth();
   const [selectedPost, setSelectedPost] = useState(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [effectiveUser, setEffectiveUser] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
+  const [userProfileImages, setUserProfileImages] = useState({});
+  const [conversations, setConversations] = useState([]); // Add conversations state
+  const [userRequests, setUserRequests] = useState({}); // Track user requests for each post
+  const navigate = useNavigate();
 
   // Check for user in localStorage/sessionStorage if not in context
   useEffect(() => {
@@ -40,13 +50,145 @@ const AdoptionList = () => {
     }
   }, []);
 
+  // Fetch profile images for all unique userIds in posts
+  useEffect(() => {
+    const fetchProfileImages = async () => {
+      const uniqueUserIds = Array.from(new Set(allAdoptionPosts.map(post => post.userId?._id).filter(Boolean)));
+      const missingUserIds = uniqueUserIds.filter(id => !userProfileImages[id]);
+      if (missingUserIds.length === 0) return;
+      const newImages = {};
+      for (const userId of missingUserIds) {
+        try {
+          const response = await getUserPublicProfile(userId);
+          if (response.data && response.data.data && response.data.data.profileImage) {
+            newImages[userId] = response.data.data.profileImage;
+          }
+        } catch (err) {
+          // Ignore errors, fallback to initial
+        }
+      }
+      if (Object.keys(newImages).length > 0) {
+        setUserProfileImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+    if (allAdoptionPosts.length > 0) {
+      fetchProfileImages();
+    }
+    // eslint-disable-next-line
+  }, [allAdoptionPosts]);
+
+  // Fetch conversations for the current user (if not already done elsewhere)
+  useEffect(() => {
+    const fetchConversations = async () => {
+      const currentUserId = getCurrentUserId(effectiveUser);
+      if (!currentUserId) return;
+      try {
+        // This should be replaced with getUserConversations if available
+        const response = await getConversationBetweenUsers(currentUserId, currentUserId); // Placeholder for getUserConversations
+        if (Array.isArray(response?.data?.data)) {
+          setConversations(response.data.data);
+        }
+      } catch (error) {
+        // Ignore for now
+      }
+    };
+    fetchConversations();
+  }, [effectiveUser]);
+
+  // Check user requests for all posts
+  useEffect(() => {
+    const checkAllUserRequests = async () => {
+      if (!effectiveUser || !allAdoptionPosts.length) return;
+      
+      const requests = {};
+      for (const post of allAdoptionPosts) {
+        try {
+          const requestInfo = await checkUserRequest(post._id);
+          requests[post._id] = requestInfo;
+        } catch (error) {
+          console.error(`Error checking request for post ${post._id}:`, error);
+          requests[post._id] = { hasRequest: false, requestStatus: null, requestId: null };
+        }
+      }
+      setUserRequests(requests);
+    };
+    
+    checkAllUserRequests();
+  }, [effectiveUser, allAdoptionPosts, checkUserRequest]);
+
+  // Robust chat navigation handler (copied from Postnew.jsx)
+  const handleStartConversation = async (postCreatorId, postCreatorUsername, event) => {
+    const currentUserId = getCurrentUserId(effectiveUser);
+    if (!effectiveUser) {
+      navigate('/signin');
+      return;
+    }
+    
+    try {
+      // Show loading state or disable button temporarily
+      const button = event?.target?.closest('button');
+      if (button) {
+        button.disabled = true;
+        button.classList.add('opacity-50');
+      }
+      
+      // First check if conversation exists in local state
+      const existingConv = conversations.find(conv =>
+        conv.participants && conv.participants.includes(currentUserId) &&
+        conv.participants.includes(postCreatorId)
+      );
+      
+      if (existingConv) {
+        // Smooth navigation to existing conversation
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
+        return;
+      }
+      
+      // If not found locally, check with backend
+      const response = await getConversationBetweenUsers(currentUserId, postCreatorId);
+      if (response.data) {
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
+      } else {
+        // No existing conversation - navigate with just user info
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
+      }
+    } catch (error) {
+      console.error('Error checking conversation:', error);
+      // Fallback - navigate with basic info
+      navigate(`/chat/${postCreatorId}`, { 
+        state: { fromAdoption: true, postCreatorUsername }
+      });
+    } finally {
+      // Re-enable button if it was disabled
+      if (button) {
+        button.disabled = false;
+        button.classList.remove('opacity-50');
+      }
+    }
+  };
+
   // Debug logs
   console.log('Current user:', user);
   console.log('Effective user:', effectiveUser);
   console.log('All adoption posts:', allAdoptionPosts);
 
   // Ensure allAdoptionPosts is always an array
-  const posts = Array.isArray(allAdoptionPosts) ? allAdoptionPosts : [];
+  let posts = Array.isArray(allAdoptionPosts) ? allAdoptionPosts : [];
+
+  // Filtering logic
+  if (filter === 'dog') {
+    posts = posts.filter(post => post.petType && post.petType.toLowerCase() === 'dog');
+  } else if (filter === 'cat') {
+    posts = posts.filter(post => post.petType && post.petType.toLowerCase() === 'cat');
+  } else if (filter === 'other') {
+    posts = posts.filter(post => post.petType && !['dog', 'cat'].includes(post.petType.toLowerCase()));
+  }
 
   const handleImageError = (postId) => {
     setImageErrors(prev => ({
@@ -84,8 +226,32 @@ const AdoptionList = () => {
     setSelectedPost(post);
   };
 
+  const handleRequestFormClose = () => {
+    setSelectedPost(null);
+    // Refresh user requests after form closes
+    const checkAllUserRequests = async () => {
+      if (!effectiveUser || !allAdoptionPosts.length) return;
+      
+      const requests = {};
+      for (const post of allAdoptionPosts) {
+        try {
+          const requestInfo = await checkUserRequest(post._id);
+          requests[post._id] = requestInfo;
+        } catch (error) {
+          console.error(`Error checking request for post ${post._id}:`, error);
+          requests[post._id] = { hasRequest: false, requestStatus: null, requestId: null };
+        }
+      }
+      setUserRequests(requests);
+    };
+    
+    checkAllUserRequests();
+  };
+
   const ViewDetailsModal = ({ post, onClose }) => {
     if (!post) return null;
+
+    const currentUserId = getCurrentUserId(effectiveUser);
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -171,11 +337,59 @@ const AdoptionList = () => {
               
               {/* Posted By */}
               <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center text-gray-600">
-                  <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
-                  <span>Posted by <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span></span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center text-gray-600">
+                    {post.userId?._id ? (
+                      userProfileImages[post.userId._id] ? (
+                        <img
+                          src={`${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`}
+                          alt={post.userId?.username || 'User'}
+                          className="w-7 h-7 rounded-full object-cover mr-2"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                          <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                            {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                        <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                          {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span>Posted by {post.userId?._id ? (
+                      <Link to={`/profile/public/${post.userId._id}`} className="font-medium text-[#6F4C3E] hover:underline">
+                        {post.userId?.username || 'Anonymous'}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span>
+                    )}</span>
+                  </div>
+                  
+                  {/* Chat Button */}
+                  {effectiveUser && post.userId?._id !== currentUserId && (
+                    <div className="relative group">
+                      <button
+                        onClick={(event) => handleStartConversation(
+                          post.userId?._id,
+                          post.userId?.username,
+                          event
+                        )}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors mobile-transition-fast"
+                        title={`Message ${post.userId?.username || 'this user'}`}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="text-xs font-medium">Chat</span>
+                      </button>
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10">
+                        Start private conversation
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -206,14 +420,19 @@ const AdoptionList = () => {
           console.log('Post userId:', post.userId);
           console.log('Current user:', effectiveUser);
           
+          const currentUserId = getCurrentUserId(effectiveUser);
           const isOwner = effectiveUser && (effectiveUser._id === post.userId?._id || effectiveUser._id === post.userId);
-          const canRequest = post.status === 'available';
-          const hasPendingRequest = post.status === 'pending';
+          const canRequest = post.status === 'available' && !isOwner;
+          const userRequestInfo = userRequests[post._id] || { hasRequest: false, requestStatus: null, requestId: null };
+          const hasPendingRequest = userRequestInfo.hasRequest && userRequestInfo.requestStatus === 'pending';
+          const hasAcceptedRequest = userRequestInfo.hasRequest && userRequestInfo.requestStatus === 'accepted';
           const isAdopted = post.status === 'adopted';
           
           console.log('Is owner:', isOwner);
           console.log('Can request:', canRequest);
+          console.log('User request info:', userRequestInfo);
           console.log('Has pending request:', hasPendingRequest);
+          console.log('Has accepted request:', hasAcceptedRequest);
           console.log('Is adopted:', isAdopted);
           
           return (
@@ -298,14 +517,61 @@ const AdoptionList = () => {
                 
                 {/* Posted By */}
                 <div className="mb-6 pb-4 border-b border-gray-100 mt-auto">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                    <span>Posted by <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span></span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-sm text-gray-500">
+                      {post.userId?._id ? (
+                        userProfileImages[post.userId._id] ? (
+                          <img
+                            src={`${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`}
+                            alt={post.userId?.username || 'User'}
+                            className="w-5 h-5 rounded-full object-cover mr-2"
+                            onError={e => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                            <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                              {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )
+                      ) : (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[#F8F4ED] border-2 border-white shadow-md mr-2">
+                          <span className="text-xs font-bold" style={{ color: '#6b493d' }}>
+                            {(post.userId?.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span>Posted by {post.userId?._id ? (
+                        <Link to={`/profile/public/${post.userId._id}`} className="font-medium text-[#6F4C3E] hover:underline">
+                          {post.userId?.username || 'Anonymous'}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-[#6F4C3E]">{post.userId?.username || 'Anonymous'}</span>
+                      )}</span>
+                    </div>
+                    
+                    {/* Chat Button */}
+                    {effectiveUser && post.userId?._id !== currentUserId && (
+                      <div className="relative group">
+                        <button
+                          onClick={(event) => handleStartConversation(
+                            post.userId?._id,
+                            post.userId?.username,
+                            event
+                          )}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors mobile-transition-fast"
+                          title={`Message ${post.userId?.username || 'this user'}`}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          <span className="text-xs font-medium">Chat</span>
+                        </button>
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10 animate-fadeIn">
+                          Start private conversation
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
                 {/* Action Buttons - Fixed at bottom */}
                 <div className="space-y-3 mt-auto">
                   {/* View Details Button - Always visible */}
@@ -333,7 +599,7 @@ const AdoptionList = () => {
                     </div>
                   )}
                   
-                  {canRequest && !isOwner && (
+                  {canRequest && !isOwner && !userRequestInfo.hasRequest && (
                     <button 
                       onClick={() => handleRequestClick(post)}
                       className="w-full bg-gradient-to-r from-[#8B5A2B] to-[#6F4C3E] hover:from-[#6F4C3E] hover:to-[#5a3a2e] text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
@@ -349,6 +615,17 @@ const AdoptionList = () => {
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium">Adoption request pending review</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {hasAcceptedRequest && !isOwner && (
+                    <div className="text-center py-3 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">Adoption request accepted!</span>
                       </div>
                     </div>
                   )}
@@ -374,10 +651,9 @@ const AdoptionList = () => {
       {selectedPost && (
         <AdoptionRequestForm
           postId={selectedPost._id}
-          onClose={() => setSelectedPost(null)}
+          onClose={handleRequestFormClose}
         />
       )}
-      
       {/* View Details Modal */}
       {viewDetailsPost && (
         <ViewDetailsModal 
@@ -387,6 +663,10 @@ const AdoptionList = () => {
       )}
     </div>
   );
+};
+
+AdoptionList.propTypes = {
+  filter: PropTypes.string,
 };
 
 export default AdoptionList;
