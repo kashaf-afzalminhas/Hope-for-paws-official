@@ -3,7 +3,7 @@ import DocImage from '../assets/Doc.jpeg';
 import VetConnect from '../assets/vc.jpg'
 import Huraira from '../assets/Huraira.jpeg';
 import ibraheem from '../assets/ibraheem.jpeg';
-import rahima from '../assets/rahima.jpeg';
+import rahima from '../assets/Rahima.jpeg';
 import avator from '../assets/avatar.png';
 import { useNavigate } from 'react-router-dom';
 
