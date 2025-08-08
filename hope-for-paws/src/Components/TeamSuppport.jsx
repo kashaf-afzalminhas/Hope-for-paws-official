@@ -3,7 +3,7 @@ import DocImage from '../assets/Doc.jpeg';
 import VetConnect from '../assets/vc.jpg'
 import Huraira from '../assets/Huraira.jpeg';
 import ibraheem from '../assets/ibraheem.jpeg';
-import wasif from '../assets/wasif.jpeg';
+import rahima from '../assets/rahima.jpeg';
 import avator from '../assets/avatar.png';
 import { useNavigate } from 'react-router-dom';
 
@@ -190,6 +190,36 @@ const AmbassadorCollaboratorsSection = () => {
         email: "vetconnect3@gmail.com"
       }
     },
+       {
+      name: "Dr.Rahima Khan",
+      role: "DVM",
+      image: rahima, // Empty for avatar
+      summary: "Online veterinary consultations",
+      details: {
+        education: [
+          "Doctor of Veterinary Medicine (DVM)"
+        ],
+        experience: [
+          "2 years pet practice experience"
+        ]
+      },
+      contact: {
+        phone: "+923207557341"
+      }
+    },
+        {
+      name: "Dr.Ibraheem Saeed",
+      role: "Doctor of Veterinary Medicine (DVM)",
+      image: ibraheem, // Add image path or leave empty for avatar
+      summary: "Experienced veterinarian with 1 year of professional practice",
+      details: {
+        education: ["Doctor of Veterinary Medicine (DVM)"],
+        experience: ["1 year of professional veterinary practice"]
+      },
+      contact: {
+        phone: "03358745668"
+      }
+    },
     {
       name: "Dr. Asfa",
       role: "DVM, MPhil",
@@ -210,19 +240,7 @@ const AmbassadorCollaboratorsSection = () => {
         phone: "03072736096"
       }
     },
-    {
-      name: "Muhammad Ibraheem Saeed",
-      role: "Doctor of Veterinary Medicine (DVM)",
-      image: ibraheem, // Add image path or leave empty for avatar
-      summary: "Experienced veterinarian with 1 year of professional practice",
-      details: {
-        education: ["Doctor of Veterinary Medicine (DVM)"],
-        experience: ["1 year of professional veterinary practice"]
-      },
-      contact: {
-        phone: "03358745668"
-      }
-    },
+
     {
       name: "Vet Connect",
       role: "Government University Affiliated",
