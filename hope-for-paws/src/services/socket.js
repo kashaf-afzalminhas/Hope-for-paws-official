@@ -16,7 +16,16 @@ export const initSocket = (userId) => {
   const baseURL = AUTH_BASE_URL.replace('/auth', '');
   console.log('Socket connecting to:', baseURL);
   
-  // Create socket with more robust configuration
+  // Get the authentication token
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  console.log('Socket token found:', !!token);
+  
+  if (!token) {
+    console.error('No authentication token found for socket connection');
+    throw new Error('Authentication token required for socket connection');
+  }
+  
+  // Create socket with authentication token
   socket = io(baseURL, {
     transports: ['websocket', 'polling'], // Allow both websocket and polling
     autoConnect: true,
@@ -26,7 +35,10 @@ export const initSocket = (userId) => {
     reconnectionDelayMax: 5000,
     timeout: 20000,
     withCredentials: true, // Important for CORS
-    forceNew: true // Force new connection
+    forceNew: true, // Force new connection
+    auth: {
+      token: token // Add token to handshake auth
+    }
   });
 
   // Connection event handlers
@@ -68,7 +80,12 @@ export const initSocket = (userId) => {
 
 export const getSocket = () => {
   if (!socket) {
-    console.warn('Socket not initialized. Initializing with default configuration...');
+    console.warn('Socket not initialized. Checking for token...');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      console.error('No authentication token available for socket connection');
+      return null;
+    }
     return initSocket();
   }
   return socket;
@@ -82,9 +99,24 @@ export const disconnectSocket = () => {
   }
 };
 
+// Function to reinitialize socket with new token (useful after login)
+export const reinitializeSocket = (userId) => {
+  if (socket) {
+    console.log('Disconnecting existing socket for reinitialization');
+    socket.disconnect();
+    socket = null;
+  }
+  return initSocket(userId);
+};
+
 // Updated to match how it's called in ChatWindow
 export const sendSocketMessage = (message) => {
   const currentSocket = getSocket();
+  if (!currentSocket) {
+    console.warn('Socket not available - no authentication token');
+    return;
+  }
+  
   if (!currentSocket.connected) {
     console.warn('Socket not connected. Attempting to reconnect...');
     currentSocket.connect();
@@ -102,6 +134,11 @@ export const sendSocketMessage = (message) => {
 // Legacy function for backward compatibility
 export const sendSocketMessageLegacy = (senderId, receiverId, text, conversationId) => {
   const currentSocket = getSocket();
+  if (!currentSocket) {
+    console.warn('Socket not available - no authentication token');
+    return;
+  }
+  
   if (!currentSocket.connected) {
     console.warn('Socket not connected. Attempting to reconnect...');
     currentSocket.connect();
@@ -124,6 +161,7 @@ export default {
   initSocket,
   getSocket,
   disconnectSocket,
+  reinitializeSocket,
   sendSocketMessage,
   sendSocketMessageLegacy,
   isSocketConnected

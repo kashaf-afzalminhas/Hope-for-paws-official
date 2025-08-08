@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import { useNavigate, useLocation } from 'react-router-dom'; // Add useLocation import
 import { FaChevronLeft } from 'react-icons/fa';
 import { getUserConversations } from '../Main/api';
 import UserCard from './UserCard';
@@ -20,11 +20,17 @@ const RecentChats = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const location = useLocation(); // Add location hook
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768); // Changed from 1024 to 768
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    const handleResize = () => {
+      const newIsMobile = window.innerWidth <= 768; // Changed from 1024 to 768
+      console.log('RecentChats resize - window width:', window.innerWidth, 'isMobile:', newIsMobile);
+      setIsMobile(newIsMobile);
+    };
     window.addEventListener('resize', handleResize);
+    console.log('RecentChats initial isMobile:', isMobile, 'window width:', window.innerWidth);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -121,45 +127,68 @@ const RecentChats = ({
     return format(date, 'MM/dd/yyyy');
   };
 
-  // De-duplicate conversations by sorted participants
-  // const uniqueConversations = dedupeByParticipants(filteredConversations); // This line is now handled by useMemo
-
-  // Filter: Only show empty conversations to the user who started them
-  // const filteredForDisplay = uniqueConversations.filter((conv) => { // This line is now handled by useMemo
-  //   if (
-  //     conv.lastMessage &&
-  //     conv.lastMessage.text === "Start a conversation..." &&
-  //     conv.participants[0] !== currentUserId
-  //   ) {
-  //     return false;
-  //   }
-  //   return true;
-  // });
-
- 
+  const handleBackClick = () => {
+    console.log('RecentChats handleBackClick called');
+    console.log('isMobile:', isMobile);
+    console.log('onBackToSidebar:', onBackToSidebar);
+    console.log('location.pathname:', location.pathname);
+    
+    // Check if we're on a chat route with a recipientId
+    const isOnChatRoute = location.pathname.startsWith('/chat/');
+    console.log('isOnChatRoute:', isOnChatRoute);
+    
+    if (isMobile) {
+      if (onBackToSidebar) {
+        console.log('Calling onBackToSidebar');
+        // If we're in a chat conversation, go back to conversation list
+        if (isOnChatRoute) {
+          console.log('Navigating to /chat');
+          navigate('/chat');
+          return; // Don't call onBackToSidebar when navigating to conversation list
+        } else {
+          // If we're already on the conversation list, go back to previous page
+          console.log('Already on conversation list, navigating to previous page');
+          navigate(-1);
+        }
+      } else {
+        console.log('No onBackToSidebar function, using navigate(-1)');
+        navigate(-1);
+      }
+    } else {
+      // On desktop, use browser history
+      console.log('Desktop navigation, using navigate(-1)');
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea]">
       {/* Header with search and back button */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10 flex items-center">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea] flex items-center">
         <button
-          onClick={() => {
-            if (isMobile && onBackToSidebar) {
-              onBackToSidebar(); // Show sidebar on mobile
-            } else {
-              navigate(-1); // Use browser history on desktop
-            }
+          onClick={(e) => {
+            console.log('Back button clicked!');
+            e.preventDefault();
+            e.stopPropagation();
+            // Add visual feedback
+            e.target.style.backgroundColor = '#a07855';
+            e.target.style.color = 'white';
+            setTimeout(() => {
+              e.target.style.backgroundColor = '';
+              e.target.style.color = '';
+            }, 200);
+            handleBackClick();
           }}
-          className="flex items-center p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors"
+          className="flex items-center p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:bg-[#a07855] active:text-white"
           aria-label="Back"
         >
-          <FaChevronLeft className="text-[#6b493d]" />
+          <FaChevronLeft className="text-[#6b493d] text-lg" />
         </button>
         <div className="flex-1"></div>
       </div>
 
       {/* Header with search */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea]">
         <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
         <SearchBar
           onSearch={setSearchQuery}
@@ -168,8 +197,8 @@ const RecentChats = ({
         />
       </div>
 
-      {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
+      {/* Conversation list - Flexible height */}
+      <div className="flex-1 overflow-y-auto px-2 pb-4 min-h-0">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>
