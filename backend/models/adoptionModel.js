@@ -18,6 +18,20 @@ const adoptionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  breed: {
+    type: String,
+    required: true
+  },
+  vaccinated: {
+    type: String,
+    enum: ['Yes', 'No'],
+    required: true
+  },
+  neuteredSpayed: {
+    type: String,
+    enum: ['Yes', 'No'],
+    required: true
+  },
   description: {
     type: String,
     required: true

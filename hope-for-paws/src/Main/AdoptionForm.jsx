@@ -7,6 +7,9 @@ const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [petType, setPetType] = useState('');
+  const [breed, setBreed] = useState('');
+  const [vaccinated, setVaccinated] = useState('');
+  const [neuteredSpayed, setNeuteredSpayed] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [image, setImage] = useState(null);
@@ -56,6 +59,9 @@ const AdoptionForm = () => {
     formData.append('name', name);
     formData.append('age', age);
     formData.append('petType', petType);
+    formData.append('breed', breed);
+    formData.append('vaccinated', vaccinated);
+    formData.append('neuteredSpayed', neuteredSpayed);
     formData.append('description', description);
     formData.append('location', location);
     formData.append('image', image);
@@ -65,6 +71,9 @@ const AdoptionForm = () => {
     console.log('name:', name);
     console.log('age:', age);
     console.log('petType:', petType);
+    console.log('breed:', breed);
+    console.log('vaccinated:', vaccinated);
+    console.log('neuteredSpayed:', neuteredSpayed);
     console.log('description:', description);
     console.log('location:', location);
     console.log('image:', image ? image.name : 'No image');
@@ -176,6 +185,76 @@ const AdoptionForm = () => {
           </div>
         </div>
         
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#4E3B31]">
+              Breed
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Labrador, Persian Cat, German Shepherd"
+              value={breed}
+              onChange={(e) => setBreed(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#4E3B31]">
+              Pet Type
+            </label>
+            <select
+              value={petType}
+              onChange={(e) => setPetType(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+            >
+              <option value="">Select pet type</option>
+              <option value="Dog">Dog</option>
+              <option value="Cat">Cat</option>
+              <option value="Bird">Bird</option>
+              <option value="Rabbit">Rabbit</option>
+              <option value="Hamster">Hamster</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#4E3B31]">
+              Vaccinated
+            </label>
+            <select
+              value={vaccinated}
+              onChange={(e) => setVaccinated(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+            >
+              <option value="">Select vaccination status</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#4E3B31]">
+              Neutered/Spayed
+            </label>
+            <select
+              value={neuteredSpayed}
+              onChange={(e) => setNeuteredSpayed(e.target.value)}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+            >
+              <option value="">Select neutering status</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </div>
+        </div>
+        
         <div className="space-y-2">
           <label className="block text-sm font-medium text-[#4E3B31]">
             Location
@@ -190,25 +269,7 @@ const AdoptionForm = () => {
           />
         </div>
         
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-[#4E3B31]">
-            Pet Type
-          </label>
-          <select
-            value={petType}
-            onChange={(e) => setPetType(e.target.value)}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
-          >
-            <option value="">Select pet type</option>
-            <option value="Dog">Dog</option>
-            <option value="Cat">Cat</option>
-            <option value="Bird">Bird</option>
-            <option value="Rabbit">Rabbit</option>
-            <option value="Hamster">Hamster</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+
         
         <div className="space-y-2">
           <label className="block text-sm font-medium text-[#4E3B31]">

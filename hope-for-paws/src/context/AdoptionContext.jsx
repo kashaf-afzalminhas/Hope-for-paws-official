@@ -291,6 +291,10 @@ export const AdoptionProvider = ({ children }) => {
         post._id === postId ? data : post
       ));
       
+      // Clear cache to ensure fresh data on next fetch
+      cache.userAdoptionPosts = { data: null, timestamp: 0 };
+      cache.allAdoptionPosts = { data: null, timestamp: 0 };
+      
       return data;
     } catch (error) {
       console.error('Error updating adoption post:', error);
@@ -516,6 +520,52 @@ export const AdoptionProvider = ({ children }) => {
     }
   };
 
+  const updateAdoptionStatus = async (postId, newStatus) => {
+    try {
+      setLoading(prev => ({ ...prev, action: true }));
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No token provided');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update adoption status');
+      }
+
+      const data = await response.json();
+      
+      // Update both states immediately
+      setAllAdoptionPosts(prev => prev.map(post => 
+        post._id === postId ? { ...post, status: newStatus } : post
+      ));
+      setUserAdoptionPosts(prev => prev.map(post => 
+        post._id === postId ? { ...post, status: newStatus } : post
+      ));
+      
+      // Clear cache to ensure fresh data on next fetch
+      cache.userAdoptionPosts = { data: null, timestamp: 0 };
+      cache.allAdoptionPosts = { data: null, timestamp: 0 };
+      
+      return data;
+    } catch (error) {
+      console.error('Error updating adoption status:', error);
+      throw error;
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
+    }
+  };
+
   return (
     <AdoptionContext.Provider
       value={{
@@ -531,7 +581,8 @@ export const AdoptionProvider = ({ children }) => {
         deleteAdoptionPost,
         requestAdoption,
         handleAdoptionRequest,
-        checkUserRequest
+        checkUserRequest,
+        updateAdoptionStatus
       }}
     >
       {children}
