@@ -257,6 +257,52 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// Update adoption post image
+router.put('/:id/image', auth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Image file is required' });
+    }
+
+    // Ensure the post belongs to the user
+    const adoptionPost = await Adoption.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!adoptionPost) {
+      return res.status(404).json({ message: 'Adoption post not found' });
+    }
+
+    // Upload new image to Cloudinary
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+
+    // Optionally delete old image
+    try {
+      if (adoptionPost.imageUrl) {
+        const publicId = adoptionPost.imageUrl.split('/').pop().split('.')[0];
+        if (publicId) {
+          await cloudinary.uploader.destroy(publicId);
+        }
+      }
+    } catch (e) {
+      // Non-fatal if deletion fails
+      console.warn('Failed to delete old image from Cloudinary:', e.message);
+    }
+
+    // Save new image URL
+    adoptionPost.imageUrl = uploadResponse.secure_url;
+    await adoptionPost.save();
+
+    res.json({ imageUrl: adoptionPost.imageUrl });
+  } catch (error) {
+    console.error('Error updating adoption image:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Delete an adoption post
 router.delete('/:id', auth, async (req, res) => {
   try {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { Pencil, Trash2, X, Eye } from "lucide-react";
+import { Pencil, Trash2, X, Eye, Camera } from "lucide-react";
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import AdoptionRequestsModal from './AdoptionRequestsModal';
@@ -19,6 +19,9 @@ const MyAdoptions = () => {
     description: '',
     location: ''
   });
+  const [originalData, setOriginalData] = useState({});
+  const [newImage, setNewImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -105,7 +108,7 @@ const MyAdoptions = () => {
 
   const handleEdit = (post) => {
     setEditingPost(post._id);
-    setEditData({
+    const postData = {
       name: post.name,
       age: post.age,
       petType: post.petType,
@@ -114,12 +117,31 @@ const MyAdoptions = () => {
       neuteredSpayed: post.neuteredSpayed || '',
       description: post.description,
       location: post.location || ''
-    });
+    };
+    setEditData(postData);
+    setOriginalData(postData);
+    setNewImage(null);
+    setImagePreview(null);
   };
 
   const handleSaveEdit = async (postId) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      // If there's a new image, upload it first
+      if (newImage) {
+        const formData = new FormData();
+        formData.append('image', newImage);
+        await axios.put(
+          `${API_BASE_URL}/adoptions/${postId}/image`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+      }
       await axios.put(
         `${API_BASE_URL}/adoptions/${postId}`,
         editData,
@@ -127,6 +149,8 @@ const MyAdoptions = () => {
       );
       
       setEditingPost(null);
+      setNewImage(null);
+      setImagePreview(null);
       
       // Refresh the list after update
       const effectiveUser = user || storedUser;
@@ -137,6 +161,31 @@ const MyAdoptions = () => {
       console.error('Error updating adoption post:', err);
       setError(err.response?.data?.message || err.message || 'Failed to update post');
     }
+  };
+
+  // Detect if there are changes
+  const hasChanges = () => {
+    if (newImage) return true;
+    return Object.keys(editData).some((key) => editData[key] !== originalData[key]);
+  };
+
+  // Handle image change
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove new image
+  const removeNewImage = () => {
+    setNewImage(null);
+    setImagePreview(null);
   };
 
   const handleRequestAction = async (postId, requestId, action) => {
@@ -243,11 +292,11 @@ const MyAdoptions = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {adoptions.map((post) => (
             <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <div className="relative group">
+              {/* <div className="relative group">
                 <img 
                   src={post.imageUrl} 
                   alt={post.name} 
-                  className="w-full h-60 object-contain rounded-t-2xl transition-transform duration-300 hover:scale-105 bg-gray-100" 
+                  className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105" 
                   loading="lazy"
                   onError={(e) => {
                     e.target.onerror = null;
@@ -255,71 +304,160 @@ const MyAdoptions = () => {
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+              </div> */}
+              <div className="relative group">
+                <img
+                  src={imagePreview || post.imageUrl}
+                  alt={post.name}
+                  className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://via.placeholder.com/400x300?text=Pet+Image';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+
+                {/* Only show edit overlay when editing this post */}
+                {editingPost === post._id && (
+                  <label className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-t-2xl">
+                    <Camera className="w-8 h-8 text-white" />
+                    <span className="mt-2 text-white text-xs font-medium">Click to change image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    {imagePreview && (
+                      <button
+                        type="button"
+                        onClick={removeNewImage}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </label>
+                )}
               </div>
-              
+  
               <div className="p-6">
                 {editingPost === post._id ? (
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={editData.name}
-                      onChange={(e) => setEditData({...editData, name: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                      placeholder="Pet Name"
-                    />
-                    <input
-                      type="text"
-                      value={editData.age}
-                      onChange={(e) => setEditData({...editData, age: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                      placeholder="Age"
-                    />
-                    <input
-                      type="text"
-                      value={editData.petType}
-                      onChange={(e) => setEditData({...editData, petType: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                      placeholder="Pet Type"
-                    />
-                    <input
-                      type="text"
-                      value={editData.breed}
-                      onChange={(e) => setEditData({...editData, breed: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                      placeholder="Breed"
-                    />
-                    <select
-                      value={editData.vaccinated}
-                      onChange={(e) => setEditData({...editData, vaccinated: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                    >
-                      <option value="">Select vaccination status</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                    <select
-                      value={editData.neuteredSpayed}
-                      onChange={(e) => setEditData({...editData, neuteredSpayed: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                    >
-                      <option value="">Select neutering status</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                    <textarea
-                      value={editData.description}
-                      onChange={(e) => setEditData({...editData, description: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                      rows={3}
-                      placeholder="Description"
-                    />
-                    <input
-                      type="text"
-                      value={editData.location}
-                      onChange={(e) => setEditData({...editData, location: e.target.value})}
-                      className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                      placeholder="Location"
-                    />
+                  <div className="space-y-2">
+                    {/* <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Image EEE</label>
+                      <div className="relative">
+                        <img 
+                          src={imagePreview || post.imageUrl} 
+                          alt={post.name} 
+                          className="w-full h-48 object-contain rounded-lg border border-gray-300 bg-gray-100" 
+                        />
+                        <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-lg group">
+                          <Camera className="w-8 h-8 text-white" />
+                          <span className="absolute bottom-2 left-2 text-white text-xs font-medium">Click to change image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                          />
+                        </label>
+                        {imagePreview && (
+                          <button
+                            type="button"
+                            onClick={removeNewImage}
+                            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div> */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
+                      <input
+                        type="text"
+                        value={editData.name}
+                        onChange={(e) => setEditData({...editData, name: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        placeholder="Pet Name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                      <input
+                        type="text"
+                        value={editData.age}
+                        onChange={(e) => setEditData({...editData, age: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        placeholder="Age"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
+                      <input
+                        type="text"
+                        value={editData.petType}
+                        onChange={(e) => setEditData({...editData, petType: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        placeholder="Pet Type"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+                      <input
+                        type="text"
+                        value={editData.breed}
+                        onChange={(e) => setEditData({...editData, breed: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        placeholder="Breed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vaccination Status</label>
+                      <select
+                        value={editData.vaccinated}
+                        onChange={(e) => setEditData({...editData, vaccinated: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                      >
+                        <option value="">Select vaccination status</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Neutered/Spayed Status</label>
+                      <select
+                        value={editData.neuteredSpayed}
+                        onChange={(e) => setEditData({...editData, neuteredSpayed: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                      >
+                        <option value="">Select neutering status</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={editData.description}
+                        onChange={(e) => setEditData({...editData, description: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        rows={2}
+                        placeholder="Description"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                      <input
+                        type="text"
+                        value={editData.location}
+                        onChange={(e) => setEditData({...editData, location: e.target.value})}
+                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
+                        placeholder="Location"
+                      />
+                    </div>
                     <div className="flex justify-end space-x-3">
                       <button 
                         onClick={() => setEditingPost(null)}
@@ -329,7 +467,8 @@ const MyAdoptions = () => {
                       </button>
                       <button
                         onClick={() => handleSaveEdit(post._id)}
-                        className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                        disabled={!hasChanges()}
+                        className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ fontFamily: '"Poppins", sans-serif' }}
                       >
                         Save Changes

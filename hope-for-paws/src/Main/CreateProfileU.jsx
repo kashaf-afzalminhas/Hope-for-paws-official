@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash } from 'react-icons/fa';
 import { MdPets  } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -9,13 +10,22 @@ import { useAuth } from '../context/AuthContext';
 import AdoptionRequestsModal from './AdoptionRequestsModal';
 
 // Simple Toast component
-const Toast = ({ toasts, removeToast }) => (
+const Toast = ({ toasts }) => (
   <div className="fixed top-4 right-4 z-50 space-y-2">
     {toasts.map((toast, idx) => (
       <div key={idx} className={`p-4 rounded-lg shadow-lg font-body ${toast.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{toast.message}</div>
     ))}
   </div>
 );
+
+Toast.propTypes = {
+  toasts: PropTypes.arrayOf(
+    PropTypes.shape({
+      message: PropTypes.string.isRequired,
+      type: PropTypes.string
+    })
+  ).isRequired
+};
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -62,6 +72,7 @@ const ProfilePage = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
     if (userData) {
@@ -369,6 +380,9 @@ const ProfilePage = () => {
   });
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
+  const [originalAdoptionData, setOriginalAdoptionData] = useState({});
+  const [newAdoptionImage, setNewAdoptionImage] = useState(null);
+  const [adoptionImagePreview, setAdoptionImagePreview] = useState(null);
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   // MyPosts state
   const [posts, setPosts] = useState([]);
@@ -381,6 +395,7 @@ const ProfilePage = () => {
 
   // 3. Add useEffects and functions for the three pages
   // AdoptionHistory logic
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentView !== 'adoptionhistory') return;
     // Check for user in localStorage/sessionStorage if not in context
@@ -392,6 +407,7 @@ const ProfilePage = () => {
     }
   }, [user, currentView]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentView !== 'adoptionhistory') return;
     const effectiveUser = user || adoptionHistoryEffectiveUser;
@@ -401,7 +417,6 @@ const ProfilePage = () => {
       return;
     }
     fetchAdoptionHistory();
-    // eslint-disable-next-line
   }, [user, adoptionHistoryEffectiveUser, currentView]);
 
   const fetchAdoptionHistory = async () => {
@@ -489,7 +504,7 @@ const ProfilePage = () => {
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
-    setEditAdoptionData({ 
+    const postData = { 
       name: post.name, 
       age: post.age, 
       petType: post.petType, 
@@ -498,22 +513,63 @@ const ProfilePage = () => {
       neuteredSpayed: post.neuteredSpayed || '', 
       description: post.description, 
       location: post.location || '' 
-    });
+    };
+    setEditAdoptionData(postData);
+    setOriginalAdoptionData(postData);
+    setNewAdoptionImage(null);
+    setAdoptionImagePreview(null);
   };
   const handleSaveEditAdoption = async (postId) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      // If there's a new image, upload first
+      if (newAdoptionImage) {
+        const formData = new FormData();
+        formData.append('image', newAdoptionImage);
+        const imgRes = await fetch(`${API_BASE_URL}/adoptions/${postId}/image`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        if (!imgRes.ok) {
+          const errData = await imgRes.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to update image');
+        }
+      }
       await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(editAdoptionData)
       });
       setEditingAdoptionPost(null);
+      setNewAdoptionImage(null);
+      setAdoptionImagePreview(null);
       const effectiveUser = user || adoptionsStoredUser;
       if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to update post');
     }
+  };
+
+  // Changes detection for Save button
+  const hasAdoptionChanges = () => {
+    if (newAdoptionImage) return true;
+    return Object.keys(editAdoptionData).some((key) => editAdoptionData[key] !== originalAdoptionData[key]);
+  };
+
+  const handleAdoptionImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewAdoptionImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setAdoptionImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeNewAdoptionImage = () => {
+    setNewAdoptionImage(null);
+    setAdoptionImagePreview(null);
   };
   const handleRequestAction = async (postId, requestId, action) => {
     try {
@@ -566,12 +622,12 @@ const ProfilePage = () => {
     setSelectedPostForRequests(null);
   };
   // MyPosts logic
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentView !== 'myposts') return;
     const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
     if (!userr || !userr.id) return;
     fetchUserPosts(userr.id);
-    // eslint-disable-next-line
   }, [currentView]);
   const fetchUserPosts = async (userId) => {
     if (!userId) return;
@@ -645,7 +701,7 @@ const ProfilePage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Toast toasts={toasts} removeToast={() => {}} />
+      <Toast toasts={toasts} />
       {/* Header */}
       <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
         <div className="flex justify-between items-center max-w-6xl mx-auto">
@@ -1117,7 +1173,7 @@ const ProfilePage = () => {
                             <img 
                               src={post.imageUrl} 
                               alt={post.name} 
-                              className="w-full h-56 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                                className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105" 
                               loading="lazy"
                               onError={(e) => {
                                 e.target.onerror = null;
@@ -1128,7 +1184,41 @@ const ProfilePage = () => {
                           </div>
                           <div className="p-4">
                             {editingAdoptionPost === post._id ? (
-                              <div className="space-y-4">
+                              <div className="space-y-2">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Pet Image</label>
+                                  <div className="relative">
+                                    <img 
+                                      src={adoptionImagePreview || post.imageUrl} 
+                                      alt={post.name} 
+                                      className="w-full h-48 object-contain rounded-lg border border-gray-300 bg-gray-100" 
+                                    />
+                                    <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-lg group">
+                                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      </svg>
+                                      <span className="absolute bottom-2 left-2 text-white text-xs font-medium">Click to change image</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleAdoptionImageChange}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                    {adoptionImagePreview && (
+                                      <button
+                                        type="button"
+                                        onClick={removeNewAdoptionImage}
+                                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Pet Name</label>
                                 <input
                                   type="text"
                                   value={editAdoptionData.name}
@@ -1136,6 +1226,9 @@ const ProfilePage = () => {
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                                   placeholder="Pet Name"
                                 />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
                                 <input
                                   type="text"
                                   value={editAdoptionData.age}
@@ -1143,6 +1236,9 @@ const ProfilePage = () => {
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                                   placeholder="Age"
                                 />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Pet Type</label>
                                 <input
                                   type="text"
                                   value={editAdoptionData.petType}
@@ -1150,38 +1246,53 @@ const ProfilePage = () => {
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                                   placeholder="Pet Type"
                                 />
-                                <input
-                                  type="text"
-                                  value={editAdoptionData.breed}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, breed: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  placeholder="Breed"
-                                />
-                                <select
-                                  value={editAdoptionData.vaccinated}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, vaccinated: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                >
-                                  <option value="">Select vaccination status</option>
-                                  <option value="Yes">Yes</option>
-                                  <option value="No">No</option>
-                                </select>
-                                <select
-                                  value={editAdoptionData.neuteredSpayed}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, neuteredSpayed: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                >
-                                  <option value="">Select neutering status</option>
-                                  <option value="Yes">Yes</option>
-                                  <option value="No">No</option>
-                                </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Breed</label>
+                                  <input
+                                    type="text"
+                                    value={editAdoptionData.breed}
+                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, breed: e.target.value})}
+                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                    placeholder="Breed"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Vaccination Status</label>
+                                  <select
+                                    value={editAdoptionData.vaccinated}
+                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, vaccinated: e.target.value})}
+                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  >
+                                    <option value="">Select vaccination status</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Neutered/Spayed Status</label>
+                                  <select
+                                    value={editAdoptionData.neuteredSpayed}
+                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, neuteredSpayed: e.target.value})}
+                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  >
+                                    <option value="">Select neutering status</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                                 <textarea
                                   value={editAdoptionData.description}
                                   onChange={(e) => setEditAdoptionData({...editAdoptionData, description: e.target.value})}
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                                  rows={3}
+                                    rows={2}
                                   placeholder="Description"
                                 ></textarea>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                                 <input
                                   type="text"
                                   value={editAdoptionData.location}
@@ -1189,6 +1300,7 @@ const ProfilePage = () => {
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                                   placeholder="Location"
                                 />
+                                </div>
                                 <div className="flex justify-end space-x-3">
                                   <button 
                                     onClick={() => setEditingAdoptionPost(null)}
@@ -1198,7 +1310,8 @@ const ProfilePage = () => {
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditAdoption(post._id)}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                                    disabled={!hasAdoptionChanges()}
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     style={{ fontFamily: '"Poppins", sans-serif' }}
                                   >
                                     Save Changes
