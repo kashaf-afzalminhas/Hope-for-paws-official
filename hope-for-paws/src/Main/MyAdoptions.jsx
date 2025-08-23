@@ -280,7 +280,7 @@ const MyAdoptions = () => {
     <section className="min-h-screen bg-[#f5f3ed] py-12">
       <div className="max-w-6xl mx-auto px-4">
         <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-          My Adoption Posts
+          My Adoption Posts sssssssss
         </h3>
 
         {successMessage && (
