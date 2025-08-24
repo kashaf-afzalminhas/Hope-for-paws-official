@@ -381,9 +381,11 @@ const ProfilePage = () => {
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
   const [originalAdoptionData, setOriginalAdoptionData] = useState({});
-  const [newAdoptionImage, setNewAdoptionImage] = useState(null);
-  const [adoptionImagePreview, setAdoptionImagePreview] = useState(null);
+  const [newAdoptionImages, setNewAdoptionImages] = useState({}); // Store images per post ID
+  const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
+  const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
+  
   // MyPosts state
   const [posts, setPosts] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
@@ -392,6 +394,7 @@ const ProfilePage = () => {
   const [postsError, setPostsError] = useState("");
   const [expandedComments, setExpandedComments] = useState({});
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
+  const [postSavingStates, setPostSavingStates] = useState({}); // Track saving state per post
 
   // 3. Add useEffects and functions for the three pages
   // AdoptionHistory logic
@@ -516,16 +519,20 @@ const ProfilePage = () => {
     };
     setEditAdoptionData(postData);
     setOriginalAdoptionData(postData);
-    setNewAdoptionImage(null);
-    setAdoptionImagePreview(null);
+    // Clear any existing image data for this post
+    setNewAdoptionImages(prev => ({ ...prev, [post._id]: null }));
+    setAdoptionImagePreviews(prev => ({ ...prev, [post._id]: null }));
   };
   const handleSaveEditAdoption = async (postId) => {
     try {
+      // Set saving state for this specific adoption post
+      setAdoptionSavingStates(prev => ({ ...prev, [postId]: true }));
+      
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       // If there's a new image, upload first
-      if (newAdoptionImage) {
+      if (newAdoptionImages[postId]) {
         const formData = new FormData();
-        formData.append('image', newAdoptionImage);
+        formData.append('image', newAdoptionImages[postId]);
         const imgRes = await fetch(`${API_BASE_URL}/adoptions/${postId}/image`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` },
@@ -535,41 +542,70 @@ const ProfilePage = () => {
           const errData = await imgRes.json().catch(() => ({}));
           throw new Error(errData.message || 'Failed to update image');
         }
+        
+        // Get the updated image URL from the response
+        const imgData = await imgRes.json();
+        if (imgData.imageUrl) {
+          // Update local state with new image URL
+          setAdoptions(prev => prev.map(post => 
+            post._id === postId ? { ...post, imageUrl: imgData.imageUrl } : post
+          ));
+        }
       }
-      await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+      
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(editAdoptionData)
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update adoption post');
+      }
+      
+      // Update local state immediately for better UX
+      setAdoptions(prev => prev.map(post => 
+        post._id === postId ? { ...post, ...editAdoptionData } : post
+      ));
+      
       setEditingAdoptionPost(null);
-      setNewAdoptionImage(null);
-      setAdoptionImagePreview(null);
-      const effectiveUser = user || adoptionsStoredUser;
-      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
+      // Clear image data for this post
+      setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
+      setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
+      
+      // Show immediate success feedback
+      addToast('Adoption post updated successfully!');
+      
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to update post');
+      addToast(err.message || 'Failed to update post', 'error');
+    } finally {
+      // Clear saving state
+      setAdoptionSavingStates(prev => ({ ...prev, [postId]: false }));
     }
   };
 
   // Changes detection for Save button
-  const hasAdoptionChanges = () => {
-    if (newAdoptionImage) return true;
+  const hasAdoptionChanges = (postId) => {
+    if (newAdoptionImages[postId]) return true;
     return Object.keys(editAdoptionData).some((key) => editAdoptionData[key] !== originalAdoptionData[key]);
   };
 
-  const handleAdoptionImageChange = (e) => {
+  const handleAdoptionImageChange = (e, postId) => {
     const file = e.target.files[0];
     if (file) {
-      setNewAdoptionImage(file);
+      setNewAdoptionImages(prev => ({ ...prev, [postId]: file }));
       const reader = new FileReader();
-      reader.onloadend = () => setAdoptionImagePreview(reader.result);
+      reader.onloadend = () => {
+        setAdoptionImagePreviews(prev => ({ ...prev, [postId]: reader.result }));
+      };
       reader.readAsDataURL(file);
     }
   };
 
-  const removeNewAdoptionImage = () => {
-    setNewAdoptionImage(null);
-    setAdoptionImagePreview(null);
+  const removeNewAdoptionImage = (postId) => {
+    setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
+    setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
   };
   const handleRequestAction = async (postId, requestId, action) => {
     try {
@@ -654,17 +690,36 @@ const ProfilePage = () => {
   };
   const handleSaveEditPost = async (postId) => {
     try {
+      // Set saving state for this specific post
+      setPostSavingStates(prev => ({ ...prev, [postId]: true }));
+      
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await fetch(`${API_BASE_URL}/posts/${postId}`, {
+      const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ caption: editCaption })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update post');
+      }
+      
+      // Update local state immediately for better UX
+      setPosts(prev => prev.map(post => 
+        post._id === postId ? { ...post, caption: editCaption } : post
+      ));
+      
       setEditingPost(null);
-      const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-      fetchUserPosts(userr.id);
-    } catch {
+      
+      // Show immediate success feedback
+      addToast('Post updated successfully!');
+      
+    } catch (err) {
       setPostsError("Failed to update post. Please try again.");
+      addToast("Failed to update post. Please try again.", 'error');
+    } finally {
+      // Clear saving state
+      setPostSavingStates(prev => ({ ...prev, [postId]: false }));
     }
   };
   const handleDeletePost = async (postId) => {
@@ -1171,7 +1226,7 @@ const ProfilePage = () => {
                         <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 max-w-xl w-full mx-auto">
                           <div className="relative group">
                             <img 
-                              src={post.imageUrl} 
+                              src={adoptionImagePreviews[post._id] || post.imageUrl} 
                               alt={post.name} 
                                 className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105" 
                               loading="lazy"
@@ -1181,42 +1236,39 @@ const ProfilePage = () => {
                               }}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+
+                            {/* Only show edit overlay when editing this post */}
+                            {editingAdoptionPost === post._id && (
+                              <label className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-t-2xl">
+                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span className="mt-2 text-white text-xs font-medium">Click to change image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleAdoptionImageChange(e, post._id)}
+                                  className="hidden"
+                                />
+                                {adoptionImagePreviews[post._id] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeNewAdoptionImage(post._id)}
+                                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </label>
+                            )}
                           </div>
                           <div className="p-4">
                             {editingAdoptionPost === post._id ? (
                               <div className="space-y-2">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Pet Image</label>
-                                  <div className="relative">
-                                    <img 
-                                      src={adoptionImagePreview || post.imageUrl} 
-                                      alt={post.name} 
-                                      className="w-full h-48 object-contain rounded-lg border border-gray-300 bg-gray-100" 
-                                    />
-                                    <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-lg group">
-                                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                      </svg>
-                                      <span className="absolute bottom-2 left-2 text-white text-xs font-medium">Click to change image</span>
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleAdoptionImageChange}
-                                        className="hidden"
-                                      />
-                                    </label>
-                                    {adoptionImagePreview && (
-                                      <button
-                                        type="button"
-                                        onClick={removeNewAdoptionImage}
-                                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
+                                <h3 className="text-lg font-semibold text-[#6b493d] mb-4 border-b border-[#6b493d]/20 pb-2">
+                                  Edit Adoption Post: {post.name}
+                                </h3>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">Pet Name</label>
                                 <input
@@ -1305,16 +1357,24 @@ const ProfilePage = () => {
                                   <button 
                                     onClick={() => setEditingAdoptionPost(null)}
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                    disabled={adoptionSavingStates[post._id]}
                                   >
                                     <span className="h-5 w-5 text-[#6b493d]">✕</span>
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditAdoption(post._id)}
-                                    disabled={!hasAdoptionChanges()}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={!hasAdoptionChanges(post._id) || adoptionSavingStates[post._id]}
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                                     style={{ fontFamily: '"Poppins", sans-serif' }}
                                   >
-                                    Save Changes
+                                    {adoptionSavingStates[post._id] ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                        <span>Saving...</span>
+                                      </>
+                                    ) : (
+                                      <span>Save Changes</span>
+                                    )}
                                   </button>
                                 </div>
                               </div>
@@ -1444,6 +1504,9 @@ const ProfilePage = () => {
                           <div className="p-4 md:p-6 flex flex-col justify-between w-full max-w-full">
                             {editingPost === post._id ? (
                               <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-[#6b493d] mb-4 border-b border-[#6b493d]/20 pb-2">
+                                  Edit Post Caption
+                                </h3>
                                 <textarea
                                   value={editCaption}
                                   onChange={(e) => setEditCaption(e.target.value)}
@@ -1455,15 +1518,24 @@ const ProfilePage = () => {
                                   <button 
                                     onClick={() => setEditingPost(null)}
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                    disabled={postSavingStates[post._id]}
                                   >
                                     <span className="h-5 w-5 text-[#6b493d]">✕</span>
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditPost(post._id)}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                                    disabled={postSavingStates[post._id]}
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                                     style={{ fontFamily: '"Poppins", sans-serif' }}
                                   >
-                                    Save Changes
+                                    {postSavingStates[post._id] ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                        <span>Saving...</span>
+                                      </>
+                                    ) : (
+                                      <span>Save Changes</span>
+                                    )}
                                   </button>
                                 </div>
                               </div>
