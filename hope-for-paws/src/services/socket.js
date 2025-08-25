@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 import { AUTH_BASE_URL } from '../config';
 
 let socket = null;
+let notificationCallback = null;
 
 // Initialize socket connection
 export const initSocket = (userId) => {
@@ -75,18 +76,22 @@ export const initSocket = (userId) => {
     console.log('Received notification:', notification);
   });
 
+  // Enhanced message notification handlers
+  socket.on('newMessage', (message) => {
+    console.log('Received new message:', message);
+    // This will be handled by ChatWindow component
+  });
+
+  socket.on('messageSent', (data) => {
+    console.log('Message sent confirmation:', data);
+  });
+
   return socket;
 };
 
 export const getSocket = () => {
   if (!socket) {
-    console.warn('Socket not initialized. Checking for token...');
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      console.error('No authentication token available for socket connection');
-      return null;
-    }
-    return initSocket();
+    console.warn('Socket not initialized. Call initSocket first.');
   }
   return socket;
 };
@@ -94,19 +99,18 @@ export const getSocket = () => {
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
-    console.log('Socket disconnected');
     socket = null;
   }
 };
 
-// Function to reinitialize socket with new token (useful after login)
 export const reinitializeSocket = (userId) => {
-  if (socket) {
-    console.log('Disconnecting existing socket for reinitialization');
-    socket.disconnect();
-    socket = null;
-  }
+  disconnectSocket();
   return initSocket(userId);
+};
+
+// Set notification callback for handling notifications
+export const setNotificationCallback = (callback) => {
+  notificationCallback = callback;
 };
 
 // Updated to match how it's called in ChatWindow
@@ -135,20 +139,15 @@ export const sendSocketMessage = (message) => {
 export const sendSocketMessageLegacy = (senderId, receiverId, text, conversationId) => {
   const currentSocket = getSocket();
   if (!currentSocket) {
-    console.warn('Socket not available - no authentication token');
+    console.warn('Socket not available');
     return;
-  }
-  
-  if (!currentSocket.connected) {
-    console.warn('Socket not connected. Attempting to reconnect...');
-    currentSocket.connect();
   }
   
   currentSocket.emit('sendMessage', {
     senderId,
     receiverId,
     text,
-    conversationId,
+    conversationId
   });
 };
 
@@ -164,5 +163,6 @@ export default {
   reinitializeSocket,
   sendSocketMessage,
   sendSocketMessageLegacy,
-  isSocketConnected
+  isSocketConnected,
+  setNotificationCallback
 };

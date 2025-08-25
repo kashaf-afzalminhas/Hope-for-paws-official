@@ -41,7 +41,7 @@ function shouldShowDateSeparator(messages, currentIndex) {
   );
 }
 
-const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage }) => {
+const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast }) => {
   console.log('ChatWindow props:', { conversationId, currentUser, otherUser, onBack });
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,47 +93,72 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     const socket = getSocket();
     socketRef.current = socket;
 
+    if (!socket || !conversationId) {
+      console.log('Socket or conversationId not available:', { socket: !!socket, conversationId });
+      return;
+    }
+
+    // Join the conversation room for real-time updates
+    socket.emit('joinConversation', conversationId);
+    console.log('✅ Joined conversation room:', conversationId);
+
     const handleNewMessage = (message) => {
-      console.log('Socket received message:', message);
+      console.log('📨 ChatWindow received newMessage:', message);
+      console.log('📍 Current conversationId:', conversationId);
+      console.log('📍 Message conversationId:', message.conversationId);
+      
       if (message.conversationId === conversationId) {
+        console.log('✅ Processing message for current conversation');
         setMessages(prev => {
-          // Filter out duplicates
-          const exists = prev.some(m => m._id === message._id);
-          if (exists) return prev;
+          // Check for duplicates
+          if (prev.some(m => m._id === message._id)) {
+            console.log('⚠️ Message already exists, skipping');
+            return prev;
+          }
+          
           // Normalize socket message
           const normalizedMsg = {
             _id: message._id || Date.now().toString(),
             text: message.text || message.content || '',
             senderId: message.senderId || message.sender?.id || '',
             createdAt: message.createdAt || message.timestamp || new Date().toISOString(),
+            isDeleted: false
           };
+          
           if (!normalizedMsg.text) {
-            console.warn('Socket message skipped (no text):', message);
+            console.log('⚠️ Message has no text, skipping');
             return prev;
           }
+          
+          console.log('✅ Adding new message to chat:', normalizedMsg);
           return [...prev, normalizedMsg];
         });
-        setIsTyping(false);
+        
+        // Update conversation last message
+        if (updateConversationLastMessage) {
+          updateConversationLastMessage(conversationId, message);
+        }
+      } else {
+        console.log('❌ Message not for current conversation');
       }
     };
 
-    const handleTyping = (data) => {
-      if (data.userId === otherUser._id && data.conversationId === conversationId) {
-        setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 3000);
-      }
+    const handleMessageSent = (data) => {
+      console.log('✅ Message sent confirmation:', data);
+      // You can add logic here to update message status if needed
     };
 
-    socket.on('getMessage', handleNewMessage);
-    socket.on('userTyping', handleTyping);
+    // Listen only for newMessage event (backend emits this consistently)
+    socket.on('newMessage', handleNewMessage);
+    socket.on('messageSent', handleMessageSent);
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.off('getMessage', handleNewMessage);
-        socketRef.current.off('userTyping', handleTyping);
-      }
+      console.log('🚪 Leaving conversation room:', conversationId);
+      socket.emit('leaveConversation', conversationId);
+      socket.off('newMessage', handleNewMessage);
+      socket.off('messageSent', handleMessageSent);
     };
-  }, [conversationId, otherUser._id]);
+  }, [conversationId, updateConversationLastMessage]);
 
   useEffect(() => {
     if (!otherUser.username) {
@@ -167,16 +192,22 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       createdAt: new Date().toISOString(),
     };
 
+    console.log('📤 Sending message:', { text, conversationId, senderId });
+    console.log('📤 Temp message ID:', tempId);
+
     // Optimistic update
     setMessages(prev => [...prev, newMessage]);
-    console.log('Optimistic message added:', newMessage);
+    console.log('✅ Optimistic message added:', newMessage);
 
     try {
+      console.log('📤 Making API call to send message...');
       const response = await sendMessage({
         conversationId,
         senderId,
         text
       });
+      console.log('📤 Server response:', response);
+      
       // Replace temp message with normalized server response
       const serverMsg = {
         _id: response.data._id || response.data.id || tempId,
@@ -184,18 +215,23 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         senderId: response.data.senderId || response.data.sender?.id || senderId,
         createdAt: response.data.createdAt || response.data.timestamp || new Date().toISOString(),
       };
+      console.log('📤 Server message:', serverMsg);
+      
       setMessages(prev => prev.map(msg => msg._id === tempId ? serverMsg : msg));
-      // Emit socket event with normalized structure
-      sendSocketMessage(serverMsg);
-      console.log('Server message after send:', serverMsg);
-      // Update recent chats list immediately
-      if (updateConversationLastMessage) {
-        updateConversationLastMessage(conversationId, serverMsg);
-      }
+      // Server will emit the message via socket, no need to emit here
+      console.log('✅ Message sent successfully, waiting for socket confirmation');
     } catch (error) {
-      console.error('Error sending message:', error);
-      // Rollback optimistic update
+      console.error('❌ Error sending message:', error);
+      // Remove temp message on error
       setMessages(prev => prev.filter(msg => msg._id !== tempId));
+      // Show error toast
+      if (addToast) {
+        addToast({
+          title: 'Error',
+          description: 'Failed to send message. Please try again.',
+          variant: 'destructive'
+        });
+      }
     }
   };
 
@@ -209,12 +245,12 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
 
   return (
     <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">
-      {/* Header - Fixed height */}
+      {/* Header - Fixed height with improved styling */}
       <div className="flex-shrink-0 p-4 bg-white border-b border-[#e5d9c8] shadow-sm flex items-center gap-4 chat-header">
         {isMobile && onBack && (
           <button
             onClick={handleBackClick}
-            className="p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select"
+            className="p-2 rounded-xl hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select active:scale-95"
             aria-label="Back to conversations"
           >
             <svg 
@@ -230,13 +266,13 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         
         <Link 
           to={`/profile/public/${otherUser._id}`}
-          className="relative shrink-0 flex-shrink-0"
+          className="relative shrink-0 flex-shrink-0 group"
         >
           {userDetails.profileImage ? (
             <img 
               src={`${AUTH_BASE_URL.replace('/auth', '')}${userDetails.profileImage}`}
               alt={userDetails.username || 'User'}
-              className="w-12 h-12 rounded-xl object-cover border border-[#a07855]/10"
+              className="w-12 h-12 rounded-xl object-cover border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
@@ -244,19 +280,19 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             />
           ) : null}
           <div 
-            className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xl font-bold ${userDetails.profileImage ? 'hidden' : ''}`}
+            className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xl font-bold border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200 ${userDetails.profileImage ? 'hidden' : ''}`}
           >
             {(userDetails.username || 'U').charAt(0).toUpperCase()}
           </div>
           {userDetails.status === 'online' && (
-            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
           )}
         </Link>
         
         <div className="flex-1 min-w-0">
           <Link 
             to={`/profile/public/${otherUser._id}`}
-            className="font-heading text-lg font-semibold text-[#2c1810] hover:underline block truncate"
+            className="font-heading text-lg font-semibold text-[#2c1810] hover:text-[#a07855] transition-colors duration-200 block truncate"
           >
             {userDetails.username || 'User'}
           </Link>
@@ -272,7 +308,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
               </span>
             ) : userDetails.status === 'online' ? (
               <span className="flex items-center">
-                <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-1.5"></span>
+                <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-1.5 shadow-sm"></span>
                 <span className="text-[#2c1810]/80">Online now</span>
               </span>
             ) : (
@@ -282,7 +318,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         </div>
       </div>
 
-      {/* Messages area - Flexible height with proper constraints */}
+      {/* Messages area - Enhanced styling */}
       <div 
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-[#f8f4ea] to-[#f5efe6] min-h-0 chat-messages-container smooth-scroll"
@@ -310,8 +346,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
               return (
                 <React.Fragment key={message._id}>
                   {showDateSeparator && (
-                    <div className="text-center my-4">
-                      <span className="inline-block px-4 py-1.5 text-xs font-body text-[#2c1810]/80 bg-white rounded-xl border border-[#e5d9c8] shadow-sm">
+                    <div className="text-center my-6">
+                      <span className="inline-block px-4 py-2 text-xs font-body text-[#2c1810]/80 bg-white rounded-xl border border-[#e5d9c8] shadow-sm backdrop-blur-sm">
                         {formatMessageDate(message.createdAt)}
                       </span>
                     </div>
@@ -334,33 +370,33 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
           </div>
         ) : (
           <div className="flex flex-col justify-center items-center h-full text-center p-6">
-            <div className="relative mb-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-xl flex items-center justify-center shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[#a07855]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="relative mb-8">
+              <div className="w-32 h-32 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-[#a07855]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <div className="absolute -bottom-2 -right-2">
-                <div className="w-8 h-8 rounded-full bg-[#a07855] flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <div className="absolute -top-2 -right-2">
+                <div className="w-10 h-10 rounded-full bg-[#a07855] flex items-center justify-center shadow-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
                 </div>
               </div>
             </div>
-            <h3 className="font-heading text-xl font-semibold text-[#2c1810] mb-2">Start a Conversation</h3>
-            <p className="font-body text-[#2c1810]/70 max-w-md mb-6">
-              Send your first message to {userDetails.username || 'your contact'}
+            <h3 className="font-heading text-2xl font-semibold text-[#2c1810] mb-3">Start a Conversation</h3>
+            <p className="font-body text-[#2c1810]/70 max-w-md mb-6 leading-relaxed">
+              Send your first message to {userDetails.username || 'your contact'} to begin chatting
             </p>
           </div>
         )}
       </div>
 
-      {/* Input area - Fixed height */}
-      <div className="flex-shrink-0 p-4 bg-white border-t border-[#e5d9c8] chat-input">
+      {/* Input area - Enhanced styling */}
+      <div className="flex-shrink-0 p-4 bg-white border-t border-[#e5d9c8] chat-input shadow-sm">
         <MessageInput 
           onSendMessage={handleSendMessage} 
-          className="bg-white border border-[#e5d9c8] rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-[#a07855]/30 focus-within:border-[#a07855]/60"
+          className="bg-white border border-[#e5d9c8] rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-[#a07855]/30 focus-within:border-[#a07855]/60 focus-within:shadow-md"
           disabled={!conversationId}
         />
       </div>

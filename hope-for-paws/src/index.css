@@ -77,6 +77,22 @@ body {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* New message notification pulse */
+@keyframes messagePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.animate-message-pulse {
+  animation: messagePulse 2s ease-in-out infinite;
+}
+
 /* Button loading state */
 .button-loading {
   position: relative;
