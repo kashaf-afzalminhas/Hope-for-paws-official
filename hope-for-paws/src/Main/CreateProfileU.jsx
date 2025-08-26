@@ -357,7 +357,16 @@ const ProfilePage = () => {
   // MyAdoptions state
   const [adoptions, setAdoptions] = useState([]);
   const [editingAdoptionPost, setEditingAdoptionPost] = useState(null);
-  const [editAdoptionData, setEditAdoptionData] = useState({ name: '', age: '', petType: '', description: '', location: '' });
+  const [editAdoptionData, setEditAdoptionData] = useState({ 
+    name: '', 
+    age: '', 
+    petType: '', 
+    breed: '', 
+    vaccinated: '', 
+    neuteredSpayed: '', 
+    description: '', 
+    location: '' 
+  });
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
@@ -480,7 +489,16 @@ const ProfilePage = () => {
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
-    setEditAdoptionData({ name: post.name, age: post.age, petType: post.petType, description: post.description, location: post.location || '' });
+    setEditAdoptionData({ 
+      name: post.name, 
+      age: post.age, 
+      petType: post.petType, 
+      breed: post.breed || '', 
+      vaccinated: post.vaccinated || '', 
+      neuteredSpayed: post.neuteredSpayed || '', 
+      description: post.description, 
+      location: post.location || '' 
+    });
   };
   const handleSaveEditAdoption = async (postId) => {
     try {
@@ -510,6 +528,33 @@ const ProfilePage = () => {
       if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
     } catch (err) {
       alert(`Failed to ${action} request: ${err.message}`);
+    }
+  };
+
+  const handleStatusChange = async (postId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
+      
+      // Update local state immediately for better UX
+      setAdoptions(prev => prev.map(post => 
+        post._id === postId ? { ...post, status: newStatus } : post
+      ));
+      
+      // Show success message
+      addToast(`Status updated to ${newStatus} successfully!`);
+      
+    } catch (err) {
+      console.error('Error updating status:', err);
+      addToast(`Failed to update status: ${err.message}`, 'error');
     }
   };
 
@@ -930,7 +975,7 @@ const ProfilePage = () => {
                   </form>
                 </div>
                 
-                <div className="mt-8 border-t pt-6">
+                {/* <div className="mt-8 border-t pt-6">
                   <h3 className="text-lg font-medium mb-4 text-[#6b493d]">Account Security</h3>
                   
                   <div className="bg-gray-50 p-4 rounded mb-4">
@@ -962,7 +1007,7 @@ const ProfilePage = () => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             )}
             {currentView === 'adoptionhistory' && (
@@ -1105,6 +1150,31 @@ const ProfilePage = () => {
                                   className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
                                   placeholder="Pet Type"
                                 />
+                                <input
+                                  type="text"
+                                  value={editAdoptionData.breed}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, breed: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                  placeholder="Breed"
+                                />
+                                <select
+                                  value={editAdoptionData.vaccinated}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, vaccinated: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                >
+                                  <option value="">Select vaccination status</option>
+                                  <option value="Yes">Yes</option>
+                                  <option value="No">No</option>
+                                </select>
+                                <select
+                                  value={editAdoptionData.neuteredSpayed}
+                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, neuteredSpayed: e.target.value})}
+                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
+                                >
+                                  <option value="">Select neutering status</option>
+                                  <option value="Yes">Yes</option>
+                                  <option value="No">No</option>
+                                </select>
                                 <textarea
                                   value={editAdoptionData.description}
                                   onChange={(e) => setEditAdoptionData({...editAdoptionData, description: e.target.value})}
@@ -1140,17 +1210,49 @@ const ProfilePage = () => {
                                 <h2 className="text-xl font-bold text-[#6b493d] mb-2">{post.name}</h2>
                                 <p className="text-[#6b493d] mb-1"><span className="font-semibold">Age:</span> {post.age} years</p>
                                 <p className="text-[#6b493d] mb-1"><span className="font-semibold">Type:</span> {post.petType}</p>
+                                {post.breed && (
+                                  <p className="text-[#6b493d] mb-1"><span className="font-semibold">Breed:</span> {post.breed}</p>
+                                )}
+                                
+                                {/* Health Status Badges - Only show if any health info exists */}
+                                {(post.vaccinated || post.neuteredSpayed) && (
+                                  <div className="flex flex-wrap gap-2 mb-4">
+                                    {post.vaccinated && (
+                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                        post.vaccinated === 'Yes' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                                      }`}>
+                                        {post.vaccinated === 'Yes' ? '✓ Vaccinated' : '✗ Not Vaccinated'}
+                                      </span>
+                                    )}
+                                    {post.neuteredSpayed && (
+                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                        post.neuteredSpayed === 'Yes' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-orange-100 text-orange-800 border border-orange-200'
+                                      }`}>
+                                        {post.neuteredSpayed === 'Yes' ? '✓ Neutered/Spayed' : '✗ Not Neutered/Spayed'}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                
                                 <p className="text-[#6b493d] mb-4 italic">{post.description}</p>
                                 <p className="text-sm text-gray-500 mb-4">
                                   Posted by: {post.userId?.username || 'Anonymous'}
                                 </p>
-                                <p className={`text-sm font-medium mb-4 ${
-                                  post.status === 'available' ? 'text-green-600' : 
-                                  post.status === 'pending' ? 'text-yellow-600' : 
-                                  'text-red-600'
-                                }`}>
-                                  Status: {post.status}
-                                </p>
+                                <div className="mb-4">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Status:</label>
+                                  <select
+                                    value={post.status}
+                                    onChange={(e) => handleStatusChange(post._id, e.target.value)}
+                                    className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
+                                      post.status === 'available' ? 'border-green-300 bg-green-50 text-green-700' : 
+                                      post.status === 'pending' ? 'border-yellow-300 bg-yellow-50 text-yellow-700' : 
+                                      'border-red-300 bg-red-50 text-red-700'
+                                    }`}
+                                  >
+                                    <option value="available">Available</option>
+                                    <option value="adopted">Adopted</option>
+                                  </select>
+                                </div>
                                 <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
                                 {post.status === 'adopted' && (
                                   <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-md">

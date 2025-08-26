@@ -21,13 +21,16 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   console.log('Request headers:', req.headers);
   
   try {
-    const { name, age, petType, description, location } = req.body;
+    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, location } = req.body;
     
     // Debug logging
     console.log('Received adoption post data:');
     console.log('name:', name);
     console.log('age:', age);
     console.log('petType:', petType);
+    console.log('breed:', breed);
+    console.log('vaccinated:', vaccinated);
+    console.log('neuteredSpayed:', neuteredSpayed);
     console.log('description:', description);
     console.log('location:', location);
     console.log('Full req.body:', req.body);
@@ -46,6 +49,9 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       name,
       age,
       petType,
+      breed,
+      vaccinated,
+      neuteredSpayed,
       description,
       location: location || 'Location not specified',
       imageUrl: uploadResponse.secure_url,
@@ -210,16 +216,38 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, description, status, location } = req.body;
+    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location } = req.body;
+
+    // Validate status if provided
+    if (status && !['available', 'pending', 'adopted'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
 
     const adoptionPost = await Adoption.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
-      { name, age, petType, description, status, location },
+      { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location },
       { new: true }
     );
 
     if (!adoptionPost) {
       return res.status(404).json({ message: 'Adoption post not found' });
+    }
+
+    // If status is changed to 'available', reject all pending requests
+    if (status === 'available') {
+      await AdoptionRequest.updateMany(
+        { adId: req.params.id, status: 'pending' },
+        { status: 'rejected' }
+      );
+      
+      // Update adoption history for rejected requests
+      await AdoptionHistory.updateMany(
+        { petId: req.params.id, status: 'pending' },
+        { 
+          status: 'rejected',
+          responseDate: new Date()
+        }
+      );
     }
 
     res.json(adoptionPost);

@@ -288,7 +288,7 @@ const AdoptionList = ({ filter = 'all' }) => {
                   <img 
                     src={post.imageUrl} 
                     alt={`${post.name} - ${post.petType} available for adoption`} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     onError={() => handleImageError(post._id)}
                   />
                 )}
@@ -315,9 +315,38 @@ const AdoptionList = ({ filter = 'all' }) => {
                   <span className="inline-flex items-center px-4 py-2 rounded-full text-base font-medium bg-[#e2d6cb] text-[#6F4C3E]">
                     {post.petType}
                   </span>
+                  {post.breed && (
+                    <span className="inline-flex items-center px-4 py-2 rounded-full text-base font-medium bg-[#d6c7b8] text-[#6F4C3E]">
+                      {post.breed}
+                    </span>
+                  )}
                   <span className="text-[#8B5A2B] font-medium text-lg">{post.age}  old</span>
                 </div>
               </div>
+              
+              {/* Health Status - Only show if any health info exists */}
+              {(post.vaccinated || post.neuteredSpayed) && (
+                <div className="flex items-center gap-4">
+                  {post.vaccinated && (
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                        post.vaccinated === 'Yes' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                      }`}>
+                        {post.vaccinated === 'Yes' ? '✓ Vaccinated' : '✗ Not Vaccinated'}
+                      </span>
+                    </div>
+                  )}
+                  {post.neuteredSpayed && (
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                        post.neuteredSpayed === 'Yes' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-orange-100 text-orange-800 border border-orange-200'
+                      }`}>
+                        {post.neuteredSpayed === 'Yes' ? '✓ Neutered/Spayed' : '✗ Not Neutered/Spayed'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Location */}
               <div className="flex items-center text-[#8B5A2B]">
@@ -466,13 +495,13 @@ const AdoptionList = ({ filter = 'all' }) => {
                       </div>
                     </div>
                   ) : (
-                    <img 
-                      src={post.imageUrl} 
-                      alt={`${post.name} - ${post.petType} available for adoption`} 
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-                      loading="lazy"
-                      onError={() => handleImageError(post._id)}
-                    />
+                                      <img 
+                    src={post.imageUrl} 
+                    alt={`${post.name} - ${post.petType} available for adoption`} 
+                    className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
+                    loading="lazy"
+                    onError={() => handleImageError(post._id)}
+                  />
                   )}
                 </div>
               </div>
@@ -487,6 +516,11 @@ const AdoptionList = ({ filter = 'all' }) => {
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#e2d6cb] text-[#6F4C3E]">
                         {post.petType}
                       </span>
+                      {post.breed && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#d6c7b8] text-[#6F4C3E]">
+                          {post.breed}
+                        </span>
+                      )}
                       <span className="text-[#8B5A2B] font-medium">{post.age}  old</span>
                     </div>
                   </div>
@@ -599,13 +633,24 @@ const AdoptionList = ({ filter = 'all' }) => {
                     </div>
                   )}
                   
-                  {canRequest && !isOwner && !userRequestInfo.hasRequest && (
+                  {canRequest && !isOwner && !userRequestInfo.hasRequest && post.status === 'available' && (
                     <button 
                       onClick={() => handleRequestClick(post)}
                       className="w-full bg-gradient-to-r from-[#8B5A2B] to-[#6F4C3E] hover:from-[#6F4C3E] hover:to-[#5a3a2e] text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                     >
                       Request Adoption
                     </button>
+                  )}
+                  
+                  {post.status === 'adopted' && !isOwner && (
+                    <div className="text-center py-3 bg-gray-50 text-gray-600 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">This pet has been adopted</span>
+                      </div>
+                    </div>
                   )}
                   
                   {hasPendingRequest && !isOwner && (
