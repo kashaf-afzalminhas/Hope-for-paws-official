@@ -10,6 +10,8 @@ const MyPosts = () => {
   const [editCaption, setEditCaption] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [savingStates, setSavingStates] = useState({}); // Track saving state per post
   const { user } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
   // Check user authentication state
@@ -66,17 +68,30 @@ const MyPosts = () => {
 
   const handleSaveEdit = async (postId) => {
     try {
+      // Set saving state for this specific post
+      setSavingStates(prev => ({ ...prev, [postId]: true }));
+      
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.put(
         `${API_BASE_URL}/posts/${postId}`,
         { caption: editCaption },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
       setEditingPost(null);
+      
+      // Show immediate success feedback
+      setSuccessMessage('Post updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
       fetchUserPosts();
     } catch (error) {
       console.error("Error updating post:", error);
       setError("Failed to update post. Please try again.");
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      // Clear saving state
+      setSavingStates(prev => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -110,6 +125,12 @@ const MyPosts = () => {
         <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
           My Shared Posts
         </h3>
+
+        {successMessage && (
+          <div className="mt-4 mb-8 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center">
+            <p>{successMessage}</p>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -147,15 +168,24 @@ const MyPosts = () => {
                         <button 
                           onClick={() => setEditingPost(null)}
                           className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                          disabled={savingStates[post._id]}
                         >
                           <X className="h-5 w-5 text-[#6b493d]" />
                         </button>
                         <button
                           onClick={() => handleSaveEdit(post._id)}
-                          className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors"
+                          disabled={savingStates[post._id]}
+                          className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                           style={{ fontFamily: '"Poppins", sans-serif' }}
                         >
-                          Save Changes
+                          {savingStates[post._id] ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                              <span>Saving...</span>
+                            </>
+                          ) : (
+                            <span>Save Changes</span>
+                          )}
                         </button>
                       </div>
                     </div>
