@@ -8,15 +8,10 @@
   },
   "dependencies": {
     "axios": "^1.11.0",
-<<<<<<< HEAD
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "chart.js": "^4.5.0",
     "cloudinary": "^1.41.0",
-=======
-    "bcryptjs": "^3.0.2",
-    "cloudinary": "^2.7.0",
->>>>>>> 1c41b769a1228f53b3839f49fd0f05cf244e2233
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
 
@@ -28,19 +23,11 @@
     "express-validator": "^7.2.1",
     "google-auth-library": "^10.2.1",
     "jsonwebtoken": "^9.0.2",
-<<<<<<< HEAD
     "mongodb": "^6.18.0",
     "mongoose": "^8.16.5",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.7",
-=======
-    "mongoose": "^7.8.7",
-    "morgan": "^1.10.1",
-    "multer": "^2.0.2",
-    "nodemailer": "^7.0.5",
-    "otp-generator": "^4.0.1",
->>>>>>> 1c41b769a1228f53b3839f49fd0f05cf244e2233
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
