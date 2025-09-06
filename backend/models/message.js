@@ -41,5 +41,7 @@ MessageSchema.pre("save", async function (next) {
 });
 
 MessageSchema.index({ conversationId: 1, timestamp: 1 });
+MessageSchema.index({ readBy: 1 });
+MessageSchema.index({ conversationId: 1, senderId: 1, readBy: 1 });
 
 module.exports = mongoose.models.Message || mongoose.model("Message", MessageSchema);

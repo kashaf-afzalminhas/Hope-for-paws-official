@@ -5,6 +5,12 @@ const socketHandler = (io, socket) => {
   // Handle user connection
   socket.on('join', (userId) => {
     try {
+      // Validate userId
+      if (!userId || typeof userId !== 'string') {
+        console.error('Invalid userId received:', userId);
+        return;
+      }
+      
       // Add user to online users
       notificationService.addOnlineUser(userId, socket.id);
       
@@ -20,6 +26,12 @@ const socketHandler = (io, socket) => {
   // Handle joining conversation room
   socket.on('joinConversation', (conversationId) => {
     try {
+      // Validate conversationId
+      if (!conversationId) {
+        console.error('Invalid conversationId received:', conversationId);
+        return;
+      }
+      
       console.log(`User ${socket.id} joining conversation room: ${conversationId}`);
       socket.join(conversationId.toString());
       console.log(`User successfully joined conversation room: ${conversationId}`);
@@ -35,6 +47,12 @@ const socketHandler = (io, socket) => {
   // Handle leaving conversation room
   socket.on('leaveConversation', (conversationId) => {
     try {
+      // Validate conversationId
+      if (!conversationId) {
+        console.error('Invalid conversationId received:', conversationId);
+        return;
+      }
+      
       console.log(`User ${socket.id} leaving conversation room: ${conversationId}`);
       socket.leave(conversationId.toString());
       console.log(`User successfully left conversation room: ${conversationId}`);
@@ -63,6 +81,13 @@ const socketHandler = (io, socket) => {
   socket.on('markMessageAsRead', async (data) => {
     try {
       const { messageId, userId, conversationId } = data;
+      
+      // Validate data
+      if (!messageId || !userId || !conversationId) {
+        console.error('Invalid markMessageAsRead data:', data);
+        return;
+      }
+      
       console.log('Marking message as read:', { messageId, userId, conversationId });
       
       // Emit to conversation room that message was read
@@ -83,6 +108,12 @@ const socketHandler = (io, socket) => {
     try {
       const { userId, conversationId, isTyping } = data;
       
+      // Validate data
+      if (!userId || !conversationId || typeof isTyping !== 'boolean') {
+        console.error('Invalid userTyping data:', data);
+        return;
+      }
+      
       // Emit to other users in the conversation
       socket.to(conversationId.toString()).emit('userTyping', {
         userId,
@@ -98,6 +129,12 @@ const socketHandler = (io, socket) => {
   socket.on('message:new', async (data) => {
     try {
       const { senderId, receiverId, message } = data;
+      
+      // Validate data
+      if (!senderId || !receiverId || !message) {
+        console.error('Invalid message:new data:', data);
+        return;
+      }
       
       // Emit to receiver if online
       const receiverSocketId = notificationService.getUserSocketId(receiverId);
@@ -127,6 +164,12 @@ const socketHandler = (io, socket) => {
     try {
       const { jobId, freelancerId, clientId, bidAmount } = data;
       
+      // Validate data
+      if (!jobId || !freelancerId || !clientId || !bidAmount) {
+        console.error('Invalid bid:new data:', data);
+        return;
+      }
+      
       // Emit to client if online
       const clientSocketId = notificationService.getUserSocketId(clientId);
       if (clientSocketId) {
@@ -155,6 +198,12 @@ const socketHandler = (io, socket) => {
     try {
       const { jobId, freelancerId, clientId } = data;
       
+      // Validate data
+      if (!jobId || !freelancerId || !clientId) {
+        console.error('Invalid job:hired data:', data);
+        return;
+      }
+      
       // Emit to freelancer if online
       const freelancerSocketId = notificationService.getUserSocketId(freelancerId);
       if (freelancerSocketId) {
@@ -182,6 +231,12 @@ const socketHandler = (io, socket) => {
     try {
       const { jobId, freelancerId, clientId } = data;
       
+      // Validate data
+      if (!jobId || !freelancerId || !clientId) {
+        console.error('Invalid work:submitted data:', data);
+        return;
+      }
+      
       // Emit to client if online
       const clientSocketId = notificationService.getUserSocketId(clientId);
       if (clientSocketId) {
@@ -208,6 +263,12 @@ const socketHandler = (io, socket) => {
   socket.on('work:approved', async (data) => {
     try {
       const { jobId, freelancerId, clientId } = data;
+      
+      // Validate data
+      if (!jobId || !freelancerId || !clientId) {
+        console.error('Invalid work:approved data:', data);
+        return;
+      }
       
       // Emit to freelancer if online
       const freelancerSocketId = notificationService.getUserSocketId(freelancerId);

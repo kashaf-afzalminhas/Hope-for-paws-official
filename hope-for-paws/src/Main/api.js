@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { AUTH_BASE_URL, API_ROUTES_BASE_URL } from '../config';
 
-console.log('API configuration:', { AUTH_BASE_URL, API_ROUTES_BASE_URL });
-
 const authApi = axios.create({
     baseURL: AUTH_BASE_URL,
     withCredentials: true,
@@ -13,18 +11,21 @@ const apiRoutes = axios.create({
     withCredentials: true,
 });
 
-// Add request interceptor to include auth token
-authApi.interceptors.request.use(
+// Add request interceptor to include auth token for apiRoutes
+apiRoutes.interceptors.request.use(
   (config) => {
     // Check both localStorage and sessionStorage for token
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    console.log('API Request - Token found:', !!token);
-    console.log('API Request - URL:', config.url);
+    console.log('API Routes - Token found:', !!token, 'URL:', config.url);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('API Request - Authorization header set');
+      console.log('API Routes - Authorization header set');
+      console.log('API Routes - Token length:', token.length);
+      console.log('API Routes - Token preview:', token.substring(0, 20) + '...');
     } else {
-      console.log('API Request - No token found in storage');
+      console.log('API Routes - No token found in storage');
+      console.log('API Routes - localStorage token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+      console.log('API Routes - sessionStorage token:', sessionStorage.getItem('token') ? 'Present' : 'Missing');
     }
     return config;
   },
@@ -33,22 +34,67 @@ authApi.interceptors.request.use(
   }
 );
 
-console.log('Axios instances created:', {
-    authApi: authApi.defaults.baseURL,
-    apiRoutes: apiRoutes.defaults.baseURL
-});
+// Add response interceptor to handle 401 errors
+apiRoutes.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log('API Routes - 401 Unauthorized error, clearing token and redirecting to login');
+      // Clear token and user data
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Add request interceptor to include auth token for authApi
+authApi.interceptors.request.use(
+  (config) => {
+    // Check both localStorage and sessionStorage for token
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle 401 errors for authApi
+authApi.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log('Auth API - 401 Unauthorized error, clearing token and redirecting to login');
+      // Clear token and user data
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Conversations
 export const getUserConversations = async (userId) => {
-  console.log('getUserConversations called with userId:', userId);
-  console.log('Full URL will be:', `${API_ROUTES_BASE_URL}/conversations/${userId}`);
-  
   try {
-    console.log('Making GET request to getUserConversations...');
     const response = await apiRoutes.get(`/conversations/${userId}`);
-    console.log('getUserConversations response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('getUserConversations error:', error);
@@ -62,15 +108,8 @@ export const getUserConversations = async (userId) => {
 };
 
 export const getConversationBetweenUsers = async (firstUserId, secondUserId) => {
-  console.log('getConversationBetweenUsers called with:', { firstUserId, secondUserId });
-  console.log('Full URL will be:', `${API_ROUTES_BASE_URL}/conversations/find/${firstUserId}/${secondUserId}`);
-  
   try {
-    console.log('Making GET request to getConversationBetweenUsers...');
     const response = await apiRoutes.get(`/conversations/find/${firstUserId}/${secondUserId}`);
-    console.log('getConversationBetweenUsers response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     if (error.response?.status === 404) {
@@ -88,15 +127,8 @@ export const getConversationBetweenUsers = async (firstUserId, secondUserId) => 
 };
 
 export const createConversation = async (senderId, receiverId) => {
-  console.log('createConversation called with:', { senderId, receiverId });
-  console.log('Full URL will be:', `${API_ROUTES_BASE_URL}/conversations`);
-  
   try {
-    console.log('Making POST request to createConversation...');
     const response = await apiRoutes.post('/conversations', { senderId, receiverId });
-    console.log('createConversation response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('Create conversation error:', error);
@@ -111,7 +143,6 @@ export const createConversation = async (senderId, receiverId) => {
 export const getMessagesByConversation = async (conversationId) => {
   try {
     const response = await apiRoutes.get(`/messages/${conversationId}`);
-    console.log('API Response:', response);
     // Normalize the response data for debugging
     const normalized = (response.data || []).map(msg => ({
       _id: msg._id || msg.id || '',
@@ -119,7 +150,6 @@ export const getMessagesByConversation = async (conversationId) => {
       senderId: msg.senderId || msg.sender?.id || '',
       createdAt: msg.createdAt || msg.timestamp || '',
     }));
-    console.log('Normalized messages:', normalized);
     return { ...response, data: normalized };
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -133,6 +163,16 @@ export const sendMessage = (message) =>
 export const markMessageAsRead = (messageId) => 
   apiRoutes.patch(`/messages/${messageId}/read`);
 
+export const markConversationAsRead = async (conversationId) => {
+  try {
+    const response = await apiRoutes.patch(`/messages/conversations/${conversationId}/read`);
+    return response;
+  } catch (error) {
+    console.error('API: markConversationAsRead error:', error);
+    throw error;
+  }
+};
+
 // Chats (Recent)
 export const getRecentChats = () => 
   apiRoutes.get('/chats/recent');
@@ -143,18 +183,8 @@ export const getUserById = (id) =>
 
 // Get all users (matches your backend POST /auth/getAllUsers)
 export const getAllUsers = async () => {
-  console.log('getAllUsers called with AUTH_BASE_URL:', AUTH_BASE_URL);
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/getAllUsers`);
-  
   try {
-    console.log('Making POST request to getAllUsers...');
     const response = await authApi.post('/getAllUsers', {});
-    console.log('getAllUsers response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
-    console.log('Response data type:', typeof response.data);
-    console.log('Is response.data an array?', Array.isArray(response.data));
-    console.log('Response data keys:', response.data ? Object.keys(response.data) : 'null/undefined');
     return response;
   } catch (error) {
     console.error('getAllUsers error:', error);
@@ -173,19 +203,12 @@ export const searchUsers = (query) =>
 
 // Upload profile image
 export const uploadProfileImage = async (formData) => {
-  console.log('uploadProfileImage called with formData:', formData);
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/upload-profile-image`);
-  
   try {
-    console.log('Making POST request to uploadProfileImage...');
     const response = await authApi.post('/upload-profile-image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    console.log('uploadProfileImage response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('uploadProfileImage error:', error);
@@ -198,15 +221,8 @@ export const uploadProfileImage = async (formData) => {
 
 // Get authenticated user's own profile
 export const getUserProfile = async () => {
-  console.log('getUserProfile called');
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/profile`);
-  
   try {
-    console.log('Making GET request to getUserProfile...');
     const response = await authApi.get('/profile');
-    console.log('getUserProfile response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('getUserProfile error:', error);
@@ -219,15 +235,8 @@ export const getUserProfile = async () => {
 
 // Get public profile of any user by ID
 export const getUserPublicProfile = async (userId) => {
-  console.log('getUserPublicProfile called with userId:', userId);
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/profile/${userId}`);
-  
   try {
-    console.log('Making GET request to getUserPublicProfile...');
     const response = await authApi.get(`/profile/${userId}`);
-    console.log('getUserPublicProfile response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('getUserPublicProfile error:', error);
@@ -240,15 +249,8 @@ export const getUserPublicProfile = async (userId) => {
 
 // Remove profile image
 export const removeProfileImage = async () => {
-  console.log('removeProfileImage called');
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/remove-profile-image`);
-  
   try {
-    console.log('Making DELETE request to removeProfileImage...');
     const response = await authApi.delete('/remove-profile-image');
-    console.log('removeProfileImage response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
     return response;
   } catch (error) {
     console.error('removeProfileImage error:', error);
@@ -259,25 +261,23 @@ export const removeProfileImage = async () => {
   }
 };
 
-// Debug function to test token transmission
-export const debugToken = async () => {
-  console.log('debugToken called');
-  console.log('Full URL will be:', `${AUTH_BASE_URL}/debug-token`);
+// Debug function to test token availability
+export const debugToken = () => {
+  const localStorageToken = localStorage.getItem('token');
+  const sessionStorageToken = sessionStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
   
-  try {
-    console.log('Making GET request to debugToken...');
-    const response = await authApi.get('/debug-token');
-    console.log('debugToken response:', response);
-    console.log('Response status:', response.status);
-    console.log('Response data:', response.data);
-    return response;
-  } catch (error) {
-    console.error('debugToken error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
-    throw error;
-  }
+  console.log('Debug Token Info:', {
+    localStorageToken: localStorageToken ? 'Present' : 'Missing',
+    sessionStorageToken: sessionStorageToken ? 'Present' : 'Missing',
+    user: user ? { id: user.id, _id: user._id, username: user.username } : 'No user',
+    tokenLength: localStorageToken?.length || sessionStorageToken?.length || 0
+  });
+  
+  return {
+    hasToken: !!(localStorageToken || sessionStorageToken),
+    user: user
+  };
 };
 
 // Get adoption ads for a user (public)
