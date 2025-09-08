@@ -76,7 +76,7 @@ const signUp = async (req, res) => {
       const otp = crypto.randomBytes(3).toString('hex');
       existingTempUser.verificationCode = otp;
       existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
-      
+       
       await existingTempUser.save();
       console.log('✅ Temporary user updated successfully:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
 
@@ -481,7 +481,7 @@ googleLogins = async (req, res) => {
     const CLIENT_ID = "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
     const client = new OAuth2Client(CLIENT_ID);
 
-    const ticket = await client.verifyIdToken({
+    const ticket = await client.verifyIdToken({ 
       idToken: credential,
       audience: CLIENT_ID,
     });

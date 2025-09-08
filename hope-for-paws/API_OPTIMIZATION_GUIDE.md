@@ -19,7 +19,7 @@ The admin dashboard was experiencing issues due to too many simultaneous API req
 - **Error Handling**: Centralized error handling for all API calls
 
 **Key Benefits**:
-- Prevents request flooding
+- Prevents request flooding 
 - Reduces server load
 - Improves response times through caching
 - Consistent error handling

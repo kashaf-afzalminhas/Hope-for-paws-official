@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 import { AUTH_BASE_URL } from '../config';
 
 let socket = null;
+let notificationCallback = null;
 
 // Initialize socket connection
 export const initSocket = (userId) => {
@@ -16,7 +17,16 @@ export const initSocket = (userId) => {
   const baseURL = AUTH_BASE_URL.replace('/auth', '');
   console.log('Socket connecting to:', baseURL);
   
-  // Create socket with more robust configuration
+  // Get the authentication token
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  console.log('Socket token found:', !!token);
+  
+  if (!token) {
+    console.error('No authentication token found for socket connection');
+    throw new Error('Authentication token required for socket connection');
+  }
+  
+  // Create socket with authentication token
   socket = io(baseURL, {
     transports: ['websocket', 'polling'], // Allow both websocket and polling
     autoConnect: true,
@@ -26,7 +36,10 @@ export const initSocket = (userId) => {
     reconnectionDelayMax: 5000,
     timeout: 20000,
     withCredentials: true, // Important for CORS
-    forceNew: true // Force new connection
+    forceNew: true, // Force new connection
+    auth: {
+      token: token // Add token to handshake auth
+    }
   });
 
   // Connection event handlers
@@ -63,13 +76,22 @@ export const initSocket = (userId) => {
     console.log('Received notification:', notification);
   });
 
+  // Enhanced message notification handlers
+  socket.on('newMessage', (message) => {
+    console.log('Received new message:', message);
+    // This will be handled by ChatWindow component
+  });
+
+  socket.on('messageSent', (data) => {
+    console.log('Message sent confirmation:', data);
+  });
+
   return socket;
 };
 
 export const getSocket = () => {
   if (!socket) {
-    console.warn('Socket not initialized. Initializing with default configuration...');
-    return initSocket();
+    console.warn('Socket not initialized. Call initSocket first.');
   }
   return socket;
 };
@@ -77,14 +99,28 @@ export const getSocket = () => {
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
-    console.log('Socket disconnected');
     socket = null;
   }
+};
+
+export const reinitializeSocket = (userId) => {
+  disconnectSocket();
+  return initSocket(userId);
+};
+
+// Set notification callback for handling notifications
+export const setNotificationCallback = (callback) => {
+  notificationCallback = callback;
 };
 
 // Updated to match how it's called in ChatWindow
 export const sendSocketMessage = (message) => {
   const currentSocket = getSocket();
+  if (!currentSocket) {
+    console.warn('Socket not available - no authentication token');
+    return;
+  }
+  
   if (!currentSocket.connected) {
     console.warn('Socket not connected. Attempting to reconnect...');
     currentSocket.connect();
@@ -102,16 +138,16 @@ export const sendSocketMessage = (message) => {
 // Legacy function for backward compatibility
 export const sendSocketMessageLegacy = (senderId, receiverId, text, conversationId) => {
   const currentSocket = getSocket();
-  if (!currentSocket.connected) {
-    console.warn('Socket not connected. Attempting to reconnect...');
-    currentSocket.connect();
+  if (!currentSocket) {
+    console.warn('Socket not available');
+    return;
   }
   
   currentSocket.emit('sendMessage', {
     senderId,
     receiverId,
     text,
-    conversationId,
+    conversationId
   });
 };
 
@@ -124,7 +160,9 @@ export default {
   initSocket,
   getSocket,
   disconnectSocket,
+  reinitializeSocket,
   sendSocketMessage,
   sendSocketMessageLegacy,
-  isSocketConnected
+  isSocketConnected,
+  setNotificationCallback
 };

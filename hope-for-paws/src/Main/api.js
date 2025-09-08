@@ -73,16 +73,16 @@ export const getConversationBetweenUsers = async (firstUserId, secondUserId) => 
     console.log('Response data:', response.data);
     return response;
   } catch (error) {
-    console.error('getConversationBetweenUsers error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
-    
     if (error.response?.status === 404) {
       // If conversation not found, return null instead of throwing error
       console.log('Conversation not found (404), returning null');
       return { data: null };
     }
+    // Only log unexpected errors
+    console.error('getConversationBetweenUsers error:', error);
+    console.error('Error response:', error.response);
+    console.error('Error request:', error.request);
+    console.error('Error config:', error.config);
     throw error;
   }
 };

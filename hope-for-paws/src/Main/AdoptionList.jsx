@@ -117,34 +117,59 @@ const AdoptionList = ({ filter = 'all' }) => {
   }, [effectiveUser, allAdoptionPosts, checkUserRequest]);
 
   // Robust chat navigation handler (copied from Postnew.jsx)
-  const handleStartConversation = async (postCreatorId, postCreatorUsername) => {
+  const handleStartConversation = async (postCreatorId, postCreatorUsername, event) => {
     const currentUserId = getCurrentUserId(effectiveUser);
     if (!effectiveUser) {
       navigate('/signin');
       return;
     }
+    
     try {
+      // Show loading state or disable button temporarily
+      const button = event?.target?.closest('button');
+      if (button) {
+        button.disabled = true;
+        button.classList.add('opacity-50');
+      }
+      
       // First check if conversation exists in local state
       const existingConv = conversations.find(conv =>
         conv.participants && conv.participants.includes(currentUserId) &&
         conv.participants.includes(postCreatorId)
       );
+      
       if (existingConv) {
-        navigate(`/chat/${postCreatorId}`);
+        // Smooth navigation to existing conversation
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
         return;
       }
+      
       // If not found locally, check with backend
       const response = await getConversationBetweenUsers(currentUserId, postCreatorId);
       if (response.data) {
-        navigate(`/chat/${postCreatorId}`);
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
       } else {
         // No existing conversation - navigate with just user info
-        navigate(`/chat/${postCreatorId}`);
+        navigate(`/chat/${postCreatorId}`, { 
+          state: { fromAdoption: true, postCreatorUsername }
+        });
       }
     } catch (error) {
       console.error('Error checking conversation:', error);
       // Fallback - navigate with basic info
-      navigate(`/chat/${postCreatorId}`);
+      navigate(`/chat/${postCreatorId}`, { 
+        state: { fromAdoption: true, postCreatorUsername }
+      });
+    } finally {
+      // Re-enable button if it was disabled
+      if (button) {
+        button.disabled = false;
+        button.classList.remove('opacity-50');
+      }
     }
   };
 
@@ -378,11 +403,12 @@ const AdoptionList = ({ filter = 'all' }) => {
                   {effectiveUser && post.userId?._id !== currentUserId && (
                     <div className="relative group">
                       <button
-                        onClick={() => handleStartConversation(
+                        onClick={(event) => handleStartConversation(
                           post.userId?._id,
-                          post.userId?.username
+                          post.userId?.username,
+                          event
                         )}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors mobile-transition-fast"
                         title={`Message ${post.userId?.username || 'this user'}`}
                       >
                         <MessageSquare className="h-4 w-4" />
@@ -562,17 +588,18 @@ const AdoptionList = ({ filter = 'all' }) => {
                     {effectiveUser && post.userId?._id !== currentUserId && (
                       <div className="relative group">
                         <button
-                          onClick={() => handleStartConversation(
+                          onClick={(event) => handleStartConversation(
                             post.userId?._id,
-                            post.userId?.username
+                            post.userId?.username,
+                            event
                           )}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-[#6b493d]/10 hover:bg-[#6b493d]/20 text-[#6b493d] rounded-full transition-colors mobile-transition-fast"
                           title={`Message ${post.userId?.username || 'this user'}`}
                         >
                           <MessageSquare className="h-4 w-4" />
                           <span className="text-xs font-medium">Chat</span>
                         </button>
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10">
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block bg-white shadow-lg rounded-lg p-2 text-sm whitespace-nowrap z-10 animate-fadeIn">
                           Start private conversation
                         </div>
                       </div>

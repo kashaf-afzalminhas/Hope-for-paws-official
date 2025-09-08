@@ -306,9 +306,12 @@ const Postnew = () => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <h4 className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate">
+                <Link
+                  to={comment.userId?._id ? `/profile/public/${comment.userId._id}` : '#'}
+                  className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate hover:underline"
+                >
                   {comment.userId?.username || "Unknown User"}
-                </h4>
+                </Link>
                 {comment.userId?.isVeterinarian && (
                   <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
                     Veterinarian

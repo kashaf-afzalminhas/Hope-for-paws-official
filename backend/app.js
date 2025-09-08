@@ -28,7 +28,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const NotificationService = require('./services/notificationService');
 
 dotenv.config();
-
+console.log('MONGO_URI:', process.env.MONGO_URI);
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log('MongoDB connected successfully');
@@ -55,11 +55,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       'https://www.hopeforpaws.club',
-      'https://hope-for-paws-official-backend.vercel.app',
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
+      'http://localhost:5173'
+     
     ],
     methods: ['GET', 'POST'],
     credentials: true
@@ -133,11 +130,9 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: [
     'https://www.hopeforpaws.club',
-    'https://hope-for-paws-official-backend.vercel.app',
+
     'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000'
+
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
@@ -281,6 +276,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
 
 

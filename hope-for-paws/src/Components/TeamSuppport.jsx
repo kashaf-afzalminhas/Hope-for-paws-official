@@ -3,12 +3,33 @@ import DocImage from '../assets/Doc.jpeg';
 import VetConnect from '../assets/vc.jpg'
 import Huraira from '../assets/Huraira.jpeg';
 import ibraheem from '../assets/ibraheem.jpeg';
-import wasif from '../assets/wasif.jpeg';
+import rahima from '../assets/Rahima.jpeg';
 import avator from '../assets/avatar.png';
 import { useNavigate } from 'react-router-dom';
+import { getCurrentUserId } from '../lib/utils';
+import { getConversationBetweenUsers } from '../Main/api';
 
-export const PersonCard = ({ name, role, image, summary, details, contact, className }) => {
+export const PersonCard = ({ name, role, image, summary, details, contact, className, userId }) => {
   const [activeAccordion, setActiveAccordion] = useState(null);
+  const navigate = useNavigate();
+  const user =
+    JSON.parse(localStorage.getItem('user')) ||
+    JSON.parse(sessionStorage.getItem('user'));
+  const currentUserId = getCurrentUserId(user);
+
+  const handleStartConversation = async (targetUserId) => {
+    if (!user) {
+      navigate('/signin');
+      return;
+    }
+    try {
+      await getConversationBetweenUsers(currentUserId, targetUserId);
+    } catch (_) {
+      // ignore and navigate anyway
+    } finally {
+      navigate(`/chat/${targetUserId}`);
+    }
+  };
 
   const toggleAccordion = (value) => {
     setActiveAccordion(activeAccordion === value ? null : value);
@@ -129,6 +150,25 @@ export const PersonCard = ({ name, role, image, summary, details, contact, class
         )}
       </div>
       
+      {userId && (
+        <div className="px-4 pb-3 flex items-center gap-2">
+          <button
+            onClick={() => navigate(`/profile/public/${userId}`)}
+            className="px-3 py-1.5 bg-white text-[#6b493d] rounded-full hover:bg-[#f8f4ed] transition-all border border-[#6b493d] text-xs font-medium"
+          >
+            View Profile
+          </button>
+          {currentUserId && userId !== currentUserId && (
+            <button
+              onClick={() => handleStartConversation(userId)}
+              className="px-3 py-1.5 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all text-xs font-medium"
+            >
+              Chat
+            </button>
+          )}
+        </div>
+      )}
+      
       {contact && (
         <div className="px-4 py-3 border-t border-[#c9a280] text-xs text-gray-600 space-y-1.5">
           {contact.phone && (
@@ -188,7 +228,40 @@ const AmbassadorCollaboratorsSection = () => {
       contact: {
         phone: "+92 308 8676335",
         email: "vetconnect3@gmail.com"
-      }
+      },
+      userId: "680913742171d4429a686d33"
+    },
+       {
+      name: "Dr.Rahima Khan",
+      role: "DVM",
+      image: rahima, // Empty for avatar
+      summary: "Online veterinary consultations",
+      details: {
+        education: [
+          "Doctor of Veterinary Medicine (DVM)"
+        ],
+        experience: [
+          "2 years pet practice experience"
+        ]
+      },
+      contact: {
+        phone: "+923207557341"
+      },
+      userId: "6895d332d294378b1f10a059"
+    },
+        {
+      name: "Dr.Ibraheem Saeed",
+      role: "Doctor of Veterinary Medicine (DVM)",
+      image: ibraheem, // Add image path or leave empty for avatar
+      summary: "Experienced veterinarian with 1 year of professional practice",
+      details: {
+        education: ["Doctor of Veterinary Medicine (DVM)"],
+        experience: ["1 year of professional veterinary practice"]
+      },
+      contact: {
+        phone: "03358745668"
+      },
+      userId: "6895e2bc313adc023d1be0ad"
     },
     {
       name: "Dr. Asfa",
@@ -210,19 +283,7 @@ const AmbassadorCollaboratorsSection = () => {
         phone: "03072736096"
       }
     },
-    {
-      name: "Muhammad Ibraheem Saeed",
-      role: "Doctor of Veterinary Medicine (DVM)",
-      image: ibraheem, // Add image path or leave empty for avatar
-      summary: "Experienced veterinarian with 1 year of professional practice",
-      details: {
-        education: ["Doctor of Veterinary Medicine (DVM)"],
-        experience: ["1 year of professional veterinary practice"]
-      },
-      contact: {
-        phone: "03358745668"
-      }
-    },
+
     {
       name: "Vet Connect",
       role: "Government University Affiliated",

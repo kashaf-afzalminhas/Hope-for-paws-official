@@ -76,6 +76,7 @@ import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
 import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
+import { MessageProvider } from './context/MessageContext'; // Import MessageProvider
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -325,7 +326,9 @@ const AppWithProviders = () => (
   <AuthProvider>
     <AdoptionProvider>
       <NotificationProvider>
-        <RouterProvider router={router} />
+        <MessageProvider>
+          <RouterProvider router={router} />
+        </MessageProvider>
       </NotificationProvider>
     </AdoptionProvider>
   </AuthProvider>

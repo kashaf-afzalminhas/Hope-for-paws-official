@@ -17,6 +17,32 @@ const socketHandler = (io, socket) => {
     }
   });
 
+  // Handle joining conversation room
+  socket.on('joinConversation', (conversationId) => {
+    try {
+      console.log(`User ${socket.id} joining conversation room: ${conversationId}`);
+      socket.join(conversationId.toString());
+      console.log(`User successfully joined conversation room: ${conversationId}`);
+      
+      // Log all rooms this socket is in
+      const rooms = Array.from(socket.rooms);
+      console.log(`Socket ${socket.id} is now in rooms:`, rooms);
+    } catch (error) {
+      console.error('Error joining conversation:', error);
+    }
+  });
+
+  // Handle leaving conversation room
+  socket.on('leaveConversation', (conversationId) => {
+    try {
+      console.log(`User ${socket.id} leaving conversation room: ${conversationId}`);
+      socket.leave(conversationId.toString());
+      console.log(`User successfully left conversation room: ${conversationId}`);
+    } catch (error) {
+      console.error('Error leaving conversation:', error);
+    }
+  });
+
   // Handle user disconnection
   socket.on('disconnect', () => {
     try {
@@ -33,47 +59,20 @@ const socketHandler = (io, socket) => {
     }
   });
 
-  // Handle sendMessage event (from frontend)
-  socket.on('sendMessage', async (data) => {
-    try {
-      const { senderId, receiverId, text, conversationId } = data;
-      console.log('Received sendMessage:', { senderId, receiverId, text, conversationId });
-      
-      // Emit to receiver if online
-      const receiverSocketId = notificationService.getUserSocketId(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('getMessage', {
-          conversationId,
-          senderId,
-          text,
-          createdAt: new Date(),
-          isReceiver: true
-        });
-      }
-
-      // Emit back to sender for confirmation
-      socket.emit('getMessage', {
-        conversationId,
-        senderId,
-        text,
-        createdAt: new Date(),
-        isSender: true
-      });
-
-    } catch (error) {
-      console.error('Error in sendMessage:', error);
-    }
-  });
-
   // Handle markMessageAsRead event
   socket.on('markMessageAsRead', async (data) => {
     try {
-      const { messageId, userId } = data;
-      console.log('Marking message as read:', { messageId, userId });
+      const { messageId, userId, conversationId } = data;
+      console.log('Marking message as read:', { messageId, userId, conversationId });
       
-      // You can add logic here to update the message in the database
-      // For now, just emit back to confirm
-      socket.emit('messageRead', { messageId, userId });
+      // Emit to conversation room that message was read
+      if (conversationId) {
+        io.to(conversationId.toString()).emit('messageRead', { 
+          messageId, 
+          userId,
+          conversationId 
+        });
+      }
     } catch (error) {
       console.error('Error in markMessageAsRead:', error);
     }
@@ -85,7 +84,7 @@ const socketHandler = (io, socket) => {
       const { userId, conversationId, isTyping } = data;
       
       // Emit to other users in the conversation
-      socket.to(conversationId).emit('userTyping', {
+      socket.to(conversationId.toString()).emit('userTyping', {
         userId,
         conversationId,
         isTyping

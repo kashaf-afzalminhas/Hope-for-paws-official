@@ -131,11 +131,11 @@ const ContactUs = () => {
         </div>
 
         {/* Cat Image Positioning */}
-        <div className="flex justify-center sm:absolute sm:-bottom-28 sm:left-0 sm:max-w-xl">
+        <div className="flex justify-center sm:absolute sm:-bottom-28 sm:left-0 sm:max-w-xl -mb-28 sm:mb-0">
           <img 
             src={ContactCat} 
             alt="Cat" 
-            className="w-full h-auto object-cover ml-1 sm:ml-24" 
+            className="w-full h-auto object-cover ml-0 sm:ml-24 -mb-1 sm:mb-0" 
           />
         </div>
       </div>

@@ -18,6 +18,7 @@ const PublicProfilePage = () => {
   const [loadingAds, setLoadingAds] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [conversations, setConversations] = useState([]);
+  const [imageFailed, setImageFailed] = useState(false);
 
   // Get current user
   const currentUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
@@ -45,6 +46,11 @@ const PublicProfilePage = () => {
     };
     fetchConversations();
   }, [currentUserId]);
+
+  // Reset image error when user/profile image changes
+  useEffect(() => {
+    setImageFailed(false);
+  }, [userId, profile?.profileImage]);
 
   const fetchPublicProfile = async (id) => {
     try {
@@ -198,11 +204,16 @@ const PublicProfilePage = () => {
   <div className="max-w-4xl mx-auto px-4 pt-6 pb-4">
     <div className="flex flex-col items-center text-center mb-6 bg-white rounded-2xl p-6 shadow-sm border border-[#e5d9c8]">
       <div className="relative mb-5">
-        {profile.profileImage ? (
+        {profile.profileImage && !imageFailed ? (
           <img
-            src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
+            src={
+              profile.profileImage.startsWith('http')
+                ? profile.profileImage
+                : `${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage.startsWith('/') ? '' : '/'}${profile.profileImage}`
+            }
             alt={profile.username}
             className="w-28 h-28 rounded-xl object-cover border-4 border-white shadow-lg"
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <div className="w-28 h-28 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#a07855] to-[#6b493d] shadow-lg">
