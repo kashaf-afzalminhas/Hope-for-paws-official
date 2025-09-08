@@ -95,15 +95,15 @@ const Support = () => {
           <p className="text-sm">ADOPTION</p>
         </div>
         <div className="bg-[#000000] py-10 text-white">
-          <h3 className="text-2xl font-bold">0k</h3>
-          <p className="text-sm">RESCUED</p>
+          <h3 className="text-2xl font-bold">50+</h3>
+          <p className="text-sm">USERS</p>
         </div>
         <div className="bg-[#a07855] py-10 text-white">
-          <h3 className="text-2xl font-bold">0k</h3>
-          <p className="text-sm">CLIENTS</p>
+          <h3 className="text-2xl font-bold">30+</h3>
+          <p className="text-sm">VETS</p>
         </div>
         <div className="bg-gray-100 py-10 text-black">
-          <h3 className="text-2xl font-bold">4+</h3>
+          <h3 className="text-2xl font-bold">2</h3>
           <p className="text-sm">SERVICES</p>
         </div>
       </div>

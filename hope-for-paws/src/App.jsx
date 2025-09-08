@@ -5,6 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from './config';
 //import { DisclaimerBanner } from './Components/DisclaimerBanner';
 import RandomPopups from './Components/RandomPopups';
+import RabiesAwarenessModal from './Components/RabiesAwarenessModal';
 
 function App() {
   const location = useLocation();
@@ -72,6 +73,7 @@ function App() {
     <>
       {/* <DisclaimerBanner /> */}
         <div className="min-h-screen flex flex-col">
+        <RabiesAwarenessModal />
         <RandomPopups />
         <Navbar handleSignOut={handleSignOut} />
         <div className="flex-1">

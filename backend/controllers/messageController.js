@@ -52,21 +52,48 @@ exports.sendMessage = async (req, res) => {
     conversation.updatedAt = Date.now();
     await conversation.save();
 
-    // Emit socket event
-    const io = req.app.get('socketio');
+    // Enhanced socket event emission for real-time notifications
+    const io = req.app.get("socketio");
     if (io) {
-      io.to(conversationId.toString()).emit('newMessage', savedMessage);
+      console.log('📤 Emitting newMessage to conversation room:', conversationId.toString());
+      console.log('📤 Message data:', {
+        ...savedMessage.toObject(),
+        conversationId: conversationId.toString()
+      });
+      
+      // Create consistent message object
+      const messageData = {
+        _id: savedMessage._id,
+        conversationId: conversationId.toString(),
+        senderId: savedMessage.senderId,
+        text: savedMessage.text,
+        createdAt: savedMessage.createdAt,
+        isDeleted: false
+      };
+      
+      // Emit to conversation room for all participants
+      io.to(conversationId.toString()).emit("newMessage", messageData);
+
+      console.log('✅ Message emitted successfully to conversation room');
+    } else {
+      console.warn('⚠️ Socket.io not available for message emission');
     }
 
-    res.status(201).json({ data: savedMessage });
+    res.status(201).json({ 
+      data: savedMessage,
+      code: "MESSAGE_SENT"
+    });
   } catch (err) {
     console.error("Error sending message:", err);
-    res.status(500).json({ 
-      message: "Failed to send message", 
-      error: err.message 
+    res.status(500).json({
+      message: "Failed to send message",
+      error: err.message,
+      code: "INTERNAL_ERROR"
     });
   }
 };
+
+
 
 exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;

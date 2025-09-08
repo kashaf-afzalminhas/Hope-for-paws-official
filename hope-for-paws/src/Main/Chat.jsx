@@ -4,9 +4,11 @@ import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
 import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
-import { getSocket, initSocket } from '../services/socket';
+//import { getSocket, initSocket } from '../services/socket';
+import { getSocket, initSocket, setNotificationCallback } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
 import { API_BASE_URL } from '../config';
+import { useMessages } from '../context/MessageContext';
 
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
@@ -41,6 +43,7 @@ const ChatPage = () => {
   const { recipientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { markAsRead, setCurrentConversationId } = useMessages();
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -61,8 +64,21 @@ const ChatPage = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [cameFromPage, setCameFromPage] = useState(null);
   const currentUserIdRef = useRef(currentUserId);
-  
+  const [userCache, setUserCache] = useState(new Map()); // Add user cache
+
+
   useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
+ // Enhanced user caching functions
+ const getUserFromCache = useCallback((userId) => {
+  return userCache.get(userId) || null;
+}, [userCache]);
+
+const addUserToCache = useCallback((user) => {
+  if (user && user._id) {
+    setUserCache(prev => new Map(prev).set(user._id, user));
+  }
+}, []);
+
 
   // Track where user came from
   useEffect(() => {
@@ -177,6 +193,13 @@ const ChatPage = () => {
     if (currentUserId && isAuthenticated) {
       console.log('Initializing socket for user:', currentUserId);
       
+      // Request notification permission
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          console.log('Notification permission:', permission);
+        });
+      }
+      
       // Test backend connectivity first
       const testBackendConnection = async () => {
         try {
@@ -194,12 +217,31 @@ const ChatPage = () => {
       try {
         const socket = initSocket(currentUserId);
         console.log('Socket initialized:', socket);
+         // Set up notification callback for real-time notifications
+         setNotificationCallback((notification) => {
+          console.log('Received notification:', notification);
+          
+          // Show toast notification
+          addToast({
+            title: notification.title,
+            description: notification.body,
+            variant: 'default'
+          });
+          
+          // Show browser notification if permission is granted
+          if (Notification.permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.body,
+              icon: '/hfplogo.png'
+            });
+          }
+        });
       } catch (error) {
         console.error('Error initializing socket:', error);
         setError('Failed to initialize chat connection');
       }
     }
-  }, [currentUserId, isAuthenticated]);
+  }, [currentUserId, isAuthenticated, addToast]);
 
   // Error boundary effect
   useEffect(() => {
@@ -249,7 +291,18 @@ const ChatPage = () => {
       console.log('Response status:', response.status);
       console.log('Actual users array:', response.data?.data);
       console.log('Setting users to:', response.data?.data || []);
-      setUsers(response.data?.data || []);
+
+
+
+  //setUsers(response.data?.data || []);
+  const usersData = response.data?.data || [];
+      setUsers(usersData);
+      
+      // Cache all users
+      usersData.forEach(user => {
+        addUserToCache(user);
+      });
+
       console.log('Users set in state, clearing error');
       setError(null); // Clear any previous errors
     } catch (error) {
@@ -336,27 +389,87 @@ const ChatPage = () => {
     };
   }, [currentUserId]); // Removed addToast from dependencies
 
+  const updateConversationLastMessage = (conversationId, message) => {
+    console.log('🔄 Updating conversation last message:', { conversationId, message });
+    setConversations(prev => {
+      const exists = prev.some(conv => conv._id === conversationId);
+      let updated = [];
+      if (exists) {
+        updated = prev.map(conv =>
+          conv._id === conversationId
+            ? { ...conv, lastMessage: message, updatedAt: message.createdAt }
+            : conv
+        );
+      } else {
+        // Try to get the other userId from selectedUser or message
+        let otherUserId = null;
+        if (selectedUser && selectedUser._id) {
+          otherUserId = selectedUser._id;
+        } else if (message && message.senderId && message.senderId !== currentUserId) {
+          otherUserId = message.senderId;
+        }
+        // Minimal conversation object
+        const newConv = {
+          _id: conversationId,
+          members: [currentUserId, otherUserId].filter(Boolean),
+          participants: [currentUserId, otherUserId].filter(Boolean),
+          lastMessage: message,
+          updatedAt: message.createdAt,
+        };
+        updated = [newConv, ...prev];
+      }
+      // Sort by updatedAt descending
+      const sorted = updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      console.log('🔄 Updated conversations list:', sorted.length, 'conversations');
+      return sorted;
+    });
+  };
   // Handle socket messages
   useEffect(() => {
     if (!currentUserId) return;
     const socket = getSocket();
     if (!socket) return;
+    
     const handleNewMessage = (message) => {
-      if (message.isReceiver || (message.isSender && message.senderId === currentUserId)) {
-        if (selectedConversation?._id === message.conversationId) {
-          setSelectedConversation(prev => ({
-            ...prev,
-            lastMessage: message,
-            updatedAt: message.createdAt
-          }));
+      console.log('Chat component received newMessage:', message);
+      
+      // Update selected conversation if it matches
+      if (selectedConversation?._id === message.conversationId) {
+        setSelectedConversation(prev => ({
+          ...prev,
+          lastMessage: message,
+          updatedAt: message.createdAt
+        }));
+      }
+      
+      // Always update conversations list when a new message arrives
+      updateConversationLastMessage(message.conversationId, message);
+      
+      // Show notification for new messages from other conversations
+      if (message.conversationId !== selectedConversation?._id) {
+        addToast({
+          title: 'New Message',
+          description: message.text,
+          variant: 'default'
+        });
+        
+        // Show browser notification if permission is granted
+        if (Notification.permission === 'granted') {
+          new Notification('New Message', {
+            body: message.text,
+            icon: '/hfplogo.png'
+          });
         }
       }
     };
-    socket.on('getMessage', handleNewMessage);
+
+    // Listen only for newMessage event (backend emits this consistently)
+    socket.on('newMessage', handleNewMessage);
+    
     return () => {
-      socket.off('getMessage', handleNewMessage);
+      socket.off('newMessage', handleNewMessage);
     };
-  }, [currentUserId, selectedConversation]);
+  }, [currentUserId, selectedConversation, updateConversationLastMessage, addToast]);
 
   const findExistingConversation = useCallback((otherUserId) => {
     const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
@@ -467,9 +580,11 @@ const ChatPage = () => {
       ? conversationData.members.find(id => id !== currentUserId)
       : (conversationData.participants || []).find(id => id !== currentUserId);
 
-    const fullUserObj = conversationData.user
-      || users.find(u => u._id === otherUserId)
-      || { username: 'Unknown', _id: otherUserId };
+    // Try to get user from cache first, then from users array
+    let fullUserObj = conversationData.user || getUserFromCache(otherUserId);
+    if (!fullUserObj) {
+      fullUserObj = users.find(u => u._id === otherUserId) || { username: 'Unknown', _id: otherUserId };
+    }
 
     // On desktop, clear the URL param before setting the new conversation
     if (!isMobile && recipientId) {
@@ -481,6 +596,13 @@ const ChatPage = () => {
 
     setSelectedConversation(conversationData);
     setSelectedUser(fullUserObj);
+    
+    // Mark messages as read when conversation is selected
+    if (conversationData._id) {
+      markAsRead(conversationData._id);
+      setCurrentConversationId(conversationData._id);
+    }
+    
     if (isMobile) {
       setIsTransitioning(true);
       setTimeout(() => {
@@ -501,38 +623,7 @@ const ChatPage = () => {
   };
 
   // Update last message in conversations
-  const updateConversationLastMessage = (conversationId, message) => {
-    setConversations(prev => {
-      const exists = prev.some(conv => conv._id === conversationId);
-      let updated = [];
-      if (exists) {
-        updated = prev.map(conv =>
-          conv._id === conversationId
-            ? { ...conv, lastMessage: message, updatedAt: message.createdAt }
-            : conv
-        );
-      } else {
-        // Try to get the other userId from selectedUser or message
-        let otherUserId = null;
-        if (selectedUser && selectedUser._id) {
-          otherUserId = selectedUser._id;
-        } else if (message && message.senderId && message.senderId !== currentUserId) {
-          otherUserId = message.senderId;
-        }
-        // Minimal conversation object
-        const newConv = {
-          _id: conversationId,
-          members: [currentUserId, otherUserId].filter(Boolean),
-          participants: [currentUserId, otherUserId].filter(Boolean),
-          lastMessage: message,
-          updatedAt: message.createdAt,
-        };
-        updated = [newConv, ...prev];
-      }
-      // Sort by updatedAt descending
-      return updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-    });
-  };
+ 
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -555,19 +646,109 @@ const ChatPage = () => {
         ? selectedConversation.members.find(id => id !== currentUserId)
         : (selectedConversation.participants || []).find(id => id !== currentUserId);
 
-      const fullUserObj = users.find(u => u._id === otherUserId);
+      //const fullUserObj = users.find(u => u._id === otherUserId);
+      // Try to get user from cache first, then from users array
+      let fullUserObj = getUserFromCache(otherUserId);
+      if (!fullUserObj) {
+        fullUserObj = users.find(u => u._id === otherUserId);
+      }
+
       if (fullUserObj && (!selectedUser || selectedUser._id !== fullUserObj._id)) {
         setSelectedUser(fullUserObj);
       }
     }
-  }, [users, selectedConversation, currentUserId]);
+  //}, [users, selectedConversation, currentUserId]);
+}, [users, selectedConversation,   currentUserId, getUserFromCache, selectedUser]);
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="flex items-center justify-center h-screen font-body text-primary">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">You need to sign in to access chat</p>
-          <a href="/signin" className="text-primary hover:underline">Sign In</a>
+      <div className="flex items-center justify-center min-h-screen font-body bg-[#f8f4ea] pt-8 pb-8 px-4">
+        <div className="text-center p-6 md:p-8 max-w-md w-full">
+          {/* Chat icon with decorative elements */}
+          <div className="relative mb-6 md:mb-8">
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-[#fff7f0] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mx-auto">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-12 w-12 md:h-16 md:w-16 text-[#a07855]" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            {/* Decorative dots */}
+            <div className="absolute -top-1 -right-1 md:-top-2 md:-right-2 w-6 h-6 md:w-8 md:h-8 rounded-full bg-[#a07855] flex items-center justify-center">
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#ffd8b8] rounded-full"></div>
+            </div>
+            <div className="absolute -bottom-1 -left-1 md:-bottom-2 md:-left-2 w-4 h-4 md:w-6 md:h-6 rounded-full bg-[#8a6a4d] flex items-center justify-center">
+              <div className="w-1 h-1 md:w-1.5 md:h-1.5 bg-[#ffd8b8] rounded-full"></div>
+            </div>
+          </div>
+          
+          {/* Main content */}
+          <h2 className="text-2xl md:text-3xl font-heading font-bold text-[#2c1810] mb-3 md:mb-4">
+            Welcome to Chat
+          </h2>
+          <p className="font-body text-[#2c1810]/80 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">
+            Connect with other pet lovers and start meaningful conversations about adoption, care, and everything pets!
+          </p>
+          
+          {/* Sign in button */}
+          <div className="space-y-3 md:space-y-4">
+            <a 
+              href="/signin" 
+              className="inline-flex items-center px-6 md:px-8 py-3 md:py-4 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold text-sm md:text-base w-full md:w-auto justify-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Sign In to Start Chatting
+            </a>
+            
+            {/* Additional options */}
+            <div className="text-xs md:text-sm text-[#2c1810]/60">
+              <p>Don't have an account? 
+                <a href="/signup" className="text-[#a07855] hover:text-[#8a6a4d] font-semibold ml-1 transition-colors">
+                  Sign up here
+                </a>
+              </p>
+            </div>
+          </div>
+          
+          {/* Feature highlights */}
+          <div className="mt-8 md:mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <div className="text-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                </svg>
+              </div>
+              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Real-time Chat</h3>
+              <p className="text-xs md:text-sm text-[#2c1810]/70">Instant messaging with other pet lovers</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Connect</h3>
+              <p className="text-xs md:text-sm text-[#2c1810]/70">Build relationships with fellow pet enthusiasts</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Safe & Secure</h3>
+              <p className="text-xs md:text-sm text-[#2c1810]/70">Your conversations are private and protected</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -674,6 +855,7 @@ return (
               addToast={addToast}
               conversations={conversations}
               setConversations={setConversations}
+              getUserFromCache={getUserFromCache}
               onBackToSidebar={() => {
                 console.log('Chat onBackToSidebar called');
                 console.log('Current showChatMobile:', showChatMobile);
@@ -726,14 +908,15 @@ return (
             <p className="mt-4 font-body">Loading conversation...</p>
           </div>
         ) : selectedConversation ? (
-          <ChatWindow
-            key={selectedConversation?._id}
-            conversationId={selectedConversation._id}
-            currentUser={user}
-            otherUser={selectedUser}
-            onBack={handleBackToList}
-            updateConversationLastMessage={updateConversationLastMessage}
-          />
+                     <ChatWindow
+             key={selectedConversation?._id}
+             conversationId={selectedConversation._id}
+             currentUser={user}
+             otherUser={selectedUser}
+             onBack={handleBackToList}
+             updateConversationLastMessage={updateConversationLastMessage}
+             addToast={addToast}
+           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">
             <div className="relative mb-8">
@@ -751,6 +934,7 @@ return (
               <div className="absolute -top-2 -right-2">
                 <div className="w-10 h-10 rounded-full bg-[#a07855] flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  
                     <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
                 </div>
