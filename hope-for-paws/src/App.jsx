@@ -6,6 +6,7 @@ import { AUTH_BASE_URL } from './config';
 //import { DisclaimerBanner } from './Components/DisclaimerBanner';
 import RandomPopups from './Components/RandomPopups';
 import RabiesAwarenessModal from './Components/RabiesAwarenessModal';
+import ImagePopupModal from './Components/ImagePopupModal';
 import PhoneVerificationModal from './Components/PhoneVerificationModal';
 
 function App() {
@@ -147,6 +148,7 @@ function App() {
     <>
       {/* <DisclaimerBanner /> */}
         <div className="min-h-screen flex flex-col">
+        <ImagePopupModal />
         <RabiesAwarenessModal />
         <RandomPopups />
         <Navbar handleSignOut={handleSignOut} />

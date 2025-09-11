@@ -6,19 +6,55 @@ const RabiesAwarenessModal = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if modal was dismissed in this session
-    const sessionDismissedKey = 'rabies_modal_dismissed_session';
-    const wasDismissedThisSession = sessionStorage.getItem(sessionDismissedKey);
+    const checkAndShowModal = () => {
+      // Check if modal was dismissed in this session
+      const sessionDismissedKey = 'rabies_modal_dismissed_session';
+      const wasDismissedThisSession = sessionStorage.getItem(sessionDismissedKey);
+      
+      // Check if image popup was dismissed (image popup should show first)
+      const imagePopupDismissed = sessionStorage.getItem('image_popup_dismissed_session');
 
-    if (!wasDismissedThisSession) {
-      // Show modal after a short delay
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-        setTimeout(() => setIsVisible(true), 100); // Animation delay
-      }, 2000);
+      if (!wasDismissedThisSession && imagePopupDismissed) {
+        // Show modal after a short delay, but only after image popup is dismissed
+        const timer = setTimeout(() => {
+          setIsOpen(true);
+          setTimeout(() => setIsVisible(true), 100); // Animation delay
+        }, 1500); // Show after 1.5 seconds after image popup is dismissed
 
-      return () => clearTimeout(timer);
-    }
+        return timer;
+      }
+      return null;
+    };
+
+    // Check immediately
+    const timer = checkAndShowModal();
+
+    // Also listen for storage changes (when image popup is dismissed)
+    const handleStorageChange = (e) => {
+      if (e.key === 'image_popup_dismissed_session') {
+        const newTimer = checkAndShowModal();
+        return newTimer;
+      }
+      return null;
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also check periodically in case storage event doesn't fire
+    const intervalId = setInterval(() => {
+      if (sessionStorage.getItem('image_popup_dismissed_session') && !sessionStorage.getItem('rabies_modal_dismissed_session')) {
+        const newTimer = checkAndShowModal();
+        if (newTimer) {
+          clearInterval(intervalId);
+        }
+      }
+    }, 500);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
+    };
   }, []);
 
   const handleClose = () => {
