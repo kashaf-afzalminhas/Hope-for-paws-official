@@ -65,16 +65,26 @@ exports.sendMessage = async (req, res) => {
       const messageData = {
         _id: savedMessage._id,
         conversationId: conversationId.toString(),
-        senderId: savedMessage.senderId,
+        senderId: savedMessage.senderId.toString(),
         text: savedMessage.text,
         createdAt: savedMessage.createdAt,
         isDeleted: false
       };
       
-      // Emit to conversation room for all participants
-      io.to(conversationId.toString()).emit("newMessage", messageData);
-
-      console.log('✅ Message emitted successfully to conversation room');
+      try {
+        // Emit to conversation room for all participants
+        io.to(conversationId.toString()).emit("newMessage", messageData);
+        console.log('✅ Message emitted successfully to conversation room:', conversationId.toString());
+        
+        // Also emit to sender's personal room for confirmation
+        io.to(savedMessage.senderId.toString()).emit("messageSent", {
+          messageId: savedMessage._id,
+          conversationId: conversationId.toString(),
+          status: "sent"
+        });
+      } catch (emitError) {
+        console.error('❌ Error emitting socket event:', emitError);
+      }
     } else {
       console.warn('⚠️ Socket.io not available for message emission');
     }
@@ -140,6 +150,36 @@ exports.markMessageAsRead = async (req, res) => {
   } catch (err) {
     console.error("Error marking message as read:", err);
     res.status(500).json({ message: "Failed to mark message as read", error: err.message });
+  }
+};
+
+exports.markConversationAsRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    // Validate conversation ID
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: "Invalid conversation ID" });
+    }
+
+    // Update all messages in the conversation that are not sent by the user
+    const result = await Message.updateMany(
+      {
+        conversationId,
+        senderId: { $ne: userId },
+        readBy: { $ne: userId }
+      },
+      { $addToSet: { readBy: userId } }
+    );
+
+    res.json({ 
+      message: "Conversation marked as read",
+      modifiedCount: result.modifiedCount
+    });
+  } catch (err) {
+    console.error("Error marking conversation as read:", err);
+    res.status(500).json({ message: "Failed to mark conversation as read", error: err.message });
   }
 };
 

@@ -10,17 +10,76 @@ const SignUp = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+92');
   const [isVeterinarian, setIsVeterinarian] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+
+  // Country codes data
+  const countryCodes = [
+    { code: '+92', country: 'Pakistan', flag: '🇵🇰' },
+    { code: '+1', country: 'United States', flag: '🇺🇸' },
+    { code: '+1', country: 'Canada', flag: '🇨🇦' },
+    { code: '+44', country: 'United Kingdom', flag: '🇬🇧' },
+    { code: '+91', country: 'India', flag: '🇮🇳' },
+    { code: '+86', country: 'China', flag: '🇨🇳' },
+    { code: '+81', country: 'Japan', flag: '🇯🇵' },
+    { code: '+82', country: 'South Korea', flag: '🇰🇷' },
+    { code: '+65', country: 'Singapore', flag: '🇸🇬' },
+    { code: '+60', country: 'Malaysia', flag: '🇲🇾' },
+    { code: '+66', country: 'Thailand', flag: '🇹🇭' },
+    { code: '+63', country: 'Philippines', flag: '🇵🇭' },
+    { code: '+62', country: 'Indonesia', flag: '🇮🇩' },
+    { code: '+84', country: 'Vietnam', flag: '🇻🇳' },
+    { code: '+880', country: 'Bangladesh', flag: '🇧🇩' },
+    { code: '+94', country: 'Sri Lanka', flag: '🇱🇰' },
+    { code: '+977', country: 'Nepal', flag: '🇳🇵' },
+    { code: '+975', country: 'Bhutan', flag: '🇧🇹' },
+    { code: '+93', country: 'Afghanistan', flag: '🇦🇫' },
+    { code: '+98', country: 'Iran', flag: '🇮🇷' },
+    { code: '+90', country: 'Turkey', flag: '🇹🇷' },
+    { code: '+971', country: 'UAE', flag: '🇦🇪' },
+    { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦' },
+    { code: '+965', country: 'Kuwait', flag: '🇰🇼' },
+    { code: '+974', country: 'Qatar', flag: '🇶🇦' },
+    { code: '+973', country: 'Bahrain', flag: '🇧🇭' },
+    { code: '+968', country: 'Oman', flag: '🇴🇲' },
+    { code: '+20', country: 'Egypt', flag: '🇪🇬' },
+    { code: '+27', country: 'South Africa', flag: '🇿🇦' },
+    { code: '+234', country: 'Nigeria', flag: '🇳🇬' },
+    { code: '+254', country: 'Kenya', flag: '🇰🇪' },
+    { code: '+33', country: 'France', flag: '🇫🇷' },
+    { code: '+49', country: 'Germany', flag: '🇩🇪' },
+    { code: '+39', country: 'Italy', flag: '🇮🇹' },
+    { code: '+34', country: 'Spain', flag: '🇪🇸' },
+    { code: '+31', country: 'Netherlands', flag: '🇳🇱' },
+    { code: '+32', country: 'Belgium', flag: '🇧🇪' },
+    { code: '+41', country: 'Switzerland', flag: '🇨🇭' },
+    { code: '+43', country: 'Austria', flag: '🇦🇹' },
+    { code: '+46', country: 'Sweden', flag: '🇸🇪' },
+    { code: '+47', country: 'Norway', flag: '🇳🇴' },
+    { code: '+45', country: 'Denmark', flag: '🇩🇰' },
+    { code: '+358', country: 'Finland', flag: '🇫🇮' },
+    { code: '+7', country: 'Russia', flag: '🇷🇺' },
+    { code: '+61', country: 'Australia', flag: '🇦🇺' },
+    { code: '+64', country: 'New Zealand', flag: '🇳🇿' },
+    { code: '+55', country: 'Brazil', flag: '🇧🇷' },
+    { code: '+54', country: 'Argentina', flag: '🇦🇷' },
+    { code: '+56', country: 'Chile', flag: '🇨🇱' },
+    { code: '+57', country: 'Colombia', flag: '🇨🇴' },
+    { code: '+52', country: 'Mexico', flag: '🇲🇽' },
+  ];
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -51,6 +110,16 @@ const SignUp = () => {
     return errors.length ? errors.join(', ') : '';
   };
 
+  // Phone validation
+  const validatePhone = (phoneNumber, code) => {
+    if (!phoneNumber || !code) return 'Phone number is required';
+    const fullPhone = code + phoneNumber;
+    const phoneRegex = /^\+[1-9]\d{1,14}$/; // International phone number format
+    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
+    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be between 7-15 digits';
+    return '';
+  };
+
   // Handlers for live validation
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -64,6 +133,34 @@ const SignUp = () => {
     setPasswordError(validatePassword(e.target.value));
   };
 
+  const handlePhoneChange = (e) => {
+    let phoneValue = e.target.value;
+    
+    // Remove leading zero if country code is selected
+    if (countryCode && phoneValue.startsWith('0')) {
+      phoneValue = phoneValue.substring(1);
+    }
+    
+    setPhone(phoneValue);
+    setPhoneTouched(true);
+    setPhoneError(validatePhone(phoneValue, countryCode));
+  };
+
+  const handleCountryCodeChange = (e) => {
+    const newCountryCode = e.target.value;
+    let phoneValue = phone;
+    
+    // Remove leading zero when country code changes
+    if (newCountryCode && phoneValue.startsWith('0')) {
+      phoneValue = phoneValue.substring(1);
+      setPhone(phoneValue);
+    }
+    
+    setCountryCode(newCountryCode);
+    setPhoneTouched(true);
+    setPhoneError(validatePhone(phoneValue, newCountryCode));
+  };
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -74,7 +171,8 @@ const SignUp = () => {
     setError('');
     setEmailError(validateEmail(email));
     setPasswordError(validatePassword(password));
-    if (validateEmail(email) || validatePassword(password)) {
+    setPhoneError(validatePhone(phone, countryCode));
+    if (validateEmail(email) || validatePassword(password) || validatePhone(phone, countryCode)) {
       setLoading(false);
       return;
     }
@@ -84,7 +182,7 @@ const SignUp = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password, isVeterinarian }),
+        body: JSON.stringify({ username, email, password, isVeterinarian, phone: countryCode + phone }),
       });
       const data = await response.json();
       setLoading(false);
@@ -130,8 +228,16 @@ const SignUp = () => {
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/");
-        window.location.reload();
+        
+        // Check if phone verification is required
+        if (!data.user.phone || !data.user.phoneVerified) {
+          // User will be redirected to phone verification by App.jsx
+          navigate("/");
+          window.location.reload();
+        } else {
+          navigate("/");
+          window.location.reload();
+        }
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -162,8 +268,16 @@ const SignUp = () => {
       if (response.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/");
-        window.location.reload();
+        
+        // Check if phone verification is required
+        if (!data.user.phone || !data.user.phoneVerified) {
+          // User will be redirected to phone verification by App.jsx
+          navigate("/");
+          window.location.reload();
+        } else {
+          navigate("/");
+          window.location.reload();
+        }
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -226,6 +340,37 @@ const SignUp = () => {
               />
               {emailTouched && emailError && (
                 <p className="text-xs text-red-600 mt-1">{emailError}</p>
+              )}
+            </div>
+            
+            <div className="mb-4">
+              <label htmlFor="phone" className="block text-sm font-medium text-[#4E3B31] mb-1">Phone Number</label>
+              <div className="flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={handleCountryCodeChange}
+                  className="px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
+                >
+                  {countryCodes.map((country, index) => (
+                    <option key={index} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  onBlur={() => setPhoneTouched(true)}
+                  className={`flex-1 px-3 py-2 border ${phoneTouched && phoneError ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                  placeholder="XXXXXXXXXX"
+                />
+              </div>
+              {phoneTouched && phoneError && (
+                <p className="text-xs text-red-600 mt-1">{phoneError}</p>
               )}
             </div>
             
@@ -296,7 +441,7 @@ const SignUp = () => {
 
             <button
               type="submit"
-              disabled={loading || !!emailError || !!passwordError}
+              disabled={loading || !!emailError || !!passwordError || !!phoneError}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#6b493d] hover:bg-[#5a3c32] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6b493d] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Sign Up'}

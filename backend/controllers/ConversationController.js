@@ -172,10 +172,41 @@ exports.getUserConversations = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
-    const conversations = await Conversation.find({
-      participants: new mongoose.Types.ObjectId(userId),
-    }).sort({ updatedAt: -1 }).lean();
-    // Enhance conversations with proper lastMessage structure
+    
+    const conversations = await Conversation.aggregate([
+      { $match: { participants: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "messages",
+          localField: "_id",
+          foreignField: "conversationId",
+          as: "messages"
+        }
+      },
+      {
+        $addFields: {
+          unreadCount: {
+            $size: {
+              $filter: {
+                input: "$messages",
+                as: "msg",
+                cond: {
+                  $and: [
+                    { $ne: ["$$msg.senderId", new mongoose.Types.ObjectId(userId)] },
+                    { $not: { $in: [new mongoose.Types.ObjectId(userId), "$$msg.readBy"] } }
+                  ]
+                }
+              }
+            }
+          },
+          lastMessage: { $arrayElemAt: ["$messages", -1] }
+        }
+      },
+      { $sort: { updatedAt: -1 } },
+      { $project: { messages: 0 } }
+    ]);
+
+    // Enhance conversations with proper lastMessage structure and filter out empty ones
     const Message = require('../models/message');
     const enhancedConversations = await Promise.all(conversations.map(async conv => {
       if (!conv.lastMessage || typeof conv.lastMessage === 'string') {
@@ -183,18 +214,35 @@ exports.getUserConversations = async (req, res) => {
         const lastMsg = await Message.findOne({ conversationId: conv._id })
           .sort({ createdAt: -1 })
           .lean();
-        return {
-          ...conv,
-          lastMessage: lastMsg ? {
-            text: lastMsg.text,
-            createdAt: lastMsg.createdAt,
-            senderId: lastMsg.senderId
-          } : { text: "Start a conversation...", createdAt: conv.updatedAt, senderId: null }
-        };
+        
+        if (lastMsg && lastMsg.text && lastMsg.text !== "Start a conversation...") {
+          return {
+            ...conv,
+            lastMessage: {
+              text: lastMsg.text,
+              createdAt: lastMsg.createdAt,
+              senderId: lastMsg.senderId
+            }
+          };
+        } else {
+          // Filter out conversations with no real messages
+          return null;
+        }
       }
+      
+      // Filter out conversations with "Start a conversation..." as last message
+      if (conv.lastMessage && conv.lastMessage.text === "Start a conversation...") {
+        return null;
+      }
+      
       return conv;
     }));
-    res.json({ data: enhancedConversations });
+
+    // Filter out null conversations and return only valid ones
+    const validConversations = enhancedConversations.filter(conv => conv !== null);
+    
+    console.log(`Returning ${validConversations.length} valid conversations for user ${userId}`);
+    res.json({ data: validConversations });
   } catch (err) {
     console.error("Error fetching user conversations:", err);
     res.status(500).json({ message: "Failed to fetch user conversations", error: err.message });

@@ -2,47 +2,64 @@ import React, { useEffect, useState, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
-import { getMessagesByConversation, sendMessage, getUserById } from '../Main/api';
+import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead, debugToken } from '../Main/api';
 import { getSocket, sendSocketMessage } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { cn } from '../lib/utils';
-//import Avatar from './Avatar';
 
-// Helper functions (place these outside the component)
-function formatMessageDate(dateString) {
-  if (!dateString) return 'Unknown date';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Invalid date';
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) {
-    return 'Today';
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return 'Yesterday';
-  } else {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    });
+// Helper functions with proper error handling
+function formatMessageDate(timestamp) {
+  if (!timestamp) return 'Unknown date';
+  
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === now.toDateString()) {
+      // Use a simple time format without the date-fns library
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else if (date.getFullYear() === now.getFullYear()) {
+      // Use a simple date format without the date-fns library
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } else {
+      return date.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: 'numeric' });
+    }
+  } catch (error) {
+    console.error('Error formatting date:', error, timestamp);
+    return 'Invalid date';
   }
 }
 
 function shouldShowDateSeparator(messages, currentIndex) {
   if (currentIndex === 0) return true;
-  const currentDate = new Date(messages[currentIndex].createdAt);
-  const prevDate = new Date(messages[currentIndex - 1].createdAt);
-  return (
-    currentDate.getDate() !== prevDate.getDate() ||
-    currentDate.getMonth() !== prevDate.getMonth() ||
-    currentDate.getFullYear() !== prevDate.getFullYear()
-  );
+  
+  try {
+    const currentDate = new Date(messages[currentIndex].createdAt);
+    const prevDate = new Date(messages[currentIndex - 1].createdAt);
+    
+    if (isNaN(currentDate.getTime()) || isNaN(prevDate.getTime())) {
+      return true;
+    }
+    
+    return (
+      currentDate.getDate() !== prevDate.getDate() ||
+      currentDate.getMonth() !== prevDate.getMonth() ||
+      currentDate.getFullYear() !== prevDate.getFullYear()
+    );
+  } catch (error) {
+    console.error('Error checking date separator:', error);
+    return true;
+  }
 }
 
 const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast }) => {
-  console.log('ChatWindow props:', { conversationId, currentUser, otherUser, onBack });
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
@@ -64,13 +81,24 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       try {
         setIsLoading(true);
         const response = await getMessagesByConversation(conversationId);
-        // Normalize the response data
-        const normalizedMessages = (response.data || []).map(msg => ({
-          _id: msg._id || msg.id || Date.now().toString(),
-          text: msg.text || msg.content || '',
-          senderId: msg.senderId || msg.sender?.id || '',
-          createdAt: msg.createdAt || msg.timestamp || new Date().toISOString()
-        })).filter(msg => msg.text); // Remove empty messages
+        
+        // Normalize the response data with proper timestamp validation
+        const normalizedMessages = (response.data || []).map(msg => {
+          // Validate and ensure timestamp is valid
+          let timestamp = msg.createdAt || msg.timestamp;
+          if (!timestamp || isNaN(new Date(timestamp).getTime())) {
+            console.warn('Invalid timestamp found, using current time:', timestamp);
+            timestamp = new Date().toISOString();
+          }
+          
+          return {
+            _id: msg._id || msg.id || Date.now().toString(),
+            text: msg.text || msg.content || '',
+            senderId: msg.senderId || msg.sender?.id || '',
+            createdAt: timestamp
+          };
+        }).filter(msg => msg.text); // Remove empty messages
+        
         setMessages(normalizedMessages);
       } catch (error) {
         console.error('Error fetching messages:', error);
@@ -85,6 +113,38 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     }
   }, [conversationId]);
 
+  // Mark conversation as read when opened
+  useEffect(() => {
+    if (conversationId) {
+      const markAsRead = async () => {
+        try {
+          // Debug token availability
+          debugToken();
+          
+          const result = await markConversationAsRead(conversationId);
+          
+          // Update parent component to reset unread count
+          if (updateConversationLastMessage) {
+            updateConversationLastMessage(conversationId, { unreadCount: 0 });
+          }
+          
+          // Refresh conversations to get updated unread counts from backend
+          if (result?.data?.modifiedCount > 0) {
+            // Wait a bit for the database to update
+            setTimeout(() => {
+              // Trigger a refresh of conversations
+              window.dispatchEvent(new CustomEvent('refreshConversations'));
+            }, 100);
+          }
+        } catch (error) {
+          console.error("Error marking conversation as read:", error);
+        }
+      };
+      
+      markAsRead();
+    }
+  }, [conversationId, updateConversationLastMessage]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -94,68 +154,24 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     socketRef.current = socket;
 
     if (!socket || !conversationId) {
-      console.log('Socket or conversationId not available:', { socket: !!socket, conversationId });
       return;
     }
 
     // Join the conversation room for real-time updates
     socket.emit('joinConversation', conversationId);
-    console.log('✅ Joined conversation room:', conversationId);
 
-    const handleNewMessage = (message) => {
-      console.log('📨 ChatWindow received newMessage:', message);
-      console.log('📍 Current conversationId:', conversationId);
-      console.log('📍 Message conversationId:', message.conversationId);
-      
-      if (message.conversationId === conversationId) {
-        console.log('✅ Processing message for current conversation');
-        setMessages(prev => {
-          // Check for duplicates
-          if (prev.some(m => m._id === message._id)) {
-            console.log('⚠️ Message already exists, skipping');
-            return prev;
-          }
-          
-          // Normalize socket message
-          const normalizedMsg = {
-            _id: message._id || Date.now().toString(),
-            text: message.text || message.content || '',
-            senderId: message.senderId || message.sender?.id || '',
-            createdAt: message.createdAt || message.timestamp || new Date().toISOString(),
-            isDeleted: false
-          };
-          
-          if (!normalizedMsg.text) {
-            console.log('⚠️ Message has no text, skipping');
-            return prev;
-          }
-          
-          console.log('✅ Adding new message to chat:', normalizedMsg);
-          return [...prev, normalizedMsg];
-        });
-        
-        // Update conversation last message
-        if (updateConversationLastMessage) {
-          updateConversationLastMessage(conversationId, message);
-        }
-      } else {
-        console.log('❌ Message not for current conversation');
-      }
-    };
+    // REMOVED: handleNewMessage socket event handler
+    // MessageContext now handles all socket events centrally
 
     const handleMessageSent = (data) => {
-      console.log('✅ Message sent confirmation:', data);
       // You can add logic here to update message status if needed
     };
 
-    // Listen only for newMessage event (backend emits this consistently)
-    socket.on('newMessage', handleNewMessage);
+    // Listen only for messageSent event (no more newMessage here)
     socket.on('messageSent', handleMessageSent);
 
     return () => {
-      console.log('🚪 Leaving conversation room:', conversationId);
       socket.emit('leaveConversation', conversationId);
-      socket.off('newMessage', handleNewMessage);
       socket.off('messageSent', handleMessageSent);
     };
   }, [conversationId, updateConversationLastMessage]);
@@ -192,21 +208,15 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       createdAt: new Date().toISOString(),
     };
 
-    console.log('📤 Sending message:', { text, conversationId, senderId });
-    console.log('📤 Temp message ID:', tempId);
-
     // Optimistic update
     setMessages(prev => [...prev, newMessage]);
-    console.log('✅ Optimistic message added:', newMessage);
 
     try {
-      console.log('📤 Making API call to send message...');
       const response = await sendMessage({
         conversationId,
         senderId,
         text
       });
-      console.log('📤 Server response:', response);
       
       // Replace temp message with normalized server response
       const serverMsg = {
@@ -215,11 +225,9 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         senderId: response.data.senderId || response.data.sender?.id || senderId,
         createdAt: response.data.createdAt || response.data.timestamp || new Date().toISOString(),
       };
-      console.log('📤 Server message:', serverMsg);
       
       setMessages(prev => prev.map(msg => msg._id === tempId ? serverMsg : msg));
       // Server will emit the message via socket, no need to emit here
-      console.log('✅ Message sent successfully, waiting for socket confirmation');
     } catch (error) {
       console.error('❌ Error sending message:', error);
       // Remove temp message on error
@@ -240,8 +248,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       onBack();
     }
   };
-
-  console.log('Messages state:', messages);
 
   return (
     <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">

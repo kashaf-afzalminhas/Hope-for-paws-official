@@ -232,13 +232,14 @@ app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
 });
 
-// Health check endpoint
+// Add health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    // socketConnections: io.engine.clientsCount
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    connections: req.app.get('socketio') ? req.app.get('socketio').engine.clientsCount : 0
   });
 });
 
