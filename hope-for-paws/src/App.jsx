@@ -7,13 +7,11 @@ import { AUTH_BASE_URL } from './config';
 import RandomPopups from './Components/RandomPopups';
 import RabiesAwarenessModal from './Components/RabiesAwarenessModal';
 import ImagePopupModal from './Components/ImagePopupModal';
-import PhoneVerificationModal from './Components/PhoneVerificationModal';
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [justVerifiedPhone, setJustVerifiedPhone] = useState(false);
 
   // Check for /admin-dashboard layout
@@ -36,10 +34,10 @@ function App() {
   React.useEffect(() => {
     const checkPhoneVerification = () => {
       // Skip phone verification check for certain routes
-      const skipRoutes = ['/signin', '/signup', '/verify-registration', '/verify-code', '/reset-password', '/contactus'];
+      const skipRoutes = ['/signin', '/signup', '/verify-registration', '/verify-code', '/reset-password', '/contactus', '/profile'];
       const isSkipRoute = skipRoutes.some(route => location.pathname === route);
       
-      // Check if user just verified phone (prevent showing modal again immediately)
+      // Check if user just verified phone (prevent redirecting again immediately)
       const recentlyVerified = localStorage.getItem('phoneJustVerified');
       if (recentlyVerified) {
         localStorage.removeItem('phoneJustVerified');
@@ -53,15 +51,15 @@ function App() {
       }
       
       if (user && !isSkipRoute && !user.isAdmin && !justVerifiedPhone) {
-        // Check if user needs phone verification
+        // Check if user needs phone verification - redirect to profile instead of showing modal
         if (!user.phone || !user.phoneVerified) {
-          setShowPhoneVerification(true);
+          navigate('/profile', { replace: true });
         }
       }
     };
 
     checkPhoneVerification();
-  }, [user, location.pathname, justVerifiedPhone]);
+  }, [user, location.pathname, justVerifiedPhone, navigate]);
 
   const handlePhoneVerified = async () => {
     try {
@@ -82,7 +80,6 @@ function App() {
         
         // Update localStorage with fresh user data
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setShowPhoneVerification(false);
         
         // Force a page reload to update the user state
         window.location.reload();
@@ -90,7 +87,6 @@ function App() {
         // Fallback: update localStorage and reload
         const updatedUser = { ...user, phoneVerified: true };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setShowPhoneVerification(false);
         window.location.reload();
       }
     } catch (error) {
@@ -98,7 +94,6 @@ function App() {
       // Fallback: update localStorage and reload
       const updatedUser = { ...user, phoneVerified: true };
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      setShowPhoneVerification(false);
       window.location.reload();
     }
   };
@@ -157,13 +152,6 @@ function App() {
         </div>
         {!hideFooter && <Footer />}
         </div>
-        <PhoneVerificationModal
-          isOpen={showPhoneVerification}
-          onClose={() => setShowPhoneVerification(false)}
-          onVerified={handlePhoneVerified}
-          user={user}
-          isExistingUser={user && !user.phone}
-        />
     </>
   );
 }

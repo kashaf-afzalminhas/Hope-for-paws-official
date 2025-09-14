@@ -29,7 +29,7 @@ Toast.propTypes = {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({
     name: '',
@@ -41,6 +41,99 @@ const ProfilePage = () => {
     id: '',
     profileImage: '',
   });
+
+  // Phone validation states
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [countryCode, setCountryCode] = useState('+92');
+  
+  // Form input states (separate from profile state)
+  const [formData, setFormData] = useState({
+    phone: '',
+    city: '',
+    about: '',
+    countryCode: '+92'
+  });
+  
+  // Track original profile data to detect changes
+  const [originalProfile, setOriginalProfile] = useState({
+    phone: '',
+    city: '',
+    about: '',
+    countryCode: '+92'
+  });
+  const [countryCodes] = useState([
+    { code: '+92', name: 'Pakistan', flag: '🇵🇰' },
+    { code: '+1', name: 'United States', flag: '🇺🇸' },
+    { code: '+44', name: 'United Kingdom', flag: '🇬🇧' },
+    { code: '+91', name: 'India', flag: '🇮🇳' },
+    { code: '+86', name: 'China', flag: '🇨🇳' },
+    { code: '+33', name: 'France', flag: '🇫🇷' },
+    { code: '+49', name: 'Germany', flag: '🇩🇪' },
+    { code: '+81', name: 'Japan', flag: '🇯🇵' },
+    { code: '+82', name: 'South Korea', flag: '🇰🇷' },
+    { code: '+61', name: 'Australia', flag: '🇦🇺' },
+    { code: '+55', name: 'Brazil', flag: '🇧🇷' },
+    { code: '+52', name: 'Mexico', flag: '🇲🇽' },
+    { code: '+39', name: 'Italy', flag: '🇮🇹' },
+    { code: '+34', name: 'Spain', flag: '🇪🇸' },
+    { code: '+7', name: 'Russia', flag: '🇷🇺' },
+    { code: '+90', name: 'Turkey', flag: '🇹🇷' },
+    { code: '+966', name: 'Saudi Arabia', flag: '🇸🇦' },
+    { code: '+971', name: 'UAE', flag: '🇦🇪' },
+    { code: '+974', name: 'Qatar', flag: '🇶🇦' },
+    { code: '+965', name: 'Kuwait', flag: '🇰🇼' },
+    { code: '+973', name: 'Bahrain', flag: '🇧🇭' },
+    { code: '+968', name: 'Oman', flag: '🇴🇲' },
+    { code: '+20', name: 'Egypt', flag: '🇪🇬' },
+    { code: '+27', name: 'South Africa', flag: '🇿🇦' },
+    { code: '+234', name: 'Nigeria', flag: '🇳🇬' },
+    { code: '+254', name: 'Kenya', flag: '🇰🇪' },
+    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
+    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
+    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
+    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
+    { code: '+98', name: 'Iran', flag: '🇮🇷' },
+    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
+    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
+    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
+    { code: '+963', name: 'Syria', flag: '🇸🇾' },
+    { code: '+972', name: 'Israel', flag: '🇮🇱' },
+    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
+    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
+    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
+    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
+    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
+    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
+    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
+    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
+    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
+    { code: '+856', name: 'Laos', flag: '🇱🇦' },
+    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
+    { code: '+670', name: 'East Timor', flag: '🇹🇱' },
+    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
+    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
+    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
+    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
+    { code: '+98', name: 'Iran', flag: '🇮🇷' },
+    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
+    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
+    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
+    { code: '+963', name: 'Syria', flag: '🇸🇾' },
+    { code: '+972', name: 'Israel', flag: '🇮🇱' },
+    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
+    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
+    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
+    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
+    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
+    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
+    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
+    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
+    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
+    { code: '+856', name: 'Laos', flag: '🇱🇦' },
+    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
+    { code: '+670', name: 'East Timor', flag: '🇹🇱' }
+  ]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +151,18 @@ const ProfilePage = () => {
   const addToast = (message, type = 'success') => {
     setToasts((prev) => [...prev, { message, type }]);
     setTimeout(() => setToasts((prev) => prev.slice(1)), 3500);
+  };
+
+  // Phone validation function
+  const validatePhone = (phoneNumber, code) => {
+    if (!phoneNumber) return 'Phone number is required';
+    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
+    
+    const fullPhone = code + phoneNumber;
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
+    
+    return '';
   };
 
   // Debug function to test token
@@ -83,17 +188,54 @@ const ProfilePage = () => {
         return 'Regular User';
       };
 
+      // Parse existing phone number to extract country code and phone number
+      let phoneNumber = '';
+      let phoneCountryCode = '+92';
+      
+      if (userData.phone) {
+        // Find matching country code
+        const matchingCountry = countryCodes.find(country => userData.phone.startsWith(country.code));
+        if (matchingCountry) {
+          phoneCountryCode = matchingCountry.code;
+          phoneNumber = userData.phone.substring(matchingCountry.code.length);
+        } else {
+          phoneNumber = userData.phone;
+        }
+      }
+
+      setCountryCode(phoneCountryCode);
       setProfile({
         id: userData.id,
         name: userData.username,
         email: userData.email,
-        phone: userData.phone || '',
+        phone: userData.phone, // Store the full phone number with country code for display
         city: userData.city || '',
         about: userData.about || '',
         userType: getUserType(userData),
         // userType: userData.userType,
         profileImage: userData.profileImage || '',
       });
+
+      // Initialize form data with current profile data
+      setFormData({
+        phone: phoneNumber,
+        city: userData.city || '',
+        about: userData.about || '',
+        countryCode: phoneCountryCode
+      });
+
+      // Set original profile data for change detection
+      setOriginalProfile({
+        phone: phoneNumber,
+        city: userData.city || '',
+        about: userData.about || '',
+        countryCode: phoneCountryCode
+      });
+
+      // If user doesn't have a phone number, redirect to edit view
+      if (!userData.phone || !userData.phoneVerified) {
+        setCurrentView('edit');
+      }
       
       // Test token transmission
       testToken();
@@ -124,11 +266,65 @@ const ProfilePage = () => {
   }, []);
 
   const handleProfileChange = (e) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handlePhoneChange = (e) => {
+    let phoneValue = e.target.value;
+    
+    // Remove leading zero if country code is selected
+    if (formData.countryCode && phoneValue.startsWith('0')) {
+      phoneValue = phoneValue.substring(1);
+    }
+    
+    setFormData({ ...formData, phone: phoneValue });
+    setPhoneTouched(true);
+    setPhoneError(validatePhone(phoneValue, formData.countryCode));
+  };
+
+  const handleCountryCodeChange = (e) => {
+    const newCountryCode = e.target.value;
+    let phoneValue = formData.phone;
+    
+    // Remove leading zero when country code changes
+    if (newCountryCode && phoneValue.startsWith('0')) {
+      phoneValue = phoneValue.substring(1);
+      setFormData({ ...formData, phone: phoneValue, countryCode: newCountryCode });
+    } else {
+      setFormData({ ...formData, countryCode: newCountryCode });
+    }
+    
+    setCountryCode(newCountryCode);
+    setPhoneTouched(true);
+    setPhoneError(validatePhone(phoneValue, newCountryCode));
+  };
+
+  // Function to detect if there are changes
+  const hasChanges = () => {
+    return (
+      formData.phone !== originalProfile.phone ||
+      formData.city !== originalProfile.city ||
+      formData.about !== originalProfile.about ||
+      formData.countryCode !== originalProfile.countryCode
+    );
   };
 
   const handlePasswordChange = (e) => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form data to original profile data
+    setFormData({
+      phone: originalProfile.phone,
+      city: originalProfile.city,
+      about: originalProfile.about,
+      countryCode: originalProfile.countryCode
+    });
+    setCountryCode(originalProfile.countryCode);
+    setPhoneError('');
+    setPhoneTouched(false);
+    setCurrentView('profile');
   };
 
   // Handle profile image upload
@@ -225,7 +421,19 @@ const ProfilePage = () => {
     setLoading(true);
     setError('');
 
-    const { id, phone, city, about } = profile;
+    const { id } = profile;
+    const { city, about } = formData;
+    const fullPhone = formData.countryCode + formData.phone;
+
+    // Validate phone number
+    const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      setPhoneTouched(true);
+      setLoading(false);
+      addToast(phoneValidationError, 'error');
+      return;
+    }
 
     if (!id) {
       setError('Please log in again to update profile');
@@ -238,7 +446,7 @@ const ProfilePage = () => {
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, phone, city, about })
+        body: JSON.stringify({ id, phone: fullPhone, city, about })
       });
 
       const data = await response.json();
@@ -246,8 +454,9 @@ const ProfilePage = () => {
 
       if (response.ok) {
         const updatedUser = data.user;
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        sessionStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Update AuthContext with the new user data
+        updateUser(updatedUser);
         
         // Convert isVeterinarian to userType for display
         const getUserType = (user) => {
@@ -256,22 +465,71 @@ const ProfilePage = () => {
           return 'Regular User';
         };
 
+        // Parse the updated phone number
+        let phoneNumber = '';
+        let phoneCountryCode = '+92';
+        
+        if (updatedUser.phone) {
+          const matchingCountry = countryCodes.find(country => updatedUser.phone.startsWith(country.code));
+          if (matchingCountry) {
+            phoneCountryCode = matchingCountry.code;
+            phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
+          } else {
+            phoneNumber = updatedUser.phone;
+          }
+        }
+
+        setCountryCode(phoneCountryCode);
         setProfile({
           id: updatedUser.id,
           name: updatedUser.username,
           email: updatedUser.email,
-          phone: updatedUser.phone || '',
+          phone: updatedUser.phone, // Store the full phone number with country code for display
           city: updatedUser.city || '',
           about: updatedUser.about || '',
           userType: getUserType(updatedUser),
           // userType: updatedUser.userType,
           profileImage: profile.profileImage, // Keep the current profile image
         });
+        
+        // Update form data to match the saved profile
+        setFormData({
+          phone: phoneNumber,
+          city: updatedUser.city || '',
+          about: updatedUser.about || '',
+          countryCode: phoneCountryCode
+        });
+        
+        // Update original profile data to reflect the saved state
+        setOriginalProfile({
+          phone: phoneNumber,
+          city: updatedUser.city || '',
+          about: updatedUser.about || '',
+          countryCode: phoneCountryCode
+        });
+        
+        // Clear phone validation errors
+        setPhoneError('');
+        setPhoneTouched(false);
+        
         addToast('Profile updated successfully!');
         setCurrentView('profile');
       } else {
-        setError(data.message || 'Failed to update profile. Please try again.');
-        addToast(data.message || 'Failed to update profile. Please try again.', 'error');
+        // Handle specific phone number errors
+        if (data.message && data.message.includes('already used')) {
+          setPhoneError('This phone number is already used by another user');
+          setPhoneTouched(true);
+          // Only show toast for duplicate phone, not the general error
+          addToast('This phone number is already used by another user', 'error');
+        } else if (data.message && data.message.includes('valid international phone number')) {
+          setPhoneError('Please enter a valid international phone number');
+          setPhoneTouched(true);
+          addToast('Please enter a valid international phone number', 'error');
+        } else {
+          // For other errors, show both error state and toast
+          setError(data.message || 'Failed to update profile. Please try again.');
+          addToast(data.message || 'Failed to update profile. Please try again.', 'error');
+        }
       }
     } catch (error) {
       setLoading(false);
@@ -745,6 +1003,19 @@ const ProfilePage = () => {
   };
 
   const handleViewChange = (view) => {
+    // Block access to other pages if user doesn't have phone number OR if there's a phone validation error
+    const hasPhoneError = phoneTouched && phoneError;
+    const needsPhone = !profile.phone || !user?.phoneVerified;
+    
+    if ((needsPhone || hasPhoneError) && view !== 'edit' && view !== 'profile') {
+      if (hasPhoneError) {
+        addToast('Please fix the phone number error first', 'error');
+      } else {
+        addToast('Please add your phone number first to access this feature', 'error');
+      }
+      return;
+    }
+    
     setCurrentView(view);
     setMobileMenuOpen(false);
   };
@@ -855,8 +1126,11 @@ const ProfilePage = () => {
                         <button
                           key={i}
                           onClick={() => handleViewChange(link.view)}
+                          disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
                           className={`flex items-center w-full px-4 py-3 border-b border-gray-100 ${
-                            currentView === link.view ? 'bg-[#6b493d] text-white' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                            currentView === link.view ? 'bg-[#6b493d] text-white' : 
+                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
+                            'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
                           }`}
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
@@ -878,9 +1152,12 @@ const ProfilePage = () => {
                 ) : (
                   <button
                     key={i}
-                    onClick={() => setCurrentView(link.view)}
+                    onClick={() => handleViewChange(link.view)}
+                    disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
                     className={`flex items-center w-full p-3 border-b border-gray-100 text-left ${
-                      currentView === link.view ? 'bg-[#6b493d] text-white' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                      currentView === link.view ? 'bg-[#6b493d] text-white' : 
+                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
+                      'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
                     }`}
                   >
                     {link.icon}<span className="ml-2">{link.name}</span>
@@ -949,7 +1226,28 @@ const ProfilePage = () => {
             {currentView === 'edit' && (
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Edit Profile</h2>
-                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+                {error && !(phoneTouched && phoneError) && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+                
+                {/* Warning message for users without phone (but not for phone validation errors) */}
+                {(!profile.phone || !user?.phoneVerified) && !(phoneTouched && phoneError) && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mb-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium">
+                          Phone Number Required
+                        </h3>
+                        <div className="mt-2 text-sm">
+                          <p>You must add a phone number to access other features of the application.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <form onSubmit={handleSaveProfile}>
                   <div className="grid md:grid-cols-2 gap-6 mb-6">
@@ -976,14 +1274,32 @@ const ProfilePage = () => {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                      <input 
-                        type="tel" 
-                        name="phone"
-                        value={profile.phone}
-                        onChange={handleProfileChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={formData.countryCode}
+                          onChange={handleCountryCodeChange}
+                          className="px-3 py-2 border border-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
+                        >
+                          {countryCodes.map((country, index) => (
+                            <option key={index} value={country.code}>
+                              {country.flag} {country.code}
+                            </option>
+                          ))}
+                        </select>
+                        <input 
+                          type="tel" 
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handlePhoneChange}
+                          onBlur={() => setPhoneTouched(true)}
+                          className={`flex-1 px-3 py-2 border ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'} text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                          placeholder="XXXXXXXXXX"
+                        />
+                      </div>
+                      {phoneTouched && phoneError && (
+                        <p className="text-xs text-red-600 mt-1">{phoneError}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -991,7 +1307,7 @@ const ProfilePage = () => {
                       <input 
                         type="text" 
                         name="city"
-                        value={profile.city}
+                        value={formData.city}
                         onChange={handleProfileChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       />
@@ -1002,7 +1318,7 @@ const ProfilePage = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">About Me</label>
                     <textarea 
                       name="about"
-                      value={profile.about}
+                      value={formData.about}
                       onChange={handleProfileChange}
                       rows="4"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -1013,15 +1329,19 @@ const ProfilePage = () => {
                   <div className="flex justify-between">
                     <button 
                       type="button"
-                      onClick={() => setCurrentView('profile')}
+                      onClick={handleCancelEdit}
                       className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md"
                     >
                       Cancel
                     </button>
                     <button 
                       type="submit"
-                      disabled={loading}
-                      className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
+                      disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
+                      className={`font-medium py-2 px-6 rounded-md ${
+                        loading || !hasChanges() || (phoneTouched && phoneError)
+                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          : 'bg-[#6b493d] hover:bg-[#57392f] text-white'
+                      }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>
