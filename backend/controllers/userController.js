@@ -334,8 +334,26 @@ const updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update fields
-    user.phone = phone || user.phone;
+    // If phone is being updated, validate it and check for duplicates
+    if (phone && phone !== user.phone) {
+      // Validate international phone number format
+      const phoneRegex = /^\+[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ message: 'Please enter a valid international phone number' });
+      }
+
+      // Check if phone is already used by another user
+      const existingUser = await User.findOne({ phone, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'This phone number is already used by another user' });
+      }
+
+      // Mark phone as verified when updating
+      user.phone = phone;
+      user.phoneVerified = true;
+    }
+
+    // Update other fields
     user.city = city || user.city;
     user.about = about || user.about;
 
@@ -349,9 +367,11 @@ const updateProfile = async (req, res) => {
         username: user.username,
         email: user.email,
         phone: user.phone || "",  // Explicitly include phone, city, about
+        phoneVerified: user.phoneVerified,
         city: user.city || "",
         about: user.about || "",
-        isVeterinarian: user.isVeterinarian
+        isVeterinarian: user.isVeterinarian,
+        isAdmin: user.isAdmin,
       }
     });
   } catch (error) {
