@@ -5,7 +5,7 @@ import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
 import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
 //import { getSocket, initSocket } from '../services/socket';
-import { getSocket, initSocket, setNotificationCallback } from '../services/socket';
+import { getSocket, initSocket, setNotificationCallback, disconnectSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
 import { API_BASE_URL } from '../config';
 import { useMessages } from '../context/MessageContext';
@@ -43,7 +43,26 @@ const ChatPage = () => {
   const { recipientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { markAsRead, setCurrentConversationId } = useMessages();
+  
+  // Wrap useMessages in try-catch for better error handling
+  let messageContext;
+  try {
+    messageContext = useMessages();
+  } catch (error) {
+    console.error('Error accessing MessageContext:', error);
+    messageContext = {
+      markAsRead: () => console.warn('MessageContext not available'),
+      setCurrentConversationId: () => console.warn('MessageContext not available'),
+      updateConversationUnreadCount: () => console.warn('MessageContext not available')
+    };
+  }
+  
+  const { markAsRead, setCurrentConversationId, updateConversations, conversations, refreshConversations } = messageContext;
+  
+  // Safety check for setCurrentConversationId
+  const safeSetCurrentConversationId = setCurrentConversationId || (() => {
+    console.warn('setCurrentConversationId is not available from context');
+  });
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
@@ -58,7 +77,6 @@ const ChatPage = () => {
   const [lastHandledRecipientId, setLastHandledRecipientId] = useState(null);
   const [isSelectingConversation, setIsSelectingConversation] = useState(false);
   const [pendingConversationUserId, setPendingConversationUserId] = useState(null);
-  const [conversations, setConversations] = useState([]);
   const [conversationCache, setConversationCache] = useState(new Map());
   const [conversationLookup, setConversationLookup] = useState(new Map());
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -191,12 +209,12 @@ const addUserToCache = useCallback((user) => {
   // Initialize socket when user is authenticated
   useEffect(() => {
     if (currentUserId && isAuthenticated) {
-      console.log('Initializing socket for user:', currentUserId);
+      console.log('🚀 Initializing socket for user:', currentUserId);
       
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
-          console.log('Notification permission:', permission);
+          console.log('📱 Notification permission:', permission);
         });
       }
       
@@ -205,9 +223,9 @@ const addUserToCache = useCallback((user) => {
         try {
           const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
           const data = await response.json();
-          console.log('Backend health check:', data);
+          console.log('🏥 Backend health check:', data);
         } catch (error) {
-          console.error('Backend connectivity test failed:', error);
+          console.error('❌ Backend connectivity test failed:', error);
           setError('Cannot connect to chat server');
         }
       };
@@ -215,11 +233,18 @@ const addUserToCache = useCallback((user) => {
       testBackendConnection();
       
       try {
-        const socket = initSocket(currentUserId);
-        console.log('Socket initialized:', socket);
-         // Set up notification callback for real-time notifications
-         setNotificationCallback((notification) => {
-          console.log('Received notification:', notification);
+        // Check if socket is already connected
+        const existingSocket = getSocket();
+        if (existingSocket && existingSocket.connected) {
+          console.log('✅ Socket already connected, reusing existing connection');
+        } else {
+          const socket = initSocket(currentUserId);
+          console.log('🔌 Socket initialized:', socket);
+        }
+        
+        // Set up notification callback for real-time notifications
+        setNotificationCallback((notification) => {
+          console.log('📢 Received notification:', notification);
           
           // Show toast notification
           addToast({
@@ -237,28 +262,53 @@ const addUserToCache = useCallback((user) => {
           }
         });
       } catch (error) {
-        console.error('Error initializing socket:', error);
+        console.error('❌ Error initializing socket:', error);
         setError('Failed to initialize chat connection');
       }
     }
+
+    // Cleanup function to disconnect socket when component unmounts
+    return () => {
+      console.log('🧹 Chat component unmounting, cleaning up socket...');
+      try {
+        disconnectSocket();
+      } catch (error) {
+        console.error('❌ Error disconnecting socket:', error);
+      }
+    };
   }, [currentUserId, isAuthenticated, addToast]);
 
   // Error boundary effect
   useEffect(() => {
     const handleError = (error) => {
       console.error('ChatPage error:', error);
-      setError(error.message);
+      setError(error.message || 'An unexpected error occurred');
+      setIsLoadingUsers(false);
+    };
+
+    const handleUnhandledRejection = (event) => {
+      console.error('ChatPage unhandled rejection:', event.reason);
+      setError(event.reason?.message || 'An unexpected error occurred');
       setIsLoadingUsers(false);
     };
 
     window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', (event) => handleError(event.reason));
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     return () => {
       window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, []);
+
+  // Add error recovery effect
+  useEffect(() => {
+    if (error && conversations && Array.isArray(conversations) && conversations.length > 0) {
+      // If we have conversations but there's an error, clear the error
+      console.log('Clearing error because conversations are available');
+      setError(null);
+    }
+  }, [error, conversations]);
 
   // Move loadUsers function outside useEffect so it can be accessed by error handlers
   const loadUsers = async () => {
@@ -292,15 +342,19 @@ const addUserToCache = useCallback((user) => {
       console.log('Actual users array:', response.data?.data);
       console.log('Setting users to:', response.data?.data || []);
 
+      // Validate response data
+      if (!response.data || !Array.isArray(response.data.data)) {
+        throw new Error('Invalid response format from getAllUsers API');
+      }
 
-
-  //setUsers(response.data?.data || []);
-  const usersData = response.data?.data || [];
+      const usersData = response.data.data || [];
       setUsers(usersData);
       
       // Cache all users
       usersData.forEach(user => {
-        addUserToCache(user);
+        if (user && user._id) {
+          addUserToCache(user);
+        }
       });
 
       console.log('Users set in state, clearing error');
@@ -389,89 +443,29 @@ const addUserToCache = useCallback((user) => {
     };
   }, [currentUserId]); // Removed addToast from dependencies
 
+  // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
     console.log('🔄 Updating conversation last message:', { conversationId, message });
-    setConversations(prev => {
-      const exists = prev.some(conv => conv._id === conversationId);
-      let updated = [];
-      if (exists) {
-        updated = prev.map(conv =>
-          conv._id === conversationId
-            ? { ...conv, lastMessage: message, updatedAt: message.createdAt }
-            : conv
-        );
-      } else {
-        // Try to get the other userId from selectedUser or message
-        let otherUserId = null;
-        if (selectedUser && selectedUser._id) {
-          otherUserId = selectedUser._id;
-        } else if (message && message.senderId && message.senderId !== currentUserId) {
-          otherUserId = message.senderId;
-        }
-        // Minimal conversation object
-        const newConv = {
-          _id: conversationId,
-          members: [currentUserId, otherUserId].filter(Boolean),
-          participants: [currentUserId, otherUserId].filter(Boolean),
-          lastMessage: message,
-          updatedAt: message.createdAt,
-        };
-        updated = [newConv, ...prev];
-      }
-      // Sort by updatedAt descending
-      const sorted = updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-      console.log('🔄 Updated conversations list:', sorted.length, 'conversations');
-      return sorted;
-    });
+    
+    // This function is now only used for optimistic updates when sending messages
+    // The actual conversation updates are handled by MessageContext via socket events
+    
+    // Ensure we have valid data
+    if (!conversationId || !message) {
+      console.warn('updateConversationLastMessage: Invalid parameters:', { conversationId, message });
+      return;
+    }
   };
-  // Handle socket messages
-  useEffect(() => {
-    if (!currentUserId) return;
-    const socket = getSocket();
-    if (!socket) return;
-    
-    const handleNewMessage = (message) => {
-      console.log('Chat component received newMessage:', message);
-      
-      // Update selected conversation if it matches
-      if (selectedConversation?._id === message.conversationId) {
-        setSelectedConversation(prev => ({
-          ...prev,
-          lastMessage: message,
-          updatedAt: message.createdAt
-        }));
-      }
-      
-      // Always update conversations list when a new message arrives
-      updateConversationLastMessage(message.conversationId, message);
-      
-      // Show notification for new messages from other conversations
-      if (message.conversationId !== selectedConversation?._id) {
-        addToast({
-          title: 'New Message',
-          description: message.text,
-          variant: 'default'
-        });
-        
-        // Show browser notification if permission is granted
-        if (Notification.permission === 'granted') {
-          new Notification('New Message', {
-            body: message.text,
-            icon: '/hfplogo.png'
-          });
-        }
-      }
-    };
 
-    // Listen only for newMessage event (backend emits this consistently)
-    socket.on('newMessage', handleNewMessage);
-    
-    return () => {
-      socket.off('newMessage', handleNewMessage);
-    };
-  }, [currentUserId, selectedConversation, updateConversationLastMessage, addToast]);
-
+  // Handle socket messages - REMOVED
+  // MessageContext now handles all socket events centrally
+  
   const findExistingConversation = useCallback((otherUserId) => {
+    if (!otherUserId || !Array.isArray(conversations)) {
+      console.warn('findExistingConversation: Invalid parameters:', { otherUserId, conversations });
+      return null;
+    }
+    
     const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
     if (conversationLookup.has(cacheKey)) {
       return conversationLookup.get(cacheKey);
@@ -492,6 +486,17 @@ const addUserToCache = useCallback((user) => {
   }, [conversations, conversationLookup]);
 
   const handleSelectUser = async (userObj) => {
+    // Validate user object
+    if (!userObj || !userObj._id) {
+      console.error('handleSelectUser: Invalid user object:', userObj);
+      addToast({
+        title: 'Error',
+        description: 'Invalid user data',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     const otherUserId = getCurrentUserId(userObj);
     if (!otherUserId || otherUserId === currentUserIdRef.current) {
       addToast({
@@ -501,6 +506,7 @@ const addUserToCache = useCallback((user) => {
       });
       return;
     }
+    
     const existingConv = findExistingConversation(otherUserId);
     if (existingConv) {
       setSelectedConversation(existingConv);
@@ -514,8 +520,10 @@ const addUserToCache = useCallback((user) => {
       }
       return;
     }
+    
     setIsSelectingConversation(true);
     setPendingConversationUserId(otherUserId);
+    
     try {
       const findResponse = await getConversationBetweenUsers(currentUserIdRef.current, otherUserId);
       if (findResponse.data) {
@@ -532,6 +540,7 @@ const addUserToCache = useCallback((user) => {
         }
         return;
       }
+      
       const createResponse = await createConversation(currentUserIdRef.current, otherUserId);
       if (createResponse.data) {
         const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
@@ -545,7 +554,11 @@ const addUserToCache = useCallback((user) => {
             setIsTransitioning(false);
           }, 150);
         }
-        setConversations(prev => [createResponse.data, ...prev]);
+        
+        // Update conversations list with the new conversation
+        // Note: This is now handled by the MessageContext via socket events
+        // No need to manually update here as it will be handled automatically
+        console.log('Chat: New conversation created, will be handled by MessageContext');
       }
     } catch (error) {
       console.error('Conversation error:', error);
@@ -575,10 +588,31 @@ const addUserToCache = useCallback((user) => {
   }, []);
 
   const handleSelectConversation = (conversationData) => {
+    // Validate conversation data
+    if (!conversationData || !conversationData._id) {
+      console.error('handleSelectConversation: Invalid conversation data:', conversationData);
+      addToast({
+        title: 'Error',
+        description: 'Invalid conversation data',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     // Use the user attached by RecentChats, or look up if missing
     const otherUserId = conversationData.members
       ? conversationData.members.find(id => id !== currentUserId)
       : (conversationData.participants || []).find(id => id !== currentUserId);
+
+    if (!otherUserId) {
+      console.error('handleSelectConversation: Could not find other user ID:', conversationData);
+      addToast({
+        title: 'Error',
+        description: 'Could not identify conversation participant',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     // Try to get user from cache first, then from users array
     let fullUserObj = conversationData.user || getUserFromCache(otherUserId);
@@ -599,8 +633,12 @@ const addUserToCache = useCallback((user) => {
     
     // Mark messages as read when conversation is selected
     if (conversationData._id) {
-      markAsRead(conversationData._id);
-      setCurrentConversationId(conversationData._id);
+      try {
+        markAsRead(conversationData._id);
+        safeSetCurrentConversationId(conversationData._id);
+      } catch (error) {
+        console.error('Error marking conversation as read:', error);
+      }
     }
     
     if (isMobile) {
@@ -626,27 +664,16 @@ const addUserToCache = useCallback((user) => {
  
 
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!currentUserId) return;
-      try {
-        const response = await getUserConversations(currentUserId);
-        const conversationsData = Array.isArray(response?.data?.data) ? response.data.data : [];
-        setConversations(conversationsData);
-      } catch (error) {
-        setConversations([]);
-        // Optionally show a toast or error
-      }
-    };
-    fetchConversations();
-  }, [currentUserId]);
-
-  useEffect(() => {
-    if (selectedConversation && users.length > 0) {
+    if (selectedConversation && Array.isArray(users) && users.length > 0) {
       const otherUserId = selectedConversation.members
         ? selectedConversation.members.find(id => id !== currentUserId)
         : (selectedConversation.participants || []).find(id => id !== currentUserId);
 
-      //const fullUserObj = users.find(u => u._id === otherUserId);
+      if (!otherUserId) {
+        console.warn('Could not find other user ID in selected conversation:', selectedConversation);
+        return;
+      }
+
       // Try to get user from cache first, then from users array
       let fullUserObj = getUserFromCache(otherUserId);
       if (!fullUserObj) {
@@ -657,8 +684,90 @@ const addUserToCache = useCallback((user) => {
         setSelectedUser(fullUserObj);
       }
     }
-  //}, [users, selectedConversation, currentUserId]);
-}, [users, selectedConversation,   currentUserId, getUserFromCache, selectedUser]);
+  }, [users, selectedConversation, currentUserId, getUserFromCache, selectedUser]);
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!currentUserId) return;
+      
+      try {
+        await refreshConversations(currentUserId);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        addToast({
+          title: 'Error',
+          description: 'Failed to load conversations',
+          variant: 'destructive'
+        });
+      }
+    };
+    
+    fetchConversations();
+  }, [currentUserId, refreshConversations, addToast]);
+
+  // Add conversation deduplication and state management
+  useEffect(() => {
+    if (!conversations || !Array.isArray(conversations)) return;
+    
+    // Deduplicate conversations by ID and participants
+    const dedupeById = (arr) => {
+      const map = new Map();
+      arr.forEach(item => item?._id && map.set(item._id, item));
+      return Array.from(map.values());
+    };
+
+    const dedupeByParticipants = (arr) => {
+      const map = new Map();
+      arr.forEach(item => {
+        if (item?.participants?.length === 2) {
+          const key = item.participants
+            .map(String)
+            .sort()
+            .join('-');
+          if (!map.has(key)) {
+            map.set(key, item);
+          } else {
+            const existing = map.get(key);
+            if (new Date(item.updatedAt) > new Date(existing.updatedAt)) {
+              map.set(key, item);
+            }
+          }
+        }
+      });
+      return Array.from(map.values());
+    };
+
+    const dedupedById = dedupeById(conversations);
+    const uniqueConvs = dedupeByParticipants(dedupedById);
+
+    // Only update if we actually have deduplicated conversations
+    if (uniqueConvs.length !== conversations.length) {
+      console.log('Chat: Deduplicating conversations from', conversations.length, 'to', uniqueConvs.length);
+      updateConversations(uniqueConvs);
+    }
+  }, [conversations, updateConversations]);
+
+  // Handle conversation unread count updates when selected
+  useEffect(() => {
+    if (selectedConversation?._id && Array.isArray(conversations)) {
+      // Update the unread count for the selected conversation
+      const updatedConversations = conversations.map((conv) =>
+        conv._id === selectedConversation._id
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      );
+      
+      // Only update if there are actual changes
+      const hasChanges = updatedConversations.some((conv, index) => 
+        conv.unreadCount !== conversations[index]?.unreadCount
+      );
+      
+      if (hasChanges) {
+        console.log('Chat: Updating unread counts for selected conversation');
+        updateConversations(updatedConversations);
+      }
+    }
+  }, [selectedConversation?._id, conversations, updateConversations]);
 
   if (!isAuthenticated || !user) {
     return (
@@ -852,37 +961,11 @@ return (
               onSelectConversation={handleSelectConversation}
               selectedConversationId={selectedConversation?._id}
               users={users}
-              addToast={addToast}
               conversations={conversations}
-              setConversations={setConversations}
+              setConversations={updateConversations}
+              onBackToSidebar={handleBackToList}
+              addToast={addToast}
               getUserFromCache={getUserFromCache}
-              onBackToSidebar={() => {
-                console.log('Chat onBackToSidebar called');
-                console.log('Current showChatMobile:', showChatMobile);
-                console.log('Came from page:', cameFromPage);
-                
-                // If we're already showing the conversation list, navigate back
-                if (!showChatMobile) {
-                  console.log('Already on conversation list, navigating back');
-                  
-                  // Navigate back to the page we came from
-                  if (cameFromPage) {
-                    console.log('Navigating back to:', cameFromPage);
-                    navigate(cameFromPage);
-                  } else {
-                    console.log('No cameFromPage, using navigate(-1)');
-                    navigate(-1);
-                  }
-                  return;
-                }
-                
-                setIsTransitioning(true);
-                setShowChatMobile(false);
-                setTimeout(() => {
-                  setIsTransitioning(false);
-                  console.log('Transition completed');
-                }, 300);
-              }}
             />
           </div>
         </div>

@@ -3,20 +3,30 @@ import { getSocket } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { AUTH_BASE_URL } from '../config';
+import { markMessageAsRead } from '../Main/api';
 
 const MessageList = ({ messages, currentUser, chatUsers }) => {
   const scrollRef = useRef();
   const messagesEndRef = useRef();
 
-  // Emit read receipts
+  // Mark messages as read when viewed
   useEffect(() => {
-    const socket = getSocket();
-    messages.forEach((msg) => {
-      if (!msg.readBy?.includes(currentUser._id)) {
-        socket.emit('markMessageAsRead', { messageId: msg._id, userId: currentUser._id });
+    const markMessagesAsRead = async () => {
+      for (const msg of messages) {
+        if (!msg.readBy?.includes(currentUser._id)) {
+          try {
+            await markMessageAsRead(msg._id);
+          } catch (error) {
+            console.error('Error marking message as read:', error);
+          }
+        }
       }
-    });
-  }, [messages, currentUser]);
+    };
+
+    if (messages.length > 0) {
+      markMessagesAsRead();
+    }
+  }, [messages, currentUser._id]);
 
   // Auto-scroll with intersection observer for better performance
   useEffect(() => {

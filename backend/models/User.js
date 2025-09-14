@@ -23,6 +23,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    phoneVerified: {
+      type: Boolean,
+      default: false
+    },
+    phoneVerificationCode: {
+      type: String
+    },
+    phoneVerificationCodeExpires: {
+      type: Date
+    },
     city: {
       type: String,
       default: ""

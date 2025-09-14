@@ -27,7 +27,8 @@ const {
   validateUser,
   verifyResetCode,
   resetPassword,
-  resendResetCode
+  resendResetCode,
+  addPhoneNumber
 } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
@@ -72,6 +73,9 @@ router.post("/complete-google-registration", completeGoogleRegistration);
 router.post('/verify-reset-code', verifyResetCode);
 router.post('/reset-password', resetPassword);
 router.post('/resend-reset-code', resendResetCode);
+
+// Phone verification routes
+router.post('/add-phone-number', auth, addPhoneNumber);
 
 module.exports = router;
 

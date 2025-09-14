@@ -78,8 +78,16 @@ const Login = () => {
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
           }
-          navigate('/');
-          window.location.reload();
+          
+          // Check if phone verification is required
+          if (!data.user.phone || !data.user.phoneVerified) {
+            // User will be redirected to phone verification by App.jsx
+            navigate("/");
+            window.location.reload();
+          } else {
+            navigate("/");
+            window.location.reload();
+          }
         } else {
           setError('Login failed: No token received.');
         }
@@ -118,8 +126,16 @@ const Login = () => {
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/");
-        window.location.reload();
+        
+        // Check if phone verification is required
+        if (!data.user.phone || !data.user.phoneVerified) {
+          // User will be redirected to phone verification by App.jsx
+          navigate("/");
+          window.location.reload();
+        } else {
+          navigate("/");
+          window.location.reload();
+        }
       } else {
         setError(data.message || "Google login failed");
       }
@@ -157,8 +173,16 @@ const Login = () => {
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        navigate("/");
-        window.location.reload();
+        
+        // Check if phone verification is required
+        if (!data.user.phone || !data.user.phoneVerified) {
+          // User will be redirected to phone verification by App.jsx
+          navigate("/");
+          window.location.reload();
+        } else {
+          navigate("/");
+          window.location.reload();
+        }
       } else {
         setError(data.message || "Google registration failed");
       }

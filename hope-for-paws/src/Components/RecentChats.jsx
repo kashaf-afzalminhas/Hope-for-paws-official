@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // Add useLocation import
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaChevronLeft } from 'react-icons/fa';
-import { getUserConversations } from '../Main/api';
+import { getUserConversations, markConversationAsRead, debugToken } from '../Main/api';
 import UserCard from './UserCard';
 import SearchBar from './SearchBar';
 import { format } from 'date-fns';
@@ -17,19 +17,36 @@ const RecentChats = ({
   users,
   conversations,
   setConversations,
-  onBackToSidebar, // <-- Add this prop
+  onBackToSidebar,
   addToast,
   getUserFromCache,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation(); // Add location hook
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768); // Changed from 1024 to 768
+  const location = useLocation();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [swipingId, setSwipingId] = useState(null);
   const { markAsRead, setCurrentConversationId } = useMessages();
+  
+  // Function to handle marking conversation as read
+  const handleMarkAsRead = async (conversationId) => {
+    try {
+      debugToken();
+      
+      const result = await markConversationAsRead(conversationId);
+      
+      if (result?.data?.modifiedCount > 0) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refreshConversations'));
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error marking conversation as read:", error);
+    }
+  };
+
   const [audio] = useState(() => {
-    // Create audio element for notification sound
     if (typeof window !== 'undefined') {
       const audio = new Audio();
       audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
@@ -39,248 +56,130 @@ const RecentChats = ({
     return null;
   });
 
-  // Socket event listeners for real-time updates
-  useEffect(() => {
-    if (!currentUserId) {
-      console.log('❌ No currentUserId, skipping socket setup');
-      return;
-    }
-    const socket = getSocket();
-    if (!socket) {
-      console.log('❌ No socket available, skipping socket setup');
-      return;
-    }
-
-    console.log('✅ Setting up socket listeners for RecentChats');
-
-    const handleNewMessage = (message) => {
-      console.log('📨 RecentChats received newMessage:', message);
-      console.log('📍 Current selectedConversationId:', selectedConversationId);
-      console.log('📍 Message conversationId:', message.conversationId);
-      
-      // Update conversations list with new message
-      setConversations(prev => {
-        console.log('🔄 Updating conversations list, current count:', prev.length);
-        const exists = prev.some(conv => conv._id === message.conversationId);
-        console.log('🔍 Conversation exists:', exists);
-        
-        if (exists) {
-          const updated = prev.map(conv =>
-            conv._id === message.conversationId
-              ? { 
-                  ...conv, 
-                  lastMessage: message, 
-                  updatedAt: message.createdAt,
-                  unreadCount: conv._id === selectedConversationId ? 0 : (conv.unreadCount || 0) + 1
-                }
-              : conv
-          ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-          console.log('✅ Updated existing conversation');
-          return updated;
-        } else {
-          // Create new conversation if it doesn't exist
-          const newConv = {
-            _id: message.conversationId,
-            participants: [message.senderId], // This will be updated when conversation is loaded
-            lastMessage: message,
-            updatedAt: message.createdAt,
-            unreadCount: message.conversationId === selectedConversationId ? 0 : 1
-          };
-          const updated = [newConv, ...prev].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-          console.log('✅ Created new conversation');
-          return updated;
-        }
-      });
-      
-      // Show notification for new messages
-      if (message.conversationId !== selectedConversationId) {
-        console.log('🔔 Showing notification for new message');
-        addToast({
-          title: 'New Message',
-          description: message.text,
-          variant: 'default'
-        });
-        
-        // Play notification sound
-        if (audio) {
-          audio.play().catch(err => console.log('Audio play failed:', err));
-        }
-        
-        // Show browser notification if permission is granted
-        if (Notification.permission === 'granted') {
-          new Notification('New Message', {
-            body: message.text,
-            icon: '/hfplogo.png'
-          });
-        }
-      }
-    };
-
-    console.log('🎧 Adding socket event listeners');
-    // Listen only for newMessage event (backend emits this consistently)
-    socket.on('newMessage', handleNewMessage);
-
-    return () => {
-      console.log('🎧 Removing socket event listeners');
-      socket.off('newMessage', handleNewMessage);
-    };
-  }, [currentUserId, selectedConversationId, addToast, audio, setConversations]);
-
+  // Socket event listeners for real-time updates - REMOVED
+  // MessageContext now handles all socket events centrally
+  
   useEffect(() => {
     const handleResize = () => {
-      const newIsMobile = window.innerWidth <= 768; // Changed from 1024 to 768
-      console.log('RecentChats resize - window width:', window.innerWidth, 'isMobile:', newIsMobile);
+      const newIsMobile = window.innerWidth <= 768;
       setIsMobile(newIsMobile);
     };
     window.addEventListener('resize', handleResize);
-    console.log('RecentChats initial isMobile:', isMobile, 'window width:', window.innerWidth);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
   // Enhanced user lookup function that uses cache
   const getUserById = useCallback((userId) => {
-    // First try cache
     if (getUserFromCache) {
       const cachedUser = getUserFromCache(userId);
       if (cachedUser) return cachedUser;
     }
     
-    // Then try users array
     const user = users.find(u => u._id === userId);
     if (user) return user;
     
-    // Fallback
     return { username: 'Unknown', _id: userId };
   }, [users, getUserFromCache]);
 
-
-  // Memoized deduplication and filtering
-  const { filteredForDisplay, uniqueConversations } = useMemo(() => {
-    // First deduplicate by ID
-    const dedupeById = (arr) => {
-      const map = new Map();
-      arr.forEach(item => item?._id && map.set(item._id, item));
-      return Array.from(map.values());
-    };
-
-    // Then deduplicate by participants
-    const dedupeByParticipants = (arr) => {
-      const map = new Map();
-      arr.forEach(item => {
-        if (item?.participants?.length === 2) {
-          const key = item.participants
-            .map(String)
-            .sort()
-            .join('-');
-          if (!map.has(key)) {
-            map.set(key, item);
-          } else {
-            // Keep the most recent conversation if duplicates exist
-            const existing = map.get(key);
-            if (new Date(item.updatedAt) > new Date(existing.updatedAt)) {
-              map.set(key, item);
-            }
-          }
-        }
-      });
-      return Array.from(map.values());
-    };
-
-    // Process conversations
-    const dedupedById = dedupeById(conversations || []);
-    const uniqueConvs = dedupeByParticipants(dedupedById);
-
-    // Update parent state if duplicates were found
-    if (uniqueConvs.length !== conversations?.length) {
-      setTimeout(() => setConversations(uniqueConvs), 0);
+  // Move deduplication logic to useEffect to avoid setState during render
+  useEffect(() => {
+    if (!conversations) return;
+    
+    // Ensure conversations is an array
+    if (!Array.isArray(conversations)) {
+      console.error('RecentChats: conversations is not an array:', conversations);
+      return;
     }
 
+    // Note: Deduplication is now handled by the parent component (Chat.jsx)
+    // This effect only validates that conversations is an array
+    console.log('RecentChats: conversations validated as array, length:', conversations.length);
+  }, [conversations]);
 
+  // Memoized filtering only (no deduplication)
+  const filteredForDisplay = useMemo(() => {
+    if (!conversations) return [];
+    
+    // Ensure conversations is an array
+    if (!Array.isArray(conversations)) {
+      console.error('RecentChats: conversations is not an array in filteredForDisplay:', conversations);
+      return [];
+    }
 
-    // Apply search filter
     const filtered = searchQuery
-      ? uniqueConvs.filter(conv => {
+      ? conversations.filter(conv => {
+          if (!conv || !conv.participants) return false;
           const otherUserId = conv.participants.find(id => id !== currentUserId);
-         // const otherUser = users.find(u => u._id === otherUserId);
-         const otherUser = getUserById(otherUserId);
+          const otherUser = getUserById(otherUserId);
           return otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase());
         })
-      : uniqueConvs;
+      : conversations;
 
-    // Filter out empty conversations not started by current user
-    const filteredForDisplay = filtered.filter(conv => {
-      if (conv.lastMessage?.text === "Start a conversation..." && 
+    return filtered.filter(conv => {
+      if (!conv || !conv.lastMessage) return false;
+      if (conv.lastMessage.text === "Start a conversation..." && 
           conv.participants[0] !== currentUserId) {
         return false;
       }
       return true;
     });
+  }, [conversations, users, currentUserId, searchQuery, getUserById]);
 
-    return { filteredForDisplay, uniqueConversations: uniqueConvs };
-  //}, [conversations, users, currentUserId, searchQuery, setConversations]);
-}, [conversations, users, currentUserId, searchQuery, setConversations, getUserById]);
   useEffect(() => {
-    setIsLoading(!conversations);
+    // Ensure conversations is an array before setting loading state
+    if (!conversations) {
+      setIsLoading(true);
+    } else if (Array.isArray(conversations)) {
+      setIsLoading(false);
+    } else {
+      console.error('RecentChats: conversations is not an array in loading effect:', conversations);
+      setIsLoading(false);
+    }
   }, [conversations]);
 
-  useEffect(() => {
-    if (selectedConversationId) {
-      setConversations((prev) =>
-        (Array.isArray(prev) ? prev : []).map((conv) =>
-          conv._id === selectedConversationId
-            ? { ...conv, unreadCount: 0 }
-            : conv
-        )
-      );
-    }
-  }, [selectedConversationId, setConversations]);
+  // Remove the effect that was calling setConversations - this should be handled by the parent
+  // The unread count updates should be handled by MessageContext
 
+  // Fixed formatTimestamp function
   const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
+    if (!timestamp) return '';
+    
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      
+      const now = new Date();
 
-    if (date.toDateString() === now.toDateString()) {
-      return format(date, 'h:mm a');
+      if (date.toDateString() === now.toDateString()) {
+        return format(date, 'h:mm a');
+      }
+
+      if (date.getFullYear() === now.getFullYear()) {
+        return format(date, 'MMM d');
+      }
+
+      return format(date, 'MM/dd/yyyy');
+    } catch (error) {
+      console.error("Error formatting timestamp:", error, timestamp);
+      return '';
     }
-
-    if (date.getFullYear() === now.getFullYear()) {
-      return format(date, 'MMM d');
-    }
-
-    return format(date, 'MM/dd/yyyy');
   };
 
   const handleBackClick = () => {
-    console.log('RecentChats handleBackClick called');
-    console.log('isMobile:', isMobile);
-    console.log('onBackToSidebar:', onBackToSidebar);
-    console.log('location.pathname:', location.pathname);
-    
-    // Check if we're on a chat route with a recipientId
     const isOnChatRoute = location.pathname.startsWith('/chat/');
-    console.log('isOnChatRoute:', isOnChatRoute);
     
     if (isMobile) {
       if (onBackToSidebar) {
-        console.log('Calling onBackToSidebar');
-        // If we're in a chat conversation, go back to conversation list
         if (isOnChatRoute) {
-          console.log('Navigating to /chat');
           navigate('/chat');
-          return; // Don't call onBackToSidebar when navigating to conversation list
+          return;
         } else {
-          // If we're already on the conversation list, go back to previous page
-          console.log('Already on conversation list, navigating to previous page');
           navigate(-1);
         }
       } else {
-        console.log('No onBackToSidebar function, using navigate(-1)');
         navigate(-1);
       }
     } else {
-      // On desktop, use browser history
-      console.log('Desktop navigation, using navigate(-1)');
       navigate(-1);
     }
   };
@@ -291,10 +190,8 @@ const RecentChats = ({
       <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea] flex items-center">
         <button
           onClick={(e) => {
-            console.log('Back button clicked!');
             e.preventDefault();
             e.stopPropagation();
-            // Add visual feedback
             e.target.style.backgroundColor = '#a07855';
             e.target.style.color = 'white';
             setTimeout(() => {
@@ -355,20 +252,18 @@ const RecentChats = ({
           <div className="space-y-2">
             {filteredForDisplay.map((conversation) => {
               const otherUserId = conversation.participants.find(id => id !== currentUserId);
-              //const otherUser = users.find(u => u._id === otherUserId) || { username: 'Unknown', _id: otherUserId };
               const otherUser = getUserById(otherUserId);
               const timestamp = conversation.lastMessage?.createdAt
                 ? formatTimestamp(conversation.lastMessage.createdAt)
                 : formatTimestamp(conversation.updatedAt);
 
-              // Calculate unread count (simple implementation - can be enhanced)
               const unreadCount = conversation.unreadCount || 0;
 
               return (
                 <div 
                   key={conversation._id}
                   onClick={() => {
-                    // Mark messages as read when conversation is selected
+                    handleMarkAsRead(conversation._id);
                     markAsRead(conversation._id);
                     setCurrentConversationId(conversation._id);
                     onSelectConversation({ ...conversation, user: otherUser });
@@ -384,7 +279,6 @@ const RecentChats = ({
                   )}
                 >
                   <UserCard
-                    //user={otherUser || { username: 'Unknown' }}
                     user={otherUser}
                     selected={selectedConversationId === conversation._id}
                     lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
