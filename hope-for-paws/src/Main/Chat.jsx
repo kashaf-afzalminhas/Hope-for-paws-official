@@ -233,13 +233,12 @@ const addUserToCache = useCallback((user) => {
       testBackendConnection();
       
       try {
-        // Check if socket is already connected
+        // Check if socket is already connected (now handled globally by MessageProvider)
         const existingSocket = getSocket();
         if (existingSocket && existingSocket.connected) {
           console.log('✅ Socket already connected, reusing existing connection');
         } else {
-          const socket = initSocket(currentUserId);
-          console.log('🔌 Socket initialized:', socket);
+          console.log('⚠️ Socket not connected yet, MessageProvider should handle initialization');
         }
         
         // Set up notification callback for real-time notifications
@@ -267,14 +266,9 @@ const addUserToCache = useCallback((user) => {
       }
     }
 
-    // Cleanup function to disconnect socket when component unmounts
+    // No cleanup needed - socket is managed globally by MessageProvider
     return () => {
-      console.log('🧹 Chat component unmounting, cleaning up socket...');
-      try {
-        disconnectSocket();
-      } catch (error) {
-        console.error('❌ Error disconnecting socket:', error);
-      }
+      console.log('🧹 Chat component unmounting...');
     };
   }, [currentUserId, isAuthenticated, addToast]);
 
@@ -587,6 +581,29 @@ const addUserToCache = useCallback((user) => {
     };
   }, []);
 
+  // Clear conversation state when navigating away from chat
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (setCurrentConversationId) {
+        setCurrentConversationId(null);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && setCurrentConversationId) {
+        setCurrentConversationId(null);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [setCurrentConversationId]);
+
   const handleSelectConversation = (conversationData) => {
     // Validate conversation data
     if (!conversationData || !conversationData._id) {
@@ -653,6 +670,14 @@ const addUserToCache = useCallback((user) => {
   const handleBackToList = () => {
     setIsTransitioning(true);
     setShowChatMobile(false);
+    
+    // Clear the selected conversation and current conversation ID
+    setSelectedConversation(null);
+    setSelectedUser(null);
+    if (setCurrentConversationId) {
+      setCurrentConversationId(null);
+    }
+    
     // Clear URL parameter for mobile
     if (isMobile && recipientId) {
       navigate('/chat');
@@ -945,7 +970,7 @@ return (
       {/* Sidebar - Recent Chats */}
       <div className={`
         h-full w-full md:w-80 lg:w-96
-        bg-[#f8f4ea] shadow-sm md:shadow-none
+        bg-[#f5efe6] shadow-sm md:shadow-none
         transform transition-all duration-300 ease-in-out
         ${isMobile && showChatMobile ? 'hidden md:flex' : 'flex'}
         ${isMobile ? 'relative' : 'relative'}
@@ -999,6 +1024,7 @@ return (
              onBack={handleBackToList}
              updateConversationLastMessage={updateConversationLastMessage}
              addToast={addToast}
+             setCurrentConversationId={setCurrentConversationId}
            />
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">

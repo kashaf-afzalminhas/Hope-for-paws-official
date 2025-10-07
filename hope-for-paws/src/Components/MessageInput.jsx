@@ -41,7 +41,7 @@ const MessageInput = ({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      formRef.current.dispatchEvent(new Event('submit', { cancelable: true }));
+      handleSubmit(e);
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { getSocket } from '../services/socket';
+import { getSocket, initSocket } from '../services/socket';
 
 const MessageContext = createContext(undefined);
 
@@ -16,23 +16,70 @@ const MessageProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  // Initialize socket globally when MessageProvider mounts
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+    const currentUserId = user?.id || user?._id;
+    
+    if (currentUserId) {
+      console.log('📡 MessageProvider: Initializing global socket for user:', currentUserId);
+      const socket = initSocket(currentUserId);
+      console.log('📡 MessageProvider: Global socket initialized:', !!socket);
+    } else {
+      console.log('📡 MessageProvider: No user ID found, cannot initialize global socket');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      console.log('📡 MessageProvider: Cleaning up global socket');
+    };
+  }, []); // Run only once on mount
 
   // Centralized socket event handler for new messages
   useEffect(() => {
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
+
+    if (!socket.connected) {
+      const handleConnect = () => {
+        socket.off('connect', handleConnect); // Remove listener to prevent duplicates
+        setSocketConnected(true); // Trigger effect re-run
+      };
+      socket.on('connect', handleConnect);
+      return;
+    }
+
+    // Update socket connected state
+    if (!socketConnected) {
+      setSocketConnected(true);
+    }
 
     const handleNewMessage = (message) => {
-      console.log('MessageContext: Received new message:', message);
+      console.log('📨 MessageContext: Received newMessage:', message);
+      console.log('📨 MessageContext: currentConversationId:', currentConversationId);
       
-      // Only increment unread count if not in the current conversation
-      if (message.conversationId !== currentConversationId) {
+      // Get current user ID from localStorage/sessionStorage
+      const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+      const currentUserId = user?.id || user?._id;
+      
+      console.log('📨 MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);
+      
+      // Only increment unread count if not in the current conversation and not user's own message
+      // When currentConversationId is null (outside chat), we should increment for all messages from others
+      if (message.senderId !== currentUserId && (currentConversationId === null || String(message.conversationId) !== String(currentConversationId))) {
+        console.log('📨 MessageContext: Incrementing unread count');
         setUnreadCount(prev => prev + 1);
+      } else {
+        console.log('📨 MessageContext: Not incrementing unread count (own message or in current conversation)');
       }
       
       // Update conversations list with the new message
       setConversations(prev => {
-        const existingConvIndex = prev.findIndex(conv => conv._id === message.conversationId);
+        const existingConvIndex = prev.findIndex(conv => String(conv._id) === String(message.conversationId));
         
         if (existingConvIndex !== -1) {
           // Update existing conversation
@@ -45,7 +92,22 @@ const MessageProvider = ({ children }) => {
               senderId: message.senderId
             },
             updatedAt: message.createdAt,
-            unreadCount: message.conversationId === currentConversationId ? 0 : (updatedConversations[existingConvIndex].unreadCount || 0) + 1
+            unreadCount: (() => {
+              // Don't increment unread count if it's the current user's own message
+              if (message.senderId === currentUserId) {
+                return updatedConversations[existingConvIndex].unreadCount || 0;
+              }
+              
+              // Only mark as read if user is:
+              // 1. Actually viewing this EXACT conversation
+              // 2. The current window/tab has focus (user is actively using this window)
+              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
+                return 0;
+              }
+              
+              // Otherwise increment unread count for messages from other users in other conversations
+              return (updatedConversations[existingConvIndex].unreadCount || 0) + 1;
+            })()
           };
           
           // Sort by updatedAt descending (most recent first)
@@ -61,7 +123,18 @@ const MessageProvider = ({ children }) => {
               senderId: message.senderId
             },
             updatedAt: message.createdAt,
-            unreadCount: message.conversationId === currentConversationId ? 0 : 1
+            unreadCount: (() => {
+              // Don't increment unread count if it's the current user's own message
+              if (message.senderId === currentUserId) {
+                return 0;
+              }
+              // Only mark as read if user is actually viewing this conversation AND window has focus
+              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
+                return 0;
+              }
+              // Otherwise set unread count to 1 for new conversation
+              return 1;
+            })()
           };
           
           return [newConv, ...prev].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -75,7 +148,7 @@ const MessageProvider = ({ children }) => {
     return () => {
       socket.off('newMessage', handleNewMessage);
     };
-  }, [currentConversationId]);
+  }, [currentConversationId, socketConnected]);
 
   const refreshConversations = useCallback(async (userId) => {
     if (!userId) return;
@@ -128,7 +201,7 @@ const MessageProvider = ({ children }) => {
     // Reset unread count for this conversation
     setConversations(prev => 
       prev.map(conv => 
-        conv._id === conversationId 
+        String(conv._id) === String(conversationId) 
           ? { ...conv, unreadCount: 0 }
           : conv
       )
@@ -211,7 +284,7 @@ const MessageProvider = ({ children }) => {
       }
       
       return prev.map(conv => 
-        conv._id === conversationId 
+        String(conv._id) === String(conversationId) 
           ? { ...conv, unreadCount }
           : conv
       );

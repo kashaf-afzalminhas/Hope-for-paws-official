@@ -59,7 +59,7 @@ function shouldShowDateSeparator(messages, currentIndex) {
   }
 }
 
-const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast }) => {
+const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast, setCurrentConversationId }) => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
@@ -113,14 +113,16 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     }
   }, [conversationId]);
 
-  // Mark conversation as read when opened
+  // Mark conversation as read when opened and set as current conversation
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && setCurrentConversationId) {
+      // Only set current conversation ID if this ChatWindow is actually visible
+      if (document.visibilityState === 'visible' && !document.hidden) {
+        setCurrentConversationId(conversationId);
+      }
+      
       const markAsRead = async () => {
         try {
-          // Debug token availability
-          debugToken();
-          
           const result = await markConversationAsRead(conversationId);
           
           // Update parent component to reset unread count
@@ -150,30 +152,82 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   }, [messages]);
 
   useEffect(() => {
+    const setupSocketListeners = () => {
     const socket = getSocket();
     socketRef.current = socket;
 
     if (!socket || !conversationId) {
+        console.log('ChatWindow: No socket or conversationId available');
+        return;
+      }
+
+      if (!socket.connected) {
+        console.log('ChatWindow: Socket not connected, waiting for connection...');
+        const handleConnect = () => {
+          console.log('ChatWindow: Socket connected, setting up listeners');
+          socket.off('connect', handleConnect); // Remove listener to prevent duplicates
+          setupSocketListeners();
+        };
+        socket.on('connect', handleConnect);
       return;
     }
 
-    // Join the conversation room for real-time updates
-    socket.emit('joinConversation', conversationId);
+      console.log('ChatWindow: Socket connected, setting up listeners for conversation:', conversationId);
 
-    // REMOVED: handleNewMessage socket event handler
-    // MessageContext now handles all socket events centrally
+      // Join the conversation room for real-time updates (with a small delay to ensure handlers are registered)
+      setTimeout(() => {
+        console.log('ChatWindow: Emitting joinConversation with ID:', conversationId);
+    socket.emit('joinConversation', conversationId);
+      }, 100);
+      
+      // Note: socket.rooms is server-side only, we can't check rooms on client side
+      // The backend will log whether the room joining was successful
+
+      const handleNewMessage = (message) => {
+        // Only add message if it's for this conversation
+        const conversationMatches = String(message.conversationId) === String(conversationId);
+        
+        if (conversationMatches) {
+          // Check if message already exists (avoid duplicates)
+          setMessages(prev => {
+            const messageExists = prev.some(msg => msg._id === message._id || (msg.text === message.text && msg.senderId === message.senderId && Math.abs(new Date(msg.createdAt) - new Date(message.createdAt)) < 5000));
+            if (messageExists) {
+              return prev;
+            }
+            
+            return [...prev, message];
+          });
+        }
+      };
 
     const handleMessageSent = (data) => {
       // You can add logic here to update message status if needed
     };
 
-    // Listen only for messageSent event (no more newMessage here)
+      // Listen for both newMessage and messageSent events
+      socket.on('newMessage', handleNewMessage);
     socket.on('messageSent', handleMessageSent);
 
-    return () => {
-      socket.emit('leaveConversation', conversationId);
-      socket.off('messageSent', handleMessageSent);
+      // Listen for room joined confirmation
+      socket.on('roomJoined', (data) => {
+        // Room joined successfully
+      });
+
+      // Store cleanup function
+      const cleanup = () => {
+        if (socket && socket.connected) {
+          socket.emit('leaveConversation', conversationId);
+          socket.off('newMessage', handleNewMessage);
+          socket.off('messageSent', handleMessageSent);
+          socket.off('roomJoined');
+        }
+      };
+
+      return cleanup;
     };
+
+    const cleanup = setupSocketListeners();
+    return cleanup;
   }, [conversationId, updateConversationLastMessage]);
 
   useEffect(() => {
@@ -208,8 +262,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       createdAt: new Date().toISOString(),
     };
 
-    // Optimistic update
-    setMessages(prev => [...prev, newMessage]);
+    // Don't do optimistic update since server will emit via socket
+    // setMessages(prev => [...prev, newMessage]);
 
     try {
       const response = await sendMessage({
@@ -218,16 +272,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         text
       });
       
-      // Replace temp message with normalized server response
-      const serverMsg = {
-        _id: response.data._id || response.data.id || tempId,
-        text: response.data.text || response.data.content || text,
-        senderId: response.data.senderId || response.data.sender?.id || senderId,
-        createdAt: response.data.createdAt || response.data.timestamp || new Date().toISOString(),
-      };
-      
-      setMessages(prev => prev.map(msg => msg._id === tempId ? serverMsg : msg));
-      // Server will emit the message via socket, no need to emit here
+      console.log('ChatWindow: Message sent successfully, waiting for socket event');
+      // Server will emit the message via socket, no need to add to local state
     } catch (error) {
       console.error('❌ Error sending message:', error);
       // Remove temp message on error
@@ -244,24 +290,29 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   };
 
   const handleBackClick = () => {
+    // Clear current conversation ID when navigating away
+    if (setCurrentConversationId) {
+      setCurrentConversationId(null);
+    }
     if (onBack) {
       onBack();
     }
   };
 
+
   return (
     <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">
       {/* Header - Fixed height with improved styling */}
-      <div className="flex-shrink-0 p-4 bg-white border-b border-[#e5d9c8] shadow-sm flex items-center gap-4 chat-header">
+      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-b border-[#e5d9c8] shadow-sm flex items-center gap-4 chat-header">
         {isMobile && onBack && (
           <button
             onClick={handleBackClick}
-            className="p-2 rounded-xl hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select active:scale-95"
             aria-label="Back to conversations"
           >
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
-              className="h-6 w-6 text-[#2c1810]" 
+              className="h-5 w-5 text-[#2c1810]" 
               viewBox="0 0 20 20" 
               fill="currentColor"
             >
@@ -322,6 +373,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             )}
           </p>
         </div>
+        
       </div>
 
       {/* Messages area - Enhanced styling */}
@@ -399,7 +451,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       </div>
 
       {/* Input area - Enhanced styling */}
-      <div className="flex-shrink-0 p-4 bg-white border-t border-[#e5d9c8] chat-input shadow-sm">
+      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-t border-[#e5d9c8] chat-input shadow-sm">
         <MessageInput 
           onSendMessage={handleSendMessage} 
           className="bg-white border border-[#e5d9c8] rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-[#a07855]/30 focus-within:border-[#a07855]/60 focus-within:shadow-md"

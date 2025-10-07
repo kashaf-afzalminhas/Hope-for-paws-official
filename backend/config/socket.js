@@ -82,7 +82,7 @@ const initSocket = (server) => {
         // Store the new connection
         connectedUsers.set(userId, socket.id);
         console.log(`✅ User ${userId} joined with socket ${socket.id}`);
-        notificationService.addOnlineUser(userId, socket.id);
+        notificationService.addUserSocket(userId, socket.id);
       } catch (error) {
         console.error('❌ Error in join event:', error);
       }
@@ -95,7 +95,7 @@ const initSocket = (server) => {
       for (const [userId, socketId] of connectedUsers.entries()) {
         if (socketId === socket.id) {
           connectedUsers.delete(userId);
-          notificationService.removeOnlineUser(userId);
+          notificationService.removeUserSocket(userId);
           console.log(`👋 User ${userId} disconnected`);
           break;
         }

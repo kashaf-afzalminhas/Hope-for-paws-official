@@ -331,7 +331,15 @@ const Navbar = ({ handleSignOut }) => {
                     }`
                   }
                 >
-                  Inbox
+                  <span className="relative flex items-center">
+                    Inbox
+                    {/* Unread message badge for mobile */}
+                    {unreadCount > 0 && (
+                      <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium animate-pulse flex-shrink-0">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </span>
                 </NavLink>
               </li>
             </ul>

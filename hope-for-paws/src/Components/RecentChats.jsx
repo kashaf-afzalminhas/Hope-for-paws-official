@@ -93,7 +93,6 @@ const RecentChats = ({
 
     // Note: Deduplication is now handled by the parent component (Chat.jsx)
     // This effect only validates that conversations is an array
-    console.log('RecentChats: conversations validated as array, length:', conversations.length);
   }, [conversations]);
 
   // Memoized filtering only (no deduplication)
@@ -185,36 +184,30 @@ const RecentChats = ({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#f5efe6]">
       {/* Header with search and back button */}
-      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea] flex items-center">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f5efe6] flex items-center">
         <button
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            e.target.style.backgroundColor = '#a07855';
-            e.target.style.color = 'white';
-            setTimeout(() => {
-              e.target.style.backgroundColor = '';
-              e.target.style.color = '';
-            }, 200);
             handleBackClick();
           }}
-          className="flex items-center p-2 rounded-xl hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:bg-[#a07855] active:text-white active:scale-95"
+          className="flex items-center p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:scale-95"
           aria-label="Back"
         >
-          <FaChevronLeft className="text-[#6b493d] text-lg" />
+          <FaChevronLeft className="text-[#6b493d] text-sm" />
         </button>
         <div className="flex-1"></div>
       </div>
 
       {/* Header with search */}
-      <div className="flex-shrink-0 p-4 pb-3 bg-[#f8f4ea]">
-        <h2 className="text-[#2c1810] font-semibold text-xl mb-4 px-1">Messages</h2>
+      <div className="flex-shrink-0 p-3 pb-2 bg-[#f5efe6]">
+        <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
         <SearchBar
           onSearch={setSearchQuery}
           placeholder="Search conversations..."
-          className="w-full bg-white border border-[#e5d9c8] rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200"
+          className="w-full bg-white border border-[#e5d9c8] rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200 text-sm"
         />
       </div>
 
@@ -265,16 +258,16 @@ const RecentChats = ({
                   onClick={() => {
                     handleMarkAsRead(conversation._id);
                     markAsRead(conversation._id);
-                    setCurrentConversationId(conversation._id);
+                    // Don't set currentConversationId here - it will be set when the conversation is actually opened
                     onSelectConversation({ ...conversation, user: otherUser });
                   }}
                   className={cn(
-                    "bg-white rounded-xl p-3 transition-all duration-200 cursor-pointer border border-transparent",
-                    "hover:shadow-md hover:border-[#e5d9c8] active:scale-[0.98]",
+                    "bg-white rounded-lg p-3 transition-all duration-200 cursor-pointer border border-[#e5d9c8]/30",
+                    "hover:shadow-md hover:border-[#a07855]/40 hover:bg-[#fff7f0]/50 active:scale-[0.98]",
                     selectedConversationId === conversation._id 
-                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md" 
+                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md border-[#a07855]/40" 
                       : unreadCount > 0 
-                        ? "border-l-4 border-l-[#a07855]/60 bg-[#fff7f0] animate-message-pulse shadow-sm" 
+                        ? "border-l-4 border-l-[#a07855]/60 bg-[#fff7f0] shadow-sm" 
                         : "shadow-sm"
                   )}
                 >

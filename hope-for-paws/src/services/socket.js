@@ -157,7 +157,15 @@ export const initSocket = (userId) => {
   // Enhanced message notification handlers
   socket.on('newMessage', (message) => {
     console.log('💬 Received new message via socket:', message);
-    // This will be handled by MessageContext component
+    console.log('💬 Message details:', {
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      text: message.text,
+      timestamp: message.createdAt
+    });
+    // Note: socket.rooms is server-side only, not available on client
+    console.log('💬 Socket rooms: [Not available on client side]');
+    // This will be handled by MessageContext component and ChatWindow
   });
 
   socket.on('messageSent', (data) => {
@@ -204,7 +212,9 @@ export const initSocket = (userId) => {
 export const getSocket = () => {
   if (!socket) {
     console.warn('⚠️ Socket not initialized. Call initSocket first.');
+    return null;
   }
+  console.log('🔍 getSocket called - socket exists:', !!socket, 'connected:', socket.connected);
   return socket;
 };
 

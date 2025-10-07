@@ -43,17 +43,6 @@ const ChatBubble = ({
           : "text-[#2c1810]/70 justify-start"
       )}>
         <span className="font-medium">{formatMessageTime(timestamp)}</span>
-        {isCurrentUser && (
-          <span className="ml-2">
-            {status === 'read' ? (
-              <span className="text-[#ffd8b8] font-bold">✓✓</span>
-            ) : status === 'delivered' ? (
-              <span className="text-[#ffd8b8]/80">✓✓</span>
-            ) : (
-              <span className="text-[#ffd8b8]/70">✓</span>
-            )}
-          </span>
-        )}
       </div>
     </div>
   </div>

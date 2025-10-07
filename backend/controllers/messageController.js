@@ -3,6 +3,7 @@ const Conversation = require("../models/Conversation");
 const mongoose = require("mongoose");
 
 exports.sendMessage = async (req, res) => {
+  console.log('📨 sendMessage called with:', req.body);
   let { conversationId, senderId, text } = req.body;
 
   if (!conversationId || !senderId || !text) {
@@ -72,16 +73,36 @@ exports.sendMessage = async (req, res) => {
       };
       
       try {
-        // Emit to conversation room for all participants
-        io.to(conversationId.toString()).emit("newMessage", messageData);
-        console.log('✅ Message emitted successfully to conversation room:', conversationId.toString());
-        
-        // Also emit to sender's personal room for confirmation
-        io.to(savedMessage.senderId.toString()).emit("messageSent", {
-          messageId: savedMessage._id,
-          conversationId: conversationId.toString(),
-          status: "sent"
-        });
+        // Get the conversation to find all participants
+        const updatedConversation = await Conversation.findById(conversationId);
+        if (updatedConversation) {
+          console.log('📤 Conversation participants:', updatedConversation.participants);
+          console.log('📤 Total connected sockets:', io.sockets.sockets.size);
+          
+          // Emit to conversation room for all participants
+          const roomSockets = io.sockets.adapter.rooms.get(conversationId.toString());
+          console.log('📤 Sockets in conversation room:', roomSockets ? roomSockets.size : 0);
+          console.log('📤 Room sockets:', roomSockets ? Array.from(roomSockets) : 'No room found');
+          
+          io.to(conversationId.toString()).emit("newMessage", messageData);
+          console.log('✅ Message emitted successfully to conversation room:', conversationId.toString());
+          console.log('✅ Message data:', messageData);
+          
+          // Also emit to each participant's personal room for backup
+          updatedConversation.participants.forEach(participantId => {
+            const participantRoomSockets = io.sockets.adapter.rooms.get(participantId.toString());
+            console.log('📤 Sockets in participant room:', participantId.toString(), participantRoomSockets ? participantRoomSockets.size : 0);
+            io.to(participantId.toString()).emit("newMessage", messageData);
+            console.log('📤 Also emitted to participant room:', participantId.toString());
+          });
+          
+          // Emit confirmation to sender's personal room
+          io.to(savedMessage.senderId.toString()).emit("messageSent", {
+            messageId: savedMessage._id,
+            conversationId: conversationId.toString(),
+            status: "sent"
+          });
+        }
       } catch (emitError) {
         console.error('❌ Error emitting socket event:', emitError);
       }

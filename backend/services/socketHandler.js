@@ -1,7 +1,14 @@
-const notificationService = require('./notificationService');
 const User = require('../models/User');
 
-const socketHandler = (io, socket) => {
+const setupSocketHandlers = (io, socket, notificationService) => {
+  console.log(`🔧 Setting up socket handlers for socket: ${socket.id}, user: ${socket.userId}`);
+  
+  // Test handler to verify socket handlers are working
+  socket.on('testHandler', (data) => {
+    console.log(`🧪 Test handler received:`, data);
+    socket.emit('testHandlerResponse', { received: true, timestamp: new Date().toISOString() });
+  });
+  
   // Handle user connection
   socket.on('join', (userId) => {
     try {
@@ -12,7 +19,7 @@ const socketHandler = (io, socket) => {
       }
       
       // Add user to online users
-      notificationService.addOnlineUser(userId, socket.id);
+      notificationService.addUserSocket(userId, socket.id);
       
       // Join user's personal room
       socket.join(userId);
@@ -32,15 +39,29 @@ const socketHandler = (io, socket) => {
         return;
       }
       
-      console.log(`User ${socket.id} joining conversation room: ${conversationId}`);
+      console.log(`🔗 User ${socket.id} joining conversation room: ${conversationId}`);
+      console.log(`🔗 Socket userId:`, socket.userId);
+      console.log(`🔗 Socket authenticated:`, !!socket.userId);
+      
       socket.join(conversationId.toString());
-      console.log(`User successfully joined conversation room: ${conversationId}`);
+      console.log(`✅ User successfully joined conversation room: ${conversationId}`);
       
       // Log all rooms this socket is in
       const rooms = Array.from(socket.rooms);
-      console.log(`Socket ${socket.id} is now in rooms:`, rooms);
+      console.log(`📋 Socket ${socket.id} is now in rooms:`, rooms);
+      
+      // Verify the room was created and socket is in it
+      const roomSockets = io.sockets.adapter.rooms.get(conversationId.toString());
+      console.log(`📋 Room ${conversationId} now has ${roomSockets ? roomSockets.size : 0} sockets`);
+      
+      // Send confirmation to the client that they successfully joined the room
+      socket.emit('roomJoined', {
+        conversationId: conversationId.toString(),
+        success: true,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
-      console.error('Error joining conversation:', error);
+      console.error('❌ Error joining conversation:', error);
     }
   });
 
@@ -61,13 +82,71 @@ const socketHandler = (io, socket) => {
     }
   });
 
+  // Handle test message
+  socket.on('testMessage', (data) => {
+    try {
+      console.log('🧪 Received test message:', data);
+      const { conversationId, senderId, text } = data;
+      
+      if (!conversationId || !senderId || !text) {
+        console.error('Invalid test message data:', data);
+        return;
+      }
+      
+      // Check if socket is in the conversation room
+      const rooms = Array.from(socket.rooms);
+      console.log('🧪 Socket is in rooms:', rooms);
+      console.log('🧪 Target conversation room:', conversationId.toString());
+      console.log('🧪 Is socket in target room?', rooms.includes(conversationId.toString()));
+      
+      // Echo the test message back to the conversation room
+      const messageData = {
+        _id: 'test-' + Date.now(),
+        conversationId: conversationId.toString(),
+        senderId: senderId.toString(),
+        text: text,
+        createdAt: new Date().toISOString(),
+        isDeleted: false
+      };
+      
+      io.to(conversationId.toString()).emit("newMessage", messageData);
+      console.log('🧪 Test message echoed back to conversation room:', conversationId);
+      
+      // Also check room occupancy
+      const roomSockets = io.sockets.adapter.rooms.get(conversationId.toString());
+      console.log('🧪 Room has', roomSockets ? roomSockets.size : 0, 'sockets');
+    } catch (error) {
+      console.error('Error handling test message:', error);
+    }
+  });
+
+  // Handle debug event to test socket handler registration
+  socket.on('debugSocket', (data) => {
+    try {
+      console.log('🔧 Debug socket event received:', data);
+      console.log('🔧 Socket ID:', socket.id);
+      console.log('🔧 Socket userId:', socket.userId);
+      console.log('🔧 Socket rooms:', Array.from(socket.rooms));
+      
+      // Echo back to confirm the event was received
+      socket.emit('debugSocketResponse', {
+        socketId: socket.id,
+        userId: socket.userId,
+        rooms: Array.from(socket.rooms),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error handling debug socket:', error);
+    }
+  });
+
   // Handle user disconnection
   socket.on('disconnect', () => {
     try {
       // Find and remove user from online users
-      for (const [userId, socketId] of notificationService.onlineUsers.entries()) {
+      for (const [userId, socketId] of notificationService.userSockets.entries()) {
         if (socketId === socket.id) {
-          notificationService.removeOnlineUser(userId);
+          notificationService.removeUserSocket(userId);
           console.log(`User ${userId} disconnected`);
           break;
         }
@@ -293,5 +372,5 @@ const socketHandler = (io, socket) => {
   });
 };
 
-module.exports = socketHandler;
+module.exports = { setupSocketHandlers };
 

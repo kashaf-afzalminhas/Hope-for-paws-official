@@ -72,6 +72,9 @@ const io = new Server(server, {
 // Initialize notification service
 const notificationService = new NotificationService(io);
 
+// Attach Socket.IO instance to Express app so it can be accessed in controllers
+app.set("socketio", io);
+
 // Socket.IO authentication middleware
 io.use((socket, next) => {
   try {
@@ -112,6 +115,10 @@ io.on('connection', (socket) => {
   socket.on('error', (error) => {
     console.error('Socket error for user:', socket.userId, error);
   });
+
+  // Setup socket handlers for chat functionality
+  const { setupSocketHandlers } = require('./services/socketHandler');
+  setupSocketHandlers(io, socket, notificationService);
 });
 
 // Make notification service available globally
