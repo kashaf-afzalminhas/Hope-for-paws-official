@@ -36,32 +36,21 @@ const RandomPopups = () => {
     const timeouts = [];
 
     const checkAndShowPopups = () => {
-      // Check if image popup was dismissed first (image popup should show first)
-      const imagePopupDismissed = sessionStorage.getItem('image_popup_dismissed_session');
+      // Show random popups independently (removed dependency on rabies popups)
+      // Check if first popup was already dismissed in this session
+      const firstPopupDismissed = sessionStorage.getItem('dismissed_message_0');
+      console.log(`First popup dismissed?`, firstPopupDismissed);
       
-      // Check if rabies modal was dismissed
-      const rabiesModalDismissed = sessionStorage.getItem('rabies_modal_dismissed_session');
-      
-      // Show random popups if:
-      // 1. Image popup was dismissed (required for all flows)
-      // 2. AND (Rabies modal was dismissed OR if it's a returning user in the same session)
-      if (imagePopupDismissed && (rabiesModalDismissed || sessionStorage.getItem('dismissed_message_0') || sessionStorage.getItem('dismissed_message_1'))) {
-        // Only show the first popup initially
+      if (!firstPopupDismissed) {
+        // Show first popup after a random delay
+        const delay = Math.random() * 10000 + 3000; // 3s to 13s delay
         const firstPopup = messages[0];
-        const dismissed = sessionStorage.getItem(`dismissed_message_0`);
-        console.log(`First popup dismissed?`, dismissed);
         
-        if (!dismissed) {
-          const delay = rabiesModalDismissed 
-            ? Math.random() * 10000 + 3000  // 3s to 13s delay (shorter since rabies modal was already shown)
-            : Math.random() * 15000 + 5000; // 5s to 20s delay (normal delay for returning users)
-            
-          const timeout = setTimeout(() => {
-            console.log('Showing first popup:', firstPopup);
-            setVisiblePopups([{ ...firstPopup, index: 0 }]);
-          }, delay);
-          return timeout;
-        }
+        const timeout = setTimeout(() => {
+          console.log('Showing first popup:', firstPopup);
+          setVisiblePopups([{ ...firstPopup, index: 0 }]);
+        }, delay);
+        return timeout;
       }
       return null;
     };
@@ -70,34 +59,10 @@ const RandomPopups = () => {
     const timer = checkAndShowPopups();
     if (timer) timeouts.push(timer);
 
-    // Listen for storage changes
-    const handleStorageChange = (e) => {
-      if (e.key === 'rabies_modal_dismissed_session' || e.key === 'image_popup_dismissed_session') {
-        const newTimer = checkAndShowPopups();
-        if (newTimer) timeouts.push(newTimer);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    // Also check periodically in case storage event doesn't fire
-    const intervalId = setInterval(() => {
-      if (sessionStorage.getItem('image_popup_dismissed_session') && 
-          (sessionStorage.getItem('rabies_modal_dismissed_session') || 
-           sessionStorage.getItem('dismissed_message_0') || 
-           sessionStorage.getItem('dismissed_message_1'))) {
-        const newTimer = checkAndShowPopups();
-        if (newTimer) {
-          timeouts.push(newTimer);
-          clearInterval(intervalId);
-        }
-      }
-    }, 500);
+    // No longer need storage listeners since we removed rabies popup dependencies
 
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout));
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(intervalId);
     };
   }, [location.pathname]);
 

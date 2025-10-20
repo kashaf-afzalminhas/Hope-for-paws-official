@@ -435,7 +435,7 @@ const AdoptionList = ({ filter = 'all' }) => {
       {showLoginPrompt && (
         <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
           <p className="mb-2">You need to be logged in to request adoption.</p>
-          <Link to="/login" className="text-[#6b493d] font-medium hover:underline">
+          <Link to="/signin" className="text-[#6b493d] font-medium hover:underline">
             Log in to continue
           </Link>
         </div>

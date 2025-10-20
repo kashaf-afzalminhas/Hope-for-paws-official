@@ -150,8 +150,8 @@ const NotificationsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f3ed] py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-8">
+      <div className="max-w-4xl mx-auto px-2 sm:px-4">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -159,28 +159,32 @@ const NotificationsPage = () => {
               <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-[#6b493d]" />
               <h1 className="text-2xl sm:text-3xl font-bold text-[#6b493d] text-center sm:text-left">Notifications</h1>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-end">
-              {notifications.some(n => !n.read) && (
+            {(() => {
+              const hasUnread = notifications.some(n => !n.read);
+              const multiAction = hasUnread && notifications.length > 0;
+              return (
+                <div className={`${multiAction ? 'grid grid-cols-2 gap-2' : 'flex justify-center'} w-full sm:w-auto sm:flex sm:justify-end sm:gap-2`}>
+              {hasUnread && (
                 <button
                   onClick={handleMarkAllAsRead}
-                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3c32] transition-colors text-sm sm:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[#6b493d] border border-[#6b493d]/30 bg-[#6b493d]/5 rounded-lg hover:bg-[#6b493d]/10 transition-colors text-sm sm:text-base"
                 >
                   <Check className="h-4 w-4" />
-                  <span className="hidden sm:inline">Mark All Read</span>
-                  <span className="sm:hidden">Read All</span>
+                  <span className="truncate">Read All</span>
                 </button>
               )}
               {notifications.length > 0 && (
                 <button
                   onClick={handleDeleteAll}
-                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm sm:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors text-sm sm:text-base"
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Delete All</span>
-                  <span className="sm:hidden">Delete</span>
+                  <span className="truncate">Delete</span>
                 </button>
               )}
-            </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

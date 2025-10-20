@@ -121,7 +121,7 @@ const AdoptionHistory = () => {
         <p>{error}</p>
         {!effectiveUser && (
           <button 
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/signin')}
             className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
           >
             Log In

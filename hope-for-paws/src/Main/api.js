@@ -48,8 +48,8 @@ apiRoutes.interceptors.response.use(
       localStorage.removeItem('user');
       sessionStorage.removeItem('user');
       
-      // Redirect to login page
-      window.location.href = '/login';
+      // Redirect to signin page
+      window.location.href = '/signin';
     }
     return Promise.reject(error);
   }
@@ -84,8 +84,8 @@ authApi.interceptors.response.use(
       localStorage.removeItem('user');
       sessionStorage.removeItem('user');
       
-      // Redirect to login page
-      window.location.href = '/login';
+      // Redirect to signin page
+      window.location.href = '/signin';
     }
     return Promise.reject(error);
   }

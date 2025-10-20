@@ -143,8 +143,8 @@ function App() {
     <>
       {/* <DisclaimerBanner /> */}
         <div className="min-h-screen flex flex-col">
-        <ImagePopupModal />
-        <RabiesAwarenessModal />
+        {/* <ImagePopupModal /> */}
+        {/* <RabiesAwarenessModal /> */}
         <RandomPopups />
         <Navbar handleSignOut={handleSignOut} />
         <div className="flex-1">

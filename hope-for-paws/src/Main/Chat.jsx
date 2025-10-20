@@ -40,6 +40,34 @@ const ChatPage = () => {
   const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
+  
+  // Early return if user data is invalid
+  if (user && !currentUserId) {
+    console.error('Invalid user data - missing ID:', user);
+    return (
+      <div className="flex items-center justify-center h-screen font-body bg-[#fff7f0]">
+        <div className="text-center p-6 max-w-md">
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-16 w-16 text-red-500 mx-auto mb-4" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <h3 className="text-xl font-heading text-[#2c1810] mb-2">Invalid User Data</h3>
+          <p className="font-body text-gray-600 mb-6">Your user data is incomplete. Please log in again.</p>
+          <a 
+            href="/signin" 
+            className="px-6 py-2 bg-[#a07855] text-[#ffd8b8] rounded-full hover:bg-[#8a6a4d] transition-colors"
+          >
+            Sign In Again
+          </a>
+        </div>
+      </div>
+    );
+  }
   const { recipientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -184,27 +212,21 @@ const addUserToCache = useCallback((user) => {
     }
   }, [location.pathname, recipientId, isMobile]);
 
-  // Debug logging
-  console.log('ChatPage render:', {
-    isAuthenticated,
-    currentUserId,
-    isLoadingUsers,
-    usersCount: users.length,
-    user: user ? { id: user.id, _id: user._id, username: user.username } : null,
-    error,
-    userObjectKeys: user ? Object.keys(user) : null,
-    finalUserId: user?.id || user?._id,
-    userObjectFull: user
-  });
-
-  // Check if user object has required fields
+  // Debug logging (only when there's an error or loading state changes)
   useEffect(() => {
-    if (user && !user.id) {
-      console.error('User object missing id field:', user);
-      console.log('Available fields in user object:', Object.keys(user));
-      setError('User data is incomplete. Please log in again.');
+    if (error || isLoadingUsers) {
+      console.log('ChatPage state:', {
+        isAuthenticated,
+        currentUserId,
+        isLoadingUsers,
+        error,
+        hasUser: !!user,
+        userHasId: !!(user?._id || user?.id)
+      });
     }
-  }, [user]);
+  }, [error, isLoadingUsers, isAuthenticated, currentUserId, user]);
+
+  // User validation is now handled with early return above
 
   // Initialize socket when user is authenticated
   useEffect(() => {
@@ -295,10 +317,10 @@ const addUserToCache = useCallback((user) => {
     };
   }, []);
 
-  // Add error recovery effect
+  // Add error recovery effect - only clear error if it's not a critical error
   useEffect(() => {
-    if (error && conversations && Array.isArray(conversations) && conversations.length > 0) {
-      // If we have conversations but there's an error, clear the error
+    if (error && error !== 'User data is incomplete. Please log in again.' && conversations && Array.isArray(conversations) && conversations.length > 0) {
+      // If we have conversations but there's an error (not user data error), clear the error
       console.log('Clearing error because conversations are available');
       setError(null);
     }
