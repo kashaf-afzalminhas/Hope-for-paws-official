@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const activityTracker = require('./activityTracker');
 
 const setupSocketHandlers = (io, socket, notificationService) => {
   console.log(`🔧 Setting up socket handlers for socket: ${socket.id}, user: ${socket.userId}`);
@@ -10,7 +11,7 @@ const setupSocketHandlers = (io, socket, notificationService) => {
   });
   
   // Handle user connection
-  socket.on('join', (userId) => {
+  socket.on('join', async (userId) => {
     try {
       // Validate userId
       if (!userId || typeof userId !== 'string') {
@@ -18,8 +19,8 @@ const setupSocketHandlers = (io, socket, notificationService) => {
         return;
       }
       
-      // Add user to online users
-      notificationService.addUserSocket(userId, socket.id);
+      // Add user to online users and track activity
+      await notificationService.addUserSocket(userId, socket.id);
       
       // Join user's personal room
       socket.join(userId);
@@ -27,6 +28,17 @@ const setupSocketHandlers = (io, socket, notificationService) => {
       console.log(`User ${userId} joined with socket ${socket.id}`);
     } catch (error) {
       console.error('Error in join:', error);
+    }
+  });
+
+  // Handle user heartbeat for activity tracking
+  socket.on('heartbeat', async (userId) => {
+    if (userId && typeof userId === 'string') {
+      try {
+        await notificationService.trackUserHeartbeat(userId);
+      } catch (error) {
+        console.error('Error in heartbeat:', error);
+      }
     }
   });
 

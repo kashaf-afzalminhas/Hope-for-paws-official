@@ -54,6 +54,9 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
+    lastChatEmailSentAt: {
+      type: Date
+    },
     isAdmin: {
       type: Boolean,
       default: false

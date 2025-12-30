@@ -18,6 +18,8 @@ const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const notificationRoutes = require('./routes/notifications');
+const notificationStatsRoutes = require('./routes/notificationStats');
+const { initChatReminderWorker } = require('./queues/chatEmailQueue');
 const rateLimit = require('express-rate-limit');
 const messageRoutes = require('./routes/message');
 const conversationRoutes = require('./routes/conversation');
@@ -101,15 +103,17 @@ io.use((socket, next) => {
 });
 
 // Socket.IO connection handling
-io.on('connection', (socket) => {
+initChatReminderWorker(notificationService);
+
+io.on('connection', async (socket) => {
   console.log('User connected via Socket.IO:', socket.userId);
   
   // Add user to notification service
-  notificationService.addUserSocket(socket.userId, socket.id);
+  await notificationService.addUserSocket(socket.userId, socket.id);
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', async (reason) => {
     console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
-    notificationService.removeUserSocket(socket.userId);
+    await notificationService.removeUserSocket(socket.userId);
   });
 
   socket.on('error', (error) => {
@@ -123,6 +127,7 @@ io.on('connection', (socket) => {
 
 // Make notification service available globally
 global.notificationService = notificationService;
+app.set('notificationService', notificationService);
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -229,6 +234,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/notification-stats', notificationStatsRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
 app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);

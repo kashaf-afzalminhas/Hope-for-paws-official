@@ -3,6 +3,9 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Adoption = require('../models/adoptionModel');
 const nodemailer = require('nodemailer');
+const config = require('../config/notificationConfig');
+const activityTracker = require('./activityTracker');
+const { scheduleChatReminder } = require('../queues/chatEmailQueue');
 
 class NotificationService {
   constructor(io) {
@@ -20,18 +23,60 @@ class NotificationService {
   }
 
   // Store user socket connection
-  addUserSocket(userId, socketId) {
+  async addUserSocket(userId, socketId) {
     this.userSockets.set(userId.toString(), socketId);
+    activityTracker.trackUserConnect(userId);
+    try {
+      await User.findByIdAndUpdate(
+        userId,
+        {
+          status: 'online',
+          lastActive: new Date()
+        },
+        { new: false }
+      );
+    } catch (error) {
+      console.warn('Failed to update user activity on connect:', error.message);
+    }
   }
 
   // Remove user socket connection
-  removeUserSocket(userId) {
+  async removeUserSocket(userId) {
     this.userSockets.delete(userId.toString());
+    activityTracker.trackUserDisconnect(userId);
+    try {
+      await User.findByIdAndUpdate(
+        userId,
+        { status: 'offline' },
+        { new: false }
+      );
+    } catch (error) {
+      console.warn('Failed to update user status on disconnect:', error.message);
+    }
+  }
+
+  // Track user heartbeat
+  async trackUserHeartbeat(userId) {
+    activityTracker.trackUserHeartbeat(userId);
+    try {
+      await User.findByIdAndUpdate(
+        userId,
+        { lastActive: new Date() },
+        { new: false }
+      );
+    } catch (error) {
+      console.warn('Failed to persist user heartbeat:', error.message);
+    }
   }
 
   // Get socket ID for a user
   getUserSocket(userId) {
     return this.userSockets.get(userId.toString());
+  }
+
+  // Backward-compatible alias used in some handlers
+  getUserSocketId(userId) {
+    return this.getUserSocket(userId);
   }
 
   // Send real-time notification
@@ -43,13 +88,16 @@ class NotificationService {
   }
 
   // Create and send notification
-  async createNotification(notificationData) {
+  async createNotification(notificationData, { sendEmail = true } = {}) {
     try {
-      const notification = new Notification(notificationData);
+      const data = { ...notificationData };
+      delete data.sendEmail; // safeguard
+
+      const notification = new Notification(data);
       await notification.save();
 
       // Send real-time notification
-      await this.sendRealTimeNotification(notificationData.recipient, {
+      await this.sendRealTimeNotification(notification.recipient, {
         id: notification._id,
         type: notification.type,
         title: notification.title,
@@ -59,8 +107,8 @@ class NotificationService {
         read: notification.read
       });
 
-      // Send email notification if not already sent
-      if (!notification.emailSent) {
+      // Send email notification if explicitly allowed
+      if (sendEmail && !notification.emailSent) {
         await this.sendEmailNotification(notification);
       }
 
@@ -77,6 +125,9 @@ class NotificationService {
       const recipient = await User.findById(notification.recipient);
       if (!recipient || !recipient.email) {
         console.log('No recipient or email found for notification:', notification._id);
+        return;
+      }
+      if (notification.type === 'chat_message') {
         return;
       }
 
@@ -243,6 +294,115 @@ class NotificationService {
     } catch (error) {
       console.error('Error notifying vets about new post:', error);
     }
+  }
+
+  // Enhanced notification for chat message with delayed email digest reminders
+  async notifyChatMessage(conversationId, messageId, senderId, messageText, recipientId) {
+    try {
+      const sender = await User.findById(senderId);
+      const recipient = await User.findById(recipientId);
+      
+      if (!sender || !recipient) {
+        console.log('Sender or recipient not found for chat message notification');
+        return;
+      }
+
+      // Don't notify if user is messaging themselves
+      if (senderId.toString() === recipientId.toString()) {
+        return;
+      }
+
+      // Always create in-app notification
+      await this.createNotification(
+        {
+          recipient: recipientId,
+          sender: senderId,
+          type: 'chat_message',
+          title: `New message from ${sender.username}`,
+          message: `"${messageText.length > config.MAX_MESSAGE_PREVIEW_LENGTH ? messageText.substring(0, config.MAX_MESSAGE_PREVIEW_LENGTH) + '...' : messageText}"`,
+          data: {
+            conversationId,
+            messageId
+          }
+        },
+        { sendEmail: false }
+      );
+
+      await scheduleChatReminder(recipientId);
+      if (config.DEBUG_NOTIFICATIONS) {
+        console.log(`⏰ Scheduled chat reminder job for user ${recipientId}`);
+      }
+
+    } catch (error) {
+      console.error('Error notifying chat message:', error);
+    }
+  }
+
+  async sendChatDigestEmail({ recipient, totalMessages, uniqueSenderNames, conversationCount, previewMessages }) {
+    if (!recipient?.email) {
+      console.log('No recipient email provided for chat digest');
+      return;
+    }
+
+    const senderSummary =
+      uniqueSenderNames.length === 1
+        ? uniqueSenderNames[0]
+        : `${uniqueSenderNames.length} contacts`;
+
+    const subject =
+      totalMessages === 1
+        ? `New message from ${senderSummary} - Hope for Paws`
+        : `You have ${totalMessages} new messages - Hope for Paws`;
+
+    const previewHtml = previewMessages
+      .map(
+        (msg) => `
+        <div style="margin-bottom: 12px; padding: 12px; background-color: #ffffff; border-radius: 10px; border-left: 4px solid #6b493d;">
+          <p style="margin: 0; font-weight: bold; color: #6b493d;">${msg.senderName}</p>
+          <p style="margin: 6px 0 0 0; color: #333; line-height: 1.6;">${msg.text}</p>
+        </div>
+      `
+      )
+      .join('');
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: recipient.email,
+      subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+          <div style="background-color: #6b493d; color: white; padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Hope for Paws</h1>
+            <p style="margin: 6px 0 0 0; opacity: 0.9;">You have new messages waiting</p>
+          </div>
+          <div style="padding: 24px; background-color: #f9f9f9; border-radius: 0 0 12px 12px;">
+            <p style="color: #333; line-height: 1.6;">
+              You have <strong>${totalMessages} unread message${totalMessages === 1 ? '' : 's'}</strong> from <strong>${uniqueSenderNames.length} contact${uniqueSenderNames.length === 1 ? '' : 's'}</strong> across <strong>${conversationCount} conversation${conversationCount === 1 ? '' : 's'}</strong>.
+            </p>
+            <div style="margin-top: 24px;">
+              ${previewHtml}
+            </div>
+            <div style="text-align: center; margin: 30px 0 10px;">
+              <a href="${process.env.FRONTEND_URL || 'https://hope-for-paws-official.vercel.app'}/chat"
+                 style="background-color: #6b493d; color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; display: inline-block; font-weight: bold;">
+                Open Chat
+              </a>
+            </div>
+            <p style="margin: 0; color: #666; font-size: 13px; text-align: center;">
+              We'll only email you if you miss messages for a while.
+            </p>
+          </div>
+          <div style="background-color: #f5f3ed; padding: 16px; text-align: center; color: #666; font-size: 12px; border-radius: 0 0 12px 12px;">
+            <p>© 2024 Hope for Paws. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    };
+
+    await this.transporter.sendMail(mailOptions);
+    console.log(
+      `Chat digest email sent to ${recipient.email} (${totalMessages} messages from ${uniqueSenderNames.length} senders)`
+    );
   }
 
   // Get user notifications

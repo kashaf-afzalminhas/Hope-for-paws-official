@@ -1,6 +1,7 @@
 const Message = require("../models/message");
 const Conversation = require("../models/Conversation");
 const mongoose = require("mongoose");
+const NotificationService = require("../services/notificationService");
 
 exports.sendMessage = async (req, res) => {
   console.log('📨 sendMessage called with:', req.body);
@@ -101,6 +102,26 @@ exports.sendMessage = async (req, res) => {
             messageId: savedMessage._id,
             conversationId: conversationId.toString(),
             status: "sent"
+          });
+
+          // Send email notifications to other participants
+          const notificationServiceInstance =
+            global.notificationService || new NotificationService(io);
+          updatedConversation.participants.forEach(async (participantId) => {
+            if (participantId.toString() !== senderId.toString()) {
+              try {
+                await notificationServiceInstance.notifyChatMessage(
+                  conversationId,
+                  savedMessage._id,
+                  senderId,
+                  text,
+                  participantId
+                );
+                console.log('📧 Email notification sent to participant:', participantId);
+              } catch (notificationError) {
+                console.error('❌ Error sending chat notification:', notificationError);
+              }
+            }
           });
         }
       } catch (emitError) {

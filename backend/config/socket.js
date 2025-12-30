@@ -58,7 +58,7 @@ const initSocket = (server) => {
     console.log("🟢 New Socket Connected:", socket.id);
 
     // Handle user joining
-    socket.on('join', (userId) => {
+    socket.on('join', async (userId) => {
       try {
         // Validate userId
         if (!userId || typeof userId !== 'string') {
@@ -82,20 +82,20 @@ const initSocket = (server) => {
         // Store the new connection
         connectedUsers.set(userId, socket.id);
         console.log(`✅ User ${userId} joined with socket ${socket.id}`);
-        notificationService.addUserSocket(userId, socket.id);
+        await notificationService.addUserSocket(userId, socket.id);
       } catch (error) {
         console.error('❌ Error in join event:', error);
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log("🔴 Socket Disconnected:", socket.id);
       
       // Find and remove user from connected users
       for (const [userId, socketId] of connectedUsers.entries()) {
         if (socketId === socket.id) {
           connectedUsers.delete(userId);
-          notificationService.removeUserSocket(userId);
+          await notificationService.removeUserSocket(userId);
           console.log(`👋 User ${userId} disconnected`);
           break;
         }
