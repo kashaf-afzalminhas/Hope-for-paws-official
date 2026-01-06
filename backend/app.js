@@ -69,6 +69,8 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e6
 });
 
+console.log('Socket.IO server initialized');
+
 // Initialize notification service
 const notificationService = new NotificationService(io);
 
@@ -276,6 +278,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('Socket.IO server initialized');
+});
 
 

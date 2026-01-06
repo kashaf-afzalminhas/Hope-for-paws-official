@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { FaUser, FaPaw, FaTimes } from 'react-icons/fa';
+import { FaUser, FaPaw, FaTimes, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';  
 import { useMessages } from '../context/MessageContext';
+import { useCart } from '../context/CartContext';
 
 const Navbar = ({ handleSignOut }) => {
   const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
   const { unreadCount } = useMessages();
+  const { getCartItemCount } = useCart();
+  const cartItemCount = getCartItemCount();
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -51,6 +54,14 @@ const Navbar = ({ handleSignOut }) => {
                 {user.username}
               </span>
               <NotificationIcon />
+              <NavLink to="/cart" className="relative">
+                <FaShoppingCart className="text-xl sm:text-2xl text-[#a07855]" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-[#8B5A2B] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {cartItemCount > 9 ? '9+' : cartItemCount}
+                  </span>
+                )}
+              </NavLink>
               <NavLink to="/profile">
                 <button 
                   onClick={toggleProfile}
@@ -134,6 +145,19 @@ const Navbar = ({ handleSignOut }) => {
                 </span>
               </NavLink>
             </li>
+            <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
+              <NavLink to="/cart" className={({ isActive }) => isActive ? activeStyle : ''}>
+                <span className="relative flex items-center gap-2">
+                  <FaShoppingCart />
+                  <span>Cart</span>
+                  {cartItemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#8B5A2B] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {cartItemCount > 9 ? '9+' : cartItemCount}
+                    </span>
+                  )}
+                </span>
+              </NavLink>
+            </li>
           </ul>
 
           {/* Desktop User Actions Section */}
@@ -144,6 +168,14 @@ const Navbar = ({ handleSignOut }) => {
                   Welcome {user.username}
                 </span>
                 <NotificationIcon />
+                <NavLink to="/cart" className="relative">
+                  <FaShoppingCart className="text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
+                  {cartItemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#8B5A2B] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {cartItemCount > 9 ? '9+' : cartItemCount}
+                    </span>
+                  )}
+                </NavLink>
                 <div
                   className="relative"
                   onMouseEnter={handleMouseEnter}
@@ -332,6 +364,29 @@ const Navbar = ({ handleSignOut }) => {
                   }
                 >
                   Inbox
+                </NavLink>
+              </li>
+              <li>
+                <NavLink 
+                  to="/cart" 
+                  onClick={closeMobileMenu} 
+                  className={({ isActive }) => 
+                    `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base relative ${
+                      isActive 
+                        ? 'bg-[#a07855] text-white shadow-md' 
+                        : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
+                    }`
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <FaShoppingCart />
+                    <span>Cart</span>
+                    {cartItemCount > 0 && (
+                      <span className="bg-[#8B5A2B] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                        {cartItemCount > 9 ? '9+' : cartItemCount}
+                      </span>
+                    )}
+                  </span>
                 </NavLink>
               </li>
             </ul>
