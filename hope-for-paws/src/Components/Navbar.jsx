@@ -121,6 +121,16 @@ const Navbar = ({ handleSignOut }) => {
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/faq" className={({ isActive }) => isActive ? activeStyle : ''}>FAQ's</NavLink>
             </li>
+            {user && !user.isAdmin && (
+              <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
+                <NavLink 
+                  to={user.isSeller ? "/seller/dashboard" : "/seller/register"} 
+                  className={({ isActive }) => isActive ? activeStyle : ''}
+                >
+                  {user.isSeller ? 'Seller Dashboard' : 'Become a Seller'}
+                </NavLink>
+              </li>
+            )}
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/chat" className={({ isActive }) => isActive ? activeStyle : ''}>
                 <span className="relative">
@@ -319,6 +329,23 @@ const Navbar = ({ handleSignOut }) => {
                   FAQ's
                 </NavLink>
               </li>
+              {user && !user.isAdmin && (
+                <li>
+                  <NavLink 
+                    to={user.isSeller ? "/seller/dashboard" : "/seller/register"} 
+                    onClick={closeMobileMenu} 
+                    className={({ isActive }) => 
+                      `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base ${
+                        isActive 
+                          ? 'bg-[#a07855] text-white shadow-md' 
+                          : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
+                      }`
+                    }
+                  >
+                    {user.isSeller ? 'Seller Dashboard' : 'Become a Seller'}
+                  </NavLink>
+                </li>
+              )}
               <li>
                 <NavLink 
                   to="/chat" 

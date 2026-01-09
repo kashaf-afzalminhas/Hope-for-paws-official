@@ -290,6 +290,8 @@ const AdminDashboardRoutes = () => {
 
 import ChatPage from './Main/Chat.jsx';
 import PublicProfilePage from './Main/PublicProfilePage';
+import SellerRegistration from './Main/SellerRegistration';
+import SellerDashboard from './Main/SellerDashboard';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -318,6 +320,9 @@ const router = createBrowserRouter(
       <Route path="/verify-registration" element={<VerifyRegistration />} />
       <Route path="chat/:recipientId?" element={<ChatPage />} />
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
+      {/* Seller Routes */}
+      <Route path="/seller/register" element={<SellerRegistration />} />
+      <Route path="/seller/dashboard" element={<SellerDashboard />} />
     </Route>
   )
 );
