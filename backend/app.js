@@ -1,9 +1,11 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+//const dotenv = require('dotenv');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
+//const path = require('path');
 const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -27,7 +29,7 @@ const adminRoutes = require('./routes/adminRoutes');
 // Import notification service
 const NotificationService = require('./services/notificationService');
 
-dotenv.config();
+//dotenv.config();
 console.log('MONGO_URI:', process.env.MONGO_URI);
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {

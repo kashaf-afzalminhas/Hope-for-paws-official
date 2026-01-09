@@ -77,11 +77,14 @@ import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
 import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
 import { MessageProvider } from './context/MessageContext'; // Import MessageProvider
+import { CartProvider } from './context/CartContext'; // Import CartProvider
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
 
 // Import all your routes
+import CartPage from './Main/CartPage';
+import CheckoutPage from './Main/CheckoutPage';
 import Postpages from './Main/Postnew.jsx';
 import Home from './Components/Home';
 import ContactUs from './Main/ContactUs';
@@ -314,6 +317,8 @@ const router = createBrowserRouter(
       <Route path="/my-posts" element={<MyPosts />} />
       <Route path="/team" element={<FullTeamPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
+      <Route path="/cart" element={<CartPage />} />
+      <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
       <Route path="chat/:recipientId?" element={<ChatPage />} />
@@ -327,7 +332,9 @@ const AppWithProviders = () => (
     <AdoptionProvider>
       <NotificationProvider>
         <MessageProvider>
-          <RouterProvider router={router} />
+           <CartProvider> 
+            <RouterProvider router={router} />
+          </CartProvider> 
         </MessageProvider>
       </NotificationProvider>
     </AdoptionProvider>
