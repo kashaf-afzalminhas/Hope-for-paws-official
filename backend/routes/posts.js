@@ -29,10 +29,13 @@ const upload = multer({ storage });
 // Get all posts
 router.get('/', async (req, res) => {
   try {
+    console.log('Fetching posts...');
     const posts = await Post.find()
       .populate('userId', 'username isVeterinarian')
       .sort({ createdAt: -1 });
 
+    console.log('Posts fetched:', posts.length);
+    
     // Fetch and populate comments for each post
     const postsWithComments = await Promise.all(
       posts.map(async (post) => {
@@ -48,10 +51,13 @@ router.get('/', async (req, res) => {
       })
     );
 
+    console.log('Posts with comments prepared successfully');
     res.json(postsWithComments);
   } catch (error) {
     console.error('Error fetching posts:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

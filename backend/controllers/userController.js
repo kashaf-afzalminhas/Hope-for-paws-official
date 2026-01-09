@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const TempUser = require('../models/TempUser');
+const Seller = require('../models/Seller');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -39,12 +40,29 @@ const ADMIN_EMAILS = [
 ];
 
 const signUp = async (req, res) => {
-  const { username, email, password, isVeterinarian, phone } = req.body;
-  console.log('Received signup request:', { username, email, isVeterinarian, phone });
+  const { username, email, password, isVeterinarian, phone, userType, sellerName, cnic, location } = req.body;
+  console.log('Received signup request:', { username, email, isVeterinarian, phone, userType });
 
+  // Validate userType
+  if (userType && !['user', 'seller'].includes(userType)) {
+    return res.status(400).json({ message: 'userType must be either "user" or "seller"' });
+  }
+
+  const finalUserType = userType || 'user';
+
+  // Basic required fields for all users
   if (!username || !email || !password || !phone) {
     console.warn('Missing required fields');
     return res.status(400).json({ message: 'All fields (username, email, password, phone) are required' });
+  }
+
+  // If userType is 'seller', validate seller-specific fields
+  if (finalUserType === 'seller') {
+    if (!sellerName || !cnic || !location) {
+      return res.status(400).json({ 
+        message: 'For seller registration, sellerName, cnic, and location are required' 
+      });
+    }
   }
 
   // Validate international phone number format
@@ -79,6 +97,19 @@ const signUp = async (req, res) => {
       existingTempUser.password = await bcrypt.hash(password, 10);
       existingTempUser.isVeterinarian = isVeterinarian || false;
       existingTempUser.phone = phone;
+      existingTempUser.userType = finalUserType;
+      
+      // Update seller fields based on userType
+      if (finalUserType === 'seller') {
+        existingTempUser.sellerName = sellerName;
+        existingTempUser.cnic = cnic;
+        existingTempUser.location = location;
+      } else {
+        // Clear seller fields if switching to regular user
+        existingTempUser.sellerName = undefined;
+        existingTempUser.cnic = undefined;
+        existingTempUser.location = undefined;
+      }
       
       const otp = crypto.randomBytes(3).toString('hex');
       existingTempUser.verificationCode = otp;
@@ -105,15 +136,25 @@ const signUp = async (req, res) => {
     const otp = crypto.randomBytes(3).toString('hex');
     console.log('🔢 Generated OTP:', otp);
 
-    const tempUser = new TempUser({
+    const tempUserData = {
       username,
       email,
       password: hashedPassword,
       isVeterinarian: isVeterinarian || false,
       phone,
+      userType: finalUserType,
       verificationCode: otp,
       verificationCodeExpires: Date.now() + 2 * 60 * 1000,
-    });
+    };
+
+    // Add seller fields only if userType is 'seller'
+    if (finalUserType === 'seller') {
+      tempUserData.sellerName = sellerName;
+      tempUserData.cnic = cnic;
+      tempUserData.location = location;
+    }
+
+    const tempUser = new TempUser(tempUserData);
 
     await tempUser.save();
     console.log('✅ Temporary user created successfully:', { email, tempUserId: tempUser._id, expiry: tempUser.verificationCodeExpires });
@@ -129,7 +170,16 @@ const signUp = async (req, res) => {
     res.status(201).json({ message: 'OTP code sent to your email. Please verify to complete registration.' });
   } catch (error) {
     console.error('❌ Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      name: error.name,
+      code: error.code
+    });
+    res.status(500).json({ 
+      message: 'Server error during registration',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -172,8 +222,38 @@ const verifyRegistrationOTP = async (req, res) => {
       phoneVerified: true, // Phone is verified during signup process
     });
 
+    // If userType is 'seller', set seller flags
+    if (tempUser.userType === 'seller' && tempUser.sellerName && tempUser.cnic && tempUser.location) {
+      newUser.isSeller = true;
+      newUser.sellerStatus = 'pending';
+      newUser.canBuy = false;
+    }
+
     await newUser.save();
-    console.log('✅ New user created successfully:', { email, userId: newUser._id });
+    console.log('✅ New user created successfully:', { email, userId: newUser._id, userType: tempUser.userType || 'user' });
+
+    // If userType is 'seller', create seller profile
+    if (tempUser.userType === 'seller' && tempUser.sellerName && tempUser.cnic && tempUser.location) {
+      try {
+        const seller = await Seller.create({
+          userId: newUser._id,
+          name: tempUser.sellerName,
+          email: tempUser.email,
+          cnic: tempUser.cnic,
+          location: tempUser.location,
+          status: 'pending'
+        });
+        console.log('✅ Seller profile created successfully:', { sellerId: seller._id });
+      } catch (sellerError) {
+        console.error('❌ Error creating seller profile:', sellerError);
+        console.error('❌ Seller error details:', {
+          message: sellerError.message,
+          name: sellerError.name,
+          code: sellerError.code
+        });
+        // Continue even if seller creation fails - user is still created
+      }
+    }
 
     await TempUser.deleteOne({ email });
     console.log('🗑️ Temporary user deleted after successful verification:', { email, tempUserId: tempUser._id });
@@ -196,6 +276,9 @@ const verifyRegistrationOTP = async (req, res) => {
         phone: newUser.phone,
         phoneVerified: newUser.phoneVerified,
         isVeterinarian: newUser.isVeterinarian,
+        isSeller: newUser.isSeller || false,
+        sellerStatus: newUser.sellerStatus || null,
+        canBuy: newUser.canBuy !== undefined ? newUser.canBuy : true,
       },
     });
   } catch (error) {
@@ -312,6 +395,9 @@ const signIn = async (req, res) => {
         about: user.about,
         isVeterinarian: user.isVeterinarian,
         isAdmin: user.isAdmin,
+        isSeller: user.isSeller || false,
+        sellerStatus: user.sellerStatus || null,
+        canBuy: user.canBuy !== undefined ? user.canBuy : true,
       },
     });
   } catch (error) {
@@ -566,10 +652,24 @@ googleLogins = async (req, res) => {
 // New controller for completing Google registration
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian } = req.body;
+    const { email, username, isVeterinarian, userType, sellerName, cnic, location } = req.body;
     if (!email || !username || typeof isVeterinarian !== 'boolean') {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+    
+    // Validate seller fields if userType is seller
+    const isSeller = userType === 'seller';
+    if (isSeller) {
+      if (!sellerName || !cnic || !location) {
+        return res.status(400).json({ message: 'Seller name, CNIC, and location are required for seller registration' });
+      }
+      // Validate CNIC format
+      const cnicRegex = /^[0-9]{5}-[0-9]{7}-[0-9]$/;
+      if (!cnicRegex.test(cnic)) {
+        return res.status(400).json({ message: 'Invalid CNIC format. Expected format: 12345-1234567-1' });
+      }
+    }
+    
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
@@ -581,11 +681,25 @@ const completeGoogleRegistration = async (req, res) => {
       email,
       password: hashedPassword,
       isVeterinarian,
+      isSeller,
       phone: "", // Empty phone for Google users
       phoneVerified: false, // Google users need to add phone later
     });
+    
+    // Create seller record if registering as seller
+    if (isSeller) {
+      await Seller.create({
+        user: user._id,
+        name: sellerName,
+        email: email,
+        cnic: cnic,
+        location: location,
+        status: 'pending'
+      });
+    }
+    
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -601,6 +715,7 @@ const completeGoogleRegistration = async (req, res) => {
         city: user.city,
         about: user.about,
         isVeterinarian: user.isVeterinarian,
+        isSeller: user.isSeller,
       },
     });
   } catch (error) {
@@ -883,9 +998,18 @@ const getUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    let userData = user.toObject();
+
+    if (user.isSeller) {
+      const seller = await Seller.findOne({ userId: user._id });
+      if (seller) {
+        userData.sellerDetails = seller;
+      }
+    }
+
     res.json({ 
       success: true,
-      data: user
+      data: userData
     });
   } catch (err) {
     console.error('Error in getUserProfile:', err);

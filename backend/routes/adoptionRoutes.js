@@ -77,14 +77,18 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 // Get all adoption posts
 router.get('/', async (req, res) => {
   try {
+    console.log('Fetching adoption posts...');
     // Remove the status filter to show all posts
     const adoptionPosts = await Adoption.find()
       .populate('userId', 'username')
       .sort({ createdAt: -1 });
+    console.log('Adoption posts fetched successfully:', adoptionPosts.length);
     res.json(adoptionPosts);
   } catch (error) {
     console.error('Error fetching adoption posts:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
