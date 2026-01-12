@@ -136,10 +136,10 @@ const AdminDashboardRoutes = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    // if (!admin || !admin.isAdmin) {
-    //   navigate('/');
-    //   return;
-    // }
+    if (!admin || !admin.isAdmin) {
+      navigate('/');
+      return;
+    }
     
     // Use the new bulk API endpoint
     fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
