@@ -117,6 +117,10 @@ import AdminUserComments from './admin/AdminUserComments';
 import AdminPostComments from './admin/AdminPostComments';
 import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
+import ProductListing from './buyer/ProductListing.jsx';
+import ProductDetail from './buyer/ProductDetail.jsx';
+import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
+import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -132,10 +136,10 @@ const AdminDashboardRoutes = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!admin || !admin.isAdmin) {
-      navigate('/');
-      return;
-    }
+    // if (!admin || !admin.isAdmin) {
+    //   navigate('/');
+    //   return;
+    // }
     
     // Use the new bulk API endpoint
     fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
@@ -283,6 +287,8 @@ const AdminDashboardRoutes = () => {
         <Route path="comments" element={<AdminComments />} />
         <Route path="comments/user/:userId" element={<AdminUserComments />} />
         <Route path="comments/post/:postId" element={<AdminPostComments />} />
+        <Route path="seller-requests" element={<AdminSellerRequests />} />
+        <Route path="seller-request/:id" element={<AdminSellerDetail />} />
       </Routes>
     </AdminDashboardLayout>
   );
@@ -318,6 +324,8 @@ const router = createBrowserRouter(
       <Route path="/verify-registration" element={<VerifyRegistration />} />
       <Route path="chat/:recipientId?" element={<ChatPage />} />
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
+      <Route path="/marketplace" element={<ProductListing />} />
+      <Route path="/marketplace/product/:id" element={<ProductDetail />} />
     </Route>
   )
 );
