@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaChevronLeft } from 'react-icons/fa';
-import { getUserConversations } from '../Main/api';
+import { getUserConversations, markConversationAsRead, debugToken } from '../Main/api';
 import UserCard from './UserCard';
 import SearchBar from './SearchBar';
 import { format } from 'date-fns';
 import { getSocket } from '../services/socket';
 import { cn } from '../lib/utils';
+import { useSwipeable } from 'react-swipeable';
+import { useMessages } from '../context/MessageContext';
 
 const RecentChats = ({
   currentUserId,
@@ -15,169 +17,215 @@ const RecentChats = ({
   users,
   conversations,
   setConversations,
-  onBackToSidebar, // <-- Add this prop
+  onBackToSidebar,
+  addToast,
+  getUserFromCache,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const location = useLocation();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [swipingId, setSwipingId] = useState(null);
+  const { markAsRead, setCurrentConversationId } = useMessages();
+  
+  // Function to handle marking conversation as read
+  const handleMarkAsRead = async (conversationId) => {
+    try {
+      debugToken();
+      
+      const result = await markConversationAsRead(conversationId);
+      
+      if (result?.data?.modifiedCount > 0) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refreshConversations'));
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error marking conversation as read:", error);
+    }
+  };
 
+  const [audio] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const audio = new Audio();
+      audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
+      audio.volume = 0.3;
+      return audio;
+    }
+    return null;
+  });
+
+  // Socket event listeners for real-time updates - REMOVED
+  // MessageContext now handles all socket events centrally
+  
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    const handleResize = () => {
+      const newIsMobile = window.innerWidth <= 768;
+      setIsMobile(newIsMobile);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Memoized deduplication and filtering
-  const { filteredForDisplay, uniqueConversations } = useMemo(() => {
-    // First deduplicate by ID
-    const dedupeById = (arr) => {
-      const map = new Map();
-      arr.forEach(item => item?._id && map.set(item._id, item));
-      return Array.from(map.values());
-    };
+  // Enhanced user lookup function that uses cache
+  const getUserById = useCallback((userId) => {
+    if (getUserFromCache) {
+      const cachedUser = getUserFromCache(userId);
+      if (cachedUser) return cachedUser;
+    }
+    
+    const user = users.find(u => u._id === userId);
+    if (user) return user;
+    
+    return { username: 'Unknown', _id: userId };
+  }, [users, getUserFromCache]);
 
-    // Then deduplicate by participants
-    const dedupeByParticipants = (arr) => {
-      const map = new Map();
-      arr.forEach(item => {
-        if (item?.participants?.length === 2) {
-          const key = item.participants
-            .map(String)
-            .sort()
-            .join('-');
-          if (!map.has(key)) {
-            map.set(key, item);
-          } else {
-            // Keep the most recent conversation if duplicates exist
-            const existing = map.get(key);
-            if (new Date(item.updatedAt) > new Date(existing.updatedAt)) {
-              map.set(key, item);
-            }
-          }
-        }
-      });
-      return Array.from(map.values());
-    };
-
-    // Process conversations
-    const dedupedById = dedupeById(conversations || []);
-    const uniqueConvs = dedupeByParticipants(dedupedById);
-
-    // Update parent state if duplicates were found
-    if (uniqueConvs.length !== conversations?.length) {
-      setTimeout(() => setConversations(uniqueConvs), 0);
+  // Move deduplication logic to useEffect to avoid setState during render
+  useEffect(() => {
+    if (!conversations) return;
+    
+    // Ensure conversations is an array
+    if (!Array.isArray(conversations)) {
+      console.error('RecentChats: conversations is not an array:', conversations);
+      return;
     }
 
-    // Apply search filter
+    // Note: Deduplication is now handled by the parent component (Chat.jsx)
+    // This effect only validates that conversations is an array
+  }, [conversations]);
+
+  // Memoized filtering only (no deduplication)
+  const filteredForDisplay = useMemo(() => {
+    if (!conversations) return [];
+    
+    // Ensure conversations is an array
+    if (!Array.isArray(conversations)) {
+      console.error('RecentChats: conversations is not an array in filteredForDisplay:', conversations);
+      return [];
+    }
+
     const filtered = searchQuery
-      ? uniqueConvs.filter(conv => {
+      ? conversations.filter(conv => {
+          if (!conv || !conv.participants) return false;
           const otherUserId = conv.participants.find(id => id !== currentUserId);
-          const otherUser = users.find(u => u._id === otherUserId);
+          const otherUser = getUserById(otherUserId);
           return otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase());
         })
-      : uniqueConvs;
+      : conversations;
 
-    // Filter out empty conversations not started by current user
-    const filteredForDisplay = filtered.filter(conv => {
-      if (conv.lastMessage?.text === "Start a conversation..." && 
+    return filtered.filter(conv => {
+      if (!conv || !conv.lastMessage) return false;
+      if (conv.lastMessage.text === "Start a conversation..." && 
           conv.participants[0] !== currentUserId) {
         return false;
       }
       return true;
     });
-
-    return { filteredForDisplay, uniqueConversations: uniqueConvs };
-  }, [conversations, users, currentUserId, searchQuery, setConversations]);
+  }, [conversations, users, currentUserId, searchQuery, getUserById]);
 
   useEffect(() => {
-    setIsLoading(!conversations);
+    // Ensure conversations is an array before setting loading state
+    if (!conversations) {
+      setIsLoading(true);
+    } else if (Array.isArray(conversations)) {
+      setIsLoading(false);
+    } else {
+      console.error('RecentChats: conversations is not an array in loading effect:', conversations);
+      setIsLoading(false);
+    }
   }, [conversations]);
 
-  useEffect(() => {
-    if (selectedConversationId) {
-      setConversations((prev) =>
-        (Array.isArray(prev) ? prev : []).map((conv) =>
-          conv._id === selectedConversationId
-            ? { ...conv, unreadCount: 0 }
-            : conv
-        )
-      );
-    }
-  }, [selectedConversationId, setConversations]);
+  // Remove the effect that was calling setConversations - this should be handled by the parent
+  // The unread count updates should be handled by MessageContext
 
+  // Fixed formatTimestamp function
   const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
+    if (!timestamp) return '';
+    
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      
+      const now = new Date();
 
-    if (date.toDateString() === now.toDateString()) {
-      return format(date, 'h:mm a');
+      if (date.toDateString() === now.toDateString()) {
+        return format(date, 'h:mm a');
+      }
+
+      if (date.getFullYear() === now.getFullYear()) {
+        return format(date, 'MMM d');
+      }
+
+      return format(date, 'MM/dd/yyyy');
+    } catch (error) {
+      console.error("Error formatting timestamp:", error, timestamp);
+      return '';
     }
-
-    if (date.getFullYear() === now.getFullYear()) {
-      return format(date, 'MMM d');
-    }
-
-    return format(date, 'MM/dd/yyyy');
   };
 
-  // De-duplicate conversations by sorted participants
-  // const uniqueConversations = dedupeByParticipants(filteredConversations); // This line is now handled by useMemo
-
-  // Filter: Only show empty conversations to the user who started them
-  // const filteredForDisplay = uniqueConversations.filter((conv) => { // This line is now handled by useMemo
-  //   if (
-  //     conv.lastMessage &&
-  //     conv.lastMessage.text === "Start a conversation..." &&
-  //     conv.participants[0] !== currentUserId
-  //   ) {
-  //     return false;
-  //   }
-  //   return true;
-  // });
-
- 
+  const handleBackClick = () => {
+    const isOnChatRoute = location.pathname.startsWith('/chat/');
+    
+    if (isMobile) {
+      if (onBackToSidebar) {
+        if (isOnChatRoute) {
+          navigate('/chat');
+          return;
+        } else {
+          navigate(-1);
+        }
+      } else {
+        navigate(-1);
+      }
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#f5efe6]">
       {/* Header with search and back button */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10 flex items-center">
+      <div className="flex-shrink-0 p-4 pb-3 bg-[#f5efe6] flex items-center">
         <button
-          onClick={() => {
-            if (isMobile && onBackToSidebar) {
-              onBackToSidebar(); // Show sidebar on mobile
-            } else {
-              navigate(-1); // Use browser history on desktop
-            }
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleBackClick();
           }}
-          className="flex items-center p-2 rounded-xl hover:bg-[#f0e6d8] transition-colors"
+          className="flex items-center p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:scale-95"
           aria-label="Back"
         >
-          <FaChevronLeft className="text-[#6b493d]" />
+          <FaChevronLeft className="text-[#6b493d] text-sm" />
         </button>
         <div className="flex-1"></div>
       </div>
 
       {/* Header with search */}
-      <div className="p-4 pb-3 bg-[#f8f4ea] sticky top-0 z-10">
+      <div className="flex-shrink-0 p-3 pb-2 bg-[#f5efe6]">
         <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
         <SearchBar
           onSearch={setSearchQuery}
           placeholder="Search conversations..."
-          className="w-full bg-white border border-[#e5d9c8] rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 shadow-sm"
+          className="w-full bg-white border border-[#e5d9c8] rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200 text-sm"
         />
       </div>
 
-      {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
+      {/* Conversation list - Flexible height */}
+      <div className="flex-1 overflow-y-auto px-3 pb-4 min-h-0">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
+              </div>
+            </div>
             <p className="font-body text-[#2c1810]/70 text-center">Loading conversations...</p>
           </div>
         ) : filteredForDisplay.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <div className="w-24 h-24 bg-[#f0e6d8] rounded-full flex items-center justify-center mb-5">
+            <div className="w-24 h-24 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mb-6">
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 className="h-12 w-12 text-[#a07855]" 
@@ -188,39 +236,47 @@ const RecentChats = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h3 className="font-heading text-xl text-[#2c1810] mb-2 font-medium">No conversations found</h3>
-            <p className="font-body text-[#2c1810]/60 max-w-xs">
+            <h3 className="font-heading text-xl text-[#2c1810] mb-3 font-medium">No conversations found</h3>
+            <p className="font-body text-[#2c1810]/60 max-w-xs leading-relaxed">
               {searchQuery ? 'Try different search terms' : 'Start new conversations to begin chatting'}
             </p>
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {filteredForDisplay.map((conversation) => {
               const otherUserId = conversation.participants.find(id => id !== currentUserId);
-              const otherUser = users.find(u => u._id === otherUserId) || { username: 'Unknown', _id: otherUserId };
-
+              const otherUser = getUserById(otherUserId);
               const timestamp = conversation.lastMessage?.createdAt
                 ? formatTimestamp(conversation.lastMessage.createdAt)
                 : formatTimestamp(conversation.updatedAt);
 
+              const unreadCount = conversation.unreadCount || 0;
+
               return (
                 <div 
                   key={conversation._id}
-                  onClick={() => onSelectConversation({ ...conversation, user: otherUser })}
+                  onClick={() => {
+                    handleMarkAsRead(conversation._id);
+                    markAsRead(conversation._id);
+                    // Don't set currentConversationId here - it will be set when the conversation is actually opened
+                    onSelectConversation({ ...conversation, user: otherUser });
+                  }}
                   className={cn(
-                    "bg-white rounded-xl p-3 transition-all duration-200 cursor-pointer border border-transparent",
-                    "hover:shadow-md hover:border-[#e5d9c8] active:scale-[0.99]",
+                    "bg-white rounded-lg p-3 transition-all duration-200 cursor-pointer border border-[#e5d9c8]/30",
+                    "hover:shadow-md hover:border-[#a07855]/40 hover:bg-[#fff7f0]/50 active:scale-[0.98]",
                     selectedConversationId === conversation._id 
-                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-sm" 
-                      : ""
+                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md border-[#a07855]/40" 
+                      : unreadCount > 0 
+                        ? "border-l-4 border-l-[#a07855]/60 bg-[#fff7f0] shadow-sm" 
+                        : "shadow-sm"
                   )}
                 >
                   <UserCard
-                    user={otherUser || { username: 'Unknown' }}
+                    user={otherUser}
                     selected={selectedConversationId === conversation._id}
                     lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
                     timestamp={timestamp}
-                    unreadCount={conversation.unreadCount}
+                    unreadCount={unreadCount}
                   />
                 </div>
               );

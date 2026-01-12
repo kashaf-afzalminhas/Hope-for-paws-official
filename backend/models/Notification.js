@@ -19,7 +19,8 @@ const notificationSchema = new mongoose.Schema({
       'adoption_request',
       'adoption_request_accepted',
       'adoption_request_rejected',
-      'new_post_vet_notification'
+      'new_post_vet_notification',
+      'chat_message'
     ],
     required: true
   },
@@ -37,6 +38,8 @@ const notificationSchema = new mongoose.Schema({
     commentId: mongoose.Schema.Types.ObjectId,
     adoptionId: mongoose.Schema.Types.ObjectId,
     adoptionRequestId: mongoose.Schema.Types.ObjectId,
+    conversationId: mongoose.Schema.Types.ObjectId,
+    messageId: mongoose.Schema.Types.ObjectId,
     // Add any other relevant data
   },
   read: {

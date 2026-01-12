@@ -1,79 +1,3 @@
-// import React, { useState } from 'react';
-// import SearchBar from '../Main/SearchBar';
-// import Nkh from '../assets/nkh.png';
-// import Todd from '../assets/todd.jpeg';
-// import Jfk from '../assets/jfk.png';
-
-// function NGO() {
-//   const ngoList = [
-//     { name: 'NKH', description: 'Animal welfare NGO in Lahore.', contact: '03004000093', image: Nkh },
-//     { name: "Todd's Welfare Society", description: 'Animal rescue in Pakistan.', contact: '03214674957', image: Todd },
-//     { name: 'JFK', description: 'Animal shelter in Lahore.', contact: '03010119620', image: Jfk },
-//     { name: 'Save the Paws', description: 'NGO focused on saving street animals.', contact: '03123456789', image: Nkh },
-//     { name: 'Furry Friends', description: 'Provides care and shelter to stray animals.', contact: '03012345678', image: Todd },
-//     { name: 'Animal Haven', description: 'Rescues and rehabilitates animals.', contact: '03211223344', image: Jfk },
-//   ];
-
-//   // State for filtered results
-//   const [filteredNgos, setFilteredNgos] = useState([]);
-//   const [query, setQuery] = useState("");
-
-//   // Search function (filtering logic)
-//   const handleSearch = (searchQuery) => {
-//     setQuery(searchQuery); // Update query state
-//     if (!searchQuery) {
-//       setFilteredNgos([]); // Clear results when the query is empty
-//     } else {
-//       const filtered = ngoList.filter((ngo) =>
-//         ngo.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-//         ngo.description.toLowerCase().includes(searchQuery.toLowerCase())
-//       );
-//       setFilteredNgos(filtered);
-//     }
-//   };
-
-//   // Decide which list to display
-//   const ngosToDisplay = query ? filteredNgos : ngoList;
-
-//   return (
-//     <div className="flex flex-col items-center">
-
-//       <SearchBar
-//         onSearch={handleSearch}
-//         placeholder="Search NGOs..."
-//       />
-
-// <div className="text-center mb-4 mt-4">
-//           <h2 className="text-3xl font-bold text-[#6b493d] flex items-center justify-center">
-//              NGO's Information
-//           </h2>
-//         </div>
-
-//       {/* Display heading when there are search results */}
-//       {query && filteredNgos.length > 0 && (
-//         <h2 className="text-2xl font-semibold mt-6 mb-4 text-[#6b493d]">Search Results for "{query}"</h2>
-//       )}
-
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 w-full px-4 md:px-12">
-//         {ngosToDisplay.map((ngo, index) => (
-//           <div key={index} className="max-w-sm w-full rounded overflow-hidden shadow-lg bg-white border border-slate-300">
-//             <img src={ngo.image} className="w-full h-64 object-cover" alt={ngo.name} />
-//             <div className="px-6 py-4">
-//               <div className="font-bold text-xl mb-2 text-[#6b493d]">{ngo.name}</div>
-//               <p className="text-gray-700 text-base">{ngo.description}</p>
-//             </div>
-//             <div className="px-6 py-4">
-//               <h3 className="text-base font-bold text-[#6b493d]">Contact Us:</h3>
-//               <p className="text-gray-700 text-base">{ngo.contact}</p>
-//             </div>
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default NGO;
 import React, { useState } from 'react';
 import SearchBar from './SearchBar';
 import Nkh from '../assets/nkh.png';
@@ -217,7 +141,7 @@ function NGO() {
       mission: 'Huraira Animals Lovers® is an organization whose mission is to improve the health and well-being of Homeless injured Animals. Build a community where lives of homeless Animals would matter.',
       services: [
         'Rescue',
-        'Huraira’s Shelter',
+        'Huraira\'s Shelter',
         'Treatment',
         'Meals',
       ]
@@ -308,7 +232,7 @@ function NGO() {
         "email": "info@jfkanimalrescueandshelter.com"
       }, 
       image: Jfk,
-      mission: 'Our mission is to fulfill the basic needs of animals and protect them. Giving them the life they are worthy of. We will rescue and save injured, sick, under threat and abused stray animals by moving them to our safe sanctuaries where they will be provided medical treatments, food, care, love and nourishment. Once they are ready for forever homes they will be up for adoption under certain terms and conditions. We are strictly against the idea of buying and selling animals and will promote adopt don’t shop. We will have a dog trainer for their therapies as most of them come from abused past and have behavioral issues. We want to make sure they are ready for adoptions.Disabled, deaf, blind, abused and injured animals can live a safe and comfortable life with us. We want to help the stray animals by our spay/neuter and Tnr programs to save them from the streets. Life on the streets is very difficult but at JFK all animals will be safe. We want to finish dog culling from our country and provide other options by making sanctuaries for the strays and vaccinating them against rabies. We want to give a safe and happy life to all animals and put an end to animal cruelty.',
+      mission: 'Our mission is to fulfill the basic needs of animals and protect them. Giving them the life they are worthy of. We will rescue and save injured, sick, under threat and abused stray animals by moving them to our safe sanctuaries where they will be provided medical treatments, food, care, love and nourishment. Once they are ready for forever homes they will be up for adoption under certain terms and conditions. We are strictly against the idea of buying and selling animals and will promote adopt don\'t shop. We will have a dog trainer for their therapies as most of them come from abused past and have behavioral issues. We want to make sure they are ready for adoptions.Disabled, deaf, blind, abused and injured animals can live a safe and comfortable life with us. We want to help the stray animals by our spay/neuter and Tnr programs to save them from the streets. Life on the streets is very difficult but at JFK all animals will be safe. We want to finish dog culling from our country and provide other options by making sanctuaries for the strays and vaccinating them against rabies. We want to give a safe and happy life to all animals and put an end to animal cruelty.',
       services: [
         'Animal Rescue',
         'Shelter', 
@@ -462,28 +386,50 @@ function NGO() {
         {ngosToDisplay.map((ngo, index) => (
           <div
             key={index}
-            className="bg-white text-amber-950 shadow-md rounded-lg overflow-hidden transition-all duration-300 ease-in-out"
+            className="bg-white text-amber-950 shadow-md rounded-lg overflow-hidden transition-all duration-300 ease-in-out hover:shadow-lg transform hover:-translate-y-1"
           >
-            {/* NGO Card Header */}
-            <div className="relative">
-              <img 
-                src={ngo.image} 
-                alt={ngo.name} 
-                className="w-full h-64 object-cover"
-              />
+            {/* NGO Card Header with Image */}
+            <div className="bg-brown-50 p-5 border-b border-brown-200">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <img 
+                    src={ngo.image} 
+                    alt={ngo.name} 
+                    className="w-20 h-20 object-cover rounded-full border-4 border-white shadow-md"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  {/* Fallback icon if image fails to load */}
+                  <div 
+                    className="w-20 h-20 rounded-full border-4 border-white shadow-md bg-amber-100 flex items-center justify-center hidden"
+                    style={{ display: 'none' }}
+                  >
+                    <svg className="w-10 h-10 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-bold text-[#6b493d] truncate">{ngo.name}</h2>
+                  <p className="text-sm text-[#a07855] flex items-center mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-amber-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="truncate">{ngo.description}</span>
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* NGO Card Body */}
-            <div className="bg-brown-50 p-5 border-b border-brown-200">
-              <div>
-                <h2 className="text-2xl font-bold text-[#6b493d] mb-2">{ngo.name}</h2>
-                <p className="text-sm text-[#a07855] mb-4">{ngo.description}</p>
-              </div>
-
+            <div className="p-5">
               <div className="text-center">
                 <button
                   onClick={() => setSelectedNgo(ngo)}
-                  className="px-6 py-2 bg-amber-900 text-white rounded-full hover:bg-amber-950 transition duration-300"
+                  className="px-6 py-2 bg-amber-900 text-white rounded-full hover:bg-amber-950 transition duration-300 transform hover:scale-105"
                 >
                   View NGO Details
                 </button>

@@ -1,89 +1,27 @@
-// // import React from 'react';
-// import Navbar from './Components/Navbar';
-// import Footer from './Components/Footer';
-// import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-// import { AUTH_BASE_URL } from './config';
-// import { DisclaimerBanner } from './Components/DisclaimerBanner';
-// import React from 'react';
-
-// function App() {
-//   const location = useLocation();
-//   const navigate = useNavigate();
-//   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
-//   // Show admin dashboard layout for all /admin-dashboard* routes
-//   const isAdminDashboard = location.pathname.startsWith('/admin-dashboard') && user && user.isAdmin;
-
-//   // Redirect admin to /admin-dashboard if not already there
-//   React.useEffect(() => {
-//     if (user && user.isAdmin && !location.pathname.startsWith('/admin-dashboard')) {
-//       navigate('/admin-dashboard', { replace: true });
-//     }
-//   }, [user, location.pathname, navigate]);
-
-//   const handleSignOut = async () => {
-//     try {
-//       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-//       const response = await fetch(`${AUTH_BASE_URL}/signout`, {
-//         method: 'POST',
-//         headers: { 
-//           'Content-Type': 'application/json',
-//           'Authorization': `Bearer ${token}`
-//         },
-//       });
-
-//       if (response.ok) {
-//         // Clear all auth-related data
-//         localStorage.removeItem('user');
-//         localStorage.removeItem('token');
-//         sessionStorage.removeItem('user');
-//         sessionStorage.removeItem('token');
-//         window.location.href = '/signin';
-//       } else {
-//         const errorData = await response.json();
-//         console.error('Sign out error:', errorData);
-//         alert('Failed to sign out. Please try again.');
-//       }
-//     } catch (error) {
-//       console.error('Error during sign out:', error);
-//       alert('An error occurred while signing out.');
-//     }
-//   };
-
-//   if (isAdminDashboard) {
-//     return <Outlet />;
-//   }
-
-//   return (
-//     <>
-//       <DisclaimerBanner />
-//       <Navbar handleSignOut={handleSignOut} />
-//       <Outlet/>
-//       <Footer/>
-//     </>
-//   );
-// }
-
-// export default App;
-
-import React from 'react';
+import React, { useState } from 'react';
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from './config';
 //import { DisclaimerBanner } from './Components/DisclaimerBanner';
 import RandomPopups from './Components/RandomPopups';
+import RabiesAwarenessModal from './Components/RabiesAwarenessModal';
+import ImagePopupModal from './Components/ImagePopupModal';
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+  const [justVerifiedPhone, setJustVerifiedPhone] = useState(false);
 
   // Check for /admin-dashboard layout
   const isAdminDashboard = location.pathname.startsWith('/admin-dashboard') && user && user.isAdmin;
 
-  // Hide footer for specific routes
-  const hideFooter = location.pathname === '/chat';
+  // Hide footer for specific routes but keep navbar
+  const hideFooter = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  
+  // Check if we're on a chat route
+  const isChatRoute = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
 
   // Redirect admin to dashboard if not there
   React.useEffect(() => {
@@ -91,6 +29,74 @@ function App() {
       navigate('/admin-dashboard', { replace: true });
     }
   }, [user, location.pathname, navigate]);
+
+  // Check phone verification for authenticated users
+  React.useEffect(() => {
+    const checkPhoneVerification = () => {
+      // Skip phone verification check for certain routes
+      const skipRoutes = ['/signin', '/signup', '/verify-registration', '/verify-code', '/reset-password', '/contactus', '/profile'];
+      const isSkipRoute = skipRoutes.some(route => location.pathname === route);
+      
+      // Check if user just verified phone (prevent redirecting again immediately)
+      const recentlyVerified = localStorage.getItem('phoneJustVerified');
+      if (recentlyVerified) {
+        localStorage.removeItem('phoneJustVerified');
+        setJustVerifiedPhone(true);
+        
+        // Reset the flag after 3 seconds
+        setTimeout(() => {
+          setJustVerifiedPhone(false);
+        }, 3000);
+        return;
+      }
+      
+      if (user && !isSkipRoute && !user.isAdmin && !justVerifiedPhone) {
+        // Check if user needs phone verification - redirect to profile instead of showing modal
+        if (!user.phone || !user.phoneVerified) {
+          navigate('/profile', { replace: true });
+        }
+      }
+    };
+
+    checkPhoneVerification();
+  }, [user, location.pathname, justVerifiedPhone, navigate]);
+
+  const handlePhoneVerified = async () => {
+    try {
+      // Set flag to prevent modal from showing again
+      localStorage.setItem('phoneJustVerified', 'true');
+      
+      // Fetch updated user data from backend
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${AUTH_BASE_URL}/user/validate`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const updatedUser = data.user;
+        
+        // Update localStorage with fresh user data
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Force a page reload to update the user state
+        window.location.reload();
+      } else {
+        // Fallback: update localStorage and reload
+        const updatedUser = { ...user, phoneVerified: true };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error fetching updated user data:', error);
+      // Fallback: update localStorage and reload
+      const updatedUser = { ...user, phoneVerified: true };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.location.reload();
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -137,6 +143,8 @@ function App() {
     <>
       {/* <DisclaimerBanner /> */}
         <div className="min-h-screen flex flex-col">
+        {/* <ImagePopupModal /> */}
+        {/* <RabiesAwarenessModal /> */}
         <RandomPopups />
         <Navbar handleSignOut={handleSignOut} />
         <div className="flex-1">

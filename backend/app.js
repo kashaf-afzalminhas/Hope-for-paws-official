@@ -18,6 +18,8 @@ const commentRoutes = require('./routes/comments');
 const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const notificationRoutes = require('./routes/notifications');
+const notificationStatsRoutes = require('./routes/notificationStats');
+const { initChatReminderWorker } = require('./queues/chatEmailQueue');
 const rateLimit = require('express-rate-limit');
 const messageRoutes = require('./routes/message');
 const conversationRoutes = require('./routes/conversation');
@@ -28,7 +30,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const NotificationService = require('./services/notificationService');
 
 dotenv.config();
-
+console.log('MONGO_URI:', process.env.MONGO_URI);
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log('MongoDB connected successfully');
@@ -55,11 +57,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       'https://www.hopeforpaws.club',
-      'https://hope-for-paws-official-backend.vercel.app',
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
+      'http://localhost:5173'
+     
     ],
     methods: ['GET', 'POST'],
     credentials: true
@@ -74,6 +73,9 @@ const io = new Server(server, {
 
 // Initialize notification service
 const notificationService = new NotificationService(io);
+
+// Attach Socket.IO instance to Express app so it can be accessed in controllers
+app.set("socketio", io);
 
 // Socket.IO authentication middleware
 io.use((socket, next) => {
@@ -101,24 +103,31 @@ io.use((socket, next) => {
 });
 
 // Socket.IO connection handling
-io.on('connection', (socket) => {
+initChatReminderWorker(notificationService);
+
+io.on('connection', async (socket) => {
   console.log('User connected via Socket.IO:', socket.userId);
   
   // Add user to notification service
-  notificationService.addUserSocket(socket.userId, socket.id);
+  await notificationService.addUserSocket(socket.userId, socket.id);
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', async (reason) => {
     console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
-    notificationService.removeUserSocket(socket.userId);
+    await notificationService.removeUserSocket(socket.userId);
   });
 
   socket.on('error', (error) => {
     console.error('Socket error for user:', socket.userId, error);
   });
+
+  // Setup socket handlers for chat functionality
+  const { setupSocketHandlers } = require('./services/socketHandler');
+  setupSocketHandlers(io, socket, notificationService);
 });
 
 // Make notification service available globally
 global.notificationService = notificationService;
+app.set('notificationService', notificationService);
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -133,11 +142,9 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: [
     'https://www.hopeforpaws.club',
-    'https://hope-for-paws-official-backend.vercel.app',
+
     'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000'
+
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
@@ -227,6 +234,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/faqRoutes', faqRoutes);
 app.use('/api/adoptions', adoptionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/notification-stats', notificationStatsRoutes);
 app.use('/api', contactusRoutes); // Ensure this is correctly used
 app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
@@ -237,13 +245,14 @@ app.get('/', (req, res) => {
   res.json({ message: "Welcome to Hope For Paws Backend API!" });
 });
 
-// Health check endpoint
+// Add health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    // socketConnections: io.engine.clientsCount
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    connections: req.app.get('socketio') ? req.app.get('socketio').engine.clientsCount : 0
   });
 });
 
@@ -281,6 +290,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
 
 

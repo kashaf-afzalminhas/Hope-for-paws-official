@@ -15,5 +15,10 @@ export default defineConfig({
         assetFileNames: 'assets/[name].[hash].[ext]'
       }
     }
-  }
+  },
+  server:{
+    host:true,
+
+  },
+
 })

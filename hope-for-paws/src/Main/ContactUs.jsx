@@ -7,6 +7,8 @@ const ContactUs = () => {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [errors, setErrors] = useState({ email: '' });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -18,9 +20,12 @@ const ContactUs = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
+    setSubmitError('');
+    setIsLoading(true);
 
     if (!validateEmail(formData.email)) {
       setErrors({ email: 'Please enter a valid email address.' });
+      setIsLoading(false);
       return;
     }
 
@@ -35,9 +40,15 @@ const ContactUs = () => {
         setIsSubmitted(true);
         setFormData({ name: '', email: '', message: '' });
         setTimeout(() => setIsSubmitted(false), 5000);
+      } else {
+        const errorData = await response.json();
+        setSubmitError(errorData.error || 'Failed to send message. Please try again.');
       }
     } catch (error) {
       console.error('Submission error:', error);
+      setSubmitError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,6 +102,21 @@ const ContactUs = () => {
               </div>
             </div>
             
+            {/* Success Message */}
+            {isSubmitted && (
+              <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
+                <FaHeart className="text-green-600" />
+                <span className="font-semibold">Message sent successfully!</span>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {submitError && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                <span className="font-semibold">Error: </span>{submitError}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
                 type="text"
@@ -100,6 +126,7 @@ const ContactUs = () => {
                 onChange={handleChange}
                 className="w-full p-3 rounded-lg bg-white border border-[#ffd8b8] focus:ring-2 focus:ring-[#6b493d] outline-none"
                 required
+                disabled={isLoading}
               />
               <input
                 type="email"
@@ -109,6 +136,7 @@ const ContactUs = () => {
                 onChange={handleChange}
                 className="w-full p-3 rounded-lg bg-white border border-[#ffd8b8] focus:ring-2 focus:ring-[#6b493d] outline-none"
                 required
+                disabled={isLoading}
               />
               {errors.email && <p className="text-red-600">{errors.email}</p>}
               <textarea
@@ -119,23 +147,34 @@ const ContactUs = () => {
                 className="w-full p-3 rounded-lg bg-white border border-[#ffd8b8] focus:ring-2 focus:ring-[#6b493d] outline-none"
                 rows="5"
                 required
+                disabled={isLoading}
               />
               <button
                 type="submit"
-                className="w-full bg-[#6b493d] text-white py-3 rounded-lg font-semibold hover:bg-[#a07855] transition-all duration-300 flex items-center justify-center gap-2"
+                disabled={isLoading}
+                className="w-full bg-[#6b493d] text-white py-3 rounded-lg font-semibold hover:bg-[#a07855] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FaPaw /> Send Message
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <FaPaw /> Send Message
+                  </>
+                )}
               </button>
             </form>
           </div>
         </div>
 
         {/* Cat Image Positioning */}
-        <div className="flex justify-center sm:absolute sm:-bottom-28 sm:left-0 sm:max-w-xl">
+        <div className="flex justify-center sm:absolute sm:-bottom-28 sm:left-0 sm:max-w-xl -mb-28 sm:mb-0">
           <img 
             src={ContactCat} 
             alt="Cat" 
-            className="w-full h-auto object-cover ml-1 sm:ml-24" 
+            className="w-full h-auto object-cover ml-0 sm:ml-24 -mb-1 sm:mb-0" 
           />
         </div>
       </div>

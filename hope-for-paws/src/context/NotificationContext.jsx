@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
+import { getSocket, initSocket, getSocketStatus } from '../services/socket';
 
 const NotificationContext = createContext();
 
@@ -17,10 +17,8 @@ export const useNotifications = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [socket, setSocket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [usePolling, setUsePolling] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
@@ -29,11 +27,7 @@ export const NotificationProvider = ({ children }) => {
   const initializationRef = useRef(false);
   const pollingRef = useRef(null);
 
-  // Detect environment
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isProduction = !isLocalhost;
-
-  // Initialize socket connection with fallback to polling
+  // Initialize socket connection (shared with chat) and register listeners
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
@@ -41,12 +35,6 @@ export const NotificationProvider = ({ children }) => {
     if (token && user && !initializationRef.current) {
       initializationRef.current = true;
       
-      // Ensure token is just the JWT, not 'Bearer ...'
-      let socketToken = token;
-      if (socketToken && socketToken.startsWith('Bearer ')) {
-        socketToken = socketToken.replace('Bearer ', '');
-      }
-      console.log('Socket.IO token being sent:', socketToken); // Debug log
       // First check if backend is available
       const checkBackendHealth = async () => {
         try {
@@ -71,103 +59,66 @@ export const NotificationProvider = ({ children }) => {
 
         const connectSocket = () => {
           try {
-            // Skip Socket.IO on production (Vercel) as it doesn't support WebSocket
-            if (isProduction) {
-              console.log('Production environment detected, using polling only');
-              setUsePolling(true);
-              startPolling();
+            const existing = getSocket();
+            const userId = user?.id || user?._id;
+            const socketInstance = existing || initSocket(userId);
+
+            if (!socketInstance) {
+              console.error('Failed to initialize socket instance');
               setIsInitialized(true);
               return null;
             }
 
-            const newSocket = io(API_BASE_URL.replace('/api', ''), {
-              auth: { token: socketToken },
-              transports: ['polling', 'websocket'],
-              forceNew: true,
-              timeout: 10000,
-              reconnection: true,
-              reconnectionAttempts: 3,
-              reconnectionDelay: 1000
-            });
-
-            newSocket.on('connect', () => {
-              console.log('Socket connected successfully');
+            const handleConnect = () => {
+              console.log('NotificationContext: socket connected');
               setSocketConnected(true);
-              setUsePolling(false);
-              if (pollingRef.current) {
-                clearInterval(pollingRef.current);
-                pollingRef.current = null;
-              }
               setIsInitialized(true);
-            });
+            };
 
-            newSocket.on('disconnect', () => {
-              console.log('Socket disconnected');
+            const handleDisconnect = () => {
+              console.log('NotificationContext: socket disconnected');
               setSocketConnected(false);
-            });
+            };
 
-            newSocket.on('notification', (notification) => {
+            const handleNotification = (notification) => {
               console.log('New notification received:', notification);
-              setNotifications(prev => [{ ...notification, read: false }, ...prev]); // Always unread
+              setNotifications(prev => [{ ...notification, read: false }, ...prev]);
               setUnreadCount(prev => prev + 1);
-              
-              // Show browser notification if permission is granted
               if (Notification.permission === 'granted') {
                 new Notification(notification.title, {
                   body: notification.message,
                   icon: '/hfplogo.png'
                 });
               }
-            });
+            };
 
-            newSocket.on('connect_error', (error) => {
-              console.error('Socket connection error:', error);
-              setSocketConnected(false);
-              // Fallback to polling if socket fails
-              if (!usePolling) {
-                console.log('Falling back to polling due to socket connection error');
-                setUsePolling(true);
-                startPolling();
-              }
-              setIsInitialized(true);
-            });
+            // Register listeners
+            socketInstance.on('connect', handleConnect);
+            socketInstance.on('disconnect', handleDisconnect);
+            socketInstance.on('notification', handleNotification);
 
-            newSocket.on('error', (error) => {
-              console.error('Socket error:', error);
-              setSocketConnected(false);
-            });
+            // Reflect current status immediately
+            const status = getSocketStatus();
+            setSocketConnected(status === 'connected');
+            setIsInitialized(true);
 
-            setSocket(newSocket);
-
-            // Set a timeout to fallback to polling if socket doesn't connect
-            setTimeout(() => {
-              if (!socketConnected && !usePolling) {
-                console.log('Socket connection timeout, falling back to polling');
-                setUsePolling(true);
-                startPolling();
-              }
-              setIsInitialized(true);
-            }, 5000);
-
-            return newSocket;
+            // Cleanup
+            return () => {
+              socketInstance.off('connect', handleConnect);
+              socketInstance.off('disconnect', handleDisconnect);
+              socketInstance.off('notification', handleNotification);
+            };
           } catch (error) {
-            console.error('Error creating socket connection:', error);
-            setUsePolling(true);
-            startPolling();
+            console.error('Error establishing shared socket:', error);
             setIsInitialized(true);
             return null;
           }
         };
 
-        const socketInstance = connectSocket();
+        const cleanup = connectSocket();
 
         return () => {
-          if (socketInstance) {
-            socketInstance.close();
-          }
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-          }
+          if (typeof cleanup === 'function') cleanup();
         };
       };
 
@@ -176,99 +127,10 @@ export const NotificationProvider = ({ children }) => {
 
     // Cleanup function
     return () => {
-      if (socket) {
-        socket.close();
-      }
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
       initializationRef.current = false;
     };
   }, []);
 
-  // Polling fallback for notifications
-  const startPolling = () => {
-    console.log('Starting polling fallback for notifications');
-    
-    // Clear any existing interval
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-    }
-    
-    const interval = setInterval(async () => {
-      // Skip if rate limited
-      if (rateLimited) {
-        console.log('Skipping polling due to rate limiting');
-        return;
-      }
-
-      try {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) {
-          console.log('No token found, stopping polling');
-          clearInterval(interval);
-          return;
-        }
-
-        const response = await axios.get(`${API_BASE_URL}/notifications?page=1&limit=5`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000
-        });
-        
-        const newNotifications = response.data.notifications;
-        if (newNotifications.length > 0) {
-          // Check for new notifications
-          setNotifications(prev => {
-            const existingIds = new Set(prev.map(n => n.id));
-            const trulyNew = newNotifications.filter(n => !existingIds.has(n.id));
-            
-            if (trulyNew.length > 0) {
-              console.log('New notifications found via polling:', trulyNew.length);
-              // Show browser notification for new ones
-              trulyNew.forEach(notification => {
-                if (Notification.permission === 'granted') {
-                  new Notification(notification.title, {
-                    body: notification.message,
-                    icon: '/hfplogo.png'
-                  });
-                }
-              });
-              
-              return [...trulyNew, ...prev];
-            }
-            return prev;
-          });
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-        
-        // Handle rate limiting specifically
-        if (error.response?.status === 429) {
-          console.log('Rate limited, stopping polling temporarily');
-          setRateLimited(true);
-          setError('Rate limited. Notifications will resume shortly.');
-          // Restart polling after 2 minutes
-          setTimeout(() => {
-            if (!socketConnected) {
-              setRateLimited(false);
-              setError(null);
-              startPolling();
-            }
-          }, 120000); // 2 minutes
-          return;
-        }
-        
-        // For other errors, don't stop polling but log them
-        if (error.response?.status !== 404) {
-          console.log('Non-critical polling error, continuing...');
-        }
-      }
-    }, 120000); // Poll every 2 minutes instead of 60 seconds
-    
-    pollingRef.current = interval;
-    // setPollingInterval(interval); // removed unused
-  };
 
   // Fetch initial notifications only once after initialization
   useEffect(() => {
@@ -487,7 +349,6 @@ export const NotificationProvider = ({ children }) => {
     unreadCount,
     loading,
     error,
-    usePolling,
     socketConnected,
     fetchNotifications,
     fetchUnreadCount,

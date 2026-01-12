@@ -64,6 +64,10 @@ const NotificationBell = () => {
         console.log('Navigating to adoption history');
         navigate('/adoptionhistory');
         break;
+      case 'chat_message':
+        console.log('Navigating to chat:', notification.data.conversationId);
+        navigate(`/chat/${notification.data.conversationId}`);
+        break;
       default:
         console.log('No navigation for notification type:', notification.type);
         break;
@@ -123,6 +127,8 @@ const NotificationBell = () => {
         return '❌';
       case 'new_post_vet_notification':
         return '📝';
+      case 'chat_message':
+        return '💬';
       default:
         return '🔔';
     }

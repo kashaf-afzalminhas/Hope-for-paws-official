@@ -3,20 +3,30 @@ import { getSocket } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { AUTH_BASE_URL } from '../config';
+import { markMessageAsRead } from '../Main/api';
 
 const MessageList = ({ messages, currentUser, chatUsers }) => {
   const scrollRef = useRef();
   const messagesEndRef = useRef();
 
-  // Emit read receipts
+  // Mark messages as read when viewed
   useEffect(() => {
-    const socket = getSocket();
-    messages.forEach((msg) => {
-      if (!msg.readBy?.includes(currentUser._id)) {
-        socket.emit('markMessageAsRead', { messageId: msg._id, userId: currentUser._id });
+    const markMessagesAsRead = async () => {
+      for (const msg of messages) {
+        if (!msg.readBy?.includes(currentUser._id)) {
+          try {
+            await markMessageAsRead(msg._id);
+          } catch (error) {
+            console.error('Error marking message as read:', error);
+          }
+        }
       }
-    });
-  }, [messages, currentUser]);
+    };
+
+    if (messages.length > 0) {
+      markMessagesAsRead();
+    }
+  }, [messages, currentUser._id]);
 
   // Auto-scroll with intersection observer for better performance
   useEffect(() => {
@@ -56,7 +66,7 @@ const MessageList = ({ messages, currentUser, chatUsers }) => {
   };
 
   return (
-    <div className="flex flex-col space-y-3 p-4 overflow-y-auto h-full bg-[#fff7f0]">
+    <div className="flex flex-col space-y-4 p-4 overflow-y-auto h-full bg-gradient-to-b from-[#f8f4ea] to-[#f5efe6]">
       {messages.map((msg, index) => {
         const isCurrentUser = String(msg.senderId) === String(currentUser._id);
         const showSenderName = !isCurrentUser && 
@@ -66,29 +76,29 @@ const MessageList = ({ messages, currentUser, chatUsers }) => {
           <div
             key={`${msg._id}-${index}`}
             className={cn(
-              "flex flex-col max-w-[80%]",
+              "flex flex-col max-w-[85%]",
               isCurrentUser ? "ml-auto items-end" : "mr-auto items-start"
             )}
             ref={index === messages.length - 1 ? messagesEndRef : null}
           >
             {showSenderName && (
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-2">
                 <Link 
                   to={`/profile/public/${msg.senderId}`}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
                 >
                   {getSenderProfileImage(msg.senderId) ? (
                     <img 
                       src={getSenderProfileImage(msg.senderId)} 
                       alt={getSenderName(msg.senderId)}
-                      className="w-6 h-6 rounded-full object-cover"
+                      className="w-6 h-6 rounded-full object-cover border border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
                       }}
                     />
                   ) : null}
-                  <div className={`w-6 h-6 rounded-full bg-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xs font-bold ${getSenderProfileImage(msg.senderId) ? 'hidden' : ''}`}>
+                  <div className={`w-6 h-6 rounded-full bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xs font-bold border border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors ${getSenderProfileImage(msg.senderId) ? 'hidden' : ''}`}>
                     {getSenderName(msg.senderId).charAt(0)}
                   </div>
                   <span className="text-xs font-semibold text-[#2c1810]/80 font-heading">
@@ -99,20 +109,19 @@ const MessageList = ({ messages, currentUser, chatUsers }) => {
             )}
             
             <div className={cn(
-              "rounded-2xl px-4 py-2",
+              "rounded-2xl px-4 py-3 shadow-sm",
               "whitespace-pre-wrap break-words",
-              "shadow-sm",
+              "transition-all duration-200",
               isCurrentUser 
-                ? "bg-[#a07855] text-[#ffd8b8] rounded-br-none" 
-                : "bg-white text-[#2c1810] rounded-bl-none border border-[#a07855]/20",
-              "transition-colors duration-200"
+                ? "bg-gradient-to-br from-[#6b493d] to-[#5a3d32] text-[#ffd8b8] rounded-br-sm shadow-md hover:shadow-lg" 
+                : "bg-white text-[#2c1810] rounded-bl-sm border border-[#e5d9c8] hover:shadow-md",
             )}>
-              <p className="font-body">{msg.text || msg.content}</p>
+              <p className="font-body leading-relaxed">{msg.text || msg.content}</p>
             </div>
 
             <div className={cn(
-              "flex items-center mt-1 text-xs",
-              isCurrentUser ? "text-[#2c1810]/60" : "text-[#2c1810]/60",
+              "flex items-center mt-2 text-xs font-medium",
+              isCurrentUser ? "text-[#ffd8b8]/90" : "text-[#2c1810]/70",
               "font-body"
             )}>
               {new Date(msg.timestamp || msg.createdAt).toLocaleTimeString([], {
@@ -120,11 +129,11 @@ const MessageList = ({ messages, currentUser, chatUsers }) => {
                 minute: '2-digit'
               })}
               {isCurrentUser && (
-                <span className="ml-1">
+                <span className="ml-2">
                   {msg.readBy?.length > 1 ? (
-                    <span className="text-[#a07855]">✓✓</span>
+                    <span className="text-[#ffd8b8] font-bold">✓✓</span>
                   ) : (
-                    <span className="text-[#2c1810]/40">✓</span>
+                    <span className="text-[#ffd8b8]/70">✓</span>
                   )}
                 </span>
               )}

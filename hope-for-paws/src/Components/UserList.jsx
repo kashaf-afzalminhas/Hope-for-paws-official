@@ -118,32 +118,32 @@ const UsersList = ({ currentUserId, onSelectUser, selectedUserId, users = [] }) 
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-white rounded-lg">
+    <div className="flex flex-col h-full overflow-hidden bg-[#f8f4ea] rounded-lg">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-xl font-heading font-bold text-accent mb-3">All Users</h2>
+      <div className="p-4 border-b border-[#e5d9c8] bg-white rounded-t-lg">
+        <h2 className="text-xl font-heading font-bold text-[#2c1810] mb-4">All Users</h2>
         
         {/* Search and filter */}
         <div className="flex flex-col space-y-3">
           <SearchBar
             onSearch={handleSearch}
             placeholder="Search by name or username..."
-            className="w-full"
+            className="w-full bg-white border border-[#e5d9c8] rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200"
           />
 
           <div className="flex items-center">
             <button
               onClick={toggleOnlineFilter}
               className={cn(
-                "flex items-center text-sm font-body transition-colors duration-200",
-                showOnlineOnly ? "text-primary" : "text-gray-600 hover:text-gray-800"
+                "flex items-center text-sm font-body transition-all duration-200",
+                showOnlineOnly ? "text-[#a07855]" : "text-[#2c1810]/70 hover:text-[#2c1810]"
               )}
             >
               <span className={cn(
-                "w-4 h-4 rounded mr-2 border-2 flex items-center justify-center",
+                "w-4 h-4 rounded mr-2 border-2 flex items-center justify-center transition-all duration-200",
                 showOnlineOnly 
-                  ? "bg-primary border-primary" 
-                  : "bg-white border-gray-400 hover:border-gray-500"
+                  ? "bg-[#a07855] border-[#a07855] shadow-sm" 
+                  : "bg-white border-[#e5d9c8] hover:border-[#a07855]/40"
               )}>
                 {showOnlineOnly && (
                   <svg className="w-2 h-2 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -158,26 +158,33 @@ const UsersList = ({ currentUserId, onSelectUser, selectedUserId, users = [] }) 
       </div>
 
       {/* User list */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-3 bg-[#f8f4ea]">
         {console.log('Render - isLoading:', isLoading, 'error:', error, 'filteredUsers:', filteredUsers, 'filteredUsers length:', filteredUsers.length)}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full p-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mb-3"></div>
-            <p className="font-body text-gray-600">Loading users...</p>
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
+              </div>
+            </div>
+            <p className="font-body text-[#2c1810]/70">Loading users...</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-12 w-12 text-red-300 mb-3" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <h3 className="font-heading text-lg text-red-600 mb-1">Unable to load users</h3>
-            <p className="font-body text-gray-500 mb-4">{error}</p>
+            <div className="w-24 h-24 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mb-6">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-12 w-12 text-red-400" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="font-heading text-lg text-red-600 mb-2">Unable to load users</h3>
+            <p className="font-body text-[#2c1810]/70 mb-6">{error}</p>
             <button 
               onClick={() => {
                 setError(null);
@@ -186,24 +193,26 @@ const UsersList = ({ currentUserId, onSelectUser, selectedUserId, users = [] }) 
                 const event = new Event('retry');
                 window.dispatchEvent(event);
               }}
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-accent transition-colors"
+              className="px-6 py-3 bg-[#a07855] text-[#ffd8b8] rounded-xl hover:bg-[#8a6a4d] transition-all duration-200 shadow-md hover:shadow-lg font-semibold"
             >
               Try again
             </button>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-12 w-12 text-gray-300 mb-3" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <h3 className="font-heading text-lg text-gray-600 mb-1">No users found</h3>
-            <p className="font-body text-gray-500">
+            <div className="w-24 h-24 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mb-6">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-12 w-12 text-[#a07855]" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h3 className="font-heading text-lg text-[#2c1810] mb-2">No users found</h3>
+            <p className="font-body text-[#2c1810]/70 leading-relaxed">
               {searchQuery 
                 ? 'Try a different search term' 
                 : showOnlineOnly 
@@ -212,7 +221,7 @@ const UsersList = ({ currentUserId, onSelectUser, selectedUserId, users = [] }) 
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="space-y-2">
             {(Array.isArray(filteredUsers) ? filteredUsers : []).map(user => (
               <UserCard
                 key={user._id}
@@ -221,10 +230,10 @@ const UsersList = ({ currentUserId, onSelectUser, selectedUserId, users = [] }) 
                 onClick={() => onSelectUser?.(user)}
                 timestamp={user.status === 'online' ? 'Online' : `Last seen ${formatLastSeen(user.lastSeen)}`}
                 className={cn(
-                  "transition-colors duration-200",
+                  "transition-all duration-200",
                   selectedUserId === user._id 
-                    ? "bg-primary/10" 
-                    : "hover:bg-gray-50"
+                    ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md" 
+                    : "hover:shadow-md"
                 )}
               />
             ))}

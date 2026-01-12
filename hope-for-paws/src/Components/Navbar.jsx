@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { FaUser, FaPaw, FaTimes } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';  
+import { useMessages } from '../context/MessageContext';
 
 const Navbar = ({ handleSignOut }) => {
   const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const { unreadCount } = useMessages();
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -121,7 +123,15 @@ const Navbar = ({ handleSignOut }) => {
             </li>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/chat" className={({ isActive }) => isActive ? activeStyle : ''}>
-                Inbox
+                <span className="relative">
+                  Inbox
+                  {/* Unread message badge */}
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </span>
               </NavLink>
             </li>
           </ul>
@@ -321,7 +331,15 @@ const Navbar = ({ handleSignOut }) => {
                     }`
                   }
                 >
-                  Inbox
+                  <span className="relative flex items-center">
+                    Inbox
+                    {/* Unread message badge for mobile */}
+                    {unreadCount > 0 && (
+                      <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium animate-pulse flex-shrink-0">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </span>
                 </NavLink>
               </li>
             </ul>

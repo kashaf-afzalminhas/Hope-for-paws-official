@@ -20,12 +20,13 @@ const MyAdoptions = () => {
     location: ''
   });
   const [originalData, setOriginalData] = useState({});
-  const [newImage, setNewImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [newImages, setNewImages] = useState({}); // Store images per post ID
+  const [imagePreviews, setImagePreviews] = useState({}); // Store previews per post ID
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
+  const [savingStates, setSavingStates] = useState({}); // Track saving state per post
   const { user } = useAuth();
   const [storedUser, setStoredUser] = useState(null);
   const location = useLocation();
@@ -120,17 +121,22 @@ const MyAdoptions = () => {
     };
     setEditData(postData);
     setOriginalData(postData);
-    setNewImage(null);
-    setImagePreview(null);
+    // Clear any existing image data for this post
+    setNewImages(prev => ({ ...prev, [post._id]: null }));
+    setImagePreviews(prev => ({ ...prev, [post._id]: null }));
   };
 
   const handleSaveEdit = async (postId) => {
     try {
+      // Set saving state for this specific post
+      setSavingStates(prev => ({ ...prev, [postId]: true }));
+      
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
       // If there's a new image, upload it first
-      if (newImage) {
+      if (newImages[postId]) {
         const formData = new FormData();
-        formData.append('image', newImage);
+        formData.append('image', newImages[postId]);
         await axios.put(
           `${API_BASE_URL}/adoptions/${postId}/image`,
           formData,
@@ -142,6 +148,7 @@ const MyAdoptions = () => {
           }
         );
       }
+      
       await axios.put(
         `${API_BASE_URL}/adoptions/${postId}`,
         editData,
@@ -149,8 +156,13 @@ const MyAdoptions = () => {
       );
       
       setEditingPost(null);
-      setNewImage(null);
-      setImagePreview(null);
+      // Clear image data for this post
+      setNewImages(prev => ({ ...prev, [postId]: null }));
+      setImagePreviews(prev => ({ ...prev, [postId]: null }));
+      
+      // Show immediate success feedback
+      setSuccessMessage('Changes saved successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
       
       // Refresh the list after update
       const effectiveUser = user || storedUser;
@@ -160,32 +172,36 @@ const MyAdoptions = () => {
     } catch (err) {
       console.error('Error updating adoption post:', err);
       setError(err.response?.data?.message || err.message || 'Failed to update post');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      // Clear saving state
+      setSavingStates(prev => ({ ...prev, [postId]: false }));
     }
   };
 
-  // Detect if there are changes
-  const hasChanges = () => {
-    if (newImage) return true;
+  // Detect if there are changes for a specific post
+  const hasChanges = (postId) => {
+    if (newImages[postId]) return true;
     return Object.keys(editData).some((key) => editData[key] !== originalData[key]);
   };
 
-  // Handle image change
-  const handleImageChange = (e) => {
+  // Handle image change for a specific post
+  const handleImageChange = (e, postId) => {
     const file = e.target.files[0];
     if (file) {
-      setNewImage(file);
+      setNewImages(prev => ({ ...prev, [postId]: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
+        setImagePreviews(prev => ({ ...prev, [postId]: reader.result }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Remove new image
-  const removeNewImage = () => {
-    setNewImage(null);
-    setImagePreview(null);
+  // Remove new image for a specific post
+  const removeNewImage = (postId) => {
+    setNewImages(prev => ({ ...prev, [postId]: null }));
+    setImagePreviews(prev => ({ ...prev, [postId]: null }));
   };
 
   const handleRequestAction = async (postId, requestId, action) => {
@@ -292,22 +308,9 @@ const MyAdoptions = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {adoptions.map((post) => (
             <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* <div className="relative group">
-                <img 
-                  src={post.imageUrl} 
-                  alt={post.name} 
-                  className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105" 
-                  loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = 'https://via.placeholder.com/400x300?text=Pet+Image';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
-              </div> */}
               <div className="relative group">
                 <img
-                  src={imagePreview || post.imageUrl}
+                  src={imagePreviews[post._id] || post.imageUrl}
                   alt={post.name}
                   className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105"
                   loading="lazy"
@@ -326,13 +329,13 @@ const MyAdoptions = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleImageChange}
+                      onChange={(e) => handleImageChange(e, post._id)}
                       className="hidden"
                     />
-                    {imagePreview && (
+                    {imagePreviews[post._id] && (
                       <button
                         type="button"
-                        onClick={removeNewImage}
+                        onClick={() => removeNewImage(post._id)}
                         className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
                       >
                         ×
@@ -345,35 +348,6 @@ const MyAdoptions = () => {
               <div className="p-6">
                 {editingPost === post._id ? (
                   <div className="space-y-2">
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Image EEE</label>
-                      <div className="relative">
-                        <img 
-                          src={imagePreview || post.imageUrl} 
-                          alt={post.name} 
-                          className="w-full h-48 object-contain rounded-lg border border-gray-300 bg-gray-100" 
-                        />
-                        <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-lg group">
-                          <Camera className="w-8 h-8 text-white" />
-                          <span className="absolute bottom-2 left-2 text-white text-xs font-medium">Click to change image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="hidden"
-                          />
-                        </label>
-                        {imagePreview && (
-                          <button
-                            type="button"
-                            onClick={removeNewImage}
-                            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    </div> */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
                       <input
@@ -462,16 +436,24 @@ const MyAdoptions = () => {
                       <button 
                         onClick={() => setEditingPost(null)}
                         className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                        disabled={savingStates[post._id]}
                       >
                         <X className="h-5 w-5 text-[#6b493d]" />
                       </button>
                       <button
                         onClick={() => handleSaveEdit(post._id)}
-                        disabled={!hasChanges()}
-                        className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!hasChanges(post._id) || savingStates[post._id]}
+                        className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                         style={{ fontFamily: '"Poppins", sans-serif' }}
                       >
-                        Save Changes
+                        {savingStates[post._id] ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <span>Save Changes</span>
+                        )}
                       </button>
                     </div>
                   </div>

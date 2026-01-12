@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, X, Check, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ConfirmationModal from './ConfirmationModal';
 
 const NotificationIcon = () => {
@@ -13,7 +13,6 @@ const NotificationIcon = () => {
     deleteNotification,
     deleteAllNotifications,
     socketConnected,
-    usePolling,
     error
   } = useNotifications();
   
@@ -21,6 +20,7 @@ const NotificationIcon = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,6 +35,12 @@ const NotificationIcon = () => {
   }, []);
 
   const handleClick = () => {
+    // If already on notifications page, do not open dropdown; ensure we stay on the page
+    if (location.pathname === '/notifications') {
+      setIsOpen(false);
+      navigate('/notifications');
+      return;
+    }
     setIsOpen(!isOpen);
   };
 
@@ -125,7 +131,6 @@ const NotificationIcon = () => {
 
   const getConnectionStatus = () => {
     if (socketConnected) return { icon: <Wifi className="h-3 w-3" />, text: 'Real-time', color: 'text-green-500' };
-    if (usePolling) return { icon: <Wifi className="h-3 w-3" />, text: 'Polling', color: 'text-yellow-500' };
     return { icon: <WifiOff className="h-3 w-3" />, text: 'Offline', color: 'text-gray-400' };
   };
 
@@ -153,17 +158,17 @@ const NotificationIcon = () => {
 
       {/* Notifications Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 z-50 max-w-[calc(100vw-2rem)]">
+        <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-12 w-[calc(100vw-1rem)] sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-[70vh] sm:max-h-96 z-[60] max-w-[calc(100vw-1rem)]">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-gray-100 gap-3">
-            <div className="flex items-center justify-center sm:justify-start gap-2">
+          <div className="flex flex-row items-center justify-between p-4 border-b border-gray-100 gap-3">
+            <div className="flex items-center gap-2">
               <h3 className="font-semibold text-[#6b493d] text-center sm:text-left">Notifications</h3>
               <div className={`flex items-center gap-1 ${connectionStatus.color}`}>
                 {connectionStatus.icon}
                 <span className="text-xs">{connectionStatus.text}</span>
               </div>
             </div>
-            <div className="flex items-center justify-center sm:justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 ml-4">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
@@ -201,12 +206,12 @@ const NotificationIcon = () => {
           )}
 
           {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
                 <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                 <p>No notifications yet</p>
-                {!socketConnected && !usePolling && (
+                {!socketConnected && (
                   <p className="text-xs text-gray-400 mt-1">Check your connection</p>
                 )}
               </div>
@@ -251,7 +256,7 @@ const NotificationIcon = () => {
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               <button
-                onClick={() => navigate('/notifications')}
+                onClick={() => { setIsOpen(false); navigate('/notifications'); }}
                 className="w-full text-center text-sm text-[#6b493d] hover:text-[#5a3c32] transition-colors py-2 rounded-md hover:bg-gray-100"
               >
                 View all notifications

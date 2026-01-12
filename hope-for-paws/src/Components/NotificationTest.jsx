@@ -8,7 +8,6 @@ const NotificationTest = () => {
     unreadCount, 
     loading, 
     error, 
-    usePolling, 
     socketConnected,
     fetchNotifications,
     fetchUnreadCount 
@@ -39,7 +38,7 @@ const NotificationTest = () => {
           <div className="space-y-1 text-sm">
             <div>Loading: {loading ? 'Yes' : 'No'}</div>
             <div>Error: {error || 'None'}</div>
-            <div>Using Polling: {usePolling ? 'Yes' : 'No'}</div>
+            <div>Using Polling: No</div>
             <div>Socket Connected: {socketConnected ? 'Yes' : 'No'}</div>
             <div>Unread Count: {unreadCount}</div>
             <div>Total Notifications: {notifications.length}</div>

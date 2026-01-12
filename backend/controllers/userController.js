@@ -39,12 +39,18 @@ const ADMIN_EMAILS = [
 ];
 
 const signUp = async (req, res) => {
-  const { username, email, password, isVeterinarian } = req.body;
-  console.log('Received signup request:', { username, email, isVeterinarian });
+  const { username, email, password, isVeterinarian, phone } = req.body;
+  console.log('Received signup request:', { username, email, isVeterinarian, phone });
 
-  if (!username || !email || !password) {
+  if (!username || !email || !password || !phone) {
     console.warn('Missing required fields');
-    return res.status(400).json({ message: 'All fields (username, email, password) are required' });
+    return res.status(400).json({ message: 'All fields (username, email, password, phone) are required' });
+  }
+
+  // Validate international phone number format
+  const phoneRegex = /^\+[1-9]\d{1,14}$/;
+  if (!phoneRegex.test(phone)) {
+    return res.status(400).json({ message: 'Please enter a valid international phone number' });
   }
 
   if (!email.toLowerCase().endsWith('@gmail.com')) {
@@ -72,11 +78,12 @@ const signUp = async (req, res) => {
       existingTempUser.username = username;
       existingTempUser.password = await bcrypt.hash(password, 10);
       existingTempUser.isVeterinarian = isVeterinarian || false;
+      existingTempUser.phone = phone;
       
       const otp = crypto.randomBytes(3).toString('hex');
       existingTempUser.verificationCode = otp;
       existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
-      
+       
       await existingTempUser.save();
       console.log('✅ Temporary user updated successfully:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
 
@@ -103,6 +110,7 @@ const signUp = async (req, res) => {
       email,
       password: hashedPassword,
       isVeterinarian: isVeterinarian || false,
+      phone,
       verificationCode: otp,
       verificationCodeExpires: Date.now() + 2 * 60 * 1000,
     });
@@ -160,6 +168,8 @@ const verifyRegistrationOTP = async (req, res) => {
       email: tempUser.email,
       password: tempUser.password,
       isVeterinarian: tempUser.isVeterinarian,
+      phone: tempUser.phone,
+      phoneVerified: true, // Phone is verified during signup process
     });
 
     await newUser.save();
@@ -183,6 +193,8 @@ const verifyRegistrationOTP = async (req, res) => {
         id: newUser._id,
         email: newUser.email,
         username: newUser.username,
+        phone: newUser.phone,
+        phoneVerified: newUser.phoneVerified,
         isVeterinarian: newUser.isVeterinarian,
       },
     });
@@ -295,6 +307,7 @@ const signIn = async (req, res) => {
         email: user.email,
         username: user.username,
         phone: user.phone,
+        phoneVerified: user.phoneVerified,
         city: user.city,
         about: user.about,
         isVeterinarian: user.isVeterinarian,
@@ -321,8 +334,26 @@ const updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update fields
-    user.phone = phone || user.phone;
+    // If phone is being updated, validate it and check for duplicates
+    if (phone && phone !== user.phone) {
+      // Validate international phone number format
+      const phoneRegex = /^\+[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ message: 'Please enter a valid international phone number' });
+      }
+
+      // Check if phone is already used by another user
+      const existingUser = await User.findOne({ phone, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'This phone number is already used by another user' });
+      }
+
+      // Mark phone as verified when updating
+      user.phone = phone;
+      user.phoneVerified = true;
+    }
+
+    // Update other fields
     user.city = city || user.city;
     user.about = about || user.about;
 
@@ -336,9 +367,11 @@ const updateProfile = async (req, res) => {
         username: user.username,
         email: user.email,
         phone: user.phone || "",  // Explicitly include phone, city, about
+        phoneVerified: user.phoneVerified,
         city: user.city || "",
         about: user.about || "",
-        isVeterinarian: user.isVeterinarian
+        isVeterinarian: user.isVeterinarian,
+        isAdmin: user.isAdmin,
       }
     });
   } catch (error) {
@@ -481,7 +514,7 @@ googleLogins = async (req, res) => {
     const CLIENT_ID = "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
     const client = new OAuth2Client(CLIENT_ID);
 
-    const ticket = await client.verifyIdToken({
+    const ticket = await client.verifyIdToken({ 
       idToken: credential,
       audience: CLIENT_ID,
     });
@@ -518,6 +551,7 @@ googleLogins = async (req, res) => {
         email: user.email,
         username: user.username,
         phone: user.phone,
+        phoneVerified: user.phoneVerified,
         city: user.city,
         about: user.about,
         isVeterinarian: user.isVeterinarian,
@@ -547,6 +581,8 @@ const completeGoogleRegistration = async (req, res) => {
       email,
       password: hashedPassword,
       isVeterinarian,
+      phone: "", // Empty phone for Google users
+      phoneVerified: false, // Google users need to add phone later
     });
     const token = jwt.sign(
       { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
@@ -561,6 +597,7 @@ const completeGoogleRegistration = async (req, res) => {
         email: user.email,
         username: user.username,
         phone: user.phone,
+        phoneVerified: user.phoneVerified,
         city: user.city,
         about: user.about,
         isVeterinarian: user.isVeterinarian,
@@ -651,6 +688,58 @@ const resendResetCode = async (req, res) => {
     res.status(200).json({ message: 'Verification code resent to your email.' });
   } catch (error) {
     res.status(500).json({ error: 'An error occurred while resending the code.' });
+  }
+};
+
+// Phone verification functions
+const addPhoneNumber = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const userId = req.user.id;
+
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+
+    // Validate international phone number format
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ message: 'Please enter a valid international phone number' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if phone is already used by another user
+    const existingUser = await User.findOne({ phone, _id: { $ne: userId } });
+    if (existingUser) {
+      return res.status(400).json({ message: 'This phone number is already used by another user' });
+    }
+
+    // Save phone number and mark as verified
+    user.phone = phone;
+    user.phoneVerified = true;
+    user.phoneVerificationCode = undefined;
+    user.phoneVerificationCodeExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ 
+      message: 'Phone number added successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        phoneVerified: user.phoneVerified,
+        isVeterinarian: user.isVeterinarian,
+        isAdmin: user.isAdmin,
+      }
+    });
+  } catch (error) {
+    console.error('Error adding phone number:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -864,6 +953,7 @@ module.exports = {
   verifyResetCode,
   resetPassword,
   resendResetCode,
+  addPhoneNumber,
 };
 
 

@@ -16,10 +16,13 @@ exports.getConversations = async (req, res) => {
 };
 
 exports.createConversation = async (req, res) => {
+  // Log the full request body for debugging
+  console.log('Incoming createConversation request body:', req.body);
   const { senderId, receiverId } = req.body;
   
   // Validate input more thoroughly
   if (!senderId || !receiverId) {
+    console.error('Missing senderId or receiverId:', { senderId, receiverId });
     return res.status(400).json({ 
       message: "Both senderId and receiverId are required",
       code: "MISSING_IDS"
@@ -27,69 +30,95 @@ exports.createConversation = async (req, res) => {
   }
 
   if (senderId === receiverId) {
+    console.error('Attempt to create conversation with self:', { senderId, receiverId });
     return res.status(400).json({ 
       message: "Cannot create conversation with yourself",
       code: "SELF_CONVERSATION"
     });
   }
 
+  // Defensive check: ensure exactly 2 unique, valid ObjectIds
+  const participants = [senderId, receiverId];
+  if (
+    !Array.isArray(participants) ||
+    participants.length !== 2 ||
+    new Set(participants).size !== 2 ||
+    !participants.every(id => mongoose.Types.ObjectId.isValid(id))
+  ) {
+    console.error('Invalid participants array:', participants);
+    return res.status(400).json({
+      message: "Conversation must have exactly 2 unique participants (valid ObjectIds)",
+      code: "INVALID_PARTICIPANTS"
+    });
+  }
+
+  console.log('Creating conversation with participants:', participants);
+
+  let session;
   try {
-    // Validate IDs
+    session = await mongoose.startSession();
+    session.startTransaction();
+  } catch (sessionErr) {
+    console.warn('Could not start MongoDB session, falling back to no transaction:', sessionErr.message);
+    session = null;
+  }
+
+  try {
+    // Validate IDs again (redundant, but safe)
     if (!mongoose.Types.ObjectId.isValid(senderId) || 
         !mongoose.Types.ObjectId.isValid(receiverId)) {
+      console.error('Invalid user ID format:', { senderId, receiverId });
       return res.status(400).json({ 
         message: "Invalid user ID format",
         code: "INVALID_ID_FORMAT"
       });
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    // Use the model method we created
+    const existingConversation = await Conversation.findByParticipants(
+      senderId,
+      receiverId
+    ).session?.(session);
 
-    try {
-      // Use the model method we created
-      const existingConversation = await Conversation.findByParticipants(
-        senderId, 
-        receiverId
-      ).session(session);
-
-      if (existingConversation) {
-        await session.commitTransaction();
-        return res.status(200).json({ 
-          data: existingConversation,
-          message: "Existing conversation found",
-          code: "CONVERSATION_EXISTS"
-        });
-      }
-
-      const newConversation = new Conversation({
-        participants: [senderId, receiverId], // Will be sorted by pre-save hook
-        lastMessage: {
-          text: "Start a conversation...",
-          createdAt: new Date(),
-          senderId: null
-        }
+    if (existingConversation) {
+      if (session) await session.commitTransaction();
+      console.log('Existing conversation found:', existingConversation._id);
+      return res.status(200).json({
+        data: existingConversation,
+        message: "Existing conversation found",
+        code: "CONVERSATION_EXISTS"
       });
+    }
 
+    const newConversation = new Conversation({
+      participants: [senderId, receiverId], // Will be sorted by pre-save hook
+      lastMessage: {
+        text: "Start a conversation...",
+        createdAt: new Date(),
+        senderId: null
+      }
+    });
+
+    if (session) {
       await newConversation.save({ session });
       await session.commitTransaction();
-      
-      return res.status(201).json({ 
-        data: newConversation,
-        message: "New conversation created",
-        code: "CONVERSATION_CREATED"
-      });
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
+    } else {
+      await newConversation.save();
     }
+
+    console.log('New conversation created:', newConversation._id);
+    return res.status(201).json({
+      data: newConversation,
+      message: "New conversation created",
+      code: "CONVERSATION_CREATED"
+    });
   } catch (err) {
+    if (session) await session.abortTransaction();
     if (err.code === 11000) {
       // If we still hit a duplicate key (should be very rare now)
       const existing = await Conversation.findByParticipants(senderId, receiverId);
       if (existing) {
+        console.warn('Duplicate key error, but found existing conversation:', existing._id);
         return res.status(200).json({
           data: existing,
           message: "Conversation already exists (race condition resolved)",
@@ -97,19 +126,22 @@ exports.createConversation = async (req, res) => {
         });
       }
     }
-    
+    // Log the full error and all relevant variables
     console.error("Error in createConversation:", {
       error: err,
       senderId,
       receiverId,
+      participants,
+      requestBody: req.body,
       timestamp: new Date()
     });
-    
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Failed to create conversation",
       error: err.message,
       code: "INTERNAL_ERROR"
     });
+  } finally {
+    if (session) session.endSession();
   }
 };
 
@@ -140,10 +172,41 @@ exports.getUserConversations = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
-    const conversations = await Conversation.find({
-      participants: new mongoose.Types.ObjectId(userId),
-    }).sort({ updatedAt: -1 }).lean();
-    // Enhance conversations with proper lastMessage structure
+    
+    const conversations = await Conversation.aggregate([
+      { $match: { participants: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "messages",
+          localField: "_id",
+          foreignField: "conversationId",
+          as: "messages"
+        }
+      },
+      {
+        $addFields: {
+          unreadCount: {
+            $size: {
+              $filter: {
+                input: "$messages",
+                as: "msg",
+                cond: {
+                  $and: [
+                    { $ne: ["$$msg.senderId", new mongoose.Types.ObjectId(userId)] },
+                    { $not: { $in: [new mongoose.Types.ObjectId(userId), "$$msg.readBy"] } }
+                  ]
+                }
+              }
+            }
+          },
+          lastMessage: { $arrayElemAt: ["$messages", -1] }
+        }
+      },
+      { $sort: { updatedAt: -1 } },
+      { $project: { messages: 0 } }
+    ]);
+
+    // Enhance conversations with proper lastMessage structure and filter out empty ones
     const Message = require('../models/message');
     const enhancedConversations = await Promise.all(conversations.map(async conv => {
       if (!conv.lastMessage || typeof conv.lastMessage === 'string') {
@@ -151,18 +214,35 @@ exports.getUserConversations = async (req, res) => {
         const lastMsg = await Message.findOne({ conversationId: conv._id })
           .sort({ createdAt: -1 })
           .lean();
-        return {
-          ...conv,
-          lastMessage: lastMsg ? {
-            text: lastMsg.text,
-            createdAt: lastMsg.createdAt,
-            senderId: lastMsg.senderId
-          } : { text: "Start a conversation...", createdAt: conv.updatedAt, senderId: null }
-        };
+        
+        if (lastMsg && lastMsg.text && lastMsg.text !== "Start a conversation...") {
+          return {
+            ...conv,
+            lastMessage: {
+              text: lastMsg.text,
+              createdAt: lastMsg.createdAt,
+              senderId: lastMsg.senderId
+            }
+          };
+        } else {
+          // Filter out conversations with no real messages
+          return null;
+        }
       }
+      
+      // Filter out conversations with "Start a conversation..." as last message
+      if (conv.lastMessage && conv.lastMessage.text === "Start a conversation...") {
+        return null;
+      }
+      
       return conv;
     }));
-    res.json({ data: enhancedConversations });
+
+    // Filter out null conversations and return only valid ones
+    const validConversations = enhancedConversations.filter(conv => conv !== null);
+    
+    console.log(`Returning ${validConversations.length} valid conversations for user ${userId}`);
+    res.json({ data: validConversations });
   } catch (err) {
     console.error("Error fetching user conversations:", err);
     res.status(500).json({ message: "Failed to fetch user conversations", error: err.message });
