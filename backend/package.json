@@ -11,11 +11,7 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "chart.js": "^4.5.0",
-<<<<<<< Updated upstream
-    "cloudinary": "^1.41.3",
-=======
     "cloudinary": "^2.8.0",
->>>>>>> Stashed changes
     "cloudinary-core": "^2.14.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
