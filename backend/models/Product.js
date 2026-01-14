@@ -23,6 +23,19 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    // ✅ NEW FIELD: Category
+    category: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    // ✅ NEW FIELD: Stock (Matches your frontend code)
+    countInStock: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
+    },
     images: {
       type: [String],
       default: []

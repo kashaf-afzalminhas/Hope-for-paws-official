@@ -117,6 +117,9 @@ import AdminUserComments from './admin/AdminUserComments';
 import AdminPostComments from './admin/AdminPostComments';
 import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
+import SellerAddProduct from './Main/SellerAddProduct.jsx';
+import SellerProducts from './Main/SellerProducts.jsx';
+import SellerEditProduct from './Main/SellerEditProduct.jsx';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -323,6 +326,9 @@ const router = createBrowserRouter(
       {/* Seller Routes */}
       <Route path="/seller/register" element={<SellerRegistration />} />
       <Route path="/seller/dashboard" element={<SellerDashboard />} />
+      <Route path="/seller/products/new" element={<SellerAddProduct />} />
+      <Route path="/seller/products" element={<SellerProducts />} />
+      <Route path="/seller/product/edit/:id" element={<SellerEditProduct/>} />
     </Route>
   )
 );
