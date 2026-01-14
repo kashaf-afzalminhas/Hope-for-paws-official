@@ -9,7 +9,8 @@ const AdminAdoptionRequests = () => {
   const [deleting, setDeleting] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
 
-  useEffect(() => {
+
+    useEffect(() => {
     fetchRequests();
   }, []);
 

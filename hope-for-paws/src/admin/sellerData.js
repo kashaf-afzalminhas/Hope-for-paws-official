@@ -1,0 +1,62 @@
+export const sellerRequests = [
+  {
+    id: 1,
+    name: "Ali Khan",
+    shopName: "Khan Pet Shop",
+    status: "Pending",
+    dateApplied: "2026-01-04",
+    email: "ali@example.com",
+    phone: "0300-1234567",
+    type: "Pet Shop",
+    description: "We sell premium cat food and imported accessories. Located in the heart of Lahore.",
+    address: "Shop #4, Barkat Market",
+    city: "Lahore",
+    cnicImage: "https://placehold.co/600x400?text=CNIC+Front",
+    licenseImage: "https://placehold.co/600x400?text=Business+License"
+  },
+  {
+    id: 2,
+    name: "Dr. Sarah Ahmed",
+    shopName: "Sarah's Vet Pharmacy",
+    status: "Pending",
+    dateApplied: "2026-01-05",
+    email: "sarah@example.com",
+    phone: "0321-9876543",
+    type: "Veterinary Store",
+    description: "Authorized seller of veterinary medicines and supplements.",
+    address: "Main Blvd, Phase 6",
+    city: "Karachi",
+    cnicImage: "https://placehold.co/600x400?text=CNIC+Front",
+    licenseImage: null // No license provided
+  },
+  {
+    id: 3,
+    name: "John Doe",
+    shopName: "JD Supplies",
+    status: "Verified",
+    dateApplied: "2025-12-28",
+    email: "john@example.com",
+    phone: "0333-5555555",
+    type: "Individual",
+    description: "Small home-based seller for handmade toys.",
+    address: "House 12, Street 5",
+    city: "Islamabad",
+    cnicImage: "https://placehold.co/600x400?text=CNIC+Front",
+    licenseImage: null
+  },
+  {
+    id: 4,
+    name: "Pet Planet",
+    shopName: "Pet Planet Official",
+    status: "Rejected",
+    dateApplied: "2025-12-20",
+    email: "contact@petplanet.com",
+    phone: "0300-0000000",
+    type: "Pet Shop",
+    description: "Large retailer of pet supplies.",
+    address: "Blue Area",
+    city: "Islamabad",
+    cnicImage: "https://placehold.co/600x400?text=CNIC+Front",
+    licenseImage: "https://placehold.co/600x400?text=License"
+  }
+];

@@ -116,6 +116,9 @@ const Navbar = ({ handleSignOut }) => {
               <NavLink to="/posts" className={({ isActive }) => isActive ? activeStyle : ''}>Posts</NavLink>
             </li>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
+              <NavLink to="/marketplace" className={({ isActive }) => isActive ? activeStyle : ''}>Product List </NavLink>
+            </li>
+            <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/contactus" className={({ isActive }) => isActive ? activeStyle : ''}>Contact Us</NavLink>
             </li>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
