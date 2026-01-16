@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { useOrders } from '../context/OrderContext';
 
 const CheckoutPage = () => {
   const { cartItems, updateQuantity, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
+  const { placeOrder: createOrder } = useOrders();
 
   const [customer, setCustomer] = useState({
     name: '',
@@ -29,9 +31,10 @@ const CheckoutPage = () => {
       return;
     }
 
+    createOrder(cartItems);
     clearCart();
     alert("Order placed successfully!");
-    navigate('/');
+    navigate('/orders');
   };
 
   return (

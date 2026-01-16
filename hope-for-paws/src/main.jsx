@@ -78,6 +78,7 @@ import { AdoptionProvider } from './context/AdoptionContext'; // Import Adoption
 import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
 import { MessageProvider } from './context/MessageContext'; // Import MessageProvider
 import { CartProvider } from './context/CartContext'; // Import CartProvider
+import { OrderProvider } from './context/OrderContext'; // Import OrderProvider
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -86,6 +87,8 @@ import './index.css';
 import CartPage from './Main/CartPage';
 import CheckoutPage from './Main/CheckoutPage';
 import Postpages from './Main/Postnew.jsx';
+import OrderPage from './Main/OrderPage';
+
 import Home from './Components/Home';
 import ContactUs from './Main/ContactUs';
 import SignIn from './Main/SignIn';
@@ -293,6 +296,7 @@ const AdminDashboardRoutes = () => {
 
 import ChatPage from './Main/Chat.jsx';
 import PublicProfilePage from './Main/PublicProfilePage';
+//import OrderPage from './Main/OrderPage.jsx';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -319,9 +323,11 @@ const router = createBrowserRouter(
       <Route path="/notifications" element={<NotificationsPage />} />
       <Route path="/cart" element={<CartPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/orders" element={<OrderPage />} />
       <Route path="/admin-dashboard/*" element={<AdminDashboardRoutes />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />
       <Route path="chat/:recipientId?" element={<ChatPage />} />
+      
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
     </Route>
   )
@@ -333,7 +339,9 @@ const AppWithProviders = () => (
       <NotificationProvider>
         <MessageProvider>
            <CartProvider> 
+            <OrderProvider> 
             <RouterProvider router={router} />
+            </OrderProvider>
           </CartProvider> 
         </MessageProvider>
       </NotificationProvider>
