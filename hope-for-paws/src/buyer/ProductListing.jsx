@@ -1,19 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import ProductCard from './ProductCard';
-import { API_BASE_URL } from '../config'; // Make sure this path is correct for your folder structure
+import { API_BASE_URL } from '../config';
 
 const ProductListing = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch Real Products from Backend
+  const getCurrentUserId = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.id;
+    } catch (e) {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/products`); // Public endpoint
+        const response = await fetch(`${API_BASE_URL}/products`);
         if (!response.ok) throw new Error('Failed to fetch');
+        
         const data = await response.json();
-        setProducts(data);
+        const currentUserId = getCurrentUserId();
+
+        const filteredProducts = data.filter(product => {
+          if (!product.sellerId || typeof product.sellerId !== 'object') return true;
+          if (product.sellerId.userId === currentUserId) return false;
+          return true;
+        });
+
+        setProducts(filteredProducts);
       } catch (error) {
         console.error("Error loading products:", error);
       } finally {
@@ -35,8 +54,6 @@ const ProductListing = () => {
       <h1 className="text-4xl font-bold text-center text-[#a07855] mb-4">
           Product List
         </h1>
-
-        {/* Subtitle */}
         <p className="text-[#8d6e63] text-lg max-w-2xl mx-auto text-center mb-10">
           Discover the best treats, toys, and supplies for your furry friends.
         </p>
@@ -49,14 +66,13 @@ const ProductListing = () => {
             <ProductCard
               key={product._id}
               id={product._id}
-              // ✅ IMAGE FIX: Check if images array exists, take the first one
               image={product.images && product.images.length > 0 ? product.images[0] : "https://placehold.co/400"}
-              // ✅ NAME FIX: Backend calls it 'title', Frontend Card calls it 'name'
               name={product.title} 
               price={product.price}
-              // Note: We'll fix Shop Name later (backend needs to send seller name)
-              shopName="Verified Seller" 
-              isVerified={true}
+              shopName={product.sellerId?.name || "Seller"} 
+              
+              // ✅ CHANGE: Sending the actual status text now
+              sellerStatus={product.sellerId?.status || 'pending'}
             />
           ))}
         </div>

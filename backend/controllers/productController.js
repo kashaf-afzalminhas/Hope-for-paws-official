@@ -33,17 +33,24 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// 2. Public List
+// 2. Public List (Updated for Frontend Filtering & Verified Badge)
 exports.listProducts = async (_req, res) => {
   try {
-    const products = await Product.find({ isVisible: true }).sort({ createdAt: -1 });
+    const products = await Product.find({ isVisible: true })
+      .sort({ createdAt: -1 })
+      // ✅ CRITICAL UPDATE (Kept):
+      // 1. 'userId' -> Helps frontend hide your own products
+      // 2. 'status' -> Helps frontend show the "Verified" badge
+      .populate('sellerId', 'userId name status'); 
+
     return res.json(products);
   } catch (err) {
+    console.error('listProducts Error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// 3. Seller List
+// 3. Seller List (My Products)
 exports.listMyProducts = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId;
@@ -57,10 +64,13 @@ exports.listMyProducts = async (req, res) => {
   }
 };
 
-// 4. ✅ NEW: Get Single Product (For Edit Page)
+// 4. Get Single Product (Updated to prevent Detail Page Crash)
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id)
+      // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
+      .populate('sellerId', 'userId name status'); 
+
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
   } catch (err) {

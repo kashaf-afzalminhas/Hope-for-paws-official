@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { FaUser, FaPaw, FaTimes } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
-import NotificationIcon from './NotificationIcon';  
+import NotificationIcon from './NotificationIcon';
 import { useMessages } from '../context/MessageContext';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = ({ handleSignOut }) => {
-  const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const { user } = useAuth(); 
   const { unreadCount } = useMessages();
 
   const [isHovered, setIsHovered] = useState(false);
@@ -17,7 +18,6 @@ const Navbar = ({ handleSignOut }) => {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prevState) => !prevState);
-    // Close profile dropdown when menu is toggled
     setIsProfileOpen(false);
   };
 
@@ -30,7 +30,6 @@ const Navbar = ({ handleSignOut }) => {
     setIsProfileOpen(false);
   };
 
-  // Active link style for both mobile and desktop
   const activeStyle = "text-black font-bold";
 
   return (
@@ -124,21 +123,13 @@ const Navbar = ({ handleSignOut }) => {
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/faq" className={({ isActive }) => isActive ? activeStyle : ''}>FAQ's</NavLink>
             </li>
-            {user && !user.isAdmin && (
-              <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
-                <NavLink 
-                  to={user.isSeller ? "/seller/dashboard" : "/seller/register"} 
-                  className={({ isActive }) => isActive ? activeStyle : ''}
-                >
-                  {user.isSeller ? 'Seller Dashboard' : 'Become a Seller'}
-                </NavLink>
-              </li>
-            )}
+            
+            {/* ✅ UPDATED: REMOVED SELLER DASHBOARD LINK FROM HERE */}
+
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/chat" className={({ isActive }) => isActive ? activeStyle : ''}>
                 <span className="relative">
                   Inbox
-                  {/* Unread message badge */}
                   {unreadCount > 0 && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}
@@ -332,23 +323,9 @@ const Navbar = ({ handleSignOut }) => {
                   FAQ's
                 </NavLink>
               </li>
-              {user && !user.isAdmin && (
-                <li>
-                  <NavLink 
-                    to={user.isSeller ? "/seller/dashboard" : "/seller/register"} 
-                    onClick={closeMobileMenu} 
-                    className={({ isActive }) => 
-                      `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base ${
-                        isActive 
-                          ? 'bg-[#a07855] text-white shadow-md' 
-                          : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
-                      }`
-                    }
-                  >
-                    {user.isSeller ? 'Seller Dashboard' : 'Become a Seller'}
-                  </NavLink>
-                </li>
-              )}
+              
+              {/* ✅ REMOVED SELLER DASHBOARD LINK FROM MOBILE MENU TOO */}
+
               <li>
                 <NavLink 
                   to="/chat" 

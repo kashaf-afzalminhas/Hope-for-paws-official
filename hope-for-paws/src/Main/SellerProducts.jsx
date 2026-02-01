@@ -16,7 +16,9 @@ const SellerProducts = () => {
   const fetchMyProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/products`, {
+      
+      // ✅ FIX: Updated to match your backend route '/products/mine'
+      const response = await fetch(`${API_BASE_URL}/products/mine`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -41,7 +43,6 @@ const SellerProducts = () => {
     try {
       const token = localStorage.getItem('token');
       
-      // ✅ URL FIX: Changed to plural '/products/' to match Backend Routes
       const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
         headers: {
@@ -50,7 +51,7 @@ const SellerProducts = () => {
       });
 
       if (response.ok) {
-        // Remove item from the list instantly (no page reload needed)
+        // Remove item from the list instantly
         setProducts(products.filter(product => product._id !== id));
         alert('✅ Product deleted successfully');
       } else {

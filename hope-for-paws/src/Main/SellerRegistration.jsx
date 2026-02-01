@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { applyAsSeller, checkSellerStatus, updateLocalUserAsSeller } from '../services/sellerService';
+import { useAuth } from '../context/AuthContext'; // ✅ Import AuthContext
+import { applyAsSeller, updateLocalUserAsSeller } from '../services/sellerService';
 
 const SellerRegistration = () => {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth(); // ✅ Get User & Update function from Context
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -17,21 +20,20 @@ const SellerRegistration = () => {
 
   const [errors, setErrors] = useState({});
 
-  // Check if already a seller
+  // ✅ FIXED: Check Context instead of localStorage for Auto-Redirect
   useEffect(() => {
-    const { isSeller, sellerStatus } = checkSellerStatus();
-    if (isSeller) {
+    if (user && user.isSeller) {
+      // If already a seller, send straight to dashboard
       navigate('/seller/dashboard');
     }
-  }, [navigate]);
+  }, [user, navigate]);
 
-  // Pre-fill email from user data
+  // ✅ FIXED: Pre-fill email from Context User
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-    if (user.email) {
+    if (user && user.email) {
       setFormData(prev => ({ ...prev, email: user.email }));
     }
-  }, []);
+  }, [user]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -102,10 +104,16 @@ const SellerRegistration = () => {
     setLoading(true);
 
     try {
+      // 1. Send API Request
       const result = await applyAsSeller(formData);
       
-      // Update local storage with seller info
+      // 2. Update Local Storage (Service)
       updateLocalUserAsSeller('pending');
+
+      // 3. ✅ Update Context (So Navbar updates instantly)
+      if (user) {
+        updateUser({ ...user, isSeller: true, sellerStatus: 'pending' });
+      }
       
       setSuccess(true);
       
