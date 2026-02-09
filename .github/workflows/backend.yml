@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: tauris-dep
+    environment: production
 
     steps:
       - name: Checkout
