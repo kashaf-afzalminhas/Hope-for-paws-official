@@ -25,13 +25,15 @@ const messageRoutes = require('./routes/message');
 const conversationRoutes = require('./routes/conversation');
 const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/adminRoutes');
+const sellerRoutes = require('./routes/sellerRoutes');
+const productRoutes = require('./routes/productRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
 
 //dotenv.config();
 console.log('MONGO_URI:', process.env.MONGO_URI);
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('MongoDB connected successfully');
   })
@@ -57,7 +59,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       'https://www.hopeforpaws.club',
-      'http://localhost:5173'
+      'http://localhost:5173',
+      'http://localhost:5174'
      
     ],
     methods: ['GET', 'POST'],
@@ -134,6 +137,7 @@ const corsOptions = {
     'https://www.hopeforpaws.club',
 
     'http://localhost:5173',
+    'http://localhost:5174',
 
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -228,6 +232,8 @@ app.use('/api', contactusRoutes); // Ensure this is correctly used
 app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/sellers', sellerRoutes);
+app.use('/api/products', productRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {

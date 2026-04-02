@@ -1,21 +1,16 @@
 const User = require('../models/User');
 const TempUser = require('../models/TempUser');
+const Seller = require('../models/Seller');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
-const {OAuth2Client} = require("google-auth-library");
-const Post = require('../models/Post');
-const Comment = require('../models/Comment');
-const Adoption = require('../models/adoptionModel');
-const AdoptionRequest = require('../models/adoptionRequestModel');
+const { OAuth2Client } = require("google-auth-library");
 
 dotenv.config();
 
-console.log('GMAIL_USER:', process.env.GMAIL_USER);
-console.log('GMAIL_PASS:', process.env.GMAIL_PASS);
-
+// Email Transporter Setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -23,14 +18,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_PASS,
   },
 });
-console.log('GMAIL_USER:', process.env.GMAIL_USER);
-console.log('GMAIL_PASS:', process.env.GMAIL_PASS);
-
-const fetch = require('node-fetch'); // Use fetch to make API requests
-const JWT_SECRET = process.env.JWT_SECRET || 'Xy7@lKh$2nGz8qW!rVtP9&jDfL^6O77';
-// Replace with your chosen email verification service's API URL and key
-const EMAIL_VERIFICATION_API_URL = 'https://www.zerobounce.net/members/API';
-const API_KEY = '0cd5922afa754b08911d12fe8e8452ba'; // Replace with your API key
 
 const ADMIN_EMAILS = [
   'kashafafzal909@gmail.com',
@@ -38,254 +25,167 @@ const ADMIN_EMAILS = [
   'sahabnoor193@gmail.com'
 ];
 
+// ==========================================
+// 1. SIGN UP (Step 1: Save to TempUser)
+// ==========================================
 const signUp = async (req, res) => {
-  const { username, email, password, isVeterinarian, phone } = req.body;
-  console.log('Received signup request:', { username, email, isVeterinarian, phone });
-
+  const { username, email, password, isVeterinarian, phone, userType, sellerName, cnic, location } = req.body;
+  
+  // 1. Basic Validation
   if (!username || !email || !password || !phone) {
-    console.warn('Missing required fields');
     return res.status(400).json({ message: 'All fields (username, email, password, phone) are required' });
   }
 
-  // Validate international phone number format
+  // 2. Validate User Type
+  const finalUserType = userType === 'seller' ? 'seller' : 'user';
+
+  // 3. Validate Seller Fields
+  if (finalUserType === 'seller') {
+    if (!sellerName || !cnic || !location) {
+      return res.status(400).json({ message: 'Seller Name, CNIC, and Location are required for sellers.' });
+    }
+  }
+
+  // 4. Validate Phone & Email
   const phoneRegex = /^\+[1-9]\d{1,14}$/;
-  if (!phoneRegex.test(phone)) {
-    return res.status(400).json({ message: 'Please enter a valid international phone number' });
-  }
-
-  if (!email.toLowerCase().endsWith('@gmail.com')) {
-    console.warn('Invalid email domain:', email);
-    return res.status(400).json({ message: 'Please use a valid Gmail address.' });
-  }
-
-  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
-    return res.status(403).json({ message: 'This email is reserved for admin use only.' });
-  }
+  if (!phoneRegex.test(phone)) return res.status(400).json({ message: 'Invalid international phone number' });
+  if (!email.toLowerCase().endsWith('@gmail.com')) return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) return res.status(403).json({ message: 'Reserved email.' });
 
   try {
-    // Check if user is already verified (exists in User collection)
+    // 5. Check if User Exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.warn('Verified user already exists:', { email });
-      return res.status(400).json({ message: 'User already exists' });
-    }
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-    // Check if there's an existing unverified user (in TempUser collection)
-    const existingTempUser = await TempUser.findOne({ email });
-    if (existingTempUser) {
-      console.log('🔄 Updating existing unverified user:', { email, tempUserId: existingTempUser._id });
-      // Update the existing temp user with new data instead of deleting
-      existingTempUser.username = username;
-      existingTempUser.password = await bcrypt.hash(password, 10);
-      existingTempUser.isVeterinarian = isVeterinarian || false;
-      existingTempUser.phone = phone;
-      
-      const otp = crypto.randomBytes(3).toString('hex');
-      existingTempUser.verificationCode = otp;
-      existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
-       
-      await existingTempUser.save();
-      console.log('✅ Temporary user updated successfully:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
-
-      await transporter.sendMail({
-        from: process.env.GMAIL_USER,
-        to: email,
-        subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
-        text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
-      });
-      console.log('📧 OTP sent to email:', email);
-
-      return res.status(201).json({ message: 'OTP code sent to your email. Please verify to complete registration.' });
-    }
-
+    // 6. Prepare Data (Hash Password, Generate OTP)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    console.log('🔐 Password hashed successfully');
-
     const otp = crypto.randomBytes(3).toString('hex');
-    console.log('🔢 Generated OTP:', otp);
 
-    const tempUser = new TempUser({
+    // 7. Handle TempUser (Update if exists, else Create)
+    let tempUser = await TempUser.findOne({ email });
+    
+    const tempUserData = {
       username,
       email,
       password: hashedPassword,
       isVeterinarian: isVeterinarian || false,
       phone,
+      userType: finalUserType,
       verificationCode: otp,
-      verificationCodeExpires: Date.now() + 2 * 60 * 1000,
-    });
+      verificationCodeExpires: Date.now() + 2 * 60 * 1000, // 2 mins
+      // Save Seller Info
+      sellerName: finalUserType === 'seller' ? sellerName : undefined,
+      cnic: finalUserType === 'seller' ? cnic : undefined,
+      location: finalUserType === 'seller' ? location : undefined,
+    };
 
-    await tempUser.save();
-    console.log('✅ Temporary user created successfully:', { email, tempUserId: tempUser._id, expiry: tempUser.verificationCodeExpires });
+    if (tempUser) {
+      Object.assign(tempUser, tempUserData);
+      await tempUser.save();
+    } else {
+      tempUser = new TempUser(tempUserData);
+      await tempUser.save();
+    }
 
+    // 8. Send OTP Email
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Hope for Paws: Complete Your Registration – Email Verification Code',
-      text: `Hello ${username || 'there'},\n\nThank you for registering with Hope for Paws!\n\nPlease use the following One-Time Password (OTP) to verify your email address and complete your registration:\n\nOTP Code: ${otp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
+      subject: 'Hope for Paws: Verification Code',
+      text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`,
     });
-    console.log('📧 OTP sent to email:', email);
 
-    res.status(201).json({ message: 'OTP code sent to your email. Please verify to complete registration.' });
+    res.status(201).json({ message: 'OTP sent to your email.' });
+
   } catch (error) {
-    console.error('❌ Registration error:', error);
+    console.error('SignUp Error:', error);
     res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
+// ==========================================
+// 2. VERIFY OTP (Step 2: Create Real User & Seller)
+// ==========================================
 const verifyRegistrationOTP = async (req, res) => {
   const { email, otp } = req.body;
 
-  if (!email || !otp) {
-    return res.status(400).json({ error: 'Email and OTP are required.' });
-  }
-
   try {
-    console.log('🔍 Verification attempt for:', email);
-    
     const tempUser = await TempUser.findOne({ email });
-    if (!tempUser) {
-      console.log('❌ No TempUser found for verification:', email);
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    console.log('✅ Found TempUser for verification:', { email, tempUserId: tempUser._id, currentExpiry: tempUser.verificationCodeExpires });
-
-    if (tempUser.verificationCode !== otp) {
-      console.log('❌ Invalid OTP for verification:', { email, providedOTP: otp, storedOTP: tempUser.verificationCode });
-      return res.status(400).json({ error: 'Invalid OTP code.' });
-    }
     
-    if (tempUser.verificationCodeExpires < Date.now()) {
-      console.log('❌ OTP expired for verification:', { email, expiry: tempUser.verificationCodeExpires, currentTime: Date.now() });
-      return res.status(400).json({ error: 'OTP code has expired.' });
-    }
+    if (!tempUser) return res.status(404).json({ error: 'Registration session expired or invalid.' });
+    if (tempUser.verificationCode !== otp) return res.status(400).json({ error: 'Invalid OTP.' });
+    if (tempUser.verificationCodeExpires < Date.now()) return res.status(400).json({ error: 'OTP expired.' });
 
-    console.log('✅ OTP validation successful, creating new user:', email);
-
+    // 1. Create User
     const newUser = new User({
       username: tempUser.username,
       email: tempUser.email,
       password: tempUser.password,
       isVeterinarian: tempUser.isVeterinarian,
       phone: tempUser.phone,
-      phoneVerified: true, // Phone is verified during signup process
+      phoneVerified: true,
+      isSeller: tempUser.userType === 'seller',
+      sellerStatus: tempUser.userType === 'seller' ? 'pending' : null,
+      canBuy: tempUser.userType !== 'seller', // Sellers might be restricted from buying, or set true if allowed
     });
 
     await newUser.save();
-    console.log('✅ New user created successfully:', { email, userId: newUser._id });
 
+    // 2. Create Seller Profile (If applicable)
+    if (tempUser.userType === 'seller') {
+      try {
+        await Seller.create({
+          userId: newUser._id,
+          name: tempUser.sellerName,
+          email: tempUser.email,
+          cnic: tempUser.cnic,
+          location: tempUser.location,
+          status: 'pending'
+        });
+      } catch (err) {
+        console.error("Failed to create Seller Profile:", err);
+      }
+    }
+
+    // 3. Cleanup & Token
     await TempUser.deleteOne({ email });
-    console.log('🗑️ Temporary user deleted after successful verification:', { email, tempUserId: tempUser._id });
 
     const token = jwt.sign(
-      { id: newUser._id, username: newUser.username, isVeterinarian: newUser.isVeterinarian },
+      { 
+        id: newUser._id, 
+        username: newUser.username, 
+        isVeterinarian: newUser.isVeterinarian,
+        isSeller: newUser.isSeller 
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    console.log('✅ Verification completed successfully:', email);
-
     res.status(200).json({
-      message: 'Email verified successfully. You are now logged in.',
+      message: 'Verified successfully.',
       token,
       user: {
         id: newUser._id,
         email: newUser.email,
         username: newUser.username,
-        phone: newUser.phone,
-        phoneVerified: newUser.phoneVerified,
-        isVeterinarian: newUser.isVeterinarian,
-      },
+        isSeller: newUser.isSeller,
+        sellerStatus: newUser.sellerStatus
+      }
     });
+
   } catch (error) {
-    console.error('❌ Error verifying OTP:', error);
+    console.error('Verification Error:', error);
     res.status(500).json({ error: 'Server error during verification' });
   }
 };
 
-// Validate Token Function
-const validateToken = async (req, res) => {
-  try {
-    // Since this route uses auth middleware, req.user should already be set
-    const userId = req.user.id;
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
-  } catch (error) {
-    console.error('Token validation error:', error);
-    res.status(401).json({ message: 'Invalid token' });
-  }
-};
-
-// Forgot Password Controller
-const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-
-  if (!email.endsWith('@gmail.com')) {
-    return res.status(400).json({ error: 'Please use a valid Gmail address.' });
-  }
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: 'Email not found.' });
-    }
-
-    const verificationCode = crypto.randomBytes(3).toString('hex');
-    user.verificationCode = verificationCode; // Save code in user model
-    user.verificationCodeExpires = Date.now() + 15 * 60 * 1000; // Set expiration time to 15 minutes
-    await user.save();
-
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Hope for Paws: Password Reset Verification Code',
-      text: `Hello,\n\nWe received a request to reset your password for your Hope for Paws account.\n\nPlease use the following verification code to reset your password:\n\nVerification Code: ${verificationCode}\n\nThis code is valid for 15 minutes. If you did not request a password reset, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
-    });
-
-    res.status(200).json({ message: 'Verification code sent to your email.' });
-  } catch (error) {
-    console.error('Error sending email:', error);
-    res.status(500).json({ error: 'An error occurred while processing your request.' });
-  }
-};
-
-// Verify Code Controller
-const verifyCode = async (req, res) => {
-  const { email, code, newPassword } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user || user.verificationCode.trim() !== code.trim()) {
-      return res.status(400).json({ error: 'Invalid verification code.' });
-    }
-
-    // Check if the verification code has expired
-    if (user.verificationCodeExpires < Date.now()) {
-      return res.status(400).json({ error: 'Verification code has expired.' });
-    }
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.verificationCode = undefined; // Clear the verification code
-    user.verificationCodeExpires = undefined; // Clear expiration
-    await user.save();
-
-    res.status(200).json({ message: 'Password reset successfully.' });
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    res.status(500).json({ error: 'An error occurred while resetting your password.' });
-  }
-};
-
+// ==========================================
+// 3. SIGN IN
+// ==========================================
 const signIn = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
+  
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
@@ -294,7 +194,12 @@ const signIn = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      { 
+        id: user._id, 
+        username: user.username, 
+        isVeterinarian: user.isVeterinarian,
+        isSeller: user.isSeller 
+      },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -307,570 +212,144 @@ const signIn = async (req, res) => {
         email: user.email,
         username: user.username,
         phone: user.phone,
-        phoneVerified: user.phoneVerified,
-        city: user.city,
-        about: user.about,
-        isVeterinarian: user.isVeterinarian,
+        isSeller: user.isSeller || false,
+        sellerStatus: user.sellerStatus || null,
         isAdmin: user.isAdmin,
       },
     });
+
   } catch (error) {
-    console.error('Sign in error:', error);
-    res.status(500).json({ error: 'Server error during sign in' });
+    console.error('SignIn Error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
-const updateProfile = async (req, res) => {
-  try {
-    const { id, phone, city, about } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ message: 'User ID is required to update profile' });
-    }
-
-    const user = await User.findById(id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // If phone is being updated, validate it and check for duplicates
-    if (phone && phone !== user.phone) {
-      // Validate international phone number format
-      const phoneRegex = /^\+[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(phone)) {
-        return res.status(400).json({ message: 'Please enter a valid international phone number' });
-      }
-
-      // Check if phone is already used by another user
-      const existingUser = await User.findOne({ phone, _id: { $ne: id } });
-      if (existingUser) {
-        return res.status(400).json({ message: 'This phone number is already used by another user' });
-      }
-
-      // Mark phone as verified when updating
-      user.phone = phone;
-      user.phoneVerified = true;
-    }
-
-    // Update other fields
-    user.city = city || user.city;
-    user.about = about || user.about;
-
-    await user.save();
-
-    // ✅ Ensure all fields are returned
-    return res.status(200).json({
-      message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone || "",  // Explicitly include phone, city, about
-        phoneVerified: user.phoneVerified,
-        city: user.city || "",
-        about: user.about || "",
-        isVeterinarian: user.isVeterinarian,
-        isAdmin: user.isAdmin,
-      }
-    });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const changePassword = async (req, res) => {
-  const { id, currentPassword, newPassword } = req.body;
-
-  // Validate inputs
-  if (!id || !currentPassword || !newPassword) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  try {
-    // Find the user by ID
-    const user = await User.findById(id);
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if the current password matches the user's existing password
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
-    }
-
-    // Hash the new password and update it in the database
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.status(200).json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ error: 'An error occurred while changing the password' });
-  }
-};
-
-const signOut = async (req, res) => {
-  try {
-    res.status(200).json({ message: 'User signed out successfully' });
-  } catch (error) {
-    console.error('Error during sign out:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-const resendOTP = async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required' });
-  }
-
-  if (!email.toLowerCase().endsWith('@gmail.com')) {
-    return res.status(400).json({ message: 'Please use a valid Gmail address.' });
-  }
-
-  try {
-    console.log('🔄 Resend OTP request for:', email);
-    
-    // Check if there's an existing unverified user
-    const existingTempUser = await TempUser.findOne({ email });
-    if (!existingTempUser) {
-      console.log('❌ No TempUser found for resend OTP:', email);
-      return res.status(404).json({ message: 'No pending verification found for this email. Please register first.' });
-    }
-
-    console.log('✅ Found existing TempUser for resend:', { email, tempUserId: existingTempUser._id, currentExpiry: existingTempUser.verificationCodeExpires });
-
-    // Check if user is already verified
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.log('❌ User already verified, cannot resend OTP:', email);
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Generate new OTP
-    const newOtp = crypto.randomBytes(3).toString('hex');
-    console.log('🔢 Generated new OTP for resend:', newOtp);
-
-    // Update the existing temp user with new OTP and expiration
-    existingTempUser.verificationCode = newOtp;
-    existingTempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000; // 2 minutes
-    await existingTempUser.save();
-    console.log('✅ TempUser updated with new OTP:', { email, tempUserId: existingTempUser._id, newExpiry: existingTempUser.verificationCodeExpires });
-
-    // Validate email configuration
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-      console.error('❌ Email configuration missing:', {
-        GMAIL_USER: !!process.env.GMAIL_USER,
-        GMAIL_PASS: !!process.env.GMAIL_PASS
-      });
-      return res.status(500).json({ message: 'Email service configuration error' });
-    }
-
-    // Send new OTP email with detailed error handling
-    try {
-      const mailResult = await transporter.sendMail({
-        from: process.env.GMAIL_USER,
-        to: email,
-        subject: 'Hope for Paws: Your New Email Verification Code',
-        text: `Hello ${existingTempUser.username || 'there'},\n\nAs requested, here is your new One-Time Password (OTP) to verify your email address:\n\nOTP Code: ${newOtp}\n\nThis code is valid for 2 minutes. If you did not request this, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
-      });
-      console.log('📧 Email sent successfully for resend:', mailResult);
-      console.log('📧 New OTP sent to email:', email);
-    } catch (emailError) {
-      console.error('❌ Email sending failed for resend:', {
-        error: emailError.message,
-        code: emailError.code,
-        command: emailError.command,
-        response: emailError.response,
-        responseCode: emailError.responseCode
-      });
-      return res.status(500).json({ message: 'Failed to send email. Please try again later.' });
-    }
-
-    res.status(200).json({ message: 'New OTP code sent to your email. Please verify to complete registration.' });
-  } catch (error) {
-    console.error('❌ Resend OTP error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    res.status(500).json({ message: 'Server error during resend OTP' });
-  }
-},
-
-googleLogins = async (req, res) => {
+// ==========================================
+// 4. GOOGLE AUTH (Updated for Seller)
+// ==========================================
+const googleLogins = async (req, res) => {
   try {
     const { credential } = req.body;
-    if (!credential) {
-      return res.status(400).json({ message: "No credential provided" });
-    }
-
-    //const CLIENT_ID = '1001588197500-mmp90e0a3vmftbb3a8h3jbeput110kok.apps.googleusercontent.com';
-    const CLIENT_ID = "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
-    const client = new OAuth2Client(CLIENT_ID);
-
+    const client = new OAuth2Client("495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com");
     const ticket = await client.verifyIdToken({ 
-      idToken: credential,
-      audience: CLIENT_ID,
+      idToken: credential, 
+      audience: "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com" 
     });
-
-    const payload = ticket.getPayload();
-    const { email, name } = payload;
-
-    if (!email) {
-      return res.status(400).json({ message: "Google email not found" });
-    }
+    const { email, name } = ticket.getPayload();
 
     let user = await User.findOne({ email });
-
+    
+    // If user doesn't exist, ask frontend to get UserType
     if (!user) {
-      // Instead of creating user, return needsUserType
-      return res.status(200).json({
-        needsUserType: true,
-        email,
-        username: name
-      });
+      return res.status(200).json({ needsUserType: true, email, username: name });
     }
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
 
-    return res.status(200).json({
-      message: 'Sign in successful',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        phone: user.phone,
-        phoneVerified: user.phoneVerified,
-        city: user.city,
-        about: user.about,
-        isVeterinarian: user.isVeterinarian,
-      },
-    });
+    return res.status(200).json({ message: 'Sign in successful', token, user });
+
   } catch (error) {
     console.error("Google Login Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Error" });
   }
 };
 
-// New controller for completing Google registration
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian } = req.body;
-    if (!email || !username || typeof isVeterinarian !== 'boolean') {
-      return res.status(400).json({ message: 'Missing required fields' });
+    const { email, username, isVeterinarian, userType, sellerName, cnic, location } = req.body;
+    
+    if (!email || !username) return res.status(400).json({ message: 'Missing fields' });
+    
+    const isSeller = userType === 'seller';
+    
+    if (isSeller) {
+      if (!sellerName || !cnic || !location) return res.status(400).json({ message: 'Seller details required' });
     }
+    
     let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
+    if (user) return res.status(400).json({ message: 'User exists' });
+
     const randomPassword = crypto.randomBytes(16).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
     user = await User.create({
       username,
       email,
       password: hashedPassword,
       isVeterinarian,
-      phone: "", // Empty phone for Google users
-      phoneVerified: false, // Google users need to add phone later
+      isSeller, 
+      phone: "", 
+      phoneVerified: false, 
     });
+    
+    if (isSeller) {
+      await Seller.create({
+        userId: user._id,
+        name: sellerName,
+        email: email,
+        cnic: cnic,
+        location: location,
+        status: 'pending'
+      });
+    }
+    
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian },
+      { id: user._id, username: user.username, isVeterinarian, isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
+
     return res.status(201).json({
       message: 'Registration successful',
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        phone: user.phone,
-        phoneVerified: user.phoneVerified,
-        city: user.city,
-        about: user.about,
-        isVeterinarian: user.isVeterinarian,
-      },
+      user
     });
+
   } catch (error) {
-    console.error('Complete Google Registration Error:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error('Google Registration Error:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const validateUser = async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({ user });
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// ==========================================
+// 5. HELPER FUNCTIONS
+// ==========================================
 
-// Verify Reset Code Controller
-const verifyResetCode = async (req, res) => {
-  const { email, code } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user || user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Invalid verification code.' });
-    }
-    if (user.verificationCodeExpires < Date.now()) {
-      return res.status(400).json({ error: 'Verification code has expired.' });
-    }
-    res.status(200).json({ message: 'Code verified successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'An error occurred while verifying the code.' });
-  }
-};
-
-// Reset Password Controller
-const resetPassword = async (req, res) => {
-  const { email, code, newPassword } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user || user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Invalid verification code.' });
-    }
-    if (user.verificationCodeExpires < Date.now()) {
-      return res.status(400).json({ error: 'Verification code has expired.' });
-    }
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.verificationCode = undefined;
-    user.verificationCodeExpires = undefined;
-    await user.save();
-    res.status(200).json({ message: 'Password reset successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'An error occurred while resetting your password.' });
-  }
-};
-
-// Resend Reset Code Controller
-const resendResetCode = async (req, res) => {
+const resendOTP = async (req, res) => {
   const { email } = req.body;
-  if (!email.endsWith('@gmail.com')) {
-    return res.status(400).json({ error: 'Please use a valid Gmail address.' });
-  }
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: 'Email not found.' });
-    }
-    const verificationCode = crypto.randomBytes(3).toString('hex');
-    user.verificationCode = verificationCode;
-    user.verificationCodeExpires = Date.now() + 15 * 60 * 1000;
-    await user.save();
+    const tempUser = await TempUser.findOne({ email });
+    if (!tempUser) return res.status(404).json({ message: 'No pending registration.' });
+
+    const newOtp = crypto.randomBytes(3).toString('hex');
+    tempUser.verificationCode = newOtp;
+    tempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
+    await tempUser.save();
+
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Hope for Paws: Password Reset Verification Code',
-      text: `Hello,\n\nWe received a request to reset your password for your Hope for Paws account.\n\nPlease use the following verification code to reset your password:\n\nVerification Code: ${verificationCode}\n\nThis code is valid for 15 minutes. If you did not request a password reset, please ignore this email.\n\nBest regards,\nHope for Paws Team`,
+      subject: 'Hope for Paws: New OTP',
+      text: `Your new OTP: ${newOtp}`,
     });
-    res.status(200).json({ message: 'Verification code resent to your email.' });
+    res.status(200).json({ message: 'New OTP sent.' });
   } catch (error) {
-    res.status(500).json({ error: 'An error occurred while resending the code.' });
-  }
-};
-
-// Phone verification functions
-const addPhoneNumber = async (req, res) => {
-  try {
-    const { phone } = req.body;
-    const userId = req.user.id;
-
-    if (!phone) {
-      return res.status(400).json({ message: 'Phone number is required' });
-    }
-
-    // Validate international phone number format
-    const phoneRegex = /^\+[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(phone)) {
-      return res.status(400).json({ message: 'Please enter a valid international phone number' });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Check if phone is already used by another user
-    const existingUser = await User.findOne({ phone, _id: { $ne: userId } });
-    if (existingUser) {
-      return res.status(400).json({ message: 'This phone number is already used by another user' });
-    }
-
-    // Save phone number and mark as verified
-    user.phone = phone;
-    user.phoneVerified = true;
-    user.phoneVerificationCode = undefined;
-    user.phoneVerificationCodeExpires = undefined;
-    await user.save();
-
-    res.status(200).json({ 
-      message: 'Phone number added successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        phone: user.phone,
-        phoneVerified: user.phoneVerified,
-        isVeterinarian: user.isVeterinarian,
-        isAdmin: user.isAdmin,
-      }
-    });
-  } catch (error) {
-    console.error('Error adding phone number:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-const getUserById = async (req, res) => {
+const validateToken = async (req, res) => {
   try {
-    const { id } = req.body;
-    if (!id) {
-      return res.status(400).json({ message: "User ID is required" });
-    }
-    
-    const user = await User.findById(id).select("-password");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json({ data: user });
-  } catch (err) {
-    console.error('Error fetching user by ID:', err);
-    res.status(500).json({ message: "Failed to fetch user" });
-  }
-};
-
-const getAllUsers = async (req, res) => {
-  try {
-    console.log('getAllUsers endpoint called');
-    console.log('Request headers:', req.headers);
-    console.log('Request body:', req.body);
-    
-    const users = await User.find().select("-password");
-    console.log('Found users:', users.length);
-    console.log('Users data type:', typeof users);
-    console.log('Is users an array?', Array.isArray(users));
-    console.log('First user example:', users[0]);
-    
-    const responseData = { data: users };
-    console.log('Response data structure:', responseData);
-    console.log('Response data type:', typeof responseData);
-    console.log('Response data.data type:', typeof responseData.data);
-    console.log('Is responseData.data an array?', Array.isArray(responseData.data));
-    
-    res.json(responseData);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
-};
-
-const searchUsers = async (req, res) => {
-  try {
-    const { query } = req.body;
-    
-    if (!query) {
-      return res.status(400).json({ message: "Search query is required" });
-    }
-
-    const users = await User.find({
-      $or: [
-        { username: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
-      ]
-    }).select("-password");
-
-    res.json({ data: users });
-  } catch (err) {
-    console.error('Error searching users:', err);
-    res.status(500).json({ message: "Failed to search users" });
-  }
-};
-
-const uploadProfileImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false,
-        message: "No file uploaded" 
-      });
-    }
-
     const userId = req.user.id;
-    const filePath = `/uploads/profile-images/${req.file.filename}`;
-
-    const user = await User.findByIdAndUpdate(
-      userId, 
-      { profileImage: filePath }, 
-      { new: true }
-    ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: "User not found" 
-      });
-    }
-
-    res.json({ 
-      success: true,
-      message: "Profile image uploaded successfully", 
-      data: { profileImage: filePath }
-    });
-  } catch (err) {
-    console.error('Error in uploadProfileImage:', err);
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to upload profile image",
-      error: err.message 
-    });
-  }
-};
-
-const getUserPublicProfile = async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const user = await User.findById(userId).select("username email profileImage phone city about isVeterinarian status lastActive");
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        message: "User not found" 
-      });
-    }
-
-    res.json({ 
-      success: true,
-      data: user
-    });
-  } catch (err) {
-    console.error('Error in getUserPublicProfile:', err);
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to fetch public profile",
-      error: err.message 
-    });
+    const user = await User.findById(userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ user });
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid token' });
   }
 };
 
@@ -878,56 +357,142 @@ const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId).select("-password");
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json({ 
-      success: true,
-      data: user
-    });
+    let userData = user.toObject();
+    if (user.isSeller) {
+      const seller = await Seller.findOne({ userId: user._id });
+      if (seller) userData.sellerDetails = seller;
+    }
+    res.json({ success: true, data: userData });
   } catch (err) {
-    console.error('Error in getUserProfile:', err);
-    res.status(500).json({ 
-      success: false,
-      message: "Failed to fetch user profile",
-      error: err.message 
-    });
+    res.status(500).json({ message: "Failed to fetch profile" });
   }
 };
 
-const removeProfileImage = async (req, res) => {
+const updateProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { profileImage: "" },
-      { new: true }
-    ).select("-password");
+    const { id, phone, city, about } = req.body;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
+    if (phone && phone !== user.phone) {
+      const exists = await User.findOne({ phone, _id: { $ne: id } });
+      if (exists) return res.status(400).json({ message: 'Phone taken' });
+      user.phone = phone;
+      user.phoneVerified = true;
     }
+    user.city = city || user.city;
+    user.about = about || user.about;
+    await user.save();
 
-    res.json({
-      success: true,
-      message: "Profile image removed successfully",
-      data: { profileImage: "" }
-    });
-  } catch (err) {
-    console.error('Error in removeProfileImage:', err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to remove profile image",
-      error: err.message
-    });
+    return res.status(200).json({ message: 'Updated', user });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Password Reset Flow
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email.endsWith('@gmail.com')) return res.status(400).json({ error: 'Invalid email.' });
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'Email not found.' });
+
+    const code = crypto.randomBytes(3).toString('hex');
+    user.verificationCode = code;
+    user.verificationCodeExpires = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: 'Password Reset',
+      text: `Code: ${code}`,
+    });
+    res.status(200).json({ message: 'Code sent.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+const verifyCode = async (req, res) => { /* Reuse logic if verifyRegistrationOTP isn't generic enough */
+  const { email, code } = req.body; // For Password Reset Only
+  try {
+    const user = await User.findOne({ email });
+    if (!user || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
+      return res.status(400).json({ error: 'Invalid or expired code.' });
+    }
+    res.status(200).json({ message: 'Code verified.' });
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+const resetPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user || user.verificationCode !== code || user.verificationCodeExpires < Date.now()) {
+      return res.status(400).json({ error: 'Invalid code.' });
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.verificationCode = undefined;
+    await user.save();
+    res.status(200).json({ message: 'Password reset.' });
+  } catch (error) { res.status(500).json({ error: 'Error' }); }
+};
+
+// Other Exports
+const signOut = async (req, res) => res.status(200).json({ message: 'Signed out' });
+const getUserById = async (req, res) => { 
+  const user = await User.findById(req.body.id).select("-password");
+  res.json({ data: user });
+};
+const getAllUsers = async (req, res) => {
+  const users = await User.find().select("-password");
+  res.json({ data: users });
+};
+const searchUsers = async (req, res) => { 
+  const { query } = req.body;
+  const users = await User.find({
+      $or: [{ username: { $regex: query, $options: 'i' } }, { email: { $regex: query, $options: 'i' } }]
+  }).select("-password");
+  res.json({ data: users });
+};
+const uploadProfileImage = async (req, res) => {
+    if (!req.file) return res.status(400).json({ success: false, message: "No file" });
+    const user = await User.findByIdAndUpdate(req.user.id, { profileImage: `/uploads/profile-images/${req.file.filename}` }, { new: true });
+    res.json({ success: true, data: { profileImage: user.profileImage } });
+};
+const removeProfileImage = async (req, res) => {
+    await User.findByIdAndUpdate(req.user.id, { profileImage: "" });
+    res.json({ success: true, message: "Removed" });
+};
+const getUserPublicProfile = async (req, res) => {
+    const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian");
+    res.json({ success: true, data: user });
+};
+const changePassword = async (req, res) => {
+    const { id, currentPassword, newPassword } = req.body;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Incorrect password' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.status(200).json({ message: 'Changed' });
+};
+const addPhoneNumber = async (req, res) => {
+    const { phone } = req.body;
+    const user = await User.findById(req.user.id);
+    user.phone = phone;
+    user.phoneVerified = true;
+    await user.save();
+    res.status(200).json({ message: 'Phone added', user });
+};
+const verifyResetCodeRoute = async (req, res) => { verifyCode(req, res); }; // Wrapper if needed
+const resendResetCode = async (req, res) => { forgotPassword(req, res); }; // Wrapper
 
 module.exports = {
   signUp,
@@ -936,24 +501,21 @@ module.exports = {
   validateToken,
   forgotPassword,
   verifyCode,
-  updateProfile,
-  signOut,
-  changePassword,
+  resetPassword,
   resendOTP,
-  getUserById,
-  getAllUsers,
-  searchUsers,
-  uploadProfileImage,
-  getUserPublicProfile,
-  getUserProfile,
-  removeProfileImage,
   googleLogins,
   completeGoogleRegistration,
-  validateUser,
-  verifyResetCode,
-  resetPassword,
-  resendResetCode,
+  getUserProfile,
+  updateProfile,
+  signOut,
+  getAllUsers,
+  getUserById,
+  searchUsers,
+  uploadProfileImage,
+  removeProfileImage,
+  getUserPublicProfile,
+  changePassword,
   addPhoneNumber,
+  verifyResetCode: verifyResetCodeRoute,
+  resendResetCode
 };
-
-

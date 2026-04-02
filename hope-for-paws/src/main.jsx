@@ -1,78 +1,7 @@
-// import { StrictMode } from 'react';
-// import { createRoot } from 'react-dom/client';
-// import { RouterProvider } from 'react-router-dom';
-// import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
-// import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
-// import { createBrowserRouter, createRoutesFromElements, Route } from 'react-router-dom';
-// import App from './App.jsx';
-// import './index.css';
-
-// // Import all your routes
-// import Postpages from './Main/Postnew.jsx';
-// import Home from './Components/Home';
-// import ContactUs from './Main/ContactUs';
-// import SignIn from './Main/SignIn';
-// import SignUp from './Main/SignUp';
-// import Faq from './Components/Faq';
-// import NGO from './Components/NGO';
-// import Clinics from './Components/Clinics';
-// import ForgotPassword from './Main/ForgotPass';
-// import VerifyCode from './Main/VerifyCode';
-// import Createprofile from './Main/CreateProfileU';
-// import CreatePost from './Main/CreatePost';
-// import MyPosts from './Main/MyPosts';
-// import VerifyRegistration from './Main/VerifyRegistration';
-// import AdoptionPage from './Main/AdoptionPage';
-// import CreateAdoptionAdForm from './Main/AdoptionForm';
-// import MyAdoptions from './Main/MyAdoptions';
-// import AdoptionHistory from './Main/AdoptionHistory';
-// import FullTeamPage from './Main/FullTeamPage'; // Import FullTeamPage component
-// import ChatPage from './Main/Chat.jsx'; // <-- Add this import
-
-// // Define your routes
-// const router = createBrowserRouter(
-//   createRoutesFromElements(
-//     <Route path="/" element={<App />}>
-//       <Route path="" element={<Home />} />
-//       <Route path="/contactus" element={<ContactUs />} />
-//       <Route path="/clinics" element={<Clinics />} />
-//       <Route path="/posts" element={<Postpages />} />
-//       <Route path="/ngo" element={<NGO />} />
-//       <Route path="/faq" element={<Faq />} />
-//       <Route path="/createpost" element={<CreatePost />} />
-//       <Route path="/signin" element={<SignIn />} />
-//       <Route path="/signup" element={<SignUp />} />
-//       <Route path="/adoption" element={<AdoptionPage />} />
-//       <Route path="/my-adoptions" element={<MyAdoptions />} />
-//       <Route path="/create-adoption" element={<CreateAdoptionAdForm />} />
-//       <Route path="/adoptionhistory" element={<AdoptionHistory/>} />
-//       <Route path="/forgotpass" element={<ForgotPassword />} />
-//       <Route path="/verify-code" element={<VerifyCode />} />
-//       <Route path="/profile" element={<Createprofile />} />
-//       <Route path="/my-posts" element={<MyPosts />} />
-//       <Route path="/team" element={<FullTeamPage />} /> {/* Add this line */}
-//       <Route path="/verify-registration" element={<VerifyRegistration />} />
-//       <Route path="/chat" element={<ChatPage />} /> {/* Add this line for chat */}
-//     </Route>
-//   )
-// );
-
-// const AppWithProviders = () => (
-//   <AuthProvider>
-//     <AdoptionProvider>
-//       <RouterProvider router={router} />
-//     </AdoptionProvider>
-//   </AuthProvider>
-// );
-
-// // Render the app
-// createRoot(document.getElementById('root')).render(
-//   <AppWithProviders />
-// );
-
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
+
 import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 import { AdoptionProvider } from './context/AdoptionContext'; // Import AdoptionProvider
 import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
@@ -105,7 +34,7 @@ import AdoptionPage from './Main/AdoptionPage';
 import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
 import AdoptionHistory from './Main/AdoptionHistory';
-import FullTeamPage from './Main/FullTeamPage'; // Import FullTeamPage component
+import FullTeamPage from './Main/FullTeamPage';
 import AdminDashboard from './admin/AdminDashboard.jsx';
 import AdminManageUsers from './admin/AdminManageUsers';
 import { useEffect, useState } from 'react';
@@ -123,6 +52,19 @@ import AdminUserComments from './admin/AdminUserComments';
 import AdminPostComments from './admin/AdminPostComments';
 import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
+
+// ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
+import SellerAddProduct from './Main/SellerAddProduct.jsx';
+import SellerProducts from './Main/SellerProducts.jsx';
+import SellerEditProduct from './Main/SellerEditProduct.jsx';
+import ProductListing from './buyer/ProductListing.jsx';
+import ProductDetail from './buyer/ProductDetail.jsx';
+import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
+import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
+import ChatPage from './Main/Chat.jsx';
+import PublicProfilePage from './Main/PublicProfilePage';
+import SellerRegistration from './Main/SellerRegistration';
+import SellerDashboard from './Main/SellerDashboard';
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -289,14 +231,12 @@ const AdminDashboardRoutes = () => {
         <Route path="comments" element={<AdminComments />} />
         <Route path="comments/user/:userId" element={<AdminUserComments />} />
         <Route path="comments/post/:postId" element={<AdminPostComments />} />
+        <Route path="seller-requests" element={<AdminSellerRequests />} />
+        <Route path="seller-request/:id" element={<AdminSellerDetail />} />
       </Routes>
     </AdminDashboardLayout>
   );
 };
-
-import ChatPage from './Main/Chat.jsx';
-import PublicProfilePage from './Main/PublicProfilePage';
-//import OrderPage from './Main/OrderPage.jsx';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -329,6 +269,17 @@ const router = createBrowserRouter(
       <Route path="chat/:recipientId?" element={<ChatPage />} />
       
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
+      
+      {/* ✅ Seller Routes (from bi branch) */}
+      <Route path="/seller/register" element={<SellerRegistration />} />
+      <Route path="/seller/dashboard" element={<SellerDashboard />} />
+      <Route path="/seller/products/new" element={<SellerAddProduct />} />
+      <Route path="/seller/products" element={<SellerProducts />} />
+      <Route path="/seller/product/edit/:id" element={<SellerEditProduct/>} />
+
+      {/* ✅ Marketplace Routes (from IB branch) */}
+      <Route path="/marketplace" element={<ProductListing />} />
+      <Route path="/marketplace/product/:id" element={<ProductDetail />} />
     </Route>
   )
 );

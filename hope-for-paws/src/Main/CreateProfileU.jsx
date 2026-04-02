@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash } from 'react-icons/fa';
-import { MdPets  } from 'react-icons/md';
+// ✅ ADDED FaStore to imports
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore } from 'react-icons/fa';
+import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
@@ -616,6 +617,16 @@ const ProfilePage = () => {
     { name: 'My Adoptions', view: 'myadoptions', icon: <MdPets /> },
     { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> },
   ];
+
+  // ✅ ADDED: Conditionally add Seller Dashboard
+  if (user && user.isSeller) {
+    profileLinks.push({
+      name: 'Seller Dashboard',
+      path: '/seller/dashboard',
+      icon: <FaStore />,
+      external: true // This tells the render loop to use navigate() instead of setView()
+    });
+  }
 
   // 2. Add state for the three new pages
   // AdoptionHistory state
@@ -1405,40 +1416,6 @@ const ProfilePage = () => {
                     </div>
                   </form>
                 </div>
-                
-                {/* <div className="mt-8 border-t pt-6">
-                  <h3 className="text-lg font-medium mb-4 text-[#6b493d]">Account Security</h3>
-                  
-                  <div className="bg-gray-50 p-4 rounded mb-4">
-                    <div className="flex items-start">
-                      <div className="mr-4 text-[#6b493d]">
-                        <FaLock size={24} />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">Two-Factor Authentication</h4>
-                        <p className="text-gray-600 text-sm mt-1">Add an extra layer of security to your account</p>
-                        <button className="mt-2 bg-[#a07855] hover:bg-[#866446] text-white text-sm py-1 px-3 rounded">
-                          Set Up
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded">
-                    <div className="flex items-start">
-                      <div className="mr-4 text-red-500">
-                        <FaSignOutAlt size={24} />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">Sign Out All Devices</h4>
-                        <p className="text-gray-600 text-sm mt-1">Log out from all devices where you&apos;re currently signed in</p>
-                        <button className="mt-2 bg-red-500 hover:bg-red-600 text-white text-sm py-1 px-3 rounded">
-                          Sign Out All
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div> */}
               </div>
             )}
             {currentView === 'adoptionhistory' && (

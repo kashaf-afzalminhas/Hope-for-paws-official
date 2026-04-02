@@ -12,7 +12,7 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+92');
-  const [isVeterinarian, setIsVeterinarian] = useState(false);
+  const [userType, setUserType] = useState('user'); // 'user', 'veterinarian', 'seller'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -25,6 +25,14 @@ const SignUp = () => {
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+
+  // Seller-specific fields
+  const [sellerData, setSellerData] = useState({
+    businessName: '',
+    cnic: '',
+    location: ''
+  });
+  const [sellerErrors, setSellerErrors] = useState({});
 
   // Country codes data
   const countryCodes = [
@@ -120,6 +128,45 @@ const SignUp = () => {
     return '';
   };
 
+  // Seller fields validation
+  const validateSellerFields = () => {
+    const errors = {};
+    if (!sellerData.businessName.trim()) {
+      errors.businessName = 'Business name is required';
+    }
+    if (!sellerData.cnic.trim()) {
+      errors.cnic = 'CNIC is required';
+    } else if (!/^[0-9]{5}-[0-9]{7}-[0-9]$/.test(sellerData.cnic)) {
+      errors.cnic = 'CNIC format should be 12345-1234567-1';
+    }
+    if (!sellerData.location.trim()) {
+      errors.location = 'Location is required';
+    }
+    setSellerErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle seller field changes
+  const handleSellerChange = (field, value) => {
+    if (field === 'cnic') {
+      // Auto-format CNIC
+      let formatted = value.replace(/[^0-9-]/g, '');
+      const digits = formatted.replace(/-/g, '');
+      if (digits.length <= 5) {
+        formatted = digits;
+      } else if (digits.length <= 12) {
+        formatted = `${digits.slice(0, 5)}-${digits.slice(5)}`;
+      } else {
+        formatted = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
+      }
+      value = formatted;
+    }
+    setSellerData(prev => ({ ...prev, [field]: value }));
+    if (sellerErrors[field]) {
+      setSellerErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
   // Handlers for live validation
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -172,6 +219,13 @@ const SignUp = () => {
     setEmailError(validateEmail(email));
     setPasswordError(validatePassword(password));
     setPhoneError(validatePhone(phone, countryCode));
+    
+    // Validate seller fields if seller is selected
+    if (userType === 'seller' && !validateSellerFields()) {
+      setLoading(false);
+      return;
+    }
+    
     if (validateEmail(email) || validatePassword(password) || validatePhone(phone, countryCode)) {
       setLoading(false);
       return;
@@ -182,7 +236,20 @@ const SignUp = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password, isVeterinarian, phone: countryCode + phone }),
+        body: JSON.stringify({ 
+          username, 
+          email, 
+          password, 
+          isVeterinarian: userType === 'veterinarian',
+          userType: userType === 'seller' ? 'seller' : 'user',
+          phone: countryCode + phone,
+          // Include seller fields if registering as seller
+          ...(userType === 'seller' && {
+            sellerName: sellerData.businessName,
+            cnic: sellerData.cnic,
+            location: sellerData.location
+          })
+        }),
       });
       const data = await response.json();
       setLoading(false);
@@ -247,7 +314,7 @@ const SignUp = () => {
     }
   };
   
-  const handleUserTypeSelect = async (isVeterinarian) => {
+  const handleUserTypeSelect = async (userTypeSelected, sellerInfo = null) => {
     if (!pendingGoogleUser) return;
     setLoading(true);
     setError("");
@@ -258,7 +325,14 @@ const SignUp = () => {
         body: JSON.stringify({
           email: pendingGoogleUser.email,
           username: pendingGoogleUser.username,
-          isVeterinarian,
+          isVeterinarian: userTypeSelected === 'veterinarian',
+          userType: userTypeSelected === 'seller' ? 'seller' : 'user',
+          // Include seller fields if registering as seller
+          ...(userTypeSelected === 'seller' && sellerInfo && {
+            sellerName: sellerInfo.businessName,
+            cnic: sellerInfo.cnic,
+            location: sellerInfo.location
+          })
         }),
       });
       const data = await response.json();
@@ -420,24 +494,85 @@ const SignUp = () => {
               )}
             </div>
             
-            <div className="mb-6">
-              <label htmlFor="isVeterinarian" className="block text-sm font-medium text-[#4E3B31] mb-1">I am registering as:</label>
+            <div className="mb-4">
+              <label htmlFor="userType" className="block text-sm font-medium text-[#4E3B31] mb-1">I am registering as:</label>
               <select
-                id="isVeterinarian"
-                name="isVeterinarian"
-                value={isVeterinarian}
-                onChange={(e) => setIsVeterinarian(e.target.value === 'true')}
+                id="userType"
+                name="userType"
+                value={userType}
+                onChange={(e) => setUserType(e.target.value)}
                 className="block w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm"
               >
-                <option value="false">Regular User</option>
-                <option value="true">Veterinarian</option>
+                <option value="user">Regular User</option>
+                <option value="veterinarian">Veterinarian</option>
+                <option value="seller">Seller</option>
               </select>
-              {isVeterinarian && (
+              {userType === 'veterinarian' && (
                 <p className="mt-1 text-sm text-[#6b493d]">
                   Your status as a Veterinarian will be displayed next to your name in posts and comments.
                 </p>
               )}
+              {userType === 'seller' && (
+                <p className="mt-1 text-sm text-[#6b493d]">
+                  As a seller, you can list pet products for sale. Your application will be reviewed by our team.
+                </p>
+              )}
             </div>
+
+            {/* Seller Fields - Only shown when seller is selected */}
+            {userType === 'seller' && (
+              <div className="mb-4 p-4 bg-[#F8F4ED] rounded-lg border border-[#a07855]">
+                <h3 className="text-sm font-semibold text-[#4E3B31] mb-3">Seller Information</h3>
+                
+                <div className="mb-3">
+                  <label htmlFor="businessName" className="block text-sm font-medium text-[#4E3B31] mb-1">Business/Shop Name *</label>
+                  <input
+                    id="businessName"
+                    type="text"
+                    value={sellerData.businessName}
+                    onChange={(e) => handleSellerChange('businessName', e.target.value)}
+                    className={`block w-full px-3 py-2 border ${sellerErrors.businessName ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                    placeholder="Enter your business name"
+                  />
+                  {sellerErrors.businessName && (
+                    <p className="text-xs text-red-600 mt-1">{sellerErrors.businessName}</p>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <label htmlFor="cnic" className="block text-sm font-medium text-[#4E3B31] mb-1">CNIC Number *</label>
+                  <input
+                    id="cnic"
+                    type="text"
+                    value={sellerData.cnic}
+                    onChange={(e) => handleSellerChange('cnic', e.target.value)}
+                    maxLength={15}
+                    className={`block w-full px-3 py-2 border ${sellerErrors.cnic ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                    placeholder="12345-1234567-1"
+                  />
+                  {sellerErrors.cnic ? (
+                    <p className="text-xs text-red-600 mt-1">{sellerErrors.cnic}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">Format: 12345-1234567-1</p>
+                  )}
+                </div>
+
+                <div className="mb-1">
+                  <label htmlFor="location" className="block text-sm font-medium text-[#4E3B31] mb-1">Location *</label>
+                  <input
+                    id="location"
+                    type="text"
+                    value={sellerData.location}
+                    onChange={(e) => handleSellerChange('location', e.target.value)}
+                    className={`block w-full px-3 py-2 border ${sellerErrors.location ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
+                    placeholder="City, Country"
+                  />
+                  {sellerErrors.location && (
+                    <p className="text-xs text-red-600 mt-1">{sellerErrors.location}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

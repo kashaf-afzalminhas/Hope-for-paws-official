@@ -63,6 +63,23 @@ const userSchema = new mongoose.Schema(
     },
     verificationCodeExpires: {
       type: Date
+    },
+    // Seller fields
+    isSeller: {
+      type: Boolean,
+      default: false
+    },
+    sellerStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'suspended'],
+      default: 'pending'
+    },
+    sellerSince: {
+      type: Date
+    },
+    canBuy: {
+      type: Boolean,
+      default: true
     }
   },
   { timestamps: true }
@@ -72,6 +89,19 @@ const userSchema = new mongoose.Schema(
 userSchema.methods.getId = function() {
   return this._id.toString();
 };
+
+// Keep buying permission aligned with seller role
+userSchema.pre('save', function(next) {
+  if (this.isSeller) {
+    this.canBuy = false;
+    if (!this.sellerSince) {
+      this.sellerSince = new Date();
+    }
+  } else {
+    this.canBuy = true;
+  }
+  next();
+});
 
 const User = mongoose.model('User', userSchema);
 
