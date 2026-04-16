@@ -107,12 +107,14 @@ const SellerRegistration = () => {
       // 1. Send API Request
       const result = await applyAsSeller(formData);
       
-      // 2. Update Local Storage (Service)
-      updateLocalUserAsSeller('pending');
+      // BUG-008 FIX: updateLocalUserAsSeller returns the updated user object.
+      // Use that same object to update the context — both updates are now in sync
+      // with no gap between localStorage and React Context state.
+      const updatedUser = updateLocalUserAsSeller('pending');
 
-      // 3. ✅ Update Context (So Navbar updates instantly)
-      if (user) {
-        updateUser({ ...user, isSeller: true, sellerStatus: 'pending' });
+      // 2. Update Context from the same merged object (no race condition)
+      if (updatedUser) {
+        updateUser(updatedUser);
       }
       
       setSuccess(true);

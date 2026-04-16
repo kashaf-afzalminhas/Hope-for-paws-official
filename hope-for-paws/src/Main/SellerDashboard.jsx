@@ -101,7 +101,8 @@ const SellerDashboard = () => {
         </div>
 
         {/* Status Message */}
-        {false &&  (
+        {/* Status Message — only shown when application is still pending */}
+        {seller?.status === 'pending' && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div className="flex">
               <svg className="w-5 h-5 text-yellow-400 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,8 +167,8 @@ const SellerDashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        {true && (
+        {/* Quick Actions — only shown to verified sellers */}
+        {seller?.status === 'verified' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

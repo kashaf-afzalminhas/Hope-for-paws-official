@@ -7,11 +7,18 @@ exports.createProduct = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId;
     const user = await User.findById(userId).select('isSeller sellerStatus');
-    if (!user || !user.isSeller) return res.status(403).json({ message: 'Only sellers can create products' });
+
+    // BUG-006 FIX: Only verified sellers can create products
+    if (!user || !user.isSeller) {
+      return res.status(403).json({ message: 'Only sellers can create products' });
+    }
+    if (user.sellerStatus !== 'verified') {
+      return res.status(403).json({ message: 'Your seller account must be verified before listing products' });
+    }
 
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
-    if (seller.status === 'suspended') return res.status(403).json({ message: 'Seller is suspended' });
+    if (seller.status === 'suspended') return res.status(403).json({ message: 'Seller account is suspended' });
 
     const { title, description, price, category, countInStock, images = [] } = req.body;
     if (!title || price === undefined || !category) return res.status(400).json({ message: 'Title, price, and category are required' });
@@ -84,13 +91,16 @@ exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id || req.user?.userId;
+
+    // BUG-002 FIX: Guard against missing seller profile before accessing _id
     const seller = await Seller.findOne({ userId });
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     if (product.sellerId.toString() !== seller._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ message: 'Not authorized to edit this product' });
     }
 
     product.title = req.body.title || product.title;
@@ -113,13 +123,16 @@ exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id || req.user?.userId;
+
+    // BUG-003 FIX: Guard against missing seller profile before accessing _id
     const seller = await Seller.findOne({ userId });
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     if (product.sellerId.toString() !== seller._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
     await product.deleteOne();

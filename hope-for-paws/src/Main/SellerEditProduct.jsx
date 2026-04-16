@@ -6,6 +6,9 @@ const SellerEditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  // BUG-009 FIX: In-page feedback states instead of alert()
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   
   // ✅ NEW: State for image handling
   const [imagePreview, setImagePreview] = useState(null);
@@ -53,8 +56,8 @@ const SellerEditProduct = () => {
           }
         }
       } catch (error) {
-        alert('Error loading product details');
-        navigate('/seller/products');
+        setErrorMsg('Failed to load product details. Redirecting...');
+        setTimeout(() => navigate('/seller/products'), 1500);
       } finally {
         setLoading(false);
       }
@@ -78,6 +81,8 @@ const SellerEditProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setSuccessMsg('');
+    setErrorMsg('');
 
     try {
       // Start with existing images
@@ -109,19 +114,18 @@ const SellerEditProduct = () => {
       });
 
       if (response.ok) {
-        alert('✅ Product Updated Successfully!');
-        navigate('/seller/products');
+        setSuccessMsg('Product updated successfully! Redirecting...');
+        setTimeout(() => navigate('/seller/products'), 1500);
       } else {
         const err = await response.json();
-        alert('❌ Update Failed: ' + (err.message || 'Unknown Error'));
+        setErrorMsg('Update failed: ' + (err.message || 'Unknown error'));
       }
     } catch (error) {
       console.error("Error:", error);
-      // Check for image size error
       if (error.message && (error.message.includes('entity too large') || error.message.includes('413'))) {
-        alert('❌ Image is too big! Please use a smaller image (under 1MB).');
+        setErrorMsg('Image is too large. Please use an image under 1MB.');
       } else {
-        alert('Error updating product');
+        setErrorMsg('An unexpected error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -147,6 +151,24 @@ const SellerEditProduct = () => {
             Cancel
           </button>
         </div>
+
+        {/* BUG-009 FIX: Inline success/error messages */}
+        {successMsg && (
+          <div className="mb-6 flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{successMsg}</span>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           

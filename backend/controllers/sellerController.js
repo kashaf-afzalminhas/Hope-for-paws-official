@@ -92,7 +92,8 @@ exports.updateSellerStatus = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.isSeller = true; // remains seller
     user.sellerStatus = status;
-    user.canBuy = false;
+    // BUG-005 FIX: canBuy is now driven by status — only verified sellers can purchase
+    user.canBuy = status === 'verified';
     if (!user.sellerSince) user.sellerSince = new Date();
     await user.save();
 

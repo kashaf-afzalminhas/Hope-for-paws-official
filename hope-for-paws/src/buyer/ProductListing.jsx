@@ -6,13 +6,15 @@ const ProductListing = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // BUG-004 FIX: Read user ID from the stored user object — same source used across the entire app.
+  // The previous approach decoded the JWT on the client side via atob(), which silently
+  // returns null if the token is expired or malformed, causing own products to appear in the listing.
   const getCurrentUserId = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.id;
-    } catch (e) {
+      const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const user = JSON.parse(raw);
+      return user?._id || user?.id || null;
+    } catch {
       return null;
     }
   };

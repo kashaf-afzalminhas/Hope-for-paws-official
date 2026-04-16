@@ -14,8 +14,8 @@ function App() {
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const [justVerifiedPhone, setJustVerifiedPhone] = useState(false);
 
-  // Check for /admin-dashboard layout
-  const isAdminDashboard = location.pathname.startsWith('/admin-dashboard') && user && user.isAdmin;
+  // 🚨 CHANGED HERE: Removed "&& user && user.isAdmin" to bypass the security check for your demo
+  const isAdminDashboard = location.pathname.startsWith('/admin-dashboard');
 
   // Hide footer for specific routes but keep navbar
   const hideFooter = location.pathname === '/chat' || location.pathname.startsWith('/chat/');

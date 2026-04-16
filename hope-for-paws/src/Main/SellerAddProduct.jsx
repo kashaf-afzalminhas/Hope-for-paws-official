@@ -6,6 +6,9 @@ const SellerAddProduct = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  // BUG-009 FIX: In-page feedback states instead of alert()
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -41,6 +44,8 @@ const SellerAddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setSuccessMsg('');
+    setErrorMsg('');
 
     try {
       let imageBase64 = "https://placehold.co/600x400"; // Default placeholder
@@ -57,12 +62,8 @@ const SellerAddProduct = () => {
         price: Number(formData.price),
         category: formData.category,
         countInStock: Number(formData.stock),
-        
-        // ✅ CORRECT: Sending as a List (Array) to match Backend Schema
         images: [imageBase64] 
       };
-
-      console.log("Sending Product Data:", productData);
 
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/products`, {
@@ -80,15 +81,15 @@ const SellerAddProduct = () => {
         throw new Error(data.message || 'Failed to create product');
       }
 
-      alert('✅ Product Published Successfully!');
-      navigate('/seller/dashboard'); 
+      setSuccessMsg('Product published successfully! Redirecting...');
+      setTimeout(() => navigate('/seller/products'), 1500);
 
     } catch (error) {
       console.error("Error:", error);
       if (error.message.includes('entity too large') || error.message.includes('413')) {
-        alert('❌ Image is too big! Please use a smaller image (under 1MB).');
+        setErrorMsg('Image is too large. Please use an image under 1MB.');
       } else {
-        alert('❌ Error: ' + error.message);
+        setErrorMsg(error.message || 'An unexpected error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -109,6 +110,24 @@ const SellerAddProduct = () => {
             Cancel
           </button>
         </div>
+
+        {/* BUG-009 FIX: Inline success/error messages */}
+        {successMsg && (
+          <div className="mb-6 flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{successMsg}</span>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           

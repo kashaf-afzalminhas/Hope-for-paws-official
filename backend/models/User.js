@@ -90,14 +90,18 @@ userSchema.methods.getId = function() {
   return this._id.toString();
 };
 
-// Keep buying permission aligned with seller role
+// BUG-005 FIX: Do not force canBuy=false for all sellers.
+// canBuy is managed by the admin via sellerController (based on sellerStatus).
+// Only restore canBuy=true when the isSeller flag is removed.
 userSchema.pre('save', function(next) {
   if (this.isSeller) {
-    this.canBuy = false;
+    // Set sellerSince timestamp on first activation
     if (!this.sellerSince) {
       this.sellerSince = new Date();
     }
+    // canBuy is intentionally NOT overridden here — let the controller manage it
   } else {
+    // Regular user: can always buy
     this.canBuy = true;
   }
   next();

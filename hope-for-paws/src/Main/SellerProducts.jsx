@@ -7,6 +7,9 @@ const SellerProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // BUG-009 FIX: In-page feedback states instead of alert()
+  const [successMsg, setSuccessMsg] = useState('');
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
 
   // 1. Fetch Products on Load
   useEffect(() => {
@@ -39,6 +42,8 @@ const SellerProducts = () => {
   // 2. Handle Delete Action
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
+    setSuccessMsg('');
+    setDeleteErrorMsg('');
 
     try {
       const token = localStorage.getItem('token');
@@ -53,14 +58,16 @@ const SellerProducts = () => {
       if (response.ok) {
         // Remove item from the list instantly
         setProducts(products.filter(product => product._id !== id));
-        alert('✅ Product deleted successfully');
+        setSuccessMsg('Product deleted successfully.');
+        // Auto-clear the message after 3 seconds
+        setTimeout(() => setSuccessMsg(''), 3000);
       } else {
         const data = await response.json().catch(() => ({}));
-        alert(`❌ Failed: ${data.message || "Could not delete product"}`);
+        setDeleteErrorMsg(data.message || 'Could not delete product. Please try again.');
       }
     } catch (err) {
       console.error(err);
-      alert('Error connecting to server.');
+      setDeleteErrorMsg('Error connecting to server. Please check your connection.');
     }
   };
 
@@ -90,6 +97,24 @@ const SellerProducts = () => {
             Add Product
           </Link>
         </div>
+
+        {/* BUG-009 FIX: Inline success/delete-error messages */}
+        {successMsg && (
+          <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{successMsg}</span>
+          </div>
+        )}
+        {deleteErrorMsg && (
+          <div className="mb-4 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <span>{deleteErrorMsg}</span>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
