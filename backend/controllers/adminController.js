@@ -18,10 +18,11 @@ const getAllUsersForAdmin = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Admins only' });
     }
     const users = await User.find({});
-    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin);
-    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin);
+    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const sellers = users.filter(u => u.isSeller && !u.isAdmin);
+    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
     const admins = users.filter(u => u.isAdmin);
-    res.json({ admins, veterinarians, regularUsers });
+    res.json({ admins, veterinarians, sellers, regularUsers });
   } catch (error) {
     console.error('Error fetching users for admin:', error);
     res.status(500).json({ message: 'Server error' });
@@ -294,12 +295,13 @@ const getAllUsersWithStats = async (req, res) => {
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     
     const users = await User.find({});
-    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin);
-    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin);
+    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const sellers = users.filter(u => u.isSeller && !u.isAdmin);
+    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
     const admins = users.filter(u => u.isAdmin);
     
     // Get stats for all users in parallel
-    const allUserIds = [...veterinarians, ...regularUsers, ...admins].map(u => u._id);
+    const allUserIds = [...veterinarians, ...sellers, ...regularUsers, ...admins].map(u => u._id);
     
     const statsPromises = allUserIds.map(async (userId) => {
       try {
@@ -333,6 +335,7 @@ const getAllUsersWithStats = async (req, res) => {
     res.json({ 
       admins, 
       veterinarians, 
+      sellers,
       regularUsers, 
       userStats: statsObject 
     });

@@ -1,0 +1,576 @@
+{
+	"info": {
+		"_postman_id": "hope-for-paws-api",
+		"name": "Hope for Paws API",
+		"description": "Complete API collection for Hope for Paws backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "1. Register (Signup)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save email to environment for OTP verification",
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set(\"signup_email\", pm.variables.get(\"test_email\"));",
+									"    pm.test(\"Registration successful\", function () {",
+									"        pm.response.to.have.status(201);",
+									"        pm.expect(jsonData.message).to.include(\"OTP\");",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{test_username}}\",\n    \"email\": \"{{test_email}}\",\n    \"password\": \"{{test_password}}\",\n    \"phone\": \"{{test_phone}}\",\n    \"isVeterinarian\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user. Email must be @gmail.com, phone must be in international format (+1234567890)"
+					},
+					"response": []
+				},
+				{
+					"name": "2. Verify Registration OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Automatically save token after successful verification",
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set(\"token\", jsonData.token);",
+									"        pm.test(\"Token saved to environment\", function () {",
+									"            pm.expect(jsonData.token).to.exist;",
+									"        });",
+									"    }",
+									"    pm.test(\"Verification successful\", function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(jsonData.message).to.include(\"verified\");",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{signup_email}}\",\n    \"otp\": \"{{otp_code}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/verify-registration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"verify-registration"
+							]
+						},
+						"description": "Verify the OTP code sent to email. Replace {{otp_code}} with the actual OTP from your email."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Resend OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{signup_email}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/resend-otp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"resend-otp"
+							]
+						},
+						"description": "Resend OTP code to email"
+					},
+					"response": []
+				},
+				{
+					"name": "4. Login (Sign In)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Automatically save token after successful login",
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set(\"token\", jsonData.token);",
+									"        pm.test(\"Token saved to environment\", function () {",
+									"            pm.expect(jsonData.token).to.exist;",
+									"        });",
+									"    }",
+									"    pm.test(\"Login successful\", function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(jsonData.message).to.include(\"successful\");",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{test_email}}\",\n    \"password\": \"{{test_password}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/signin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"signin"
+							]
+						},
+						"description": "Login with email and password. Token will be automatically saved. Response includes seller information (isSeller, sellerStatus, canBuy) if user is a seller."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Validate Token",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/user/validate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"user",
+								"validate"
+							]
+						},
+						"description": "Validate the current token"
+					},
+					"response": []
+				},
+				{
+					"name": "6. Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"profile"
+							]
+						},
+						"description": "Get authenticated user's profile"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for user registration, login, and profile management"
+		},
+		{
+			"name": "Seller",
+			"item": [
+				{
+					"name": "1. Apply as Seller",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john@gmail.com\",\n    \"cnic\": \"12345-1234567-1\",\n    \"location\": \"Lahore, Pakistan\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/sellers/apply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"apply"
+							]
+						},
+						"description": "Apply to become a seller. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Get My Seller Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/sellers/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"me"
+							]
+						},
+						"description": "Get authenticated seller's profile"
+					},
+					"response": []
+				},
+				{
+					"name": "3. Update Seller Status (Admin Only)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"verified\",\n    \"notes\": \"Seller verified successfully\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/sellers/status/:userId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"status",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "USER_ID_HERE"
+								}
+							]
+						},
+						"description": "Admin only: Update seller status (pending, verified, suspended)"
+					},
+					"response": []
+				}
+			],
+			"description": "Seller management endpoints"
+		},
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "1. Create Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Dog Food Premium\",\n    \"description\": \"High quality dog food\",\n    \"price\": 1500,\n    \"images\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"products"
+							]
+						},
+						"description": "Create a new product. Requires seller authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "2. List All Products (Public)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/products",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"products"
+							]
+						},
+						"description": "Get all visible products (public endpoint)"
+					},
+					"response": []
+				},
+				{
+					"name": "3. List My Products",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/products/mine",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"products",
+								"mine"
+							]
+						},
+						"description": "Get all products created by authenticated seller"
+					},
+					"response": []
+				}
+			],
+			"description": "Product management endpoints"
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Server Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check if server is running"
+					},
+					"response": []
+				},
+				{
+					"name": "API Root",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api"
+							]
+						},
+						"description": "Test API root endpoint"
+					},
+					"response": []
+				}
+			],
+			"description": "Health check endpoints"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "test_email",
+			"value": "testuser@gmail.com",
+			"type": "string"
+		},
+		{
+			"key": "test_password",
+			"value": "Test123!@#",
+			"type": "string"
+		},
+		{
+			"key": "test_username",
+			"value": "testuser",
+			"type": "string"
+		},
+		{
+			"key": "test_phone",
+			"value": "+1234567890",
+			"type": "string"
+		},
+		{
+			"key": "signup_email",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "otp_code",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

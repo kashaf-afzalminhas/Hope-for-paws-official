@@ -82,6 +82,22 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
 
   const validatePhone = (phoneNumber, code) => {
     if (!phoneNumber || !code) return 'Phone number is required';
+    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
+
+    const countryRules = {
+      '+92': { min: 10, max: 10, label: 'Pakistan' },
+      '+1': { min: 10, max: 10, label: 'US/Canada' },
+      '+44': { min: 10, max: 10, label: 'United Kingdom' },
+      '+91': { min: 10, max: 10, label: 'India' }
+    };
+    const rule = countryRules[code];
+    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
+      if (rule.min === rule.max) {
+        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
+      }
+      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
+    }
+
     const fullPhone = code + phoneNumber;
     const phoneRegex = /^\+[1-9]\d{1,14}$/; // International phone number format
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
@@ -102,7 +118,7 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
     setMessage('');
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${AUTH_BASE_URL}/add-phone-number`, {
         method: 'POST',
         headers: {

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from './api';
 
-const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
+const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
   const navigate = useNavigate();
   const filterUsers = (arr) => arr.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -14,7 +14,12 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
   const [loadingStats, setLoadingStats] = useState(false);
 
   // Always get the current users for the selected tab and search
-  const currentUsers = tab === 'vets' ? filterUsers(vets) : filterUsers(users);
+  const currentUsers =
+    tab === 'vets'
+      ? filterUsers(vets)
+      : tab === 'sellers'
+        ? filterUsers(sellers)
+        : filterUsers(users);
 
   // Load all user stats in bulk when component mounts or when users change
   useEffect(() => {
@@ -40,7 +45,7 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
     };
 
     loadAllUserStats();
-  }, [vets.length, users.length]); // Only run when user counts change
+  }, [vets.length, users.length, sellers.length]); // Only run when user counts change
 
   return (
     <motion.div
@@ -63,6 +68,12 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
           onClick={() => setTab('users')}
         >
           Regular Users ({users.length})
+        </button>
+        <button
+          className={`px-6 py-2 rounded-lg font-semibold transition-colors ${tab === 'sellers' ? 'bg-[#8B5A2B] text-white' : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'}`}
+          onClick={() => setTab('sellers')}
+        >
+          Sellers ({sellers.length})
         </button>
       </div>
       {/* Search Bar */}
@@ -173,6 +184,7 @@ const AdminManageUsers = ({ vets, users, userStats, fetchUserStats, handleDelete
 AdminManageUsers.propTypes = {
   vets: PropTypes.array.isRequired,
   users: PropTypes.array.isRequired,
+  sellers: PropTypes.array.isRequired,
   userStats: PropTypes.object.isRequired,
   fetchUserStats: PropTypes.func.isRequired,
   handleDeleteUser: PropTypes.func.isRequired,

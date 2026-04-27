@@ -35,6 +35,8 @@ router.post('/register', signUp);
 router.post('/verify-registration', verifyRegistrationOTP);
 router.post('/resend-otp', resendOTP);
 router.post('/signin', signIn);
+// Alias for clarity: allow POST /auth/login in addition to /auth/signin
+router.post('/login', signIn);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);
 router.post('/update-profile', updateProfile);

@@ -40,6 +40,14 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
             Manage Users
           </NavLink>
           <NavLink
+            to="/admin-dashboard/seller-requests"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#a07855] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            Seller Requests
+          </NavLink>
+          <NavLink
             to="/admin-dashboard/adoptions"
             className={({ isActive }) =>
               `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`

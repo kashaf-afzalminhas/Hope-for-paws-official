@@ -13,14 +13,18 @@ import PropTypes from 'prop-types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const AdminDashboard = ({ vets = [], users = [] }) => {
+// ✅ ADDED sellers to the props
+const AdminDashboard = ({ vets = [], users = [], sellers = [] }) => {
   const chartData = {
-    labels: ['Veterinarians', 'Regular Users'],
+    // ✅ ADDED 'Sellers' to labels
+    labels: ['Veterinarians', 'Regular Users', 'Sellers'],
     datasets: [
       {
         label: 'User Count',
-        data: [vets.length, users.length],
-        backgroundColor: ['#6b493d', '#a07855'],
+        // ✅ ADDED sellers.length to data
+        data: [vets.length, users.length, sellers.length],
+        // ✅ ADDED a 3rd matching theme color (#c9a280)
+        backgroundColor: ['#6b493d', '#a07855', '#c9a280'],
         borderRadius: 8,
       },
     ],
@@ -51,21 +55,23 @@ const AdminDashboard = ({ vets = [], users = [] }) => {
   };
 
   return (
-          <motion.div
+    <motion.div
       initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -40 }}
-            transition={{ duration: 0.4 }}
+      transition={{ duration: 0.4 }}
       className="mb-8 bg-white rounded-xl shadow p-6"
     >
       <Bar data={chartData} options={chartOptions} height={80} />
-          </motion.div>
+    </motion.div>
   );
 };
 
 AdminDashboard.propTypes = {
   vets: PropTypes.array.isRequired,
   users: PropTypes.array.isRequired,
+  // ✅ ADDED sellers to prop validation
+  sellers: PropTypes.array.isRequired,
 };
 
 export default AdminDashboard;
