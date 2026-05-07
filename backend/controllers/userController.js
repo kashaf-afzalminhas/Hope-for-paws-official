@@ -17,6 +17,7 @@ const COUNTRY_PHONE_LENGTH_RULES = {
   '+44': { min: 10, max: 10, label: 'United Kingdom' },
   '+91': { min: 10, max: 10, label: 'India' }
 };
+const LINK_CONFIRMATION_REQUIRED = process.env.REQUIRE_GOOGLE_LINK_CONFIRMATION === 'true';
 
 const validateInternationalPhone = (phone) => {
   if (!E164_PHONE_REGEX.test(phone)) {
@@ -41,6 +42,33 @@ const validateInternationalPhone = (phone) => {
   return null;
 };
 
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
+
+const hasProvider = (user, provider) =>
+  Array.isArray(user?.authProviders) &&
+  user.authProviders.some((p) => p.provider === provider);
+
+const linkAuthProvider = (user, provider, providerId = null) => {
+  if (!Array.isArray(user.authProviders)) {
+    user.authProviders = [];
+  }
+
+  const existing = user.authProviders.find((p) => p.provider === provider);
+  if (existing) {
+    if (providerId && existing.providerId !== providerId) {
+      existing.providerId = providerId;
+      existing.linkedAt = new Date();
+    }
+    return;
+  }
+
+  user.authProviders.push({
+    provider,
+    providerId: providerId || null,
+    linkedAt: new Date()
+  });
+};
+
 // Email Transporter Setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -61,6 +89,7 @@ const ADMIN_EMAILS = [
 // ==========================================
 const signUp = async (req, res) => {
   const { username, email, password, isVeterinarian, phone, userType, sellerName, cnic, location } = req.body;
+  const normalizedEmail = normalizeEmail(email);
   
   // 1. Basic Validation
   if (!username || !email || !password || !phone) {
@@ -83,22 +112,29 @@ const signUp = async (req, res) => {
   if (phoneValidationError) {
     return res.status(400).json({ message: phoneValidationError });
   }
-  if (!email.toLowerCase().endsWith('@gmail.com')) return res.status(400).json({ message: 'Please use a valid Gmail address.' });
-  if (ADMIN_EMAILS.includes(email.toLowerCase())) return res.status(403).json({ message: 'Reserved email.' });
+  if (!normalizedEmail.endsWith('@gmail.com')) return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+  if (ADMIN_EMAILS.includes(normalizedEmail)) return res.status(403).json({ message: 'Reserved email.' });
 
   try {
     // 5. Check if User Exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    // If user exists and already has a password, block duplicate registrations.
+    // If user exists but has no password (Google-first), allow linking by setting a password via OTP verification.
+    if (existingUser && existingUser.password) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
     // Keep phone uniqueness consistent across signup and profile updates.
-    const existingPhoneInUsers = await User.findOne({ phone: normalizedPhone });
+    const existingPhoneInUsers = await User.findOne({
+      phone: normalizedPhone,
+      ...(existingUser ? { _id: { $ne: existingUser._id } } : {})
+    });
     if (existingPhoneInUsers) {
       return res.status(400).json({ message: 'Phone number already used by another user' });
     }
     const existingPhoneInTempUsers = await TempUser.findOne({
       phone: normalizedPhone,
-      email: { $ne: email }
+      email: { $ne: normalizedEmail }
     });
     if (existingPhoneInTempUsers) {
       return res.status(400).json({ message: 'Phone number already used by another user' });
@@ -110,15 +146,16 @@ const signUp = async (req, res) => {
     const otp = crypto.randomBytes(3).toString('hex');
 
     // 7. Handle TempUser (Update if exists, else Create)
-    let tempUser = await TempUser.findOne({ email });
+    let tempUser = await TempUser.findOne({ email: normalizedEmail });
     
     const tempUserData = {
       username,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       isVeterinarian: isVeterinarian || false,
       phone: normalizedPhone,
       userType: finalUserType,
+      existingUserId: existingUser ? existingUser._id : undefined,
       verificationCode: otp,
       verificationCodeExpires: Date.now() + 2 * 60 * 1000, // 2 mins
       // Save Seller Info
@@ -156,54 +193,95 @@ const signUp = async (req, res) => {
 // ==========================================
 const verifyRegistrationOTP = async (req, res) => {
   const { email, otp } = req.body;
+  const normalizedEmail = normalizeEmail(email);
 
   try {
-    const tempUser = await TempUser.findOne({ email });
+    const tempUser = await TempUser.findOne({ email: normalizedEmail });
     
     if (!tempUser) return res.status(404).json({ error: 'Registration session expired or invalid.' });
     if (tempUser.verificationCode !== otp) return res.status(400).json({ error: 'Invalid OTP.' });
     if (tempUser.verificationCodeExpires < Date.now()) return res.status(400).json({ error: 'OTP expired.' });
 
-    // 1. Create User
-    const newUser = new User({
-      username: tempUser.username,
-      email: tempUser.email,
-      password: tempUser.password,
-      isVeterinarian: tempUser.isVeterinarian,
-      phone: tempUser.phone,
-      phoneVerified: true,
-      isSeller: tempUser.userType === 'seller',
-      sellerStatus: tempUser.userType === 'seller' ? 'pending' : null,
-      canBuy: tempUser.userType !== 'seller', // Sellers might be restricted from buying, or set true if allowed
-    });
+    // If a user already exists (Google-first), link by setting password + local provider.
+    // Otherwise create a brand-new local user.
+    let user = null;
+    if (tempUser.existingUserId) {
+      user = await User.findById(tempUser.existingUserId);
+    }
+    if (!user) {
+      user = await User.findOne({ email: normalizedEmail });
+    }
 
-    await newUser.save();
+    if (user) {
+      // Don't override an existing password.
+      if (!user.password) {
+        user.password = tempUser.password;
+      }
+      // Keep original username if already set; otherwise fill it.
+      if (!user.username) {
+        user.username = tempUser.username;
+      }
+      user.isVeterinarian = Boolean(user.isVeterinarian) || Boolean(tempUser.isVeterinarian);
+
+      // Phone: only set if empty to avoid accidental overwrites; keep verification.
+      if (!user.phone) {
+        user.phone = tempUser.phone;
+      }
+      user.phoneVerified = true;
+
+      // Seller linking is not auto-upgraded here unless tempUser explicitly registered as seller.
+      if (tempUser.userType === 'seller' && !user.isSeller) {
+        user.isSeller = true;
+        user.sellerStatus = 'pending';
+      }
+
+      linkAuthProvider(user, 'local');
+      await user.save();
+    } else {
+      user = new User({
+        username: tempUser.username,
+        email: normalizeEmail(tempUser.email),
+        password: tempUser.password,
+        isVeterinarian: tempUser.isVeterinarian,
+        phone: tempUser.phone,
+        phoneVerified: true,
+        isSeller: tempUser.userType === 'seller',
+        sellerStatus: tempUser.userType === 'seller' ? 'pending' : null,
+        canBuy: tempUser.userType !== 'seller', // Sellers might be restricted from buying, or set true if allowed
+        authProviders: [{ provider: 'local', providerId: null }]
+      });
+
+      await user.save();
+    }
 
     // 2. Create Seller Profile (If applicable)
     if (tempUser.userType === 'seller') {
       try {
-        await Seller.create({
-          userId: newUser._id,
-          name: tempUser.sellerName,
-          email: tempUser.email,
-          cnic: tempUser.cnic,
-          location: tempUser.location,
-          status: 'pending'
-        });
+        const existingSeller = await Seller.findOne({ userId: user._id });
+        if (!existingSeller) {
+          await Seller.create({
+            userId: user._id,
+            name: tempUser.sellerName,
+            email: tempUser.email,
+            cnic: tempUser.cnic,
+            location: tempUser.location,
+            status: 'pending'
+          });
+        }
       } catch (err) {
         console.error("Failed to create Seller Profile:", err);
       }
     }
 
     // 3. Cleanup & Token
-    await TempUser.deleteOne({ email });
+    await TempUser.deleteOne({ email: normalizedEmail });
 
     const token = jwt.sign(
       { 
-        id: newUser._id, 
-        username: newUser.username, 
-        isVeterinarian: newUser.isVeterinarian,
-        isSeller: newUser.isSeller 
+        id: user._id, 
+        username: user.username, 
+        isVeterinarian: user.isVeterinarian,
+        isSeller: user.isSeller 
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -213,11 +291,11 @@ const verifyRegistrationOTP = async (req, res) => {
       message: 'Verified successfully.',
       token,
       user: {
-        id: newUser._id,
-        email: newUser.email,
-        username: newUser.username,
-        isSeller: newUser.isSeller,
-        sellerStatus: newUser.sellerStatus
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        isSeller: user.isSeller,
+        sellerStatus: user.sellerStatus
       }
     });
 
@@ -232,10 +310,12 @@ const verifyRegistrationOTP = async (req, res) => {
 // ==========================================
 const signIn = async (req, res) => {
   const { email, password } = req.body;
+  const normalizedEmail = normalizeEmail(email);
   
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+    if (!user.password) return res.status(400).json({ error: 'This account does not support password sign in' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
@@ -251,22 +331,15 @@ const signIn = async (req, res) => {
       { expiresIn: '5d' }
     );
 
-    const hasValidPhone = Boolean(user.phone && !validateInternationalPhone(user.phone));
-    const effectivePhoneVerified = Boolean(user.phoneVerified) && hasValidPhone;
+    const userSafe = user.toObject();
+    delete userSafe.password;
+    const hasValidPhone = Boolean(userSafe.phone && !validateInternationalPhone(userSafe.phone));
+    userSafe.phoneVerified = Boolean(userSafe.phoneVerified) && hasValidPhone;
 
     res.status(200).json({
       message: 'Sign in successful',
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        phone: user.phone,
-        phoneVerified: effectivePhoneVerified,
-        isSeller: user.isSeller || false,
-        sellerStatus: user.sellerStatus || null,
-        isAdmin: user.isAdmin,
-      },
+      user: userSafe,
     });
 
   } catch (error) {
@@ -280,28 +353,49 @@ const signIn = async (req, res) => {
 // ==========================================
 const googleLogins = async (req, res) => {
   try {
-    const { credential } = req.body;
+    const { credential, confirmLinking } = req.body;
     const client = new OAuth2Client("495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com");
     const ticket = await client.verifyIdToken({ 
       idToken: credential, 
       audience: "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com" 
     });
-    const { email, name } = ticket.getPayload();
+    const payload = ticket.getPayload();
+    const email = normalizeEmail(payload.email);
+    const name = payload.name;
+    const googleId = payload.sub;
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).select('-password');
     
-    // If user doesn't exist, ask frontend to get UserType
-    if (!user) {
-      return res.status(200).json({ needsUserType: true, email, username: name });
+    if (user) {
+      const alreadyLinked = hasProvider(user, 'google');
+
+      if (!alreadyLinked && LINK_CONFIRMATION_REQUIRED && !confirmLinking) {
+        return res.status(200).json({
+          requiresLinkConfirmation: true,
+          message: 'Google account matches an existing account. Please confirm linking.'
+        });
+      }
+
+      if (!alreadyLinked) {
+        linkAuthProvider(user, 'google', googleId);
+      }
+      if (!hasProvider(user, 'local') && user.password) {
+        linkAuthProvider(user, 'local');
+      }
+
+      await user.save();
+
+      const token = jwt.sign(
+        { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
+        process.env.JWT_SECRET,
+        { expiresIn: '5d' }
+      );
+
+      return res.status(200).json({ message: 'Sign in successful', token, user });
     }
 
-    const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
-      process.env.JWT_SECRET,
-      { expiresIn: '5d' }
-    );
-
-    return res.status(200).json({ message: 'Sign in successful', token, user });
+    // If user doesn't exist, ask frontend to get UserType.
+    return res.status(200).json({ needsUserType: true, email, username: name, googleId });
 
   } catch (error) {
     console.error("Google Login Error:", error);
@@ -311,45 +405,69 @@ const googleLogins = async (req, res) => {
 
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian, userType, sellerName, cnic, location } = req.body;
+    const { email, username, isVeterinarian, userType, sellerName, cnic, location, googleId } = req.body;
+    const normalizedEmail = normalizeEmail(email);
     
-    if (!email || !username) return res.status(400).json({ message: 'Missing fields' });
+    if (!normalizedEmail || !username) return res.status(400).json({ message: 'Missing fields' });
     
-    const isSeller = userType === 'seller';
+    const resolvedUserType =
+      userType === 'seller' || userType === 'veterinarian' || userType === 'user'
+        ? userType
+        : (isVeterinarian === true || isVeterinarian === 'true')
+          ? 'veterinarian'
+          : (isVeterinarian === false || isVeterinarian === 'false')
+            ? 'user'
+            : 'user';
+    const isSeller = resolvedUserType === 'seller';
+    const isVet = resolvedUserType === 'veterinarian';
     
     if (isSeller) {
       if (!sellerName || !cnic || !location) return res.status(400).json({ message: 'Seller details required' });
     }
     
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: 'User exists' });
-
-    const randomPassword = crypto.randomBytes(16).toString('hex');
-    const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
-    user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      isVeterinarian,
-      isSeller, 
-      phone: "", 
-      phoneVerified: false, 
-    });
+    let user = await User.findOne({ email: normalizedEmail }).select('-password');
+    if (user) {
+      if (!hasProvider(user, 'google')) {
+        linkAuthProvider(user, 'google', googleId || null);
+      }
+      await user.save();
+    } else {
+      user = await User.create({
+        username,
+        email: normalizedEmail,
+        password: null,
+        isVeterinarian: isVet,
+        isSeller, 
+        phone: "", 
+        phoneVerified: false,
+        authProviders: [{ provider: 'google', providerId: googleId || null }]
+      });
+      user = user.toObject();
+      delete user.password;
+    }
     
+    if (isSeller && !user.isSeller) {
+      user.isSeller = true;
+      user.sellerStatus = 'pending';
+      await user.save();
+    }
+
     if (isSeller) {
+      const sellerExists = await Seller.findOne({ userId: user._id });
+      if (!sellerExists) {
       await Seller.create({
         userId: user._id,
         name: sellerName,
-        email: email,
+        email: normalizedEmail,
         cnic: cnic,
         location: location,
         status: 'pending'
       });
+      }
     }
     
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian, isSeller },
+      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -544,6 +662,38 @@ const changePassword = async (req, res) => {
     await user.save();
     res.status(200).json({ message: 'Changed' });
 };
+
+// For Google-first accounts: set a password once (JWT required).
+// If the account already has a password, use changePassword instead.
+const setPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({ message: 'newPassword is required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.password) {
+      return res.status(400).json({ message: 'Password already set. Use changePassword.' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    linkAuthProvider(user, 'local');
+    await user.save();
+
+    const userSafe = user.toObject();
+    delete userSafe.password;
+    return res.status(200).json({ message: 'Password set successfully', user: userSafe });
+  } catch (error) {
+    console.error('SetPassword Error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 const addPhoneNumber = async (req, res) => {
     const normalizedPhone = String(req.body.phone || '').trim();
     const phoneValidationError = validateInternationalPhone(normalizedPhone);
@@ -585,6 +735,7 @@ module.exports = {
   removeProfileImage,
   getUserPublicProfile,
   changePassword,
+  setPassword,
   addPhoneNumber,
   verifyResetCode: verifyResetCodeRoute,
   resendResetCode

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 // ✅ ADDED FaStore to imports
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -147,6 +147,18 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [showPasswords, setShowPasswords] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false
+  });
+  const [passwordTouched, setPasswordTouched] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false
+  });
+  const [passwordError, setPasswordError] = useState('');
 
   const [toasts, setToasts] = useState([]);
   const addToast = (message, type = 'success') => {
@@ -330,6 +342,30 @@ const ProfilePage = () => {
   const handlePasswordChange = (e) => {
     setPasswords({ ...passwords, [e.target.name]: e.target.value });
   };
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const validatePasswordStrength = (value) => {
+    if (!value) return 'Password is required';
+    const errors = [];
+    if (value.length < 8) errors.push('At least 8 characters');
+    if (!/[A-Z]/.test(value)) errors.push('One uppercase letter');
+    if (!/[a-z]/.test(value)) errors.push('One lowercase letter');
+    if (!/[0-9]/.test(value)) errors.push('One number');
+    if (!/[^A-Za-z0-9]/.test(value)) errors.push('One special character');
+    return errors.length ? errors.join(', ') : '';
+  };
+
+  const passwordChecks = [
+    { label: '8+ characters', valid: passwords.newPassword.length >= 8 },
+    { label: 'Uppercase', valid: /[A-Z]/.test(passwords.newPassword) },
+    { label: 'Lowercase', valid: /[a-z]/.test(passwords.newPassword) },
+    { label: 'Number', valid: /[0-9]/.test(passwords.newPassword) },
+    { label: 'Special', valid: /[^A-Za-z0-9]/.test(passwords.newPassword) }
+  ];
+  const unmetRequirements = passwordChecks.filter((check) => !check.valid);
 
   const handleCancelEdit = () => {
     // Reset form data to original profile data
@@ -580,6 +616,13 @@ const ProfilePage = () => {
       setLoading(false);
       return;
     }
+    const strengthError = validatePasswordStrength(newPassword);
+    setPasswordError(strengthError);
+    if (strengthError) {
+      setLoading(false);
+      addToast(`Password must have: ${strengthError}`, 'error');
+      return;
+    }
 
     try {
       const response = await fetch(`${AUTH_BASE_URL}/change-password`, {
@@ -604,6 +647,73 @@ const ProfilePage = () => {
       console.error('Error:', error);
       setError('An error occurred while changing the password.');
       addToast('An error occurred while changing the password.', 'error');
+    }
+  };
+
+  const hasProvider = (provider) =>
+    Array.isArray(user?.authProviders) && user.authProviders.some((p) => p?.provider === provider);
+
+  // Show "Set Password" only for Google-only accounts (no local provider linked yet).
+  const shouldShowSetPassword = hasProvider('google') && !hasProvider('local');
+
+  const handleSetPassword = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const { newPassword, confirmPassword } = passwords;
+    if (!newPassword || !confirmPassword) {
+      setLoading(false);
+      addToast('Please enter and confirm your new password', 'error');
+      return;
+    }
+    const strengthError = validatePasswordStrength(newPassword);
+    setPasswordError(strengthError);
+    if (strengthError) {
+      setLoading(false);
+      addToast(`Password must have: ${strengthError}`, 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setLoading(false);
+      addToast('Passwords do not match', 'error');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        addToast('Authentication token missing. Please log in again.', 'error');
+        return;
+      }
+
+      const response = await fetch(`${AUTH_BASE_URL}/set-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPassword })
+      });
+
+      const data = await response.json();
+      setLoading(false);
+
+      if (response.ok) {
+        // Update AuthContext + storage
+        if (data.user) {
+          updateUser(data.user);
+        }
+        addToast('Password set successfully! You can now sign in with email/password.');
+        setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setCurrentView('profile');
+      } else {
+        addToast(data.message || 'Failed to set password', 'error');
+      }
+    } catch (err) {
+      setLoading(false);
+      addToast(err.message || 'Failed to set password', 'error');
     }
   };
 
@@ -1387,51 +1497,120 @@ const ProfilePage = () => {
                 {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
                 
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-4 text-[#6b493d]">Change Password</h3>
-                  <form onSubmit={handlePasswordUpdate}>
+                  <h3 className="text-lg font-medium mb-4 text-[#6b493d]">
+                    {shouldShowSetPassword ? 'Set Password' : 'Change Password'}
+                  </h3>
+                  <form onSubmit={shouldShowSetPassword ? handleSetPassword : handlePasswordUpdate}>
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                      <input 
-                        type="password" 
-                        name="currentPassword"
-                        value={passwords.currentPassword}
-                        onChange={handlePasswordChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+                      {shouldShowSetPassword ? (
+                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded">
+                          This account was created with Google. Set a password once to enable email/password sign-in.
+                        </div>
+                      ) : (
+                        <>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                          <div className="relative">
+                            <input 
+                              type={showPasswords.currentPassword ? 'text' : 'password'}
+                              name="currentPassword"
+                              value={passwords.currentPassword}
+                              onChange={handlePasswordChange}
+                              onBlur={() => setPasswordTouched((prev) => ({ ...prev, currentPassword: true }))}
+                              required
+                              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility('currentPassword')}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                              aria-label={showPasswords.currentPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPasswords.currentPassword ? <FaEyeSlash /> : <FaEye />}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                     
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                      <input 
-                        type="password" 
-                        name="newPassword"
-                        value={passwords.newPassword}
-                        onChange={handlePasswordChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPasswords.newPassword ? 'text' : 'password'}
+                          name="newPassword"
+                          value={passwords.newPassword}
+                          onChange={(e) => {
+                            handlePasswordChange(e);
+                            if (passwordTouched.newPassword) {
+                              setPasswordError(validatePasswordStrength(e.target.value));
+                            }
+                          }}
+                          onBlur={() => {
+                            setPasswordTouched((prev) => ({ ...prev, newPassword: true }));
+                            setPasswordError(validatePasswordStrength(passwords.newPassword));
+                          }}
+                          required
+                          className={`w-full px-3 py-2 pr-10 border rounded-md ${
+                            passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility('newPassword')}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                          aria-label={showPasswords.newPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPasswords.newPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                      </div>
+                      {passwords.newPassword && unmetRequirements.length === 0 && (
+                        <div className="mt-2 flex items-center text-green-700 text-xs">
+                          <span className="mr-1">✓</span>
+                          Password meets all requirements
+                        </div>
+                      )}
+                      {passwordTouched.newPassword && passwordError && (
+                        <p className="text-xs text-red-600 mt-1">Password must have: {passwordError}</p>
+                      )}
                     </div>
                     
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                      <input 
-                        type="password" 
-                        name="confirmPassword"
-                        value={passwords.confirmPassword}
-                        onChange={handlePasswordChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPasswords.confirmPassword ? 'text' : 'password'}
+                          name="confirmPassword"
+                          value={passwords.confirmPassword}
+                          onChange={handlePasswordChange}
+                          onBlur={() => setPasswordTouched((prev) => ({ ...prev, confirmPassword: true }))}
+                          required
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility('confirmPassword')}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                          aria-label={showPasswords.confirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPasswords.confirmPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                      </div>
+                      {passwordTouched.confirmPassword && passwords.confirmPassword && passwords.newPassword !== passwords.confirmPassword && (
+                        <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
+                      )}
                     </div>
                     
                     <div className="flex justify-end">
                       <button 
                         type="submit"
-                        disabled={loading}
+                        disabled={
+                          loading ||
+                          (passwordTouched.newPassword && !!passwordError) ||
+                          (passwords.newPassword && passwords.confirmPassword && passwords.newPassword !== passwords.confirmPassword)
+                        }
                         className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
                       >
-                        {loading ? 'Updating...' : 'Update Password'}
+                        {loading ? 'Updating...' : (shouldShowSetPassword ? 'Set Password' : 'Update Password')}
                       </button>
                     </div>
                   </form>

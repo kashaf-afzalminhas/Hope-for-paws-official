@@ -92,6 +92,7 @@ const Login = () => {
           setError('Login failed: No token received.');
         }
       } else {
+        const data = await response.json();
         setError(data.error || 'Invalid email or password');
       }
     } catch {
@@ -104,16 +105,38 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+      let response = await fetch(`${AUTH_BASE_URL}/login-google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: googleResponse.credential }),
       });
-      const data = await response.json();
+      let data = await response.json();
+
+      if (response.ok && data.requiresLinkConfirmation) {
+        const shouldLink = window.confirm(
+          "An account with this email already exists. Do you want to link your Google account to it?"
+        );
+        if (!shouldLink) {
+          setLoading(false);
+          setError("Google account linking was cancelled.");
+          return;
+        }
+
+        response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            credential: googleResponse.credential,
+            confirmLinking: true
+          }),
+        });
+        data = await response.json();
+      }
+
       setLoading(false);
       if (response.ok) {
         if (data.needsUserType) {
-          setPendingGoogleUser({ email: data.email, username: data.username });
+          setPendingGoogleUser({ email: data.email, username: data.username, googleId: data.googleId });
           setShowUserTypeModal(true);
           return;
         }
@@ -145,7 +168,7 @@ const Login = () => {
     }
   };
 
-  const handleUserTypeSelect = async (isVeterinarian) => {
+  const handleUserTypeSelect = async (userTypeSelected, sellerInfo = null) => {
     if (!pendingGoogleUser) return;
     setLoading(true);
     setError("");
@@ -156,7 +179,14 @@ const Login = () => {
         body: JSON.stringify({
           email: pendingGoogleUser.email,
           username: pendingGoogleUser.username,
-          isVeterinarian,
+          isVeterinarian: userTypeSelected === 'veterinarian',
+          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
+          googleId: pendingGoogleUser.googleId,
+          ...(userTypeSelected === 'seller' && sellerInfo && {
+            sellerName: sellerInfo.businessName,
+            cnic: sellerInfo.cnic,
+            location: sellerInfo.location
+          })
         }),
       });
       const data = await response.json();

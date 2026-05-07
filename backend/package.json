@@ -6,7 +6,9 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "test:seller": "node scripts/testSellerLogin.js",
-    "test:seller:api": "node scripts/testSellerLoginAPI.js --"
+    "test:seller:api": "node scripts/testSellerLoginAPI.js --",
+    "migrate:auth-providers": "node scripts/migrateAuthProviders.js",
+    "smoke:auth-payload": "node scripts/smokeAuthPayload.js"
   },
   "dependencies": {
     "axios": "^1.11.0",

@@ -9,11 +9,33 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
+      lowercase: true,
+      trim: true
     },
     password: {
       type: String,
-      required: true
+      default: null
+    },
+    authProviders: {
+      type: [
+        {
+          provider: {
+            type: String,
+            enum: ['local', 'google'],
+            required: true
+          },
+          providerId: {
+            type: String,
+            default: null
+          },
+          linkedAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ],
+      default: []
     },
     isVeterinarian: {
       type: Boolean,
@@ -94,6 +116,27 @@ userSchema.index(
   {
     unique: true,
     partialFilterExpression: { phone: { $type: 'string', $ne: '' } }
+  }
+);
+
+// Prevent duplicate provider entries per user.
+userSchema.index(
+  { _id: 1, 'authProviders.provider': 1 },
+  {
+    unique: true,
+    partialFilterExpression: { 'authProviders.provider': { $exists: true } }
+  }
+);
+
+// Keep provider identity globally unique when present.
+userSchema.index(
+  { 'authProviders.provider': 1, 'authProviders.providerId': 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      'authProviders.provider': { $exists: true },
+      'authProviders.providerId': { $type: 'string', $ne: '' }
+    }
   }
 );
 

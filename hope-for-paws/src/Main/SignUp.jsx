@@ -296,16 +296,38 @@ const SignUp = () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+      let response = await fetch(`${AUTH_BASE_URL}/login-google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: googleResponse.credential }),
       });
-      const data = await response.json();
+      let data = await response.json();
+
+      if (response.ok && data.requiresLinkConfirmation) {
+        const shouldLink = window.confirm(
+          "An account with this email already exists. Do you want to link your Google account to it?"
+        );
+        if (!shouldLink) {
+          setLoading(false);
+          setError("Google account linking was cancelled.");
+          return;
+        }
+
+        response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            credential: googleResponse.credential,
+            confirmLinking: true
+          }),
+        });
+        data = await response.json();
+      }
+
       setLoading(false);
       if (response.ok) {
         if (data.needsUserType) {
-          setPendingGoogleUser({ email: data.email, username: data.username });
+          setPendingGoogleUser({ email: data.email, username: data.username, googleId: data.googleId });
           setShowUserTypeModal(true);
           return;
         }
@@ -341,6 +363,7 @@ const SignUp = () => {
         body: JSON.stringify({
           email: pendingGoogleUser.email,
           username: pendingGoogleUser.username,
+          googleId: pendingGoogleUser.googleId,
           isVeterinarian: userTypeSelected === 'veterinarian',
           userType: userTypeSelected === 'seller' ? 'seller' : 'user',
           // Include seller fields if registering as seller

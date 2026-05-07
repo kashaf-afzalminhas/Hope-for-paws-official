@@ -28,7 +28,8 @@ const {
   verifyResetCode,
   resetPassword,
   resendResetCode,
-  addPhoneNumber
+  addPhoneNumber,
+  setPassword
 } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
@@ -42,6 +43,7 @@ router.post('/verify-code', verifyCode);
 router.post('/update-profile', updateProfile);
 router.post('/signout', signOut); 
 router.post('/changePassword',changePassword);
+router.post('/set-password', auth, setPassword);
 // User management routes
 router.post('/getUserById', getUserById);
 router.post('/getAllUsers', getAllUsers);
