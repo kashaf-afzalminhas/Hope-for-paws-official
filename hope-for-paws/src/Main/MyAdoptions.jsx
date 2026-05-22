@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { Pencil, Trash2, X, Eye, Camera } from "lucide-react";
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import AdoptionRequestsModal from './AdoptionRequestsModal';
 
-const MyAdoptions = () => {
+/** Stable empty array so the requests modal does not receive a new `[]` every render. */
+const EMPTY_ADOPTION_REQUESTS = [];
+import AdoptionRequestsModal from './AdoptionRequestsModal';
+import { getCurrentUserId } from '../lib/utils';
+import AdoptionCard from '../components/adoption/AdoptionCard';
+import { adoptionGridClass, adoptionCardShellClass } from '../components/adoption/adoptionTheme';
+
+const MyAdoptions = ({ embedded = false }) => {
   const [adoptions, setAdoptions] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [editData, setEditData] = useState({
@@ -56,9 +63,14 @@ const MyAdoptions = () => {
   // Fetch adoptions when user is available
   useEffect(() => {
     const effectiveUser = user || storedUser;
-    if (!effectiveUser?.id) return;
+    const uid = getCurrentUserId(effectiveUser);
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
+    fetchUserAdoptions(uid);
 
-    fetchUserAdoptions(effectiveUser.id);
+
   }, [user, storedUser]);
 
   const fetchUserAdoptions = async (userId) => {
@@ -78,6 +90,11 @@ const MyAdoptions = () => {
       );
 
       setAdoptions(response.data);
+      setSelectedPostForRequests((prev) => {
+        if (!prev) return null;
+        const updated = response.data.find((p) => String(p._id) === String(prev._id));
+        return updated || prev;
+      });
     } catch (err) {
       console.error('Error fetching adoptions:', err);
       setError(err.response?.data?.message || err.message || 'Failed to load adoption posts');
@@ -99,7 +116,7 @@ const MyAdoptions = () => {
       // Refresh the list after deletion
       const effectiveUser = user || storedUser;
       if (effectiveUser?.id) {
-        fetchUserAdoptions(effectiveUser.id);
+
       }
     } catch (err) {
       console.error('Error deleting adoption post:', err);
@@ -167,7 +184,7 @@ const MyAdoptions = () => {
       // Refresh the list after update
       const effectiveUser = user || storedUser;
       if (effectiveUser?.id) {
-        fetchUserAdoptions(effectiveUser.id);
+
       }
     } catch (err) {
       console.error('Error updating adoption post:', err);
@@ -204,46 +221,57 @@ const MyAdoptions = () => {
     setImagePreviews(prev => ({ ...prev, [postId]: null }));
   };
 
-  const handleRequestAction = async (postId, requestId, action) => {
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await axios.put(
-        `${API_BASE_URL}/adoptions/requests/${requestId}`,
-        { status: action === 'accept' ? 'accepted' : 'rejected' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      alert(`Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`);
-      
-      // Refresh the list after action
-      const effectiveUser = user || storedUser;
-      if (effectiveUser?.id) {
-        fetchUserAdoptions(effectiveUser.id);
-      }
-    } catch (err) {
-      console.error('Error handling adoption request:', err);
-      alert(`Failed to ${action} request: ${err.response?.data?.message || err.message}`);
-    }
+  const handleRequestAction = async () => {
+    const effectiveUser = user || storedUser;
+    const uid = getCurrentUserId(effectiveUser);
+    if (uid) fetchUserAdoptions(uid);
   };
 
   const handleStatusChange = async (postId, newStatus) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await axios.put(
+      const response = await axios.put(
         `${API_BASE_URL}/adoptions/${postId}`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      // Update local state immediately for better UX
-      setAdoptions(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: newStatus } : post
-      ));
-      
-      // Show success message
-      setSuccessMessage(`Status updated to ${newStatus} successfully!`);
-      setTimeout(() => setSuccessMessage(''), 3000);
-      
+
+      const reopenedCount = response.data?.reopenedRequests ?? 0;
+      const serverPost = response.data;
+
+      setAdoptions((prev) =>
+        prev.map((post) => {
+          if (post._id !== postId) return post;
+          const next = {
+            ...post,
+            ...serverPost,
+            status: serverPost?.status ?? newStatus,
+            vaccinated: serverPost?.vaccinated ?? post.vaccinated,
+            neuteredSpayed: serverPost?.neuteredSpayed ?? post.neuteredSpayed,
+          };
+          if (reopenedCount > 0 && Array.isArray(post.requests)) {
+            next.requests = post.requests.map((req) =>
+              req.status === 'accepted' || req.status === 'rejected'
+                ? { ...req, status: 'pending' }
+                : req
+            );
+          }
+          return next;
+        })
+      );
+
+      const effectiveUser = user || storedUser;
+      const uid = getCurrentUserId(effectiveUser);
+      if (uid) {
+        await fetchUserAdoptions(uid);
+      }
+
+      let message = `Status updated to ${newStatus} successfully!`;
+      if (reopenedCount > 0) {
+        message += ` ${reopenedCount} previous request(s) restored to "Request sent" for review.`;
+      }
+      setSuccessMessage(message);
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       console.error('Error updating status:', err);
       setError(`Failed to update status: ${err.response?.data?.message || err.message}`);
@@ -293,11 +321,13 @@ const MyAdoptions = () => {
   }
 
   return (
-    <section className="min-h-screen bg-[#f5f3ed] py-12">
-      <div className="max-w-6xl mx-auto px-4">
-        <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-          My Adoption Posts sssssssss
-        </h3>
+    <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-12'}>
+      <div className={embedded ? 'w-full' : 'mx-auto max-w-[1440px] px-4 sm:px-6'}>
+        {!embedded && (
+          <h3 className="mb-8 text-center text-3xl font-bold text-[#6b493d]" style={{ fontFamily: '"Playfair Display", serif' }}>
+            My Adoption Posts
+          </h3>
+        )}
 
         {successMessage && (
           <div className="mt-4 mb-8 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center">
@@ -305,253 +335,127 @@ const MyAdoptions = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {adoptions.map((post) => (
-            <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <div className="relative group">
-                <img
-                  src={imagePreviews[post._id] || post.imageUrl}
-                  alt={post.name}
-                  className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = 'https://via.placeholder.com/400x300?text=Pet+Image';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
-
-                {/* Only show edit overlay when editing this post */}
-                {editingPost === post._id && (
-                  <label className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-t-2xl">
-                    <Camera className="w-8 h-8 text-white" />
-                    <span className="mt-2 text-white text-xs font-medium">Click to change image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageChange(e, post._id)}
-                      className="hidden"
-                    />
-                    {imagePreviews[post._id] && (
-                      <button
-                        type="button"
-                        onClick={() => removeNewImage(post._id)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
-                      >
-                        ×
-                      </button>
-                    )}
+        <div className={adoptionGridClass}>
+          {adoptions.map((post) =>
+            editingPost === post._id ? (
+              <article key={post._id} className={adoptionCardShellClass}>
+                <div className="relative">
+                  <img
+                    src={imagePreviews[post._id] || post.imageUrl}
+                    alt={post.name}
+                    className="aspect-[4/3] w-full object-contain bg-gradient-to-br from-[#faf6f0] to-[#efe4d8]"
+                    loading="lazy"
+                  />
+                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center rounded-t-2xl bg-black/50 opacity-0 transition hover:opacity-100">
+                    <Camera className="h-8 w-8 text-white" />
+                    <span className="mt-2 text-xs font-medium text-white">Change photo</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, post._id)} className="hidden" />
                   </label>
-                )}
-              </div>
-  
-              <div className="p-6">
-                {editingPost === post._id ? (
-                  <div className="space-y-2">
+                </div>
+                <div className="space-y-3 p-5 sm:p-6">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet name</label>
+                    <input type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2 text-[#4E3B31] focus:border-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#a07855]" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
-                      <input
-                        type="text"
-                        value={editData.name}
-                        onChange={(e) => setEditData({...editData, name: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        placeholder="Pet Name"
-                      />
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Age</label>
+                      <input type="text" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                      <input
-                        type="text"
-                        value={editData.age}
-                        onChange={(e) => setEditData({...editData, age: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        placeholder="Age"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
-                      <input
-                        type="text"
-                        value={editData.petType}
-                        onChange={(e) => setEditData({...editData, petType: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        placeholder="Pet Type"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-                      <input
-                        type="text"
-                        value={editData.breed}
-                        onChange={(e) => setEditData({...editData, breed: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        placeholder="Breed"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Vaccination Status</label>
-                      <select
-                        value={editData.vaccinated}
-                        onChange={(e) => setEditData({...editData, vaccinated: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                      >
-                        <option value="">Select vaccination status</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Neutered/Spayed Status</label>
-                      <select
-                        value={editData.neuteredSpayed}
-                        onChange={(e) => setEditData({...editData, neuteredSpayed: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                      >
-                        <option value="">Select neutering status</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        value={editData.description}
-                        onChange={(e) => setEditData({...editData, description: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        rows={2}
-                        placeholder="Description"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                      <input
-                        type="text"
-                        value={editData.location}
-                        onChange={(e) => setEditData({...editData, location: e.target.value})}
-                        className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                        placeholder="Location"
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                      <button 
-                        onClick={() => setEditingPost(null)}
-                        className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                        disabled={savingStates[post._id]}
-                      >
-                        <X className="h-5 w-5 text-[#6b493d]" />
-                      </button>
-                      <button
-                        onClick={() => handleSaveEdit(post._id)}
-                        disabled={!hasChanges(post._id) || savingStates[post._id]}
-                        className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                        style={{ fontFamily: '"Poppins", sans-serif' }}
-                      >
-                        {savingStates[post._id] ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <span>Save Changes</span>
-                        )}
-                      </button>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet type</label>
+                      <input type="text" value={editData.petType} onChange={(e) => setEditData({ ...editData, petType: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
                     </div>
                   </div>
-                ) : (
                   <div>
-                    <h2 className="text-xl font-bold text-[#6b493d] mb-2">{post.name}</h2>
-                    <p className="text-[#6b493d] mb-1"><span className="font-semibold">Age:</span> {post.age} years</p>
-                    <p className="text-[#6b493d] mb-1"><span className="font-semibold">Type:</span> {post.petType}</p>
-                    {post.breed && (
-                      <p className="text-[#6b493d] mb-1"><span className="font-semibold">Breed:</span> {post.breed}</p>
-                    )}
-                    
-                    {/* Health Status Badges - Only show if any health info exists */}
-                    {(post.vaccinated || post.neuteredSpayed) && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {post.vaccinated && (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                            post.vaccinated === 'Yes' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
-                          }`}>
-                            {post.vaccinated === 'Yes' ? '✓ Vaccinated' : '✗ Not Vaccinated'}
-                          </span>
-                        )}
-                        {post.neuteredSpayed && (
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                            post.neuteredSpayed === 'Yes' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-orange-100 text-orange-800 border border-orange-200'
-                          }`}>
-                            {post.neuteredSpayed === 'Yes' ? '✓ Neutered/Spayed' : '✗ Not Neutered/Spayed'}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    
-                    <p className="text-[#6b493d] mb-4 italic">{post.description}</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Posted by: {post.userId?.username || 'Anonymous'}
-                    </p>
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Status:</label>
+                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Breed</label>
+                    <input type="text" value={editData.breed} onChange={(e) => setEditData({ ...editData, breed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Vaccinated</label>
+                      <select value={editData.vaccinated} onChange={(e) => setEditData({ ...editData, vaccinated: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Neutered / spayed</label>
+                      <select value={editData.neuteredSpayed} onChange={(e) => setEditData({ ...editData, neuteredSpayed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
+                        <option value="">Select</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Description</label>
+                    <textarea value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={3} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Location</label>
+                    <input type="text" value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => setEditingPost(null)} className="rounded-full p-2 hover:bg-[#6b493d]/10" disabled={savingStates[post._id]}>
+                      <X className="h-5 w-5 text-[#6b493d]" />
+                    </button>
+                    <button type="button" onClick={() => handleSaveEdit(post._id)} disabled={!hasChanges(post._id) || savingStates[post._id]} className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3d32] disabled:opacity-50">
+                      {savingStates[post._id] ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ) : (
+              <AdoptionCard
+                key={`${post._id}-${post.status}`}
+                post={post}
+                imageUrl={imagePreviews[post._id] || post.imageUrl}
+                poster={{ show: false }}
+                meta={
+                  <>
+                    <div className="mb-3">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6F4C3E]/60">Listing status</label>
                       <select
                         value={post.status}
                         onChange={(e) => handleStatusChange(post._id, e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
-                          post.status === 'available' ? 'border-green-300 bg-green-50 text-green-700' : 
-                          post.status === 'pending' ? 'border-yellow-300 bg-yellow-50 text-yellow-700' : 
-                          'border-red-300 bg-red-50 text-red-700'
-                        }`}
+                        className="w-full rounded-xl border border-[#e8dcc8] bg-white px-3 py-2 text-sm font-medium text-[#4E3B31] focus:border-[#a07855] focus:outline-none"
                       >
                         <option value="available">Available</option>
                         <option value="adopted">Adopted</option>
                       </select>
                     </div>
-                    <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
-                    
                     {post.status === 'adopted' && (
-                      <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-green-700 font-medium">This pet has been adopted!</p>
+                      <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                        This pet has been adopted
                       </div>
                     )}
-
-                    {/* Requests Summary */}
                     {post.requests && post.requests.length > 0 && (
-                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Eye className="w-4 h-4 text-blue-600" />
-                            <span className="text-blue-700 font-medium">
-                              {post.requests.length} adoption request{post.requests.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleViewRequests(post)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                          >
-                            View Requests
-                          </button>
-                        </div>
+                      <div className="mb-3 flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
+                        <span className="flex items-center gap-2 text-sm font-medium text-sky-900">
+                          <Eye className="h-4 w-4" />
+                          {post.requests.length} request{post.requests.length !== 1 ? 's' : ''}
+                        </span>
+                        <button type="button" onClick={() => handleViewRequests(post)} className="text-sm font-semibold text-sky-700 hover:underline">
+                          View all
+                        </button>
                       </div>
                     )}
-
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => handleEdit(post)}
-                        className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                      >
-                        <Pencil className="h-5 w-5 text-[#6b493d]" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(post._id)}
-                        className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                      >
-                        <Trash2 className="h-5 w-5 text-[#6b493d]" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                  </>
+                }
+              >
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => handleEdit(post)} className="rounded-full p-2.5 hover:bg-[#6b493d]/10" aria-label="Edit">
+                    <Pencil className="h-5 w-5 text-[#6b493d]" />
+                  </button>
+                  <button type="button" onClick={() => handleDelete(post._id)} className="rounded-full p-2.5 hover:bg-rose-50" aria-label="Delete">
+                    <Trash2 className="h-5 w-5 text-rose-700" />
+                  </button>
+                </div>
+              </AdoptionCard>
+            )
+          )}
         </div>
       </div>
 
@@ -559,19 +463,18 @@ const MyAdoptions = () => {
       {selectedPostForRequests && (
         <AdoptionRequestsModal
           post={selectedPostForRequests}
-          requests={selectedPostForRequests.requests || []}
+          requests={selectedPostForRequests.requests ?? EMPTY_ADOPTION_REQUESTS}
           onClose={handleCloseRequestsModal}
           onRequestAction={handleRequestAction}
-          onRefresh={() => {
-            const effectiveUser = user || storedUser;
-            if (effectiveUser?.id) {
-              fetchUserAdoptions(effectiveUser.id);
-            }
-          }}
+          onRefresh={() => { const effectiveUser = user || storedUser; const uid = getCurrentUserId(effectiveUser); if (uid) fetchUserAdoptions(uid); }}
         />
       )}
     </section>
   );
+};
+
+MyAdoptions.propTypes = {
+  embedded: PropTypes.bool,
 };
 
 export default MyAdoptions;

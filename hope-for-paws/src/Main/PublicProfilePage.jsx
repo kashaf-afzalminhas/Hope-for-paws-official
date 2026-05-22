@@ -5,6 +5,8 @@ import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAl
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
+import AdoptionCard from '../components/adoption/AdoptionCard';
+import { adoptionGridClass } from '../components/adoption/adoptionTheme';
 
 const PublicProfilePage = () => {
   const { userId } = useParams();
@@ -311,58 +313,9 @@ const PublicProfilePage = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-8">
-          {adoptionAds.map(ad => (
-            <div
-              key={ad._id}
-              className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all border border-[#e5d9c8]"
-            >
-              <div className="relative">
-                <div className="w-full h-52 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center overflow-hidden">
-                  {ad.imageUrl ? (
-                    <img
-                      src={ad.imageUrl}
-                      alt={ad.name}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                  ) : (
-                    <div className="text-[#a07855]">
-                      <FaHeart className="h-14 w-14" />
-                    </div>
-                  )}
-                </div>
-                <div className="absolute top-3 right-3 bg-[#a07855] text-[#ffd8b8] text-xs font-bold px-3 py-1.5 rounded-full">
-                  Adoptable
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-heading font-bold text-[#2c1810]">{ad.name}</h3>
-                  <span className="text-xs font-medium bg-[#f0e6d8] text-[#6b493d] px-2.5 py-1 rounded-full">
-                    {ad.breed || 'Mixed'}
-                  </span>
-                </div>
-                <div className="flex items-center text-sm text-[#2c1810]/80 mb-3">
-                  <FaMapMarkerAlt className="mr-1.5 text-[#a07855]" />
-                  <span>{ad.location || 'Location not specified'}</span>
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#e5d9c8]">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center text-xs text-[#2c1810]/80">
-                      <FaHeart className="mr-1 text-[#a07855]" />
-                      {ad.likes?.length || 0}
-                    </div>
-                    <div className="flex items-center text-xs text-[#2c1810]/80">
-                      <FaComment className="mr-1 text-[#a07855]" />
-                      {ad.comments?.length || 0}
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-[#a07855]">
-                    {ad.age ? `${ad.age} ${ad.ageUnit || 'yrs'}` : 'Age N/A'}
-                  </span>
-                </div>
-              </div>
-            </div>
+        <div className={`${adoptionGridClass} pb-8`}>
+          {adoptionAds.map((ad) => (
+            <AdoptionCard key={ad._id} post={ad} descriptionLines={2} poster={{ show: false }} />
           ))}
         </div>
       )

@@ -348,7 +348,7 @@ const signIn = async (req, res) => {
   }
 };
 
-// ==========================================
+// ==========================================~
 // 4. GOOGLE AUTH (Updated for Seller)
 // ==========================================
 const googleLogins = async (req, res) => {

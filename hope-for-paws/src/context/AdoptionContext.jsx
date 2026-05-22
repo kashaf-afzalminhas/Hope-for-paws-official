@@ -61,10 +61,10 @@ export const AdoptionProvider = ({ children }) => {
     return cache[cacheKey]?.data && (now - cache[cacheKey].timestamp < CACHE_DURATION);
   };
 
-  const fetchAllAdoptionPosts = async () => {
+  const fetchAllAdoptionPosts = async (options = {}) => {
+    const forceRefresh = options.forceRefresh === true;
     try {
-      // Check cache first
-      if (isCacheValid('allAdoptionPosts')) {
+      if (!forceRefresh && isCacheValid('allAdoptionPosts')) {
         console.log('Using cached all adoption posts');
         const userId = getUserId();
         let filteredData;
@@ -544,19 +544,33 @@ export const AdoptionProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      
-      // Update both states immediately
-      setAllAdoptionPosts(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: newStatus } : post
-      ));
-      setUserAdoptionPosts(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: newStatus } : post
-      ));
-      
-      // Clear cache to ensure fresh data on next fetch
+      const reopenedCount = data.reopenedRequests ?? 0;
+
+      const applyStatusUpdate = (post) => {
+        if (post._id !== postId) return post;
+        const next = {
+          ...post,
+          ...data,
+          status: data.status ?? newStatus,
+          vaccinated: data.vaccinated ?? post.vaccinated,
+          neuteredSpayed: data.neuteredSpayed ?? post.neuteredSpayed,
+        };
+        if (reopenedCount > 0 && Array.isArray(post.requests)) {
+          next.requests = post.requests.map((req) =>
+            req.status === 'accepted' || req.status === 'rejected'
+              ? { ...req, status: 'pending' }
+              : req
+          );
+        }
+        return next;
+      };
+
+      setAllAdoptionPosts((prev) => prev.map(applyStatusUpdate));
+      setUserAdoptionPosts((prev) => prev.map(applyStatusUpdate));
+
       cache.userAdoptionPosts = { data: null, timestamp: 0 };
       cache.allAdoptionPosts = { data: null, timestamp: 0 };
-      
+
       return data;
     } catch (error) {
       console.error('Error updating adoption status:', error);

@@ -9,6 +9,9 @@ import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
 import { useAuth } from '../context/AuthContext';
 import AdoptionRequestsModal from './AdoptionRequestsModal';
+import MyAdoptions from './MyAdoptions';
+import AdoptionHistory from './AdoptionHistory';
+import { getCurrentUserId } from '../lib/utils';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -868,8 +871,9 @@ const ProfilePage = () => {
   useEffect(() => {
     if (currentView !== 'myadoptions') return;
     const effectiveUser = user || adoptionsStoredUser;
-    if (!effectiveUser?.id) return;
-    fetchUserAdoptions(effectiveUser.id);
+    const uid = getCurrentUserId(effectiveUser);
+    if (!uid) return;
+    fetchUserAdoptions(uid);
     // eslint-disable-next-line
   }, [user, adoptionsStoredUser, currentView]);
   const fetchUserAdoptions = async (userId) => {
@@ -899,7 +903,8 @@ const ProfilePage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const effectiveUser = user || adoptionsStoredUser;
-      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
+      const uid = getCurrentUserId(effectiveUser);
+      if (uid) fetchUserAdoptions(uid);
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to delete post');
     }
@@ -1006,20 +1011,10 @@ const ProfilePage = () => {
     setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
     setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
   };
-  const handleRequestAction = async (postId, requestId, action) => {
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await fetch(`${API_BASE_URL}/adoptions/requests/${requestId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: action === 'accept' ? 'accepted' : 'rejected' })
-      });
-      alert(`Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`);
-      const effectiveUser = user || adoptionsStoredUser;
-      if (effectiveUser?.id) fetchUserAdoptions(effectiveUser.id);
-    } catch (err) {
-      alert(`Failed to ${action} request: ${err.message}`);
-    }
+  const handleRequestAction = async () => {
+    const effectiveUser = user || adoptionsStoredUser;
+    const uid = getCurrentUserId(effectiveUser);
+    if (uid) fetchUserAdoptions(uid);
   };
 
   const handleStatusChange = async (postId, newStatus) => {
@@ -1030,19 +1025,46 @@ const ProfilePage = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update status');
       }
-      
-      // Update local state immediately for better UX
-      setAdoptions(prev => prev.map(post => 
-        post._id === postId ? { ...post, status: newStatus } : post
-      ));
-      
-      // Show success message
-      addToast(`Status updated to ${newStatus} successfully!`);
-      
+
+      const data = await response.json();
+      const reopenedCount = data.reopenedRequests ?? 0;
+
+      setAdoptions((prev) =>
+        prev.map((post) => {
+          if (post._id !== postId) return post;
+          const next = {
+            ...post,
+            ...data,
+            status: data.status ?? newStatus,
+            vaccinated: data.vaccinated ?? post.vaccinated,
+            neuteredSpayed: data.neuteredSpayed ?? post.neuteredSpayed,
+          };
+          if (reopenedCount > 0 && Array.isArray(post.requests)) {
+            next.requests = post.requests.map((req) =>
+              req.status === 'accepted' || req.status === 'rejected'
+                ? { ...req, status: 'pending' }
+                : req
+            );
+          }
+          return next;
+        })
+      );
+
+      const effectiveUser = user || adoptionsStoredUser;
+      const uid = getCurrentUserId(effectiveUser);
+      if (uid) {
+        await fetchUserAdoptions(uid);
+      }
+
+      let message = `Status updated to ${newStatus} successfully!`;
+      if (reopenedCount > 0) {
+        message += ` ${reopenedCount} previous request(s) restored to "Request sent" for review.`;
+      }
+      addToast(message);
     } catch (err) {
       console.error('Error updating status:', err);
       addToast(`Failed to update status: ${err.message}`, 'error');
@@ -1171,7 +1193,7 @@ const ProfilePage = () => {
       <Toast toasts={toasts} />
       {/* Header */}
       <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
-        <div className="flex justify-between items-center max-w-6xl mx-auto">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="flex items-center">
             <FaChevronLeft className="text-xl text-[#6b493d]" />
             <span className="ml-2 text-[#6b493d]">Back</span>
@@ -1188,10 +1210,10 @@ const ProfilePage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 pb-4 max-w-6xl mx-auto w-full">
-        <div className="flex flex-col md:flex-row md:space-x-6">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           {/* Sidebar */}
-          <div className="md:w-1/4 mb-6">
+          <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
             <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
@@ -1309,7 +1331,7 @@ const ProfilePage = () => {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 bg-white rounded-lg shadow p-6">
+          <div className="min-w-0 flex-1 rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10">
             {currentView === 'profile' && (
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">My Profile</h2>
@@ -1617,362 +1639,11 @@ const ProfilePage = () => {
                 </div>
               </div>
             )}
-            {currentView === 'adoptionhistory' && (
-              <div>
-                <h2 className="text-2xl font-bold text-[#4E3B31] mb-6">My Adoption History</h2>
-                {adoptionHistoryLoading ? (
-                  <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8B5A2B]"></div>
-                  </div>
-                ) : adoptionHistoryError && (!adoptionHistory || adoptionHistory.length === 0) ? (
-                  <div className="bg-red-100 text-red-700 p-4 rounded-lg">
-                    <p className="font-semibold">Error</p>
-                    <p>{adoptionHistoryError}</p>
-                    {!adoptionHistoryEffectiveUser && (
-                      <button 
-                        onClick={() => navigate('/signin')}
-                        className="mt-4 px-4 py-2 bg-[#8B5A2B] text-white rounded-md hover:bg-[#6B493D] transition-colors"
-                      >
-                        Log In
-                      </button>
-                    )}
-                  </div>
-                ) : adoptionHistory.length === 0 ? (
-                  <div className="text-center py-10">
-                    <h2 className="text-xl font-semibold text-gray-700">No Adoption History</h2>
-                    <p className="text-gray-500 mt-2">You haven&apos;t made any adoption requests yet.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
-                      <thead className="bg-[#8B5A2B] text-white">
-                        <tr>
-                          <th className="px-6 py-3 text-left">Pet</th>
-                          <th className="px-6 py-3 text-left">Type</th>
-                          <th className="px-6 py-3 text-left">Request Date</th>
-                          <th className="px-6 py-3 text-left">Status</th>
-                          <th className="px-6 py-3 text-left">Response Date</th>
-                          <th className="px-6 py-3 text-left">Message</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {adoptionHistory.map((item) => (
-                          <tr key={item._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center">
-                                <img 
-                                  src={item.petImage} 
-                                  alt={item.petName}
-                                  className="h-10 w-10 rounded-full object-cover mr-3"
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = 'https://via.placeholder.com/40?text=Pet';
-                                  }}
-                                />
-                                <span className="font-medium text-gray-900">{item.petName}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-gray-700">{item.petType}</td>
-                            <td className="px-6 py-4 text-gray-700">{formatAdoptionDate(item.requestDate)}</td>
-                            <td className="px-6 py-4">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeClass(item.status)}`}>
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-gray-700">
-                              {item.responseDate ? formatAdoptionDate(item.responseDate) : '-'}
-                            </td>
-                            <td className="px-6 py-4 text-gray-700">
-                              {item.message || '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-            {currentView === 'myadoptions' && (
-              <section className="min-h-screen  py-4">
-                <div className="max-w-4xl mx-auto px-2 md:px-4">
-                  <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-                    My Adoption Posts
-                  </h3>
-                  {adoptionsLoading ? (
-                    <div className="flex justify-center items-center h-64">
-                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
-                    </div>
-                  ) : adoptionsError ? (
-                    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
-                      <p className="font-semibold">Error loading adoption posts</p>
-                      <p className="text-sm mt-2">{adoptionsError}</p>
-                    </div>
-                  ) : (!user && !adoptionsStoredUser) ? (
-                    <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl text-center">
-                      <p>Please log in to view your adoption posts.</p>
-                    </div>
-                  ) : adoptions.length === 0 ? (
-                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
-                      <p className="text-xl text-[#6b493d]/80 italic">No adoption posts yet. Create your first adoption post!</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {adoptions.map((post) => (
-                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 max-w-xl w-full mx-auto">
-                          <div className="relative group">
-                            <img 
-                              src={adoptionImagePreviews[post._id] || post.imageUrl} 
-                              alt={post.name} 
-                                className="w-full h-56 object-contain bg-gray-100 rounded-t-2xl transition-transform duration-300 hover:scale-105" 
-                              loading="lazy"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://via.placeholder.com/400x300?text=Pet+Image';
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
-
-                            {/* Only show edit overlay when editing this post */}
-                            {editingAdoptionPost === post._id && (
-                              <label className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer rounded-t-2xl">
-                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <span className="mt-2 text-white text-xs font-medium">Click to change image</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => handleAdoptionImageChange(e, post._id)}
-                                  className="hidden"
-                                />
-                                {adoptionImagePreviews[post._id] && (
-                                  <button
-                                    type="button"
-                                    onClick={() => removeNewAdoptionImage(post._id)}
-                                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
-                                  >
-                                    ×
-                                  </button>
-                                )}
-                              </label>
-                            )}
-                          </div>
-                          <div className="p-4">
-                            {editingAdoptionPost === post._id ? (
-                              <div className="space-y-2">
-                                <h3 className="text-lg font-semibold text-[#6b493d] mb-4 border-b border-[#6b493d]/20 pb-2">
-                                  Edit Adoption Post: {post.name}
-                                </h3>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Pet Name</label>
-                                <input
-                                  type="text"
-                                  value={editAdoptionData.name}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, name: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  placeholder="Pet Name"
-                                />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
-                                <input
-                                  type="text"
-                                  value={editAdoptionData.age}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, age: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  placeholder="Age"
-                                />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Pet Type</label>
-                                <input
-                                  type="text"
-                                  value={editAdoptionData.petType}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, petType: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  placeholder="Pet Type"
-                                />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Breed</label>
-                                  <input
-                                    type="text"
-                                    value={editAdoptionData.breed}
-                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, breed: e.target.value})}
-                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                    placeholder="Breed"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Vaccination Status</label>
-                                  <select
-                                    value={editAdoptionData.vaccinated}
-                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, vaccinated: e.target.value})}
-                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  >
-                                    <option value="">Select vaccination status</option>
-                                    <option value="Yes">Yes</option>
-                                    <option value="No">No</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Neutered/Spayed Status</label>
-                                  <select
-                                    value={editAdoptionData.neuteredSpayed}
-                                    onChange={(e) => setEditAdoptionData({...editAdoptionData, neuteredSpayed: e.target.value})}
-                                    className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  >
-                                    <option value="">Select neutering status</option>
-                                    <option value="Yes">Yes</option>
-                                    <option value="No">No</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                                <textarea
-                                  value={editAdoptionData.description}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, description: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                                    rows={2}
-                                  placeholder="Description"
-                                ></textarea>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                                <input
-                                  type="text"
-                                  value={editAdoptionData.location}
-                                  onChange={(e) => setEditAdoptionData({...editAdoptionData, location: e.target.value})}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d] mb-2"
-                                  placeholder="Location"
-                                />
-                                </div>
-                                <div className="flex justify-end space-x-3">
-                                  <button 
-                                    onClick={() => setEditingAdoptionPost(null)}
-                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                    disabled={adoptionSavingStates[post._id]}
-                                  >
-                                    <span className="h-5 w-5 text-[#6b493d]">✕</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveEditAdoption(post._id)}
-                                    disabled={!hasAdoptionChanges(post._id) || adoptionSavingStates[post._id]}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                                    style={{ fontFamily: '"Poppins", sans-serif' }}
-                                  >
-                                    {adoptionSavingStates[post._id] ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                        <span>Saving...</span>
-                                      </>
-                                    ) : (
-                                      <span>Save Changes</span>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <h2 className="text-xl font-bold text-[#6b493d] mb-2">{post.name}</h2>
-                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Age:</span> {post.age} years</p>
-                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Type:</span> {post.petType}</p>
-                                {post.breed && (
-                                  <p className="text-[#6b493d] mb-1"><span className="font-semibold">Breed:</span> {post.breed}</p>
-                                )}
-                                
-                                {/* Health Status Badges - Only show if any health info exists */}
-                                {(post.vaccinated || post.neuteredSpayed) && (
-                                  <div className="flex flex-wrap gap-2 mb-4">
-                                    {post.vaccinated && (
-                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                                        post.vaccinated === 'Yes' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
-                                      }`}>
-                                        {post.vaccinated === 'Yes' ? '✓ Vaccinated' : '✗ Not Vaccinated'}
-                                      </span>
-                                    )}
-                                    {post.neuteredSpayed && (
-                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                                        post.neuteredSpayed === 'Yes' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-orange-100 text-orange-800 border border-orange-200'
-                                      }`}>
-                                        {post.neuteredSpayed === 'Yes' ? '✓ Neutered/Spayed' : '✗ Not Neutered/Spayed'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                <p className="text-[#6b493d] mb-4 italic">{post.description}</p>
-                                <p className="text-sm text-gray-500 mb-4">
-                                  Posted by: {post.userId?.username || 'Anonymous'}
-                                </p>
-                                <div className="mb-4">
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Status:</label>
-                                  <select
-                                    value={post.status}
-                                    onChange={(e) => handleStatusChange(post._id, e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
-                                      post.status === 'available' ? 'border-green-300 bg-green-50 text-green-700' : 
-                                      post.status === 'pending' ? 'border-yellow-300 bg-yellow-50 text-yellow-700' : 
-                                      'border-red-300 bg-red-50 text-red-700'
-                                    }`}
-                                  >
-                                    <option value="available">Available</option>
-                                    <option value="adopted">Adopted</option>
-                                  </select>
-                                </div>
-                                <p className="text-[#6b493d] mb-1"><span className="font-semibold">Location:</span> {post.location || 'Location not specified'}</p>
-                                {post.status === 'adopted' && (
-                                  <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-md">
-                                    <p className="text-green-700 font-medium">This pet has been adopted!</p>
-                                  </div>
-                                )}
-                                <div className="flex justify-end space-x-3">
-                                  <button
-                                    onClick={() => handleEditAdoption(post)}
-                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                  >
-                                    <span className="h-5 w-5 text-[#6b493d]">✎</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteAdoption(post._id)}
-                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                  >
-                                    <span className="h-5 w-5 text-[#6b493d]">🗑️</span>
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          {/* Requests Summary */}
-                          {post.requests && post.requests.length > 0 && (
-                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-blue-700 font-medium">
-                                    {post.requests.length} adoption request{post.requests.length !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => handleViewRequests(post)}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                                >
-                                  View Requests
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
+            {currentView === 'adoptionhistory' && <AdoptionHistory />}
+            {currentView === 'myadoptions' && <MyAdoptions embedded />}
             {currentView === 'myposts' && (
               <section className="min-h-screen py-4">
-                <div className="max-w-6xl mx-auto px-2 md:px-4">
+                <div className="w-full">
                   <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
                     My Shared Posts
                   </h3>
@@ -2121,9 +1792,8 @@ const ProfilePage = () => {
           onRequestAction={handleRequestAction}
           onRefresh={() => {
             const effectiveUser = user || adoptionsStoredUser;
-            if (effectiveUser?.id) {
-              fetchUserAdoptions(effectiveUser.id);
-            }
+            const uid = getCurrentUserId(effectiveUser);
+            if (uid) fetchUserAdoptions(uid);
           }}
         />
       )}

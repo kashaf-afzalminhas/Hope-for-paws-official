@@ -13,6 +13,54 @@ const User = require('../models/User');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+/**
+ * When a listing goes from adopted → available (adoption fell through),
+ * restore accepted and auto-rejected requests to pending so adopters see "Request sent"
+ * and the owner can review again.
+ */
+async function reopenListingRequestsForAvailability(adId, adoptionName) {
+  const requestsToReopen = await AdoptionRequest.find({
+    adId,
+    status: { $in: ['accepted', 'rejected'] },
+  });
+
+  if (!requestsToReopen.length) {
+    return { reopenedCount: 0, requesterIds: [] };
+  }
+
+  const requestIds = requestsToReopen.map((r) => r._id);
+  const requesterIds = requestsToReopen.map((r) => String(r.requester));
+
+  await AdoptionRequest.updateMany(
+    { adId, status: { $in: ['accepted', 'rejected'] } },
+    { $set: { status: 'pending' } }
+  );
+
+  await AdoptionHistory.updateMany(
+    { requestId: { $in: requestIds } },
+    { $set: { status: 'pending' }, $unset: { responseDate: 1 } }
+  );
+
+  if (global.notificationService) {
+    for (const reqDoc of requestsToReopen) {
+      try {
+        await global.notificationService.createNotification({
+          recipient: reqDoc.requester,
+          sender: null,
+          type: 'adoption_request_pending',
+          title: 'Adoption listing available again',
+          message: `${adoptionName || 'This pet'} is available again. Your request is pending the owner's review.`,
+          data: { adoptionId: adId, adoptionRequestId: reqDoc._id },
+        });
+      } catch (notifyErr) {
+        console.error('Error notifying requester of reopened listing:', notifyErr);
+      }
+    }
+  }
+
+  return { reopenedCount: requestsToReopen.length, requesterIds };
+}
+
 // Create an adoption post
 router.post('/', auth, upload.single('image'), async (req, res) => {
   console.log('=== ADOPTION POST ROUTE HIT ===');
@@ -106,7 +154,8 @@ router.get('/user/:userId', async (req, res) => {
       query = query.populate({
         path: 'requests',
         model: 'AdoptionRequest',
-        select: 'name email phone message status petHistoryImage createdAt' // Ensure petHistoryImage is included
+        select: 'name email phone message status petHistoryImage createdAt requester',
+        populate: { path: 'requester', select: 'username _id' },
       });
     }
 
@@ -154,26 +203,48 @@ router.get('/history', auth, async (req, res) => {
     
     // Try to find adoption history entries with populated references
     const history = await AdoptionHistory.find({ userId: userObjectId })
-      .populate('petId', 'name petType imageUrl')
+      .populate({
+        path: 'petId',
+        select: 'name petType imageUrl location userId',
+        populate: { path: 'userId', select: 'username profileImage' },
+      })
       .populate('requestId', 'status message')
       .sort({ createdAt: -1 })
       .lean();
-    
+
     console.log(`Found ${history.length} adoption history entries`);
-    
-    // Transform the data to include only necessary fields
-    const transformedHistory = history.map(entry => ({
-      id: entry._id,
-      petName: entry.petName,
-      petType: entry.petType,
-      petImage: entry.petImage,
-      status: entry.status,
-      requestDate: entry.requestDate,
-      responseDate: entry.responseDate,
-      message: entry.message,
-      pet: entry.petId,
-      request: entry.requestId
-    }));
+
+    const transformedHistory = history.map((entry) => {
+      const owner = entry.petId?.userId;
+      const posterUserId =
+        owner && typeof owner === 'object' && owner._id != null
+          ? String(owner._id)
+          : entry.petId?.userId != null
+            ? String(entry.petId.userId)
+            : null;
+      const posterUsername =
+        owner && typeof owner === 'object' && owner.username ? owner.username : null;
+      const posterProfileImage =
+        owner && typeof owner === 'object' && owner.profileImage ? owner.profileImage : '';
+
+      return {
+        _id: entry._id,
+        id: entry._id,
+        petName: entry.petName,
+        petType: entry.petType,
+        petImage: entry.petImage,
+        petLocation: entry.petId?.location || '',
+        status: entry.status,
+        requestDate: entry.requestDate,
+        responseDate: entry.responseDate,
+        message: entry.message,
+        pet: entry.petId,
+        request: entry.requestId,
+        posterUserId,
+        posterUsername,
+        posterProfileImage,
+      };
+    });
     
     res.json(transformedHistory);
   } catch (error) {
@@ -222,39 +293,52 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location } = req.body;
 
-    // Validate status if provided
     if (status && !['available', 'pending', 'adopted'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
 
-    const adoptionPost = await Adoption.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.userId },
-      { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location },
-      { new: true }
-    );
+    const existingPost = await Adoption.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
 
-    if (!adoptionPost) {
+    if (!existingPost) {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // If status is changed to 'available', reject all pending requests
-    if (status === 'available') {
-      await AdoptionRequest.updateMany(
-        { adId: req.params.id, status: 'pending' },
-        { status: 'rejected' }
+    const previousStatus = existingPost.status;
+
+    const updatePayload = {};
+    if (name !== undefined) updatePayload.name = name;
+    if (age !== undefined) updatePayload.age = age;
+    if (petType !== undefined) updatePayload.petType = petType;
+    if (breed !== undefined) updatePayload.breed = breed;
+    if (vaccinated !== undefined) updatePayload.vaccinated = vaccinated;
+    if (neuteredSpayed !== undefined) updatePayload.neuteredSpayed = neuteredSpayed;
+    if (description !== undefined) updatePayload.description = description;
+    if (status !== undefined) updatePayload.status = status;
+    if (location !== undefined) updatePayload.location = location;
+
+    const adoptionPost = await Adoption.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.userId },
+      updatePayload,
+      { new: true }
+    );
+
+    let reopenedRequests = 0;
+
+    if (status === 'available' && previousStatus === 'adopted') {
+      const { reopenedCount } = await reopenListingRequestsForAvailability(
+        req.params.id,
+        adoptionPost.name
       );
-      
-      // Update adoption history for rejected requests
-      await AdoptionHistory.updateMany(
-        { petId: req.params.id, status: 'pending' },
-        { 
-          status: 'rejected',
-          responseDate: new Date()
-        }
-      );
+      reopenedRequests = reopenedCount;
     }
 
-    res.json(adoptionPost);
+    const response = adoptionPost.toObject ? adoptionPost.toObject() : adoptionPost;
+    response.reopenedRequests = reopenedRequests;
+
+    res.json(response);
   } catch (error) {
     console.error('Error updating adoption post:', error);
     res.status(500).json({ message: 'Server error' });
@@ -534,16 +618,19 @@ router.get('/:id/check-request', auth, async (req, res) => {
     const adId = req.params.id;
     const requesterId = req.user.userId;
 
-    const existingRequest = await AdoptionRequest.findOne({ 
-      adId, 
+    const adoptionPost = await Adoption.findById(adId).select('status');
+
+    const existingRequest = await AdoptionRequest.findOne({
+      adId,
       requester: requesterId,
-      status: { $in: ['pending', 'accepted'] }
+      status: { $in: ['pending', 'accepted'] },
     });
 
-    res.json({ 
+    res.json({
       hasRequest: !!existingRequest,
       requestStatus: existingRequest ? existingRequest.status : null,
-      requestId: existingRequest ? existingRequest._id : null
+      requestId: existingRequest ? existingRequest._id : null,
+      postStatus: adoptionPost ? adoptionPost.status : null,
     });
   } catch (error) {
     console.error('Error checking adoption request:', error);
