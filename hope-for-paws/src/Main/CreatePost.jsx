@@ -18,15 +18,25 @@ const CreatePost = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!token) {
       setError('Authentication token is missing. Please log in.');
-      console.log("Token not found in localStorage or sessionStorage");
-    } else {
-      console.log("Token found:", token);
     }
   }, []);
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Only image files (PNG, JPG, GIF) are allowed.');
+        e.target.value = ''; // Reset the input
+        return;
+      }
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size must be under 5MB.');
+        e.target.value = '';
+        return;
+      }
+      setError('');
       setImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -142,7 +152,7 @@ const CreatePost = () => {
                     />
                   </label>
                 </div>
-                <p className="text-xs text-[#6b493d]/80">PNG, JPG, GIF up to 10MB</p>
+                <p className="text-xs text-[#6b493d]/80">PNG, JPG, GIF up to 5MB</p>
               </div>
             )}
           </div>

@@ -16,7 +16,7 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
+    const userId = decoded.userId || decoded.id;
 
     if (!userId) {
       return res.status(401).json({ message: 'Invalid token format' });
@@ -27,7 +27,7 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'User not found' });
     }
 
-    // Set both userId and id for consistency
+    // Set both userId and id for absolute consistency across all routes
     req.user = {
       userId: user._id.toString(),
       id: user._id.toString()
@@ -35,6 +35,9 @@ const auth = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth error:', error.message);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 };

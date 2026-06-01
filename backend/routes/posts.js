@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
+const mongoose = require('mongoose');
 const cloudinary = require('cloudinary').v2;
+const sanitizeHtml = require('sanitize-html');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
@@ -14,56 +16,82 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-console.log('Cloudinary API Secret is set:', !!process.env.CLOUDINARY_API_SECRET);
+console.log('Cloudinary Config Present:', {
+  cloud_name: !!process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: !!process.env.CLOUDINARY_API_KEY,
+  api_secret: !!process.env.CLOUDINARY_API_SECRET,
+});
 
-console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
-console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY);
-console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET);
 
-
-// Configure Multer
-
+// Configure Multer with security limits
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const imageFileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed!'), false);
+  }
+};
+const upload = multer({
+  storage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
 
-// Get all posts
-router.get('/', async (req, res) => {
+// Get all posts (auth required, paginated, batched comments)
+router.get('/', auth, async (req, res) => {
   try {
-    console.log('Fetching posts...');
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    // Count total for pagination metadata
+    const total = await Post.countDocuments();
+
     const posts = await Post.find()
       .populate('userId', 'username isVeterinarian')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    console.log('Posts fetched:', posts.length);
-    
-    // Fetch and populate comments for each post
-    const postsWithComments = await Promise.all(
-      posts.map(async (post) => {
-        const comments = await Comment.find({ postId: post._id })
-          .populate('userId', 'username isVeterinarian')
-          .sort({ createdAt: 1 });
-        
-        const postObject = post.toObject();
-        return {
-          ...postObject,
-          comments: comments
-        };
-      })
-    );
+    // Batch-fetch all comments for this page of posts (eliminates N+1)
+    const postIds = posts.map(p => p._id);
+    const allComments = await Comment.find({ postId: { $in: postIds } })
+      .populate('userId', 'username isVeterinarian')
+      .sort({ createdAt: 1 });
 
-    console.log('Posts with comments prepared successfully');
+    // Group comments by postId in memory
+    const commentsByPostId = {};
+    allComments.forEach(comment => {
+      const pid = comment.postId.toString();
+      if (!commentsByPostId[pid]) commentsByPostId[pid] = [];
+      commentsByPostId[pid].push(comment);
+    });
+
+    const postsWithComments = posts.map(post => {
+      const postObject = post.toObject();
+      return {
+        ...postObject,
+        comments: commentsByPostId[post._id.toString()] || []
+      };
+    });
+
     res.json(postsWithComments);
   } catch (error) {
     console.error('Error fetching posts:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Get single post
-router.get('/:id', async (req, res) => {
+// Get single post (auth required)
+router.get('/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
     const post = await Post.findById(req.params.id)
       .populate('userId', 'username isVeterinarian');
 
@@ -88,28 +116,34 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Get user's posts
-
-router.get('/user/:userId', async (req, res) => {
+// Get user's posts (auth required, batched comments)
+router.get('/user/:userId', auth, async (req, res) => {
   try {
     const userId = req.params.userId;
     const posts = await Post.find({ userId })
       .populate('userId', 'username isVeterinarian')
       .sort({ createdAt: -1 });
 
-    const postsWithComments = await Promise.all(
-      posts.map(async (post) => {
-        const comments = await Comment.find({ postId: post._id })
-          .populate('userId', 'username isVeterinarian')
-          .sort({ createdAt: 1 });
-        
-        const postObject = post.toObject();
-        return {
-          ...postObject,
-          comments: comments
-        };
-      })
-    );
+    // Batch-fetch comments (eliminates N+1)
+    const postIds = posts.map(p => p._id);
+    const allComments = await Comment.find({ postId: { $in: postIds } })
+      .populate('userId', 'username isVeterinarian')
+      .sort({ createdAt: 1 });
+
+    const commentsByPostId = {};
+    allComments.forEach(comment => {
+      const pid = comment.postId.toString();
+      if (!commentsByPostId[pid]) commentsByPostId[pid] = [];
+      commentsByPostId[pid].push(comment);
+    });
+
+    const postsWithComments = posts.map(post => {
+      const postObject = post.toObject();
+      return {
+        ...postObject,
+        comments: commentsByPostId[post._id.toString()] || []
+      };
+    });
 
     res.json(postsWithComments);
   } catch (error) {
@@ -123,6 +157,12 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
     const { caption } = req.body;
 
+    // Sanitize caption to prevent stored XSS
+    const sanitizedCaption = sanitizeHtml(caption, {
+      allowedTags: [],      // Strip ALL HTML tags
+      allowedAttributes: {}, // Strip ALL attributes
+    });
+
     if (!req.file) {
       return res.status(400).json({ message: 'Image is required' });
     }
@@ -134,7 +174,7 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
     const post = new Post({
       userId: req.user.userId, // Ensure userId is set correctly
-      caption,
+      caption: sanitizedCaption,
       imageUrl: uploadResponse.secure_url,
     });
 
@@ -180,12 +220,16 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 // Update post
 router.put('/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
     const post = await Post.findOneAndUpdate(
       {
         _id: req.params.id,
         userId: req.user.userId,
       },
-      { $set: { caption: req.body.caption } },
+      { $set: { caption: sanitizeHtml(req.body.caption, { allowedTags: [], allowedAttributes: {} }) } },
       { new: true }
     ).populate('userId', 'username isVeterinarian');
 
@@ -213,6 +257,10 @@ router.put('/:id', auth, async (req, res) => {
 // Delete post
 router.delete('/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
     const post = await Post.findOne({
       _id: req.params.id,
       userId: req.user.userId,
@@ -222,9 +270,23 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Delete image from Cloudinary
-    const publicId = post.imageUrl.split('/').pop().split('.')[0];
-    await cloudinary.uploader.destroy(publicId);
+    // Delete image from Cloudinary — extract full public_id including folder path
+    // URL format: https://res.cloudinary.com/<cloud>/image/upload/v1234567890/folder/filename.ext
+    try {
+      const urlPath = new URL(post.imageUrl).pathname; // e.g. /cloud/image/upload/v123/folder/file.jpg
+      const uploadIndex = urlPath.indexOf('/upload/');
+      if (uploadIndex !== -1) {
+        const afterUpload = urlPath.substring(uploadIndex + '/upload/'.length); // v123/folder/file.jpg
+        // Strip the version prefix (v followed by digits and a slash)
+        const withoutVersion = afterUpload.replace(/^v\d+\//, ''); // folder/file.jpg
+        // Strip the file extension to get the public_id
+        const publicId = withoutVersion.replace(/\.[^.]+$/, ''); // folder/file
+        await cloudinary.uploader.destroy(publicId);
+      }
+    } catch (cloudErr) {
+      console.error('Error deleting image from Cloudinary:', cloudErr.message);
+      // Continue with post deletion even if Cloudinary cleanup fails
+    }
 
     // Delete all comments associated with the post
     await Comment.deleteMany({ postId: post._id });
@@ -239,39 +301,47 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Like/Unlike post
+// Like/Unlike post (atomic toggle to prevent race conditions)
 router.post('/:id/like', auth, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
-    if (!post) {
+    const postId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
+    const userId = req.user.userId;
+
+    // Check if user already liked the post
+    const existingPost = await Post.findById(postId);
+    if (!existingPost) {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    const likeIndex = post.likes.indexOf(req.user.userId);
-    const wasLiked = likeIndex !== -1;
-    
-    if (likeIndex === -1) {
-      post.likes.push(req.user.userId);
-    } else {
-      post.likes.splice(likeIndex, 1);
-    }
+    const alreadyLiked = existingPost.likes.includes(userId);
 
-    await post.save();
+    // Use atomic operators to prevent race conditions
+    const updatedPost = alreadyLiked
+      ? await Post.findByIdAndUpdate(
+          postId,
+          { $pull: { likes: userId } },
+          { new: true }
+        ).populate('userId', 'username isVeterinarian')
+      : await Post.findByIdAndUpdate(
+          postId,
+          { $addToSet: { likes: userId } },
+          { new: true }
+        ).populate('userId', 'username isVeterinarian');
 
     // Send notification for new like (not for unlike)
-    if (!wasLiked && global.notificationService) {
-      global.notificationService.notifyPostLike(req.params.id, req.user.userId);
+    if (!alreadyLiked && global.notificationService) {
+      global.notificationService.notifyPostLike(postId, userId);
     }
 
-    // Populate user data before sending response
-    const populatedPost = await Post.findById(post._id)
-      .populate('userId', 'username isVeterinarian');
-
-    const comments = await Comment.find({ postId: post._id })
+    const comments = await Comment.find({ postId })
       .populate('userId', 'username isVeterinarian')
       .sort({ createdAt: 1 });
 
-    const postObject = populatedPost.toObject();
+    const postObject = updatedPost.toObject();
     const postWithComments = {
       ...postObject,
       comments: comments

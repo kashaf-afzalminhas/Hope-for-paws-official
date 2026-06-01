@@ -45,6 +45,19 @@ function PostUploadForm({ onAddPost, onCancel }) {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Only image files (PNG, JPG, GIF) are allowed.');
+        e.target.value = ''; // Reset the input
+        return;
+      }
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size must be under 5MB.');
+        e.target.value = '';
+        return;
+      }
+      setError('');
       setImage(file);
       // Create a preview URL for the image
       const reader = new FileReader();
@@ -123,7 +136,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#6b493d] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 <span className="text-[#6b493d] font-semibold">Upload a file</span>
-                <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 10MB</span>
+                <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 5MB</span>
               </>
             )}
           </div>

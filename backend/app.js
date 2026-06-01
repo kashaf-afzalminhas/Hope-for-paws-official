@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const helmet = require('helmet');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
@@ -48,6 +49,9 @@ mongoose.connect(process.env.MONGO_URI)
   });
 
 const app = express();
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 // const server = http.createServer(app);
 
 // Initialize Socket.IO
@@ -141,6 +145,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Helmet: HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:"],
+      connectSrc: ["'self'", "https://www.hopeforpaws.club", "http://localhost:5173", "http://localhost:5174", "ws://localhost:5173", "ws://localhost:5174"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow cross-origin images from Cloudinary
+}));
+
 // CORS configuration
 const corsOptions = {
   origin: [
@@ -208,6 +227,39 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+
+// Strict rate limiter for social actions (likes/comments) — 60 req/min per IP
+const socialLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute
+  message: {
+    error: 'Too many social actions. Please slow down.',
+    retryAfter: '1 minute'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/posts/:id/like', socialLimiter);
+app.use('/api/comments', socialLimiter);
+
+// Strict rate limiter for write-heavy adoption actions (creation and requests) — 10 requests per 15 minutes per IP (Bug 20)
+const adoptionWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per 15 minutes
+  message: {
+    error: 'Too many adoption creation or request actions. Please try again after 15 minutes.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/adoptions', (req, res, next) => {
+  if (req.method === 'POST') {
+    return adoptionWriteLimiter(req, res, next);
+  }
+  next();
+});
+
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

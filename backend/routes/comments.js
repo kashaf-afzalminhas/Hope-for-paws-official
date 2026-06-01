@@ -8,6 +8,16 @@ const router = express.Router();
 // Add comment to post
 router.post('/:postId', auth, async (req, res) => {
   try {
+    const { content } = req.body;
+
+    // Validate content length before processing
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: 'Comment content is required' });
+    }
+    if (content.length > 1000) {
+      return res.status(400).json({ message: 'Comment cannot exceed 1000 characters' });
+    }
+
     const post = await Post.findById(req.params.postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -16,7 +26,7 @@ router.post('/:postId', auth, async (req, res) => {
     const comment = new Comment({
       postId: req.params.postId,
       userId: req.user.userId,
-      content: req.body.content,
+      content,
     });
 
     await comment.save();
@@ -41,6 +51,25 @@ router.post('/:postId/comments', auth, async (req, res) => {
     const { content, parentCommentId } = req.body;
     const postId = req.params.postId;
 
+    // Validate content length before processing
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: 'Comment content is required' });
+    }
+    if (content.length > 1000) {
+      return res.status(400).json({ message: 'Comment cannot exceed 1000 characters' });
+    }
+
+    // Validate parent comment belongs to the same post (prevent cross-post threading)
+    if (parentCommentId) {
+      const parentComment = await Comment.findById(parentCommentId);
+      if (!parentComment) {
+        return res.status(400).json({ message: 'Parent comment not found' });
+      }
+      if (parentComment.postId.toString() !== postId) {
+        return res.status(400).json({ message: 'Parent comment does not belong to this post' });
+      }
+    }
+
     const comment = new Comment({
       postId,
       userId: req.user.userId,
@@ -61,7 +90,7 @@ router.post('/:postId/comments', auth, async (req, res) => {
   }
 });
 
-// Delete comment
+// Delete comment (with cascade-delete of replies)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const comment = await Comment.findOneAndDelete({
@@ -72,6 +101,9 @@ router.delete('/:id', auth, async (req, res) => {
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
+
+    // Cascade-delete all child replies to prevent orphaned comments
+    await Comment.deleteMany({ parentCommentId: comment._id });
 
     res.json({ message: 'Comment deleted successfully' });
   } catch (error) {

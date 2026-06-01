@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { useAuth } from "../context/AuthContext";
 import { Pencil, Trash2, X } from "lucide-react";
 import { API_BASE_URL } from '../config';
@@ -16,7 +17,6 @@ const MyPosts = () => {
   const [expandedComments, setExpandedComments] = useState({});
   // Check user authentication state
   const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
- console.log("user", userr);
   
 
   useEffect(() => {
@@ -37,7 +37,6 @@ const MyPosts = () => {
       setError(""); // Reset error before making a request
   
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      console.log("Token:", token);
       if (!token) {
         throw new Error("Token is missing. Please log in again.");
       }
@@ -47,7 +46,6 @@ const MyPosts = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
   
-      console.log("Fetched posts:", response.data);
       setPosts(response.data);
   
     } catch (error) {
@@ -55,7 +53,6 @@ const MyPosts = () => {
       setError("Failed to load posts. Please try again later.");
     } finally {
       setLoading(false); // Ensure loading is set to false
-      console.log("Loading state set to false");
     }
   };
 
@@ -193,9 +190,9 @@ const MyPosts = () => {
                     <div>
                       <p 
                         className="text-[#6b493d] mb-4 italic text-lg leading-relaxed"
-                        style={{ fontFamily: '"Poppins", sans-serif' }}
+                        style={{ fontFamily: '"Poppins", sans-serif', whiteSpace: 'pre-wrap' }}
                       >
-                        "{post.caption}"
+                        "{DOMPurify.sanitize(post.caption, { ALLOWED_TAGS: [] })}"
                       </p>
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4 text-[#6b493d]/80">
