@@ -1,7 +1,21 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+
+const PAKISTAN_CITIES = [
+  'Abbottabad', 'Attock', 'Bahawalpur', 'Bahawalnagar', 'Bannu', 'Battagram',
+  'Bhakkar', 'Chakwal', 'Chaman', 'Chiniot', 'Chishtian', 'Dadu', 'Dera Ghazi Khan',
+  'Dera Ismail Khan', 'Faisalabad', 'Ghotki', 'Gilgit', 'Gojra', 'Gujranwala',
+  'Gujrat', 'Hafizabad', 'Haripur', 'Hyderabad', 'Islamabad', 'Jacobabad',
+  'Jhelum', 'Kamalia', 'Karachi', 'Kasur', 'Khanewal', 'Khushab', 'Khuzdar',
+  'Kohat', 'Kot Addu', 'Lahore', 'Larkana', 'Layyah', 'Lodhran', 'Mansehra',
+  'Mardan', 'Mirpur', 'Mirpur Khas', 'Multan', 'Muzaffarabad', 'Muzaffargarh',
+  'Narowal', 'Nawabshah', 'Nowshera', 'Okara', 'Pakpattan', 'Peshawar',
+  'Quetta', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha',
+  'Sheikhupura', 'Sialkot', 'Sibi', 'Sukkur', 'Swabi', 'Swat', 'Tando Adam',
+  'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
+];
 
 const AdoptionForm = () => {
   const [name, setName] = useState('');
@@ -15,7 +29,18 @@ const AdoptionForm = () => {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
+  const [ageError, setAgeError] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const locationRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const filteredCities = locationQuery.length > 0
+    ? PAKISTAN_CITIES.filter(c =>
+        c.toLowerCase().includes(locationQuery.toLowerCase())
+      )
+    : PAKISTAN_CITIES;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -36,6 +61,20 @@ const AdoptionForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
+
+    // Guard: block submission if age is invalid
+    if (!age || parseFloat(age) < 0 || isNaN(parseFloat(age))) {
+      setAgeError('Age must be a valid positive number');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Guard: block submission if location is not a valid Pakistani city
+    if (!location || !PAKISTAN_CITIES.includes(location)) {
+      setLocationError('Please select a valid city from Pakistan');
+      setIsSubmitting(false);
+      return;
+    }
 
     // Check authentication status
     if (!isAuthenticated || !user) {
@@ -175,13 +214,38 @@ const AdoptionForm = () => {
               Age (years)
             </label>
             <input
-              type="text"
-              placeholder="e.g., 2.5"
+              type="number"
+              placeholder="e.g., 2"
               value={age}
-              onChange={(e) => setAge(e.target.value)}
+              min="0"
+              step="0.1"
+              onChange={(e) => {
+                const val = e.target.value;
+                setAge(val);
+                if (val === '' || val === null) {
+                  setAgeError('');
+                } else if (parseFloat(val) < 0) {
+                  setAgeError('Age cannot be negative');
+                } else if (isNaN(parseFloat(val))) {
+                  setAgeError('Please enter a valid number');
+                } else {
+                  setAgeError('');
+                }
+              }}
+              onKeyDown={(e) => {
+                // Block minus sign from being typed
+                if (e.key === '-') e.preventDefault();
+              }}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
+                ageError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             />
+            {ageError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠</span> {ageError}
+              </p>
+            )}
           </div>
         </div>
         
@@ -255,18 +319,65 @@ const AdoptionForm = () => {
           </div>
         </div>
         
-        <div className="space-y-2">
+        <div className="space-y-2" ref={locationRef}>
           <label className="block text-sm font-medium text-[#4E3B31]">
-            Location
+            Location <span className="text-xs text-[#8d6e63] font-normal">(Pakistan only)</span>
           </label>
-          <input
-            type="text"
-            placeholder="e.g., Lahore, Pakistan"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search city, e.g. Lahore"
+              value={locationQuery}
+              onChange={(e) => {
+                const val = e.target.value;
+                setLocationQuery(val);
+                setLocation('');
+                setShowCitySuggestions(true);
+                if (val.trim() === '') {
+                  setLocationError('');
+                } else {
+                  setLocationError('Please select a city from the list');
+                }
+              }}
+              onFocus={() => setShowCitySuggestions(true)}
+              onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+              required
+              autoComplete="off"
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
+                locationError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+            />
+
+            {/* Dropdown suggestions */}
+            {showCitySuggestions && filteredCities.length > 0 && (
+              <ul className="absolute z-50 w-full mt-1 bg-white border border-[#bca18a] rounded-md shadow-lg max-h-52 overflow-y-auto">
+                {filteredCities.map((city) => (
+                  <li
+                    key={city}
+                    onMouseDown={() => {
+                      setLocation(city);
+                      setLocationQuery(city);
+                      setLocationError('');
+                      setShowCitySuggestions(false);
+                    }}
+                    className="px-4 py-2 text-sm text-[#4E3B31] hover:bg-[#f3ede7] cursor-pointer transition-colors"
+                  >
+                    {city}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {showCitySuggestions && locationQuery.length > 0 && filteredCities.length === 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-red-200 rounded-md shadow-lg px-4 py-3 text-sm text-red-600">
+                No Pakistani city found matching "{locationQuery}"
+              </div>
+            )}
+          </div>
+          {locationError && (
+            <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+              <span>⚠</span> {locationError}
+            </p>
+          )}
         </div>
         
 

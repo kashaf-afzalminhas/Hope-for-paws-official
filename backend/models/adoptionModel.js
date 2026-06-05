@@ -47,7 +47,13 @@ const adoptionSchema = new mongoose.Schema({
     required: true,
     trim: true,
     minlength: [1, 'Description cannot be empty'],
-    maxlength: [2000, 'Description cannot exceed 2000 characters']
+    validate: {
+      validator: function (value) {
+        const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
+        return wordCount <= 150;
+      },
+      message: 'Description cannot exceed 150 words'
+    }
   },
   imageUrl: {
     type: String,

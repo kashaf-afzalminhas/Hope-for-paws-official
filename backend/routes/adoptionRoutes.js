@@ -363,7 +363,6 @@ router.put('/:id/image', auth, upload.single('image'), async (req, res) => {
       }
     } catch (e) {
       console.error('Non-fatal old image deletion error:', e);
-    }
       console.warn('Failed to delete old image from Cloudinary:', e.message);
     }
 

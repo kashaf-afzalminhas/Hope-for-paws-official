@@ -110,7 +110,9 @@ exports.updateSellerStatus = async (req, res) => {
       return res.status(400).json({ message: err.message, errors: err.errors });
     }
     console.error('updateSellerStatus error:', err.message);
-    res.status(err.status || 500).json({ message: 'Server error' });
+    console.error('updateSellerStatus full error:', err);
+    console.error('updateSellerStatus stack:', err.stack);
+    res.status(err.status || 500).json({ message: err.message || 'Server error' });
   }
 };
 
