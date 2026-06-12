@@ -43,17 +43,18 @@ const AdminSellerDetail = () => {
       throw new Error('Cannot determine user ID for this seller. The associated user may have been deleted.');
     }
 
+    const isVerified = nextStatus === 'verified';
     const response = await fetch(`${API_BASE_URL}/sellers/status/${targetUserId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ status: nextStatus, notes: rejectReason || undefined })
+      body: JSON.stringify({ isVerified, notes: rejectReason || undefined })
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Failed to update seller status');
-    setSeller((prev) => ({ ...prev, status: nextStatus }));
+    setSeller((prev) => ({ ...prev, status: nextStatus, isVerified }));
   };
 
   const handleApprove = async () => {
@@ -112,24 +113,37 @@ const AdminSellerDetail = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Seller Name</label>
-                <p className="font-medium text-[#4a342e] text-base md:text-lg">{seller.name}</p>
+                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Full Name</label>
+                <p className="font-medium text-[#4a342e] text-base md:text-lg">{seller.fullName}</p>
               </div>
               <div>
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Shop Name</label>
-                <p className="font-medium text-[#4a342e] text-base md:text-lg">{seller.name}</p>
+                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Store Name</label>
+                <p className="font-medium text-[#4a342e] text-base md:text-lg">{seller.storeName}</p>
               </div>
               <div className="overflow-hidden">
                 <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Email</label>
-                <p className="font-medium text-[#4a342e] truncate">{seller.email || seller.userId?.email}</p>
+                <p className="font-medium text-[#4a342e] truncate">{seller.email}</p>
               </div>
               <div>
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Phone</label>
-                <p className="font-medium text-[#4a342e]">{seller.userId?.phone || '-'}</p>
+                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Phone Number</label>
+                <p className="font-medium text-[#4a342e]">{seller.phone}</p>
               </div>
-              <div className="md:col-span-2">
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">About Shop</label>
-                <p className="text-[#5d4037] mt-1 leading-relaxed text-sm md:text-base">Seller application for pet marketplace.</p>
+              <div className="md:col-span-2 mt-4">
+                <h3 className="text-sm font-bold text-[#5d4037] border-b border-[#f0ebe0] pb-1 mb-3">Bank Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Bank Name</label>
+                    <p className="font-medium text-[#4a342e] text-sm">{seller.paymentDetails?.bankName}</p>
+                  </div>
+                  <div>
+                    <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Account Title</label>
+                    <p className="font-medium text-[#4a342e] text-sm">{seller.paymentDetails?.accountTitle}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Account Number / IBAN</label>
+                    <p className="font-medium text-[#4a342e] text-sm font-mono bg-gray-50 p-2 rounded border border-gray-100 inline-block mt-1">{seller.paymentDetails?.accountNumber}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -140,17 +154,9 @@ const AdminSellerDetail = () => {
               📍 Location Details
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">City</label>
-                <p className="font-medium text-[#4a342e]">{seller.location}</p>
-              </div>
-              <div>
-                <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Type</label>
-                <p className="font-medium text-[#4a342e]">Pet Seller</p>
-              </div>
               <div className="md:col-span-2">
                 <label className="text-[10px] md:text-xs text-[#8d6e63] uppercase font-bold">Full Address</label>
-                <p className="font-medium text-[#4a342e]">{seller.location}</p>
+                <p className="font-medium text-[#4a342e]">{seller.address}</p>
               </div>
             </div>
           </div>
@@ -166,23 +172,12 @@ const AdminSellerDetail = () => {
             </h2>
             
             <div className="mb-4">
-              <p className="text-sm font-bold text-[#4a342e] mb-2">CNIC (Front)</p>
+              <p className="text-sm font-bold text-[#4a342e] mb-2">Profile Image</p>
               <div className="bg-[#f8f5f0] h-32 md:h-32 rounded-lg border-2 border-dashed border-[#d7ccc8] flex items-center justify-center overflow-hidden">
-                {seller.cnicImage ? (
-                  <img src={seller.cnicImage} alt="CNIC" className="w-full h-full object-cover" onClick={() => window.open(seller.cnicImage, '_blank')} />
+                {seller.profileImage ? (
+                  <img src={seller.profileImage} alt="Profile" className="w-full h-full object-cover" onClick={() => window.open(seller.profileImage, '_blank')} />
                 ) : (
-                  <span className="text-xs text-[#8d6e63]">No Image</span>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-bold text-[#4a342e] mb-2">License</p>
-              <div className="bg-[#f8f5f0] h-32 md:h-32 rounded-lg border-2 border-dashed border-[#d7ccc8] flex items-center justify-center overflow-hidden">
-                {seller.licenseImage ? (
-                  <img src={seller.licenseImage} alt="License" className="w-full h-full object-cover" onClick={() => window.open(seller.licenseImage, '_blank')} />
-                ) : (
-                  <span className="text-xs text-[#8d6e63]">Not Provided</span>
+                  <span className="text-xs text-[#8d6e63]">No Image Provided</span>
                 )}
               </div>
             </div>

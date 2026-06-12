@@ -88,7 +88,7 @@ const ADMIN_EMAILS = [
 // 1. SIGN UP (Step 1: Save to TempUser)
 // ==========================================
 const signUp = async (req, res) => {
-  const { username, email, password, isVeterinarian, phone, userType, sellerName, cnic, location } = req.body;
+  const { username, email, password, isVeterinarian, phone, userType } = req.body;
   const normalizedEmail = normalizeEmail(email);
   
   // 1. Basic Validation
@@ -99,12 +99,7 @@ const signUp = async (req, res) => {
   // 2. Validate User Type
   const finalUserType = userType === 'seller' ? 'seller' : 'user';
 
-  // 3. Validate Seller Fields
-  if (finalUserType === 'seller') {
-    if (!sellerName || !cnic || !location) {
-      return res.status(400).json({ message: 'Seller Name, CNIC, and Location are required for sellers.' });
-    }
-  }
+  // 3. (Removed) Seller Fields validation is now handled in the onboarding step.
 
   // 4. Validate Phone & Email
   const normalizedPhone = String(phone || '').trim();
@@ -158,10 +153,7 @@ const signUp = async (req, res) => {
       existingUserId: existingUser ? existingUser._id : undefined,
       verificationCode: otp,
       verificationCodeExpires: Date.now() + 2 * 60 * 1000, // 2 mins
-      // Save Seller Info
-      sellerName: finalUserType === 'seller' ? sellerName : undefined,
-      cnic: finalUserType === 'seller' ? cnic : undefined,
-      location: finalUserType === 'seller' ? location : undefined,
+      // Seller Info is collected post-registration
     };
 
     if (tempUser) {
@@ -246,32 +238,15 @@ const verifyRegistrationOTP = async (req, res) => {
         phone: tempUser.phone,
         phoneVerified: true,
         isSeller: tempUser.userType === 'seller',
-        sellerStatus: tempUser.userType === 'seller' ? 'pending' : null,
-        canBuy: tempUser.userType !== 'seller', // Sellers might be restricted from buying, or set true if allowed
+        sellerStatus: tempUser.userType === 'seller' ? 'incomplete' : null,
+        canBuy: true, // All users can buy
         authProviders: [{ provider: 'local', providerId: null }]
       });
 
       await user.save();
     }
 
-    // 2. Create Seller Profile (If applicable)
-    if (tempUser.userType === 'seller') {
-      try {
-        const existingSeller = await Seller.findOne({ userId: user._id });
-        if (!existingSeller) {
-          await Seller.create({
-            userId: user._id,
-            name: tempUser.sellerName,
-            email: tempUser.email,
-            cnic: tempUser.cnic,
-            location: tempUser.location,
-            status: 'pending'
-          });
-        }
-      } catch (err) {
-        console.error("Failed to create Seller Profile:", err);
-      }
-    }
+    // 2. (Removed) Seller Profile is created during post-registration onboarding
 
     // 3. Cleanup & Token
     await TempUser.deleteOne({ email: normalizedEmail });
@@ -405,7 +380,7 @@ const googleLogins = async (req, res) => {
 
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian, userType, sellerName, cnic, location, googleId } = req.body;
+    const { email, username, isVeterinarian, userType, googleId } = req.body;
     const normalizedEmail = normalizeEmail(email);
     
     if (!normalizedEmail || !username) return res.status(400).json({ message: 'Missing fields' });
@@ -421,9 +396,7 @@ const completeGoogleRegistration = async (req, res) => {
     const isSeller = resolvedUserType === 'seller';
     const isVet = resolvedUserType === 'veterinarian';
     
-    if (isSeller) {
-      if (!sellerName || !cnic || !location) return res.status(400).json({ message: 'Seller details required' });
-    }
+    // Seller details check moved to onboarding
     
     let user = await User.findOne({ email: normalizedEmail }).select('-password');
     if (user) {
@@ -448,23 +421,11 @@ const completeGoogleRegistration = async (req, res) => {
     
     if (isSeller && !user.isSeller) {
       user.isSeller = true;
-      user.sellerStatus = 'pending';
+      user.sellerStatus = 'incomplete';
       await user.save();
     }
 
-    if (isSeller) {
-      const sellerExists = await Seller.findOne({ userId: user._id });
-      if (!sellerExists) {
-      await Seller.create({
-        userId: user._id,
-        name: sellerName,
-        email: normalizedEmail,
-        cnic: cnic,
-        location: location,
-        status: 'pending'
-      });
-      }
-    }
+    // Seller Profile creation moved to post-registration onboarding
     
     const token = jwt.sign(
       { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },

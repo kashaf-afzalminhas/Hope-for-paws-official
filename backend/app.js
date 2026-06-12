@@ -161,11 +161,12 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:"],
+      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:", "http://localhost:3000"],
       connectSrc: ["'self'", "https://www.hopeforpaws.club", "http://localhost:5173", "http://localhost:5174", "ws://localhost:5173", "ws://localhost:5174"],
     },
   },
   crossOriginEmbedderPolicy: false, // Allow cross-origin images from Cloudinary
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow images to be loaded by localhost:5173/5174
 }));
 
 // CORS configuration

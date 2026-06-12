@@ -17,31 +17,54 @@ const ensureAdmin = async (userId) => {
   return user;
 };
 
-// Seller applies with details
-exports.applyAsSeller = async (req, res) => {
+// Seller onboarding (post-registration)
+exports.onboardSeller = async (req, res) => {
   try {
-    const { name, email, cnic, location } = req.body;
-    if (!name || !email || !cnic || !location) {
-      return res.status(400).json({ message: 'name, email, cnic, location are required' });
-    }
-
+    const { fullName, storeName, email, phone, address, bankName, accountTitle, accountNumber } = req.body;
     const userId = req.user?.id || req.user?.userId;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Check if seller profile already exists for this user
     const existingSeller = await Seller.findOne({ userId });
     if (existingSeller) {
       return res.status(400).json({ message: 'Seller profile already exists' });
     }
 
-    const seller = await Seller.create({ userId, name, email, cnic, location, status: 'pending' });
+    // Check if storeName is already taken
+    const existingStore = await Seller.findOne({ storeName: { $regex: new RegExp(`^${storeName}$`, 'i') } });
+    if (existingStore) {
+      return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+    }
+
+    let profileImage = '';
+    if (req.file) {
+      profileImage = `/uploads/profile-images/${req.file.filename}`;
+    }
+
+    const seller = await Seller.create({
+      userId,
+      fullName,
+      storeName,
+      email,
+      phone,
+      address,
+      paymentDetails: {
+        bankName,
+        accountTitle,
+        accountNumber
+      },
+      profileImage,
+      status: 'pending',
+      isVerified: false
+    });
 
     user.isSeller = true;
     user.sellerStatus = 'pending';
-    user.canBuy = false;
+    // user.canBuy is left true per new rules
     await user.save();
 
-    return res.status(201).json({ message: 'Seller application submitted', seller });
+    return res.status(201).json({ message: 'Seller onboarded successfully', seller });
   } catch (err) {
     if (err.name === 'ValidationError') {
       return res.status(400).json({ message: err.message, errors: err.errors });
@@ -49,7 +72,7 @@ exports.applyAsSeller = async (req, res) => {
     if (err.code === 11000) {
       return res.status(409).json({ message: 'Seller profile already exists' });
     }
-    console.error('applyAsSeller error:', err.message);
+    console.error('onboardSeller error:', err.message);
     res.status(err.status || 500).json({ message: 'Server error' });
   }
 };
@@ -68,50 +91,41 @@ exports.getMySellerProfile = async (req, res) => {
   }
 };
 
-// Admin updates seller status
+// Admin updates seller verification status
 exports.updateSellerStatus = async (req, res) => {
   try {
     const requesterId = req.user?.id || req.user?.userId;
     await ensureAdmin(requesterId);
 
     const { userId } = req.params;
-    const { status, notes } = req.body;
+    const { isVerified, notes } = req.body;
 
-    if (!['pending', 'verified', 'suspended'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    if (typeof isVerified !== 'boolean') {
+      return res.status(400).json({ message: 'isVerified must be a boolean' });
     }
 
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller not found' });
 
-    seller.status = status;
+    seller.isVerified = isVerified;
+    seller.status = isVerified ? 'verified' : 'pending';
     if (notes) seller.notes = notes;
     await seller.save();
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     user.isSeller = true; // remains seller
-    user.sellerStatus = status;
-    // BUG-005 FIX: canBuy is now driven by status — only verified sellers can purchase
-    user.canBuy = status === 'verified';
+    user.sellerStatus = seller.status;
+    // canBuy logic removed, it does not gatekeep
     if (!user.sellerSince) user.sellerSince = new Date();
     await user.save();
 
-    // Update products visibility based on status (hide if suspended)
-    const visible = status !== 'suspended';
-    await Product.updateMany(
-      { sellerId: seller._id },
-      { isVisible: visible, status: visible ? 'active' : 'hidden' }
-    );
-
-    return res.json({ message: 'Seller status updated', sellerStatus: status });
+    return res.json({ message: 'Seller verification status updated', isVerified: seller.isVerified });
   } catch (err) {
     if (err.name === 'ValidationError') {
       return res.status(400).json({ message: err.message, errors: err.errors });
     }
     console.error('updateSellerStatus error:', err.message);
-    console.error('updateSellerStatus full error:', err);
-    console.error('updateSellerStatus stack:', err.stack);
     res.status(err.status || 500).json({ message: err.message || 'Server error' });
   }
 };

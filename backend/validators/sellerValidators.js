@@ -1,15 +1,22 @@
 const { body, param } = require('express-validator');
 
 /**
- * Validation rules for seller registration/apply
+ * Validation rules for seller onboarding
  */
-exports.applySellerRules = [
-  body('name')
+exports.onboardSellerRules = [
+  body('fullName')
     .trim()
     .notEmpty()
-    .withMessage('Name is required')
+    .withMessage('Full name is required')
     .isLength({ min: 2, max: 100 })
-    .withMessage('Name must be 2-100 characters'),
+    .withMessage('Full name must be 2-100 characters'),
+
+  body('storeName')
+    .trim()
+    .notEmpty()
+    .withMessage('Store name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Store name must be 2-100 characters'),
 
   body('email')
     .trim()
@@ -19,19 +26,42 @@ exports.applySellerRules = [
     .withMessage('Valid email is required')
     .normalizeEmail(),
 
-  body('cnic')
+  body('phone')
     .trim()
     .notEmpty()
-    .withMessage('CNIC is required')
-    .matches(/^[0-9]{5}-[0-9]{7}-[0-9]$/)
-    .withMessage('CNIC format should be 12345-1234567-1'),
+    .withMessage('Phone number is required')
+    .isLength({ min: 5, max: 20 })
+    .withMessage('Valid phone number is required'),
 
-  body('location')
+  body('address')
     .trim()
     .notEmpty()
-    .withMessage('Location is required')
+    .withMessage('Address is required')
     .isLength({ min: 2, max: 200 })
-    .withMessage('Location must be 2-200 characters')
+    .withMessage('Address must be 2-200 characters'),
+
+  body('bankName')
+    .trim()
+    .notEmpty()
+    .withMessage('Bank Name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Bank Name must be between 2 and 100 characters'),
+
+  body('accountTitle')
+    .trim()
+    .notEmpty()
+    .withMessage('Account Title is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Account Title must be between 2 and 100 characters'),
+
+  body('accountNumber')
+    .trim()
+    .notEmpty()
+    .withMessage('Account Number / IBAN is required')
+    .matches(/^[A-Za-z0-9\s-]+$/)
+    .withMessage('Account Number must contain only alphanumeric characters, spaces, or hyphens')
+    .isLength({ min: 8, max: 34 })
+    .withMessage('Account Number / IBAN must be between 8 and 34 characters')
 ];
 
 /**
@@ -44,16 +74,7 @@ exports.updateStatusRules = [
     .isMongoId()
     .withMessage('Invalid user ID format'),
 
-  body('status')
-    .trim()
-    .notEmpty()
-    .withMessage('Status is required')
-    .isIn(['pending', 'verified', 'suspended'])
-    .withMessage('Status must be pending, verified, or suspended'),
-
-  body('notes')
-    .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage('Notes must be under 500 characters')
+  body('isVerified')
+    .isBoolean()
+    .withMessage('isVerified must be a boolean')
 ];
