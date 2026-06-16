@@ -41,4 +41,6 @@ const adoptionRequestSchema = new mongoose.Schema({
   timestamps: true
 });
 
+adoptionRequestSchema.index({ adId: 1, requester: 1 }, { unique: true });
+
 module.exports = mongoose.model('AdoptionRequest', adoptionRequestSchema);

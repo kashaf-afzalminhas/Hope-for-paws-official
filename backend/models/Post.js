@@ -8,7 +8,15 @@ const postSchema = new mongoose.Schema({
   },
   caption: {
     type: String,
-    required: true,
+    required: [true, 'Caption is required'],
+    trim: true,
+    minlength: [1, 'Caption cannot be empty'],
+    validate: {
+      validator: function(v) {
+        return v && v.trim().length > 0;
+      },
+      message: 'Caption cannot be empty or whitespace only',
+    },
   },
   imageUrl: {
     type: String,

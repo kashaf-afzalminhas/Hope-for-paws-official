@@ -8,10 +8,29 @@ const cloudinary = require('cloudinary').v2;
 const mongoose = require('mongoose');
 const AdoptionHistory = require('../models/adoptionHistoryModel');
 const User = require('../models/User');
+const sanitizeHtml = require('sanitize-html');
 
-// Configure Multer
+// Multer file filter to reject non-image MIME types (Bug 9)
+const imageFileFilter = (req, file, cb) => {
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    const error = new Error('Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
+    error.status = 400;
+    cb(error, false);
+  }
+};
+
+// Configure Multer with strict 5MB limit to prevent DoS
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 /**
  * When a listing goes from adopted → available (adoption fell through),
@@ -87,21 +106,36 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       return res.status(400).json({ message: 'Image is required' });
     }
 
-    // Upload image to Cloudinary
+    // Sanitize input to prevent Stored XSS
+    const sanitizedName = name ? sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} }) : '';
+    const sanitizedPetType = petType ? sanitizeHtml(petType, { allowedTags: [], allowedAttributes: {} }) : '';
+    const sanitizedBreed = breed ? sanitizeHtml(breed, { allowedTags: [], allowedAttributes: {} }) : '';
+    const sanitizedDescription = description ? sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) : '';
+    const sanitizedLocation = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : 'Location not specified';
+    
+    // Strictly validate age as a positive Number
+    const parsedAge = Number(age);
+    if (isNaN(parsedAge) || parsedAge < 0) {
+      return res.status(400).json({ message: 'Age must be a valid positive number' });
+    }
+
+    // Upload image to Cloudinary (restrict allowed formats)
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+    const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+    });
 
     const adoptionPost = new Adoption({
       userId: req.user.userId,
-      name,
-      age,
-      petType,
-      breed,
+      name: sanitizedName,
+      age: parsedAge,
+      petType: sanitizedPetType,
+      breed: sanitizedBreed,
       vaccinated,
       neuteredSpayed,
-      description,
-      location: location || 'Location not specified',
+      description: sanitizedDescription,
+      location: sanitizedLocation,
       imageUrl: uploadResponse.secure_url,
       status: 'available' // Default status
     });
@@ -122,8 +156,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// Get all adoption posts
-router.get('/', async (req, res) => {
+// Get all adoption posts (auth required to prevent unauthenticated data exposure)
+router.get('/', auth, async (req, res) => {
   try {
     console.log('Fetching adoption posts...');
     // Remove the status filter to show all posts
@@ -140,8 +174,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get adoption posts for a specific user
-router.get('/user/:userId', async (req, res) => {
+// Get adoption posts for a specific user (auth required to prevent IDOR)
+router.get('/user/:userId', auth, async (req, res) => {
   try {
     const userId = req.params.userId;
     const includeRequests = req.query.includeRequests === 'true';
@@ -319,8 +353,35 @@ router.put('/:id', auth, async (req, res) => {
     if (status !== undefined) updatePayload.status = status;
     if (location !== undefined) updatePayload.location = location;
 
+    // Sanitize input to prevent Stored XSS
+    const sanitizedName = name ? sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    const sanitizedPetType = petType ? sanitizeHtml(petType, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    const sanitizedBreed = breed ? sanitizeHtml(breed, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    const sanitizedDescription = description ? sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    const sanitizedLocation = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : undefined;
+
+    // Strictly validate age if provided
+    let parsedAge;
+    if (age !== undefined) {
+      parsedAge = Number(age);
+      if (isNaN(parsedAge) || parsedAge < 0) {
+        return res.status(400).json({ message: 'Age must be a valid positive number' });
+      }
+    }
+
     const adoptionPost = await Adoption.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
+      { 
+        name: sanitizedName, 
+        age: parsedAge, 
+        petType: sanitizedPetType, 
+        breed: sanitizedBreed, 
+        vaccinated, 
+        neuteredSpayed, 
+        description: sanitizedDescription, 
+        status, 
+        location: sanitizedLocation 
+      },
       updatePayload,
       { new: true }
     );
@@ -362,21 +423,31 @@ router.put('/:id/image', auth, upload.single('image'), async (req, res) => {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // Upload new image to Cloudinary
+    // Upload new image to Cloudinary (restrict allowed formats)
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+    const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+    });
 
-    // Optionally delete old image
+    // Gracefully delete old image from Cloudinary to prevent orphans
     try {
       if (adoptionPost.imageUrl) {
-        const publicId = adoptionPost.imageUrl.split('/').pop().split('.')[0];
-        if (publicId) {
+        const urlParts = adoptionPost.imageUrl.split('/upload/');
+        if (urlParts.length > 1) {
+          const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
+          const publicId = pathAfterUpload.split('.')[0];
           await cloudinary.uploader.destroy(publicId);
+        } else {
+          const filename = adoptionPost.imageUrl.split('/').pop();
+          if (filename) {
+            const publicId = filename.split('.')[0];
+            await cloudinary.uploader.destroy(publicId);
+          }
         }
       }
     } catch (e) {
-      // Non-fatal if deletion fails
+      console.error('Non-fatal old image deletion error:', e);
       console.warn('Failed to delete old image from Cloudinary:', e.message);
     }
 
@@ -410,6 +481,9 @@ router.delete('/:id', auth, async (req, res) => {
     // Delete all related requests
     await AdoptionRequest.deleteMany({ adId: req.params.id });
 
+    // Delete all related adoption history entries to prevent orphaned records
+    await AdoptionHistory.deleteMany({ petId: req.params.id });
+
     await adoptionPost.deleteOne();
     res.json({ message: 'Adoption post deleted successfully' });
   } catch (error) {
@@ -430,12 +504,20 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Upload image to Cloudinary if present
+    // Sanitize user inputs to prevent Stored XSS
+    const sanitizedName = sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedEmail = sanitizeHtml(email, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedPhone = sanitizeHtml(phone, { allowedTags: [], allowedAttributes: {} });
+    const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
+
+    // Upload image to Cloudinary if present (restrict allowed formats)
     let petHistoryImageUrl = '';
     if (req.file) {
       const b64 = Buffer.from(req.file.buffer).toString('base64');
       const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-      const uploadResponse = await cloudinary.uploader.upload(dataURI);
+      const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+      });
       petHistoryImageUrl = uploadResponse.secure_url;
     }
 
@@ -455,20 +537,20 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
     const existingRequest = await AdoptionRequest.findOne({ 
       adId, 
       requester: requesterId,
-      status: { $in: ['pending', 'accepted'] }
+      status: { $in: ['pending', 'accepted', 'rejected'] }
     });
 
     if (existingRequest) {
-      return res.status(400).json({ message: 'You already have an active request for this pet' });
+      return res.status(400).json({ message: 'You already have a request (pending, accepted, or rejected) for this pet' });
     }
 
     const adoptionRequest = new AdoptionRequest({
       adId,
       requester: requesterId,
-      name,
-      email,
-      phone,
-      message,
+      name: sanitizedName,
+      email: sanitizedEmail,
+      phone: sanitizedPhone,
+      message: sanitizedMessage,
       petHistoryImage: petHistoryImageUrl,
       status: 'pending'
     });
@@ -500,6 +582,9 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
 
     res.status(201).json(adoptionRequest);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'You have already submitted a request for this pet.' });
+    }
     console.error('Error creating adoption request:', error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -537,6 +622,12 @@ router.put('/requests/:requestId', auth, async (req, res) => {
     const { status } = req.body;
     const requestId = req.params.requestId;
 
+    // Explicitly validate status against enum values before processing database operations
+    const allowedStatuses = ['pending', 'accepted', 'rejected'];
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: `Invalid status. Allowed values are: ${allowedStatuses.join(', ')}` });
+    }
+
     const adoptionRequest = await AdoptionRequest.findById(requestId)
       .populate('adId', 'userId name');
 
@@ -549,9 +640,16 @@ router.put('/requests/:requestId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    // Update request status
-    adoptionRequest.status = status;
-    await adoptionRequest.save();
+    // Atomically update request status only if it is currently 'pending' to prevent double approvals
+    const updatedRequest = await AdoptionRequest.findOneAndUpdate(
+      { _id: requestId, status: 'pending' },
+      { status: status },
+      { new: true }
+    );
+
+    if (!updatedRequest) {
+      return res.status(400).json({ message: 'Request has already been processed (approved or rejected)' });
+    }
 
     // Update adoption history
     await AdoptionHistory.findOneAndUpdate(

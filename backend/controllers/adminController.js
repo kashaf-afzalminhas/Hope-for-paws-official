@@ -61,10 +61,10 @@ const deleteUser = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const [posts, comments, adoptions, requests] = await Promise.all([
-      Post.deleteMany({ user: userId }),
-      Comment.deleteMany({ user: userId }),
-      Adoption.deleteMany({ user: userId }),
-      AdoptionRequest.deleteMany({ user: userId })
+      Post.deleteMany({ userId: userId }),
+      Comment.deleteMany({ userId: userId }),
+      Adoption.deleteMany({ userId: userId }),
+      AdoptionRequest.deleteMany({ requester: userId })
     ]);
     await User.deleteOne({ _id: userId });
     res.json({ message: 'User and related data deleted', deleted: { posts: posts.deletedCount, comments: comments.deletedCount, adoptions: adoptions.deletedCount, requests: requests.deletedCount } });
@@ -85,7 +85,15 @@ const getAllAdoptionsForAdmin = async (req, res) => {
     const adoptions = await Adoption.find({})
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
-    res.json(adoptions);
+    
+    const adoptionsWithFallbacks = adoptions.map(ad => {
+      const adObj = ad.toObject();
+      if (!adObj.userId) {
+        adObj.userId = { username: "Deleted User", email: "N/A", _id: null };
+      }
+      return adObj;
+    });
+    res.json(adoptionsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all adoptions for admin:', error);
     res.status(500).json({ message: 'Server error' });
@@ -143,11 +151,14 @@ const getAllPostsForAdmin = async (req, res) => {
     const posts = await Post.find({})
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
-    // Attach comments to each post
+    // Attach comments to each post and handle deleted users
     const postsWithComments = await Promise.all(
       posts.map(async (post) => {
         const comments = await Comment.find({ postId: post._id });
         const postObject = post.toObject();
+        if (!postObject.userId) {
+          postObject.userId = { username: "Deleted User", email: "N/A", _id: null };
+        }
         return {
           ...postObject,
           comments: comments
@@ -219,7 +230,18 @@ const getAllCommentsForAdmin = async (req, res) => {
       .populate('userId', 'username email')
       .populate('postId', 'caption imageUrl')
       .sort({ createdAt: -1 });
-    res.json(comments);
+
+    const commentsWithFallbacks = comments.map(c => {
+      const cObj = c.toObject();
+      if (!cObj.userId) {
+        cObj.userId = { username: "Deleted User", email: "N/A", _id: null };
+      }
+      if (!cObj.postId) {
+        cObj.postId = { caption: "[Deleted Post]", imageUrl: "" };
+      }
+      return cObj;
+    });
+    res.json(commentsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all comments for admin:', error);
     res.status(500).json({ message: 'Server error' });
@@ -358,7 +380,18 @@ const getAllAdoptionRequestsForAdmin = async (req, res) => {
       .populate('requester', 'username email')
       .populate('adId', 'name petType imageUrl')
       .sort({ createdAt: -1 });
-    res.json(requests);
+
+    const requestsWithFallbacks = requests.map(req => {
+      const reqObj = req.toObject();
+      if (!reqObj.requester) {
+        reqObj.requester = { username: "Deleted User", email: "N/A", _id: null };
+      }
+      if (!reqObj.adId) {
+        reqObj.adId = { name: "Deleted Post", petType: "N/A", imageUrl: "" };
+      }
+      return reqObj;
+    });
+    res.json(requestsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all adoption requests for admin:', error);
     res.status(500).json({ message: 'Server error' });
@@ -378,7 +411,18 @@ const getUserAdoptionRequestsForAdmin = async (req, res) => {
       .populate('requester', 'username email')
       .populate('adId', 'name petType imageUrl')
       .sort({ createdAt: -1 });
-    res.json(requests);
+
+    const requestsWithFallbacks = requests.map(req => {
+      const reqObj = req.toObject();
+      if (!reqObj.requester) {
+        reqObj.requester = { username: "Deleted User", email: "N/A", _id: null };
+      }
+      if (!reqObj.adId) {
+        reqObj.adId = { name: "Deleted Post", petType: "N/A", imageUrl: "" };
+      }
+      return reqObj;
+    });
+    res.json(requestsWithFallbacks);
   } catch (error) {
     console.error('Error fetching user adoption requests for admin:', error);
     res.status(500).json({ message: 'Server error' });

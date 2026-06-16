@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from '../config';
@@ -44,7 +45,10 @@ const Postnew = () => {
       } else {
         setIsRefreshing(true);
       }
-      const response = await axios.get(`${API_BASE_URL}/posts`);
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.get(`${API_BASE_URL}/posts`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       setPosts(response.data);
       setError("");
     } catch {
@@ -62,23 +66,38 @@ const Postnew = () => {
   useEffect(() => {
     fetchPosts(true); // Show loading for initial load
     
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    // Only set up the interval if the form is not shown
-    if (!showPostForm) {
-      intervalRef.current = setInterval(() => fetchPosts(false), 30000); // No loading for auto-refresh
-    }
-    
-    // Cleanup function
-    return () => {
+    // Helper to start/stop the polling interval
+    const startPolling = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (!showPostForm) {
+        intervalRef.current = setInterval(() => fetchPosts(false), 30000);
+      }
+    };
+
+    const stopPolling = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+    };
+
+    // Pause polling when tab is hidden, resume when visible
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchPosts(false); // Refresh immediately on return
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup function
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [showPostForm]);
 
@@ -125,15 +144,7 @@ const Postnew = () => {
     fetchConversations();
   }, [currentUserId]);
 
-  // Cleanup interval on component unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, []);
+
 
   const handleLike = async (postId) => {
     if (!user) return; // Only allow likes if the user is logged in
@@ -292,7 +303,10 @@ const Postnew = () => {
     navigate('/my-posts');
   };
 
-  const renderComments = (comments, postId, parent = null) => {
+  const renderComments = (comments, postId, parent = null, depth = 0) => {
+    // Depth guard: prevent infinite recursion from cyclic references
+    if (depth > 2) return null;
+
     return comments
       .filter(comment => comment.parentCommentId === parent)
       .map(comment => (
@@ -374,9 +388,9 @@ const Postnew = () => {
               </button>
             )}
           </div>
-          {/* Render replies (one level deep) */}
+          {/* Render replies with incremented depth */}
           <div className="ml-8 mt-2">
-            {renderComments(comments, postId, comment._id)}
+            {renderComments(comments, postId, comment._id, depth + 1)}
           </div>
         </div>
       ));
@@ -547,8 +561,8 @@ const Postnew = () => {
 
                 {/* Post Content */}
                 <div className="p-3 sm:p-4">
-                  <p className="text-[#4E3B31] font-poppins text-sm sm:text-base mb-4 leading-relaxed break-words">
-                    {post.caption}
+                  <p className="text-[#4E3B31] font-poppins text-sm sm:text-base mb-4 leading-relaxed break-words" style={{ whiteSpace: 'pre-wrap' }}>
+                    {DOMPurify.sanitize(post.caption, { ALLOWED_TAGS: [] })}
                   </p>
 
                   {/* Engagement Section */}

@@ -23,7 +23,10 @@ const PostDetail = () => {
   const fetchPost = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/posts/${id}`);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/posts/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       setPost(response.data);
       setError('');
     } catch (error) {

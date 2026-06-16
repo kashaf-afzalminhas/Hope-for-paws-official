@@ -33,7 +33,17 @@ const AdminSellerDetail = () => {
 
   const updateStatus = async (nextStatus) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/sellers/status/${seller.userId?._id}`, {
+    if (!token) {
+      throw new Error('You are not logged in. Please sign in again.');
+    }
+
+    // Resolve the user ID from the populated seller.userId object or fallback to seller.userId string
+    const targetUserId = seller.userId?._id || seller.userId;
+    if (!targetUserId) {
+      throw new Error('Cannot determine user ID for this seller. The associated user may have been deleted.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/sellers/status/${targetUserId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
