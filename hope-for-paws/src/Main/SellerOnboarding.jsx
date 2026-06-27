@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerService';
 import { useAuth } from '../context/AuthContext';
-import { User, Store, Mail, Phone, MapPin, Building2, CreditCard, Hash, UploadCloud, CheckCircle } from 'lucide-react';
+import { User, Store, Mail, Phone, MapPin, Building2, CreditCard, Hash, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
 
 const SellerOnboarding = () => {
   const navigate = useNavigate();
@@ -187,59 +187,57 @@ const SellerOnboarding = () => {
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[#F8F4ED] flex items-center justify-center px-4 font-sans">
+  return (
+    <div className="min-h-screen bg-[#F8F4ED] flex flex-col font-sans relative overflow-x-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#a07855] opacity-[0.08] rounded-full blur-3xl pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#6b493d] opacity-[0.06] rounded-full blur-3xl pointer-events-none"></div>
+
+
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 sm:px-6 z-10">
+        <div className="w-full max-w-[800px] text-center mb-8">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-[#3d2a24] tracking-tight mb-4 font-serif">
+            Start Selling Today
+          </h1>
+          <p className="text-[#6b493d] text-lg max-w-2xl mx-auto font-medium">
+            Join thousands of pet lovers. Complete your profile to unlock your dedicated Seller Dashboard and start reaching customers nationwide.
+          </p>
+        </div>
+
         <motion.div 
           initial="initial" animate="in" exit="out" variants={pageVariants}
-          className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-[#e8dfd5] p-10 text-center relative overflow-hidden"
+          className="w-full max-w-[800px] bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_30px_60px_rgba(107,73,61,0.06)] rounded-3xl overflow-hidden"
         >
-          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#a07855] to-[#6b493d]"></div>
-          <motion.div 
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
-            className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border-2 border-green-100"
-          >
-            <CheckCircle className="w-12 h-12 text-green-500" />
-          </motion.div>
-          <h2 className="text-3xl font-bold text-[#4E3B31] mb-3 tracking-tight">You're All Set!</h2>
-          <p className="text-[#6b493d] mb-8 text-lg leading-relaxed font-medium">
-            Your store profile has been successfully created. You can now start listing your amazing products.
-          </p>
-          <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
-             <motion.div 
-               initial={{ width: "0%" }} 
-               animate={{ width: "100%" }} 
-               transition={{ duration: 2, ease: "linear" }}
-               className="bg-[#a07855] h-2 rounded-full"
-             ></motion.div>
-          </div>
-          <p className="text-sm font-semibold text-gray-400 uppercase tracking-widest">Redirecting to Dashboard</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#F8F4ED] py-16 px-4 flex justify-center font-sans">
-      <motion.div 
-        initial="initial" animate="in" exit="out" variants={pageVariants}
-        className="max-w-3xl w-full"
-      >
-        <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(107,73,61,0.08)] border border-[#e8dfd5] overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-br from-[#6b493d] to-[#8a6352] p-10 text-white text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-black opacity-10 pattern-dots"></div>
-            <div className="relative z-10">
-              <h1 className="text-4xl font-extrabold tracking-tight mb-3 font-serif">Setup Your Store</h1>
-              <p className="text-[#f5f0eb] text-lg font-medium opacity-90 max-w-lg mx-auto">
-                Complete your profile to unlock the Seller Dashboard and start reaching pet lovers nationwide.
-              </p>
+          {success ? (
+            <div className="text-center py-20 px-8">
+              <motion.div 
+                initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.5 }}
+                className="w-28 h-28 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-green-100 shadow-inner"
+              >
+                <CheckCircle className="w-14 h-14 text-green-500" />
+              </motion.div>
+              <h2 className="text-4xl font-extrabold text-[#3d2a24] tracking-tight mb-4">You're All Set!</h2>
+              <p className="text-[#a07f77] text-xl mb-10 max-w-md mx-auto">Your store profile has been successfully created. We are redirecting you to your dashboard.</p>
+              <div className="w-full max-w-sm mx-auto bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
+                 <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2, ease: "linear" }} className="bg-gradient-to-r from-[#a07855] to-[#6b493d] h-2 rounded-full"></motion.div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Form Header inside card */}
+              <div className="bg-[#fcfaf8] border-b border-[#e8dfd5] px-8 sm:px-12 py-8 flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#f5f0eb] rounded-full flex items-center justify-center flex-shrink-0">
+                  <User className="w-6 h-6 text-[#a07855]" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-[#3d2a24] tracking-tight">Business Profile</h2>
+                  <p className="text-[#a07f77] text-sm">Please provide accurate details for your store.</p>
+                </div>
+              </div>
 
-          <div className="p-8 sm:p-12">
+              <div className="p-8 sm:px-12 sm:pb-12 pt-6">
             <AnimatePresence>
               {error && (
                 <motion.div 
@@ -527,9 +525,13 @@ const SellerOnboarding = () => {
 
               </motion.div>
             </form>
-          </div>
-        </div>
-      </motion.div>
+              </div>
+            </>
+          )}
+        </motion.div>
+
+
+      </div>
     </div>
   );
 };

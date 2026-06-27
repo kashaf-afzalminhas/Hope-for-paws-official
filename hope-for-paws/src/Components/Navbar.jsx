@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { FaUser, FaPaw, FaTimes } from 'react-icons/fa';
+import { FaUser, FaPaw, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';
 import { useMessages } from '../context/MessageContext';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 
 const Navbar = ({ handleSignOut }) => {
   const { user } = useAuth(); 
   const { unreadCount } = useMessages();
+  const { cartQuantity } = useCart();
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -49,6 +51,17 @@ const Navbar = ({ handleSignOut }) => {
               <span className="text-[#a07855] font-medium text-xs sm:text-sm hidden sm:block">
                 {user.username}
               </span>
+              <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                <FaHeart className="text-xl sm:text-2xl" />
+              </NavLink>
+              <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                <FaShoppingCart className="text-xl sm:text-2xl" />
+                {cartQuantity > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {cartQuantity > 9 ? '9+' : cartQuantity}
+                  </span>
+                )}
+              </NavLink>
               <NotificationIcon />
               <NavLink to="/profile">
                 <button 
@@ -81,9 +94,22 @@ const Navbar = ({ handleSignOut }) => {
               )}
             </div>
           ) : (
-            <NavLink to="/signin">
-              <FaUser className="text-xl sm:text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
-            </NavLink>
+            <>
+              <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                <FaHeart className="text-xl sm:text-2xl" />
+              </NavLink>
+              <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                <FaShoppingCart className="text-xl sm:text-2xl" />
+                {cartQuantity > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {cartQuantity > 9 ? '9+' : cartQuantity}
+                  </span>
+                )}
+              </NavLink>
+              <NavLink to="/signin">
+                <FaUser className="text-xl sm:text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
+              </NavLink>
+            </>
           )}
 
           {/* Mobile Menu Button */}
@@ -115,7 +141,7 @@ const Navbar = ({ handleSignOut }) => {
               <NavLink to="/posts" className={({ isActive }) => isActive ? activeStyle : ''}>Posts</NavLink>
             </li>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
-              <NavLink to="/marketplace" className={({ isActive }) => isActive ? activeStyle : ''}>Product List </NavLink>
+              <NavLink to="/marketplace" className={({ isActive }) => isActive ? activeStyle : ''}>Marketplace</NavLink>
             </li>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/contactus" className={({ isActive }) => isActive ? activeStyle : ''}>Contact Us</NavLink>
@@ -147,6 +173,17 @@ const Navbar = ({ handleSignOut }) => {
                 <span className="text-[#a07855] font-medium hidden lg:inline-block">
                   Welcome {user.username}
                 </span>
+                <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                  <FaHeart className="text-2xl" />
+                </NavLink>
+                <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                  <FaShoppingCart className="text-2xl" />
+                  {cartQuantity > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {cartQuantity > 9 ? '9+' : cartQuantity}
+                    </span>
+                  )}
+                </NavLink>
                 <NotificationIcon />
                 <div
                   className="relative"
@@ -180,9 +217,22 @@ const Navbar = ({ handleSignOut }) => {
                 </div>
               </>
             ) : (
-              <NavLink to="/signin">
-                <FaUser className="text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
-              </NavLink>
+              <>
+                <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                  <FaHeart className="text-2xl" />
+                </NavLink>
+                <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                  <FaShoppingCart className="text-2xl" />
+                  {cartQuantity > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {cartQuantity > 9 ? '9+' : cartQuantity}
+                    </span>
+                  )}
+                </NavLink>
+                <NavLink to="/signin">
+                  <FaUser className="text-2xl hover:text-gray-400 cursor-pointer text-[#a07855]" />
+                </NavLink>
+              </>
             )}
           </div>
         </div>
@@ -291,6 +341,21 @@ const Navbar = ({ handleSignOut }) => {
                   }
                 >
                   Posts
+                </NavLink>
+              </li>
+              <li>
+                <NavLink 
+                  to="/marketplace" 
+                  onClick={closeMobileMenu} 
+                  className={({ isActive }) => 
+                    `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base ${
+                      isActive 
+                        ? 'bg-[#a07855] text-white shadow-md' 
+                        : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
+                    }`
+                  }
+                >
+                  Marketplace
                 </NavLink>
               </li>
               <li>

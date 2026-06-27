@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
+const Cart = require('../models/Cart');
 const mongoose = require('mongoose');
 
 // Fetch orders containing items for the logged-in seller
@@ -238,5 +239,38 @@ exports.getDashboardStats = async (req, res) => {
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Create a new order for a buyer checkout
+exports.createOrder = async (req, res) => {
+  try {
+    const { items, shippingAddress, paymentMethod, totals } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: 'No items in order' });
+    }
+
+    const order = new Order({
+      userId: req.user.userId,
+      items,
+      shippingAddress,
+      paymentMethod,
+      totals,
+      status: 'Pending'
+    });
+
+    await order.save();
+
+    // Empty the user's cart
+    await Cart.findOneAndUpdate(
+      { userId: req.user.userId },
+      { $set: { items: [] } }
+    );
+
+    res.status(201).json({ success: true, order, message: 'Order placed successfully' });
+  } catch (error) {
+    console.error('createOrder error:', error);
+    res.status(500).json({ message: 'Failed to place order', error: error.message });
   }
 };

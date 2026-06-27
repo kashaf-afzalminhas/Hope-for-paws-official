@@ -73,14 +73,31 @@ exports.createProduct = async (req, res) => {
 };
 
 // 2. Public List (Updated for Frontend Filtering & Verified Badge)
-exports.listProducts = async (_req, res) => {
+exports.listProducts = async (req, res) => {
   try {
-    const products = await Product.find({ isVisible: true })
-      .sort({ createdAt: -1 })
-      // ✅ CRITICAL UPDATE (Kept):
-      // 1. 'userId' -> Helps frontend hide your own products
-      // 2. 'status' -> Helps frontend show the "Verified" badge
-      .populate('sellerId', 'userId name status'); 
+    const { category, search, sort } = req.query;
+    let query = { isVisible: true };
+
+    if (category && category !== 'All') {
+      query.category = category;
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { brand: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    let sortObj = { createdAt: -1 }; // default to new
+    if (sort === 'priceAsc') sortObj = { price: 1 };
+    else if (sort === 'priceDesc') sortObj = { price: -1 };
+
+    const products = await Product.find(query)
+      .sort(sortObj)
+      .populate('sellerId', 'userId name status')
+      .lean();
 
     return res.json(products);
   } catch (err) {

@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AdoptionProvider } from './context/AdoptionContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
+import { CartProvider } from './context/CartContext';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -48,8 +49,10 @@ import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 
 // ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
 
-import ProductListing from './buyer/ProductListing.jsx';
-import ProductDetail from './buyer/ProductDetail.jsx';
+import Marketplace from './marketplace/Marketplace.jsx';
+import ProductDetails from './marketplace/ProductDetails.jsx';
+import Cart from './marketplace/Cart.jsx';
+import Checkout from './marketplace/Checkout.jsx';
 import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
 import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
 import ChatPage from './Main/Chat.jsx';
@@ -265,22 +268,26 @@ const router = createBrowserRouter(
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
       {/* Deprecated Seller Routes removed */}
 
-      {/* ✅ Marketplace Routes (from IB branch) */}
-      <Route path="/marketplace" element={<ProductListing />} />
-      <Route path="/marketplace/product/:id" element={<ProductDetail />} />
+      {/* ✅ Marketplace Routes */}
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/product/:id" element={<ProductDetails />} />
+      <Route path="/cart" element={<Cart />} />
+      <Route path="/checkout" element={<Checkout />} />
     </Route>
   )
 );
 
 const AppWithProviders = () => (
   <AuthProvider>
-    <AdoptionProvider>
-      <NotificationProvider>
-        <MessageProvider>
-          <RouterProvider router={router} />
-        </MessageProvider>
-      </NotificationProvider>
-    </AdoptionProvider>
+    <CartProvider>
+      <AdoptionProvider>
+        <NotificationProvider>
+          <MessageProvider>
+            <RouterProvider router={router} />
+          </MessageProvider>
+        </NotificationProvider>
+      </AdoptionProvider>
+    </CartProvider>
   </AuthProvider>
 );
 

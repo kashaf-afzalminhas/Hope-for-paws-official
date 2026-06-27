@@ -11,7 +11,7 @@ const getAxiosConfig = () => {
   };
 };
 
-const CATEGORIES = ['Pet food', 'Medicines', 'Toys', 'Accessories', 'Grooming', 'Healthcare products'];
+import { PRODUCT_CATEGORIES as CATEGORIES } from '../utils/constants';
 
 const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const isEditMode = !!productId;
