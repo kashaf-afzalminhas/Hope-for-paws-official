@@ -40,13 +40,22 @@ export default function Checkout() {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       const payload = {
-        items: items.map(it => ({
-          productId: it.productId._id || it.productId,
-          title: it.productId.title || 'Unknown Product',
-          image: it.productId.images?.[0] || 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾',
-          quantity: it.quantity,
-          price: it.price
-        })),
+        items: items.map(it => {
+          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+          let imageUrl = 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾';
+          if (it.productId?.images?.[0]) {
+            imageUrl = it.productId.images[0].startsWith('http') 
+              ? it.productId.images[0] 
+              : `${apiBase}${it.productId.images[0]}`;
+          }
+          return {
+            productId: it.productId._id || it.productId,
+            title: it.productId.title || 'Unknown Product',
+            image: imageUrl,
+            quantity: it.quantity,
+            price: it.price
+          };
+        }),
         shippingAddress: { ...contact, ...shippingAddress },
         paymentMethod,
         totals: {
@@ -85,7 +94,10 @@ export default function Checkout() {
       {/* Stepper */ }
       <div className="bg-white border-b border-[#ede6e1] py-4 px-6 shadow-[0_2px_10px_rgba(107,73,61,0.04)]">
       <div className="max-w-6xl mx-auto flex items-center gap-2 sm:gap-4 text-[13px] font-bold">
-        <div className="flex items-center gap-2 text-[#3d2a24]">
+        <div 
+          onClick={() => navigate('/cart')}
+          className="flex items-center gap-2 text-[#3d2a24] cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <div className="w-6 h-6 rounded-full bg-[#3d2a24] text-white flex items-center justify-center">
             <Check size={14} strokeWidth={3} />
           </div>
@@ -269,10 +281,18 @@ export default function Checkout() {
           {items.length === 0 ? (
             <p className="text-sm text-[#a07f77]">Your cart is empty.</p>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+              let imageUrl = 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾';
+              if (item.productId?.images?.[0]) {
+                imageUrl = item.productId.images[0].startsWith('http') 
+                  ? item.productId.images[0] 
+                  : `${apiBase}${item.productId.images[0]}`;
+              }
+              return (
               <div key={item.productId._id || item.productId} className="flex gap-4 items-center">
                 <div className="relative w-16 h-16 rounded-xl border border-[#ede6e1] bg-[#f7f1ee] flex-shrink-0">
-                  <img src={item.productId.images?.[0] || 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾'} alt={item.productId.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
+                  <img src={imageUrl} alt={item.productId.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
                   <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                     {item.quantity}
                   </span>
@@ -287,7 +307,8 @@ export default function Checkout() {
                   Rs {(item.price * item.quantity).toLocaleString()}
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 

@@ -30,7 +30,9 @@ const auth = async (req, res, next) => {
     // Set both userId and id for absolute consistency across all routes
     req.user = {
       userId: user._id.toString(),
-      id: user._id.toString()
+      id: user._id.toString(),
+      role: user.role,
+      isSeller: user.isSeller
     };
     next();
   } catch (error) {

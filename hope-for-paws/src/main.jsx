@@ -53,6 +53,9 @@ import Marketplace from './marketplace/Marketplace.jsx';
 import ProductDetails from './marketplace/ProductDetails.jsx';
 import Cart from './marketplace/Cart.jsx';
 import Checkout from './marketplace/Checkout.jsx';
+import BuyerOrders from './marketplace/BuyerOrders.jsx';
+import SellerOrders from './marketplace/SellerOrders.jsx';
+import ProtectedRoute from './Components/ProtectedRoute.jsx';
 import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
 import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
 import ChatPage from './Main/Chat.jsx';
@@ -266,13 +269,15 @@ const router = createBrowserRouter(
       
       {/* ✅ Seller Routes (from bi branch) */}
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
+      <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
       {/* Deprecated Seller Routes removed */}
 
       {/* ✅ Marketplace Routes */}
-      <Route path="/marketplace" element={<Marketplace />} />
-      <Route path="/product/:id" element={<ProductDetails />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Marketplace /></ProtectedRoute>} />
+      <Route path="/product/:id" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><ProductDetails /></ProtectedRoute>} />
+      <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
+      <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
+      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders/></ProtectedRoute>} />
     </Route>
   )
 );

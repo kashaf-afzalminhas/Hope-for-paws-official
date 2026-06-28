@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 // ✅ ADDED FaStore to imports
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag } from 'react-icons/fa';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -745,12 +745,30 @@ const ProfilePage = () => {
     { name: 'Edit Profile', view: 'edit', icon: <FaEdit /> },
     { name: 'Security Settings', view: 'security', icon: <FaLock /> },
     { name: 'My Posts', view: 'myposts', icon: <FaListAlt /> },
-    { name: 'My Adoptions', view: 'myadoptions', icon: <MdPets /> },
-    { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> },
   ];
 
+  // ✅ ADDED: Conditionally add Order Management below My Posts for Sellers
+  if (user?.isSeller || user?.role === 'seller') {
+    profileLinks.push({
+      name: 'Order Management',
+      external: true,
+      path: '/seller/orders',
+      icon: <FaShoppingBag />
+    });
+  }
+
+  // Only show 'My Orders' if user is NOT a seller (i.e. Buyer/Vet)
+  if (!user?.isSeller && user?.role !== 'seller') {
+    profileLinks.push({ name: 'My Orders', external: true, path: '/my-orders', icon: <FaShoppingBag /> });
+  }
+
+  profileLinks.push(
+    { name: 'My Adoptions', view: 'myadoptions', icon: <MdPets /> },
+    { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> }
+  );
+
   // ✅ ADDED: Conditionally add Seller Dashboard
-  if (user && user.isSeller) {
+  if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Seller Dashboard',
       view: 'sellerdashboard',

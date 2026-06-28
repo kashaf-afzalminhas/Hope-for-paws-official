@@ -976,23 +976,31 @@ export default function Marketplace() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch("http://localhost:3000/api/products", { signal: controller.signal });
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const res = await fetch(`${API_BASE}/api/products`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch products");
         const data = await res.json();
         
-        const mappedData = data.map(p => ({
-          ...p,
-          id: p._id,
-          name: p.title,
-          image: p.images?.[0] || "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80",
-          seller: p.sellerId?.name || "Hope For Paws Seller",
-          price: p.discountPrice || p.price,
-          originalPrice: p.discountPrice ? p.price : null,
-          rating: p.rating || 4.5,
-          reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
-          pop: p.pop || Math.floor(Math.random() * 10000),
-          isNew: p.isNew || Math.random() > 0.7,
-        }));
+        const mappedData = data.map(p => {
+          let imageUrl = "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80";
+          if (p.images && p.images.length > 0) {
+            imageUrl = p.images[0].startsWith("http") ? p.images[0] : `${API_BASE}${p.images[0]}`;
+          }
+
+          return {
+            ...p,
+            id: p._id,
+            name: p.title,
+            image: imageUrl,
+            seller: p.sellerId?.name || "Hope For Paws Seller",
+            price: p.discountPrice || p.price,
+            originalPrice: p.discountPrice ? p.price : null,
+            rating: p.rating || 4.5,
+            reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
+            pop: p.pop || Math.floor(Math.random() * 10000),
+            isNew: p.isNew || Math.random() > 0.7,
+          };
+        });
         
         const highestPrice = mappedData.length > 0 ? Math.max(...mappedData.map(p => p.price || 0)) : 10000;
         setAbsoluteMaxPrice(highestPrice);

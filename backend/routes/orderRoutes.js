@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { createOrder } = require('../controllers/orderController');
+const { preventSellerAccess } = require('../middleware/roleCheck');
+const orderController = require('../controllers/orderController');
 
 // All order routes require authentication
 router.use(auth);
 
-// Map POST /api/orders to createOrder
-router.post('/', createOrder);
+// Buyer Routes
+router.post('/', preventSellerAccess, orderController.createOrder);
+router.get('/buyer', preventSellerAccess, orderController.getBuyerOrders);
+router.put('/:id/cancel', preventSellerAccess, orderController.cancelOrder);
+
+// Seller Routes
+router.get('/seller', orderController.getSellerOrders);
+router.put('/:id/status', orderController.updateOrderStatus);
+router.get('/seller/stats', orderController.getDashboardStats);
 
 module.exports = router;

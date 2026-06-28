@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { preventSellerAccess } = require('../middleware/roleCheck');
 const {
   getCart,
   addToCart,
@@ -11,6 +12,7 @@ const {
 
 // All cart routes require authentication
 router.use(auth);
+router.use(preventSellerAccess);
 
 router.get('/', getCart);
 router.post('/add', addToCart);

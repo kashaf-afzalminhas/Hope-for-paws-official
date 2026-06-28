@@ -10,6 +10,8 @@ const Navbar = ({ handleSignOut }) => {
   const { user } = useAuth(); 
   const { unreadCount } = useMessages();
   const { cartQuantity } = useCart();
+  
+  const isSeller = user && (user.role === 'seller' || user.isSeller);
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -51,17 +53,21 @@ const Navbar = ({ handleSignOut }) => {
               <span className="text-[#a07855] font-medium text-xs sm:text-sm hidden sm:block">
                 {user.username}
               </span>
-              <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
-                <FaHeart className="text-xl sm:text-2xl" />
-              </NavLink>
-              <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
-                <FaShoppingCart className="text-xl sm:text-2xl" />
-                {cartQuantity > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                    {cartQuantity > 9 ? '9+' : cartQuantity}
-                  </span>
-                )}
-              </NavLink>
+              {!isSeller && (
+                <>
+                  <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                    <FaHeart className="text-xl sm:text-2xl" />
+                  </NavLink>
+                  <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                    <FaShoppingCart className="text-xl sm:text-2xl" />
+                    {cartQuantity > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                        {cartQuantity > 9 ? '9+' : cartQuantity}
+                      </span>
+                    )}
+                  </NavLink>
+                </>
+              )}
               <NotificationIcon />
               <NavLink to="/profile">
                 <button 
@@ -140,9 +146,11 @@ const Navbar = ({ handleSignOut }) => {
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/posts" className={({ isActive }) => isActive ? activeStyle : ''}>Posts</NavLink>
             </li>
-            <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
-              <NavLink to="/marketplace" className={({ isActive }) => isActive ? activeStyle : ''}>Marketplace</NavLink>
-            </li>
+            {!isSeller && (
+              <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
+                <NavLink to="/marketplace" className={({ isActive }) => isActive ? activeStyle : ''}>Marketplace</NavLink>
+              </li>
+            )}
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/contactus" className={({ isActive }) => isActive ? activeStyle : ''}>Contact Us</NavLink>
             </li>
@@ -173,17 +181,21 @@ const Navbar = ({ handleSignOut }) => {
                 <span className="text-[#a07855] font-medium hidden lg:inline-block">
                   Welcome {user.username}
                 </span>
-                <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
-                  <FaHeart className="text-2xl" />
-                </NavLink>
-                <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
-                  <FaShoppingCart className="text-2xl" />
-                  {cartQuantity > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                      {cartQuantity > 9 ? '9+' : cartQuantity}
-                    </span>
-                  )}
-                </NavLink>
+                {!isSeller && (
+                  <>
+                    <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                      <FaHeart className="text-2xl" />
+                    </NavLink>
+                    <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
+                      <FaShoppingCart className="text-2xl" />
+                      {cartQuantity > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                          {cartQuantity > 9 ? '9+' : cartQuantity}
+                        </span>
+                      )}
+                    </NavLink>
+                  </>
+                )}
                 <NotificationIcon />
                 <div
                   className="relative"
@@ -343,21 +355,23 @@ const Navbar = ({ handleSignOut }) => {
                   Posts
                 </NavLink>
               </li>
-              <li>
-                <NavLink 
-                  to="/marketplace" 
-                  onClick={closeMobileMenu} 
-                  className={({ isActive }) => 
-                    `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base ${
-                      isActive 
-                        ? 'bg-[#a07855] text-white shadow-md' 
-                        : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
-                    }`
-                  }
-                >
-                  Marketplace
-                </NavLink>
-              </li>
+              {!isSeller && (
+                <li>
+                  <NavLink 
+                    to="/marketplace" 
+                    onClick={closeMobileMenu} 
+                    className={({ isActive }) => 
+                      `block py-2 sm:py-3 px-3 sm:px-4 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base ${
+                        isActive 
+                          ? 'bg-[#a07855] text-white shadow-md' 
+                          : 'text-[#a07855] hover:bg-[#e8d5c0] hover:text-[#6b493d]'
+                      }`
+                    }
+                  >
+                    Marketplace
+                  </NavLink>
+                </li>
+              )}
               <li>
                 <NavLink 
                   to="/contactus" 
