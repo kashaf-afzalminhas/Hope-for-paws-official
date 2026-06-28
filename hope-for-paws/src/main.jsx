@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AdoptionProvider } from './context/AdoptionContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
+import { CartProvider } from './context/CartContext';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -48,8 +49,13 @@ import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 
 // ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
 
-import ProductListing from './buyer/ProductListing.jsx';
-import ProductDetail from './buyer/ProductDetail.jsx';
+import Marketplace from './marketplace/Marketplace.jsx';
+import ProductDetails from './marketplace/ProductDetails.jsx';
+import Cart from './marketplace/Cart.jsx';
+import Checkout from './marketplace/Checkout.jsx';
+import BuyerOrders from './marketplace/BuyerOrders.jsx';
+import SellerOrders from './marketplace/SellerOrders.jsx';
+import ProtectedRoute from './Components/ProtectedRoute.jsx';
 import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
 import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
 import ChatPage from './Main/Chat.jsx';
@@ -264,24 +270,30 @@ const router = createBrowserRouter(
       
       {/* ✅ Seller Routes (from bi branch) */}
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
-      <Route path="/seller/dashboard" element={<SellerDashboard />} />
+      <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
+      {/* Deprecated Seller Routes removed */}
 
-      {/* ✅ Marketplace Routes (from IB branch) */}
-      <Route path="/marketplace" element={<ProductListing />} />
-      <Route path="/marketplace/product/:id" element={<ProductDetail />} />
+      {/* ✅ Marketplace Routes */}
+      <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Marketplace /></ProtectedRoute>} />
+      <Route path="/product/:id" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><ProductDetails /></ProtectedRoute>} />
+      <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
+      <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
+      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders/></ProtectedRoute>} />
     </Route>
   )
 );
 
 const AppWithProviders = () => (
   <AuthProvider>
-    <AdoptionProvider>
-      <NotificationProvider>
-        <MessageProvider>
-          <RouterProvider router={router} />
-        </MessageProvider>
-      </NotificationProvider>
-    </AdoptionProvider>
+    <CartProvider>
+      <AdoptionProvider>
+        <NotificationProvider>
+          <MessageProvider>
+            <RouterProvider router={router} />
+          </MessageProvider>
+        </NotificationProvider>
+      </AdoptionProvider>
+    </CartProvider>
   </AuthProvider>
 );
 

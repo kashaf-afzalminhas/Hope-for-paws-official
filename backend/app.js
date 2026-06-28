@@ -36,6 +36,8 @@ const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/adminRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const productRoutes = require('./routes/productRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
@@ -306,6 +308,8 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {

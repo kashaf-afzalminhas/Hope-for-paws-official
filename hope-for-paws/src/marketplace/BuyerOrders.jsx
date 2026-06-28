@@ -1,0 +1,924 @@
+import { useState, useCallback, useEffect, useRef } from "react";
+import {
+  Package,
+  CheckCircle2,
+  Truck,
+  MapPin,
+  Clock,
+  X,
+  ShoppingBag,
+  ChevronRight,
+  Star,
+  AlertTriangle,
+  RotateCcw,
+  MessageCircle,
+  Filter,
+  ArrowUpRight,
+  Sparkles,
+  Copy,
+  Check,
+} from "lucide-react";
+import { API_BASE_URL } from "../config";
+import { useNavigate } from "react-router-dom";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STEPS = [
+  { label: "Pending",   shortLabel: "Placed",    icon: Clock },
+  { label: "Confirmed", shortLabel: "Confirmed", icon: CheckCircle2 },
+  { label: "Processing",shortLabel: "Packed",    icon: Package },
+  { label: "Shipped",   shortLabel: "Shipped",   icon: Truck },
+  { label: "Delivered", shortLabel: "Delivered", icon: MapPin },
+];
+
+/** All colour tokens per-status — single source of truth */
+const STATUS_CONFIG = {
+  Pending: {
+    accent:      "#f59e0b",
+    badgeBg:     "bg-amber-50",
+    badgeText:   "text-amber-700",
+    badgeRing:   "ring-1 ring-amber-200",
+    dot:         "bg-amber-500",
+    stepDone:    "bg-amber-500 border-amber-500",
+    stepActive:  "bg-amber-500 border-amber-500 ring-4 ring-amber-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-amber-500",
+    lightBg:     "bg-amber-50",
+    cancelLabel: "bg-amber-50 text-amber-700",
+  },
+  Confirmed: {
+    accent:      "#8b5cf6",
+    badgeBg:     "bg-violet-50",
+    badgeText:   "text-violet-700",
+    badgeRing:   "ring-1 ring-violet-200",
+    dot:         "bg-violet-500",
+    stepDone:    "bg-violet-500 border-violet-500",
+    stepActive:  "bg-violet-500 border-violet-500 ring-4 ring-violet-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-violet-500",
+    lightBg:     "bg-violet-50",
+    cancelLabel: "bg-violet-50 text-violet-700",
+  },
+  Processing: {
+    accent:      "#0ea5e9",
+    badgeBg:     "bg-sky-50",
+    badgeText:   "text-sky-700",
+    badgeRing:   "ring-1 ring-sky-200",
+    dot:         "bg-sky-500",
+    stepDone:    "bg-sky-500 border-sky-500",
+    stepActive:  "bg-sky-500 border-sky-500 ring-4 ring-sky-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-sky-500",
+    lightBg:     "bg-sky-50",
+    cancelLabel: "bg-sky-50 text-sky-700",
+  },
+  Shipped: {
+    accent:      "#3b82f6",
+    badgeBg:     "bg-blue-50",
+    badgeText:   "text-blue-700",
+    badgeRing:   "ring-1 ring-blue-200",
+    dot:         "bg-blue-500",
+    stepDone:    "bg-blue-500 border-blue-500",
+    stepActive:  "bg-blue-500 border-blue-500 ring-4 ring-blue-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-blue-500",
+    lightBg:     "bg-blue-50",
+    cancelLabel: "bg-blue-50 text-blue-700",
+  },
+  Delivered: {
+    accent:      "#10b981",
+    badgeBg:     "bg-emerald-50",
+    badgeText:   "text-emerald-700",
+    badgeRing:   "ring-1 ring-emerald-200",
+    dot:         "bg-emerald-500",
+    stepDone:    "bg-emerald-500 border-emerald-500",
+    stepActive:  "bg-emerald-500 border-emerald-500 ring-4 ring-emerald-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-emerald-500",
+    lightBg:     "bg-emerald-50",
+    cancelLabel: "bg-emerald-50 text-emerald-700",
+  },
+  Cancelled: {
+    accent:      "#ef4444",
+    badgeBg:     "bg-red-50",
+    badgeText:   "text-red-600",
+    badgeRing:   "ring-1 ring-red-200",
+    dot:         "bg-red-400",
+    stepDone:    "bg-red-400 border-red-400",
+    stepActive:  "bg-red-400 border-red-400 ring-4 ring-red-100",
+    stepFuture:  "bg-white border-stone-200",
+    bar:         "bg-red-400",
+    lightBg:     "bg-red-50",
+    cancelLabel: "bg-red-50 text-red-600",
+  },
+};
+
+const FILTER_TABS = [
+  { key: "all",       label: "All Orders" },
+  { key: "active",    label: "Active" },
+  { key: "delivered", label: "Delivered" },
+  { key: "cancelled", label: "Cancelled" },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITY HOOKS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const timerRef = useRef(null);
+
+  const showToast = useCallback((message, type = "success") => {
+    clearTimeout(timerRef.current);
+    setToast({ message, type, id: Date.now() });
+    timerRef.current = setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    clearTimeout(timerRef.current);
+    setToast(null);
+  }, []);
+
+  return { toast, showToast, dismissToast };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMALL PRESENTATIONAL COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.Pending;
+  return (
+    <span
+      className={`
+        inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+        text-[11px] font-semibold tracking-wide
+        ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeRing}
+      `}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+      {status}
+    </span>
+  );
+}
+
+function SellerStars({ rating }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <Star size={10} className="text-amber-400 fill-amber-400" />
+      <span className="text-[10px] text-stone-400 font-medium">{rating}</span>
+    </span>
+  );
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [text]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      aria-label="Copy tracking ID"
+      className="ml-1 p-0.5 rounded hover:bg-stone-200 transition-colors"
+    >
+      {copied
+        ? <Check size={11} className="text-emerald-500" />
+        : <Copy size={11} className="text-stone-400" />
+      }
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Toast({ toast, onDismiss }) {
+  if (!toast) return null;
+  const isSuccess = toast.type === "success";
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`
+        fixed bottom-6 left-1/2 -translate-x-1/2 z-50
+        flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl
+        text-sm font-medium text-white
+        transition-all duration-300 animate-in
+        ${isSuccess ? "bg-stone-800" : "bg-red-600"}
+      `}
+      style={{ animation: "slideUp 0.25s ease-out" }}
+    >
+      {isSuccess
+        ? <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+        : <AlertTriangle size={15} className="text-amber-300 flex-shrink-0" />
+      }
+      {toast.message}
+      <button onClick={onDismiss} aria-label="Dismiss" className="ml-1 opacity-60 hover:opacity-100">
+        <X size={13} />
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANCEL CONFIRMATION (inline)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CancelConfirm({ onConfirm, onDismiss }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-heading"
+      className="mx-6 mb-5 rounded-2xl border border-red-100 bg-red-50 p-4"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <AlertTriangle size={15} className="text-red-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p id="cancel-heading" className="text-sm font-semibold text-stone-800">
+            Cancel this order?
+          </p>
+          <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
+            Your payment will be refunded within 3–5 business days. This cannot be undone.
+          </p>
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={onConfirm}
+              className="px-4 py-1.5 rounded-xl bg-red-500 text-white text-xs font-semibold hover:bg-red-600 active:scale-95 transition-all"
+            >
+              Yes, cancel it
+            </button>
+            <button
+              onClick={onDismiss}
+              className="px-4 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-semibold hover:bg-stone-50 active:scale-95 transition-all"
+            >
+              Keep order
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRACKING TIMELINE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TrackingTimeline({ currentStep, status, timestamps = {} }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.Pending;
+  const totalSegments = STEPS.length - 1;
+
+  return (
+    <div className="mt-2">
+      {/* Step row */}
+      <div className="relative flex items-start">
+        {/* Connecting rail — sits behind circles */}
+        <div
+          className="absolute bg-stone-200"
+          style={{ top: 14, left: "calc(10% + 14px)", right: "calc(10% + 14px)", height: 2 }}
+          aria-hidden="true"
+        />
+        {/* Progress fill */}
+        <div
+          className={`absolute transition-all duration-700 ease-out ${cfg.bar}`}
+          style={{
+            top: 14,
+            left: "calc(10% + 14px)",
+            height: 2,
+            width: currentStep === 0
+              ? 0
+              : `calc(${(currentStep / totalSegments) * 100}% * (80% / 100%) * (${totalSegments} / ${totalSegments}) + 0px)`,
+            // Precise: span from first circle center to current circle center
+            width: currentStep === 0
+              ? 0
+              : `calc(${(currentStep / totalSegments)} * (80% - 0px))`,
+          }}
+          aria-hidden="true"
+        />
+
+        {STEPS.map((step, i) => {
+          const Icon = step.icon;
+          const isDone   = i < currentStep;
+          const isActive = i === currentStep;
+          const isFuture = i > currentStep;
+          const ts = timestamps[i];
+
+          return (
+            <div
+              key={step.label}
+              className="relative z-10 flex flex-col items-center"
+              style={{ flex: 1 }}
+            >
+              {/* Circle */}
+              <div
+                className={`
+                  w-7 h-7 rounded-full border-2 flex items-center justify-center
+                  transition-all duration-300
+                  ${isDone   ? `${cfg.stepDone} text-white` : ""}
+                  ${isActive ? `${cfg.stepActive} text-white` : ""}
+                  ${isFuture ? `${cfg.stepFuture} text-stone-300` : ""}
+                `}
+                aria-label={`${step.label}${isDone ? " (complete)" : isActive ? " (current)" : " (upcoming)"}`}
+              >
+                {isActive
+                  ? <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  : <Icon size={12} strokeWidth={isDone ? 2.5 : 1.5} />
+                }
+              </div>
+
+              {/* Label */}
+              <span className={`
+                mt-2 text-[9px] font-semibold uppercase tracking-wide text-center leading-tight px-0.5
+                ${isDone || isActive ? "text-stone-700" : "text-stone-400"}
+              `}>
+                {step.shortLabel}
+              </span>
+
+              {/* Timestamp (only for completed) */}
+              {ts && (isDone || isActive) && (
+                <span className="mt-0.5 text-[8px] text-stone-400 text-center leading-tight hidden sm:block">
+                  {ts}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORDER ITEM ROW
+// ─────────────────────────────────────────────────────────────────────────────
+
+function OrderItem({ item }) {
+  const [imgError, setImgError] = useState(false);
+  const qty = item.quantity || item.qty || 1;
+
+  return (
+    <div className="flex gap-3 items-start py-3 first:pt-0 last:pb-0 border-b border-stone-50 last:border-0">
+      {/* Thumbnail */}
+      <div className="w-[60px] h-[60px] rounded-xl overflow-hidden flex-shrink-0 bg-stone-100 ring-1 ring-black/5">
+        {!imgError && item.image ? (
+          <img
+            src={item.image}
+            alt={item.title}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-stone-100">
+            <Package size={20} className="text-stone-300" />
+          </div>
+        )}
+      </div>
+
+      {/* Details */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] text-stone-400 font-medium mb-0.5">{item.category || "Product"}</p>
+        <p className="text-sm font-semibold text-stone-800 leading-snug line-clamp-2">{item.title}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-xs text-stone-500">
+            by <span className="text-[#6b493d] font-semibold">{item.seller || "Marketplace Seller"}</span>
+          </span>
+          {item.sellerRating && <SellerStars rating={item.sellerRating} />}
+        </div>
+      </div>
+
+      {/* Price + qty */}
+      <div className="flex-shrink-0 text-right">
+        <p className="text-sm font-bold text-stone-800">Rs. {(item.price * qty).toFixed(2)}</p>
+        <p className="text-[11px] text-stone-400 mt-0.5">
+          {qty > 1 ? `${qty} × Rs. ${item.price.toFixed(2)}` : `1 item`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORDER CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+function OrderCard({ order, onCancel, showToast }) {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [showTracking, setShowTracking] = useState(false);
+
+  const cfg        = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
+  const isPending  = order.status === "Pending";
+  const isCancelled = order.status === "Cancelled";
+  
+  const currentStepIndex = STEPS.findIndex(s => s.label === order.status);
+  const currentStep = currentStepIndex !== -1 ? currentStepIndex : 0;
+  const isDelivered = currentStep === 4;
+
+  const timestamps = {};
+  if (order.statusHistory) {
+    order.statusHistory.forEach(h => {
+      const idx = STEPS.findIndex(s => s.label === h.status);
+      if (idx !== -1) timestamps[idx] = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    });
+  }
+
+  const totalPrice = order.totals?.finalTotal || order.items.reduce((sum, item) => sum + item.price * (item.quantity || item.qty || 1), 0);
+  const itemCount  = order.items.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0);
+  
+  const displayId = order.orderId || order._id || order.id;
+  const displayDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : order.date;
+
+  const handleCancelConfirm = useCallback(async () => {
+    setShowCancelConfirm(false);
+    await onCancel(order._id || order.id);
+  }, [order._id, order.id, onCancel]);
+
+  return (
+    <article
+      className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100/80 transition-all duration-300 hover:shadow-md hover:border-[#c9a280]/40"
+      aria-label={`Order ${displayId}`}
+    >
+      {/* ── Status accent bar (the signature element) ── */}
+      <div
+        className="h-1 w-full"
+        style={{ backgroundColor: cfg.accent }}
+        aria-hidden="true"
+      />
+
+      {/* ── Card header ── */}
+      <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-stone-50">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: cfg.accent + "18" }}
+          >
+            <ShoppingBag size={15} style={{ color: cfg.accent }} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-[#6b493d] tracking-tight">
+                #{displayId}
+              </span>
+              <StatusBadge status={order.status} />
+            </div>
+            <p className="text-[11px] text-stone-400 mt-0.5">
+              {displayDate} · {itemCount} item{itemCount !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-bold text-stone-800">Rs. {totalPrice.toFixed(2)}</p>
+            <p className="text-[10px] text-stone-400">{order.paymentMethod || 'card'}</p>
+          </div>
+          <button
+            onClick={() => setIsExpanded(v => !v)}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? "Collapse order" : "Expand order"}
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-100 transition-colors text-stone-400"
+          >
+            <ChevronRight
+              size={15}
+              className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Expandable body ── */}
+      {isExpanded && (
+        <>
+          {/* Items */}
+          <div className="px-5 pt-3 pb-1">
+            {order.items.map((item, idx) => (
+              <OrderItem key={item.productId || item.id || idx} item={item} />
+            ))}
+          </div>
+
+          {/* ── Tracking section ── */}
+          {showTracking && !isCancelled && (
+            <div className="mx-5 mb-4 mt-3 rounded-2xl border border-stone-100 bg-stone-50/60 px-4 pt-4 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                  Order Journey
+                </p>
+                {order.trackingId && (
+                  <div className="flex items-center text-[10px] text-stone-500">
+                    <span className="font-mono">{order.trackingId.slice(-8)}</span>
+                    <CopyButton text={order.trackingId} />
+                    <button className="ml-1.5 flex items-center gap-0.5 text-[#6b493d] font-semibold hover:underline">
+                      Track <ArrowUpRight size={9} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <TrackingTimeline
+                currentStep={currentStep}
+                status={order.status}
+                timestamps={timestamps}
+              />
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[11px] text-stone-400">
+                  {isCancelled ? "Cancelled" : isDelivered ? "Delivered" : "Est. delivery"}
+                </p>
+                <p className="text-[11px] font-semibold text-stone-600">
+                  {order.estimatedDelivery || 'To be determined'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Cancelled banner ── */}
+          {isCancelled && (
+            <div className="mx-5 mb-4 mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 flex items-center gap-3">
+              <X size={15} className="text-red-400 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-700">Order cancelled</p>
+                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3–5 business days.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Cancel confirm (inline) ── */}
+          {showCancelConfirm && (
+            <CancelConfirm
+              onConfirm={handleCancelConfirm}
+              onDismiss={() => setShowCancelConfirm(false)}
+            />
+          )}
+
+          {/* ── Order meta (shipping, payment) — subtle row ── */}
+          <div className="px-5 pb-3 flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+              <MapPin size={10} />
+              <span>
+                {order.shippingAddress?.street}, {order.shippingAddress?.city}, {order.shippingAddress?.province} {order.shippingAddress?.postalCode}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-stone-400 sm:hidden">
+              <span className="font-semibold text-stone-700">Rs. {totalPrice.toFixed(2)}</span>
+              <span>· {order.paymentMethod || 'card'}</span>
+            </div>
+          </div>
+
+          {/* ── Action footer ── */}
+          <div className="px-5 py-3 border-t border-stone-50 bg-stone-50/40 flex items-center justify-between gap-3 flex-wrap">
+            {/* Left: support link */}
+            <button className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group">
+              <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
+              {isCancelled ? "Contact support" : "Get help with this order"}
+            </button>
+
+            {/* Right: primary CTAs */}
+            <div className="flex items-center gap-2">
+              {!isCancelled && (
+                <button
+                  onClick={() => setShowTracking(v => !v)}
+                  className="
+                    inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                    bg-white border border-stone-200 text-stone-600 text-xs font-semibold
+                    hover:bg-stone-50 active:scale-95 transition-all duration-150
+                  "
+                >
+                  <Truck size={12} className={showTracking ? "text-[#6b493d]" : "text-stone-400"} />
+                  {showTracking ? "Hide tracking" : "Track package"}
+                </button>
+              )}
+              {isPending && !showCancelConfirm && (
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="
+                    inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                    border border-red-200 text-red-500 text-xs font-semibold bg-white
+                    hover:bg-red-50 hover:border-red-300
+                    active:scale-95 transition-all duration-150
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400
+                  "
+                >
+                  <X size={12} />
+                  Cancel order
+                </button>
+              )}
+
+              {isDelivered && !isCancelled && (
+                <button className="
+                  inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                  bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200
+                  hover:bg-amber-100 active:scale-95 transition-all duration-150
+                ">
+                  <Star size={12} className="fill-amber-400 text-amber-400" />
+                  Rate & Review
+                </button>
+              )}
+
+              {!isCancelled && (
+                <button className="
+                  inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                  bg-[#6b493d] text-white text-xs font-semibold
+                  hover:bg-[#5a3c32] active:scale-95 transition-all duration-150
+                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6b493d]
+                ">
+                  {isDelivered ? "Reorder" : "View details"}
+                  {isDelivered
+                    ? <RotateCcw size={11} />
+                    : <ChevronRight size={11} />
+                  }
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE HEADER STATS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PageStats({ orders }) {
+  const totalSpent = orders.reduce(
+    (sum, o) => sum + (o.totals?.finalTotal || o.items.reduce((s, i) => s + i.price * (i.quantity || i.qty || 1), 0)),
+    0
+  );
+  const activeCount   = orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length;
+  const deliveredCount = orders.filter(o => o.status === "Delivered").length;
+
+  return (
+    <div className="grid grid-cols-3 gap-3 mb-8">
+      {[
+        { label: "Total spent",    value: `Rs. ${totalSpent.toFixed(0)}`, sub: "all time" },
+        { label: "Active orders",  value: activeCount,                  sub: "in progress" },
+        { label: "Delivered",      value: deliveredCount,               sub: "completed" },
+      ].map(stat => (
+        <div
+          key={stat.label}
+          className="bg-white rounded-2xl px-4 py-3 border border-stone-100 shadow-sm"
+        >
+          <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold">{stat.label}</p>
+          <p className="text-xl font-bold text-stone-800 mt-0.5 tracking-tight">{stat.value}</p>
+          <p className="text-[10px] text-stone-400">{stat.sub}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER TABS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const isRecentlyCancelled = (order) => {
+  if (order.status !== 'Cancelled') return false;
+  const cancelledEntry = order.statusHistory?.find(h => h.status === 'Cancelled');
+  const cancelDate = cancelledEntry ? new Date(cancelledEntry.date) : new Date(order.updatedAt || order.createdAt || new Date());
+  const hoursSince = (new Date() - cancelDate) / (1000 * 60 * 60);
+  return hoursSince <= 12;
+};
+
+function FilterTabs({ activeFilter, onFilter, orders }) {
+  const counts = {
+    all:       orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
+    active:    orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
+    delivered: orders.filter(o => o.status === "Delivered").length,
+    cancelled: orders.filter(o => o.status === "Cancelled").length,
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Filter orders"
+      className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 mb-5"
+    >
+      {FILTER_TABS.map(tab => {
+        const isActive = activeFilter === tab.key;
+        return (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onFilter(tab.key)}
+            className={`
+              flex-1 flex items-center justify-center gap-1.5
+              px-3 py-1.5 rounded-lg text-xs font-semibold
+              transition-all duration-150
+              ${isActive
+                ? "bg-white text-[#6b493d] shadow-sm"
+                : "text-stone-500 hover:text-[#a07855]"
+              }
+            `}
+          >
+            {tab.label}
+            {counts[tab.key] > 0 && (
+              <span className={`
+                text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                ${isActive ? "bg-[#f8f6f4] text-[#a07855]" : "bg-stone-200 text-stone-400"}
+              `}>
+                {counts[tab.key]}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPTY STATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function EmptyState({ filter }) {
+  const navigate = useNavigate();
+  const messages = {
+    all:       { title: "No orders yet",        sub: "Your next furry friend's supplies are waiting." },
+    active:    { title: "No active orders",     sub: "Everything you've ordered has been delivered." },
+    delivered: { title: "No delivered orders",  sub: "Delivered orders will appear here." },
+    cancelled: { title: "No cancelled orders",  sub: "Great — nothing's been cancelled!" },
+  };
+  const { title, sub } = messages[filter] ?? messages.all;
+
+  return (
+    <div className="text-center py-16 px-4">
+      <div className="w-16 h-16 rounded-2xl bg-[#f8f6f4] border border-[#d4c5c1] mx-auto flex items-center justify-center mb-4 transition-transform hover:scale-105 duration-300">
+        <ShoppingBag size={26} className="text-[#c9a280]" />
+      </div>
+      <p className="text-[#6b493d] font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>{title}</p>
+      <p className="text-[#a07855] text-xs mt-1 max-w-xs mx-auto leading-relaxed">{sub}</p>
+      {filter === "all" && (
+        <button 
+          onClick={() => navigate('/marketplace')}
+          className="mt-5 inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#573b31] transition-all shadow-md hover:shadow-lg active:scale-95"
+        >
+          Browse the marketplace
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE ROOT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function MyOrdersPage() {
+  const [orders, setOrders]       = useState([]);
+  const [activeFilter, setFilter] = useState("all");
+  const [loading, setLoading]     = useState(true);
+  const { toast, showToast, dismissToast } = useToast();
+
+  // Inject global keyframe for toast
+  useEffect(() => {
+    if (document.getElementById("mo-styles")) return;
+    const style = document.createElement("style");
+    style.id = "mo-styles";
+    style.textContent = `
+      @keyframes slideUp {
+        from { opacity: 0; transform: translate(-50%, 12px); }
+        to   { opacity: 1; transform: translate(-50%, 0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/orders/buyer`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setOrders(data);
+        } else {
+          showToast(data.message || "Failed to load orders", "error");
+        }
+      } catch (err) {
+        showToast("Network error while loading orders", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, [showToast]);
+
+  const handleCancel = useCallback(async (orderId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setOrders(prev =>
+          prev.map(o =>
+            (o._id === orderId || o.id === orderId) ? { ...o, status: "Cancelled", statusHistory: data.order.statusHistory } : o
+          )
+        );
+        showToast("Order cancelled. Refund initiated.", "success");
+      } else {
+        showToast(data.message || "Failed to cancel order", "error");
+      }
+    } catch (err) {
+      showToast("Network error while cancelling order", "error");
+    }
+  }, [showToast]);
+
+  const filteredOrders = orders.filter(o => {
+    if (activeFilter === "all")       return o.status !== "Cancelled" || isRecentlyCancelled(o);
+    if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
+    if (activeFilter === "delivered") return o.status === "Delivered";
+    if (activeFilter === "cancelled") return o.status === "Cancelled";
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="max-w-xl mx-auto px-4 py-10">
+
+        {/* ── Page header ── */}
+        <header className="mb-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-[#6b493d] tracking-tight leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>
+                My Orders
+              </h1>
+              <p className="text-xs text-[#a07855] mt-1.5 font-medium">
+                {orders.length} order{orders.length !== 1 ? "s" : ""} across all time
+              </p>
+            </div>
+            <button
+              aria-label="Filter options"
+              className="w-9 h-9 rounded-xl border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:bg-stone-50 shadow-sm transition-colors"
+            >
+              <Filter size={15} />
+            </button>
+          </div>
+        </header>
+
+        {/* ── Stats strip ── */}
+        <PageStats orders={orders} />
+
+        {/* ── Filter tabs ── */}
+        <FilterTabs
+          activeFilter={activeFilter}
+          onFilter={setFilter}
+          orders={orders}
+        />
+
+        {/* ── Order list ── */}
+        <main>
+          {loading ? (
+            <div className="flex justify-center py-20 text-[#c9a280]">
+              <Package className="animate-bounce" size={32} />
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <EmptyState filter={activeFilter} />
+          ) : (
+            <div className="space-y-4">
+              {filteredOrders.map(order => (
+                <OrderCard
+                  key={order._id || order.id}
+                  order={order}
+                  onCancel={handleCancel}
+                  showToast={showToast}
+                />
+              ))}
+            </div>
+          )}
+        </main>
+
+        {/* ── Footer note ── */}
+        <footer className="mt-10 text-center">
+          <p className="text-[10px] text-stone-300">
+            Questions about your order?{" "}
+            <button className="text-[#6b493d] font-semibold hover:underline">
+              Reach out to us
+            </button>
+          </p>
+        </footer>
+      </div>
+
+      {/* ── Global toast ── */}
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </div>
+  );
+}
