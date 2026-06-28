@@ -47,17 +47,16 @@ import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 
 // ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
-import SellerAddProduct from './Main/SellerAddProduct.jsx';
-import SellerProducts from './Main/SellerProducts.jsx';
-import SellerEditProduct from './Main/SellerEditProduct.jsx';
+
 import ProductListing from './buyer/ProductListing.jsx';
 import ProductDetail from './buyer/ProductDetail.jsx';
 import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
 import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
 import ChatPage from './Main/Chat.jsx';
 import PublicProfilePage from './Main/PublicProfilePage';
-import SellerRegistration from './Main/SellerRegistration';
+import SellerOnboarding from './Main/SellerOnboarding';
 import SellerDashboard from './Main/SellerDashboard';
+
 
 // Admin dashboard routes with shared layout and state
 const AdminDashboardRoutes = () => {
@@ -264,11 +263,8 @@ const router = createBrowserRouter(
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
       
       {/* ✅ Seller Routes (from bi branch) */}
-      <Route path="/seller/register" element={<SellerRegistration />} />
+      <Route path="/seller/onboard" element={<SellerOnboarding />} />
       <Route path="/seller/dashboard" element={<SellerDashboard />} />
-      <Route path="/seller/products/new" element={<SellerAddProduct />} />
-      <Route path="/seller/products" element={<SellerProducts />} />
-      <Route path="/seller/product/edit/:id" element={<SellerEditProduct/>} />
 
       {/* ✅ Marketplace Routes (from IB branch) */}
       <Route path="/marketplace" element={<ProductListing />} />

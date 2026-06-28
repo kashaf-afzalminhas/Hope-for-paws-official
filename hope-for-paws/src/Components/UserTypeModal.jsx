@@ -72,100 +72,30 @@ const UserTypeModal = ({ open, onClose, onSelect, username }) => {
           &times;
         </button>
         
-        {!showSellerFields ? (
-          <>
-            <h2 className="text-xl font-bold mb-4 text-center">Welcome, {username || 'User'}!</h2>
-            <p className="mb-6 text-center">How would you like to register?</p>
-            <div className="flex flex-col gap-3">
-              <button
-                className="w-full py-3 px-4 rounded-lg bg-[#6b493d] text-white font-semibold hover:bg-[#4E3B31] transition"
-                onClick={() => onSelect('user')}
-              >
-                🐾 Regular User
-              </button>
-              <button
-                className="w-full py-3 px-4 rounded-lg bg-[#a07855] text-white font-semibold hover:bg-[#6b493d] transition"
-                onClick={() => onSelect('veterinarian')}
-              >
-                🩺 Veterinarian
-              </button>
-              <button
-                className="w-full py-3 px-4 rounded-lg bg-[#5a8f5a] text-white font-semibold hover:bg-[#4a7a4a] transition"
-                onClick={() => setShowSellerFields(true)}
-              >
-                🏪 Seller
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
+        <>
+          <h2 className="text-xl font-bold mb-4 text-center">Welcome, {username || 'User'}!</h2>
+          <p className="mb-6 text-center">How would you like to register?</p>
+          <div className="flex flex-col gap-3">
             <button
-              className="absolute top-2 left-2 text-gray-400 hover:text-gray-600"
-              onClick={handleBack}
-              aria-label="Back"
+              className="w-full py-3 px-4 rounded-lg bg-[#6b493d] text-white font-semibold hover:bg-[#4E3B31] transition"
+              onClick={() => onSelect('user')}
             >
-              ← Back
+              🐾 Regular User
             </button>
-            <h2 className="text-xl font-bold mb-4 text-center mt-4">Seller Information</h2>
-            <p className="mb-4 text-center text-sm text-gray-600">
-              Please provide your business details to register as a seller.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Business/Shop Name *</label>
-                <input
-                  type="text"
-                  value={sellerData.businessName}
-                  onChange={(e) => handleSellerChange('businessName', e.target.value)}
-                  className={`w-full px-3 py-2 border ${sellerErrors.businessName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b493d]`}
-                  placeholder="Enter business name"
-                />
-                {sellerErrors.businessName && (
-                  <p className="text-xs text-red-600 mt-1">{sellerErrors.businessName}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CNIC Number *</label>
-                <input
-                  type="text"
-                  value={sellerData.cnic}
-                  onChange={(e) => handleSellerChange('cnic', e.target.value)}
-                  maxLength={15}
-                  className={`w-full px-3 py-2 border ${sellerErrors.cnic ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b493d]`}
-                  placeholder="12345-1234567-1"
-                />
-                {sellerErrors.cnic ? (
-                  <p className="text-xs text-red-600 mt-1">{sellerErrors.cnic}</p>
-                ) : (
-                  <p className="text-xs text-gray-500 mt-1">Format: 12345-1234567-1</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-                <input
-                  type="text"
-                  value={sellerData.location}
-                  onChange={(e) => handleSellerChange('location', e.target.value)}
-                  className={`w-full px-3 py-2 border ${sellerErrors.location ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b493d]`}
-                  placeholder="City, Country"
-                />
-                {sellerErrors.location && (
-                  <p className="text-xs text-red-600 mt-1">{sellerErrors.location}</p>
-                )}
-              </div>
-
-              <button
-                className="w-full py-3 px-4 rounded-lg bg-[#5a8f5a] text-white font-semibold hover:bg-[#4a7a4a] transition mt-2"
-                onClick={handleSellerSubmit}
-              >
-                Register as Seller
-              </button>
-            </div>
-          </>
-        )}
+            <button
+              className="w-full py-3 px-4 rounded-lg bg-[#a07855] text-white font-semibold hover:bg-[#6b493d] transition"
+              onClick={() => onSelect('veterinarian')}
+            >
+              🩺 Veterinarian
+            </button>
+            <button
+              className="w-full py-3 px-4 rounded-lg bg-[#5a8f5a] text-white font-semibold hover:bg-[#4a7a4a] transition"
+              onClick={() => onSelect('seller')}
+            >
+              🏪 Seller
+            </button>
+          </div>
+        </>
       </div>
     </div>
   );

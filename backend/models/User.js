@@ -96,8 +96,8 @@ const userSchema = new mongoose.Schema(
     },
     sellerStatus: {
       type: String,
-      enum: ['pending', 'verified', 'suspended'],
-      default: 'pending'
+      enum: ['incomplete', 'pending', 'verified', 'suspended'],
+      default: 'incomplete'
     },
     sellerSince: {
       type: Date
@@ -145,20 +145,17 @@ userSchema.methods.getId = function() {
   return this._id.toString();
 };
 
-// BUG-005 FIX: Do not force canBuy=false for all sellers.
-// canBuy is managed by the admin via sellerController (based on sellerStatus).
-// Only restore canBuy=true when the isSeller flag is removed.
+// BUG-005 FIX: Removed canBuy restrictions for sellers.
+// Sellers now have instant access and their ability to buy is not gatekept by admin verification.
 userSchema.pre('save', function(next) {
   if (this.isSeller) {
     // Set sellerSince timestamp on first activation
     if (!this.sellerSince) {
       this.sellerSince = new Date();
     }
-    // canBuy is intentionally NOT overridden here — let the controller manage it
-  } else {
-    // Regular user: can always buy
-    this.canBuy = true;
   }
+  // All users (including sellers) can buy
+  this.canBuy = true;
   next();
 });
 

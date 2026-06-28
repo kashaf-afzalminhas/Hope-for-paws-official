@@ -17,6 +17,14 @@ export default {
           100: '#f5f0e1', // beige
         },
       },
+      keyframes: {
+        shine: {
+          '100%': { transform: 'translateX(100%) skewX(-12deg)' }
+        }
+      },
+      animation: {
+        shine: 'shine 1.5s ease-in-out infinite'
+      }
     },
   },
   plugins: [

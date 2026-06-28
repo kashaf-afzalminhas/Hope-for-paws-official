@@ -51,13 +51,46 @@ const productSchema = new mongoose.Schema(
     // ✅ NEW FIELD: Category
 
     category: {
-
       type: String,
-
       required: true,
-
+      enum: ['Pet food', 'Medicines', 'Toys', 'Accessories', 'Grooming', 'Healthcare products'],
       trim: true
-
+    },
+    brand: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    sku: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true
+    },
+    discountPrice: {
+      type: Number,
+      min: 0
+    },
+    weight: {
+      type: String,
+      trim: true
+    },
+    ingredients: {
+      type: String,
+      trim: true
+    },
+    usageInstructions: {
+      type: String,
+      trim: true
+    },
+    expiryDate: {
+      type: Date,
+      validate: {
+        validator: function(v) {
+          return !v || v > new Date();
+        },
+        message: 'Expiry date must be in the future'
+      }
     },
 
     // ✅ NEW FIELD: Stock (Matches your frontend code)
@@ -103,8 +136,11 @@ const productSchema = new mongoose.Schema(
   },
 
   { timestamps: true }
-
 );
+
+// ✅ Add Compound Unique Indexes
+productSchema.index({ sellerId: 1, sku: 1 }, { unique: true });
+productSchema.index({ sellerId: 1, title: 1 }, { unique: true });
 
 
 
@@ -113,17 +149,18 @@ const productSchema = new mongoose.Schema(
 productSchema.pre('save', async function(next) {
 
   try {
-
     const seller = await Seller.findById(this.sellerId).select('status');
-
     if (!seller) return next(new Error('Seller not found'));
 
-    const active = seller.status !== 'suspended';
-
-    this.isVisible = active;
-
-    this.status = active ? 'active' : 'hidden';
-
+    if (seller.status === 'suspended') {
+      this.isVisible = false;
+      this.status = 'hidden';
+    } else {
+      // Seller is active. Visibility is determined by product status.
+      // Default new products to active if not explicitly set
+      if (!this.status) this.status = 'active';
+      this.isVisible = this.status === 'active';
+    }
     next();
 
   } catch (err) {

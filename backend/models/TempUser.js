@@ -9,13 +9,10 @@ const tempUserSchema = new mongoose.Schema({
   
   // ✅ ADDED: Fields to store Seller info temporarily
   userType: { type: String, enum: ['user', 'seller'], default: 'user' },
-  sellerName: { type: String },
-  cnic: { type: String },
-  location: { type: String },
 
   verificationCode: { type: String, required: true },
   verificationCodeExpires: { type: Date, required: true },
   createdAt: { type: Date, default: Date.now, expires: 3600 } // Documents expire after 1 hour
 });
 
-module.exports = mongoose.model('TempUser', tempUserSchema);
+module.exports = mongoose.model('TempUser', tempUserSchema);

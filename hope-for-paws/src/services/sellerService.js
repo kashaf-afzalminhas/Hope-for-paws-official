@@ -16,14 +16,16 @@ const getHeaders = () => ({
 });
 
 /**
- * Apply as a seller
- * @param {Object} sellerData - { name, email, cnic, location }
+ * Onboard as a seller
+ * @param {FormData} formData - Contains storeName, address, contactInfo, paymentDetails, profileImage
  */
-export const applyAsSeller = async (sellerData) => {
-  const response = await fetch(`${API_BASE_URL}/sellers/apply`, {
+export const onboardSeller = async (formData) => {
+  const response = await fetch(`${API_BASE_URL}/sellers/onboard`, {
     method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(sellerData)
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    },
+    body: formData
   });
 
   const data = await response.json();
@@ -75,7 +77,6 @@ export const updateLocalUserAsSeller = (sellerStatus = 'pending') => {
   const user = JSON.parse(storage.getItem('user') || '{}');
   user.isSeller = true;
   user.sellerStatus = sellerStatus;
-  user.canBuy = false;
   
   storage.setItem('user', JSON.stringify(user));
   return user;

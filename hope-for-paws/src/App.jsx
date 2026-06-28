@@ -61,6 +61,16 @@ function App() {
     checkPhoneVerification();
   }, [user, location.pathname, justVerifiedPhone, navigate]);
 
+  // Check seller onboarding status
+  React.useEffect(() => {
+    if (user && user.isSeller && user.sellerStatus === 'incomplete') {
+      const isAllowedRoute = ['/signin', '/signup', '/verify-registration', '/seller/onboard'].includes(location.pathname);
+      if (!isAllowedRoute) {
+        navigate('/seller/onboard', { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
+
   const handlePhoneVerified = async () => {
     try {
       // Set flag to prevent modal from showing again

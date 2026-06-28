@@ -1,14 +1,5 @@
 // mailer.js
-const nodemailer = require('nodemailer');
-
-// Create a transporter object using the default SMTP transport
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // Use your email service (e.g., Gmail, Outlook, etc.)
-  auth: {
-    user: process.env.GMAIL_USER, // Your email address
-    pass: process.env.GMAIL_PASS, // Your email password or app-specific password
-  },
-});
+const transporter = require('../config/emailTransporter');
 
 const sendEmail = async (to, subject, text) => {
     const mailOptions = {

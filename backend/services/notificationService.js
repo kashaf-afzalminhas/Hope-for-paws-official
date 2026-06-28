@@ -2,7 +2,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Adoption = require('../models/adoptionModel');
-const nodemailer = require('nodemailer');
+const transporter = require('../config/emailTransporter');
 const config = require('../config/notificationConfig');
 const activityTracker = require('./activityTracker');
 const { scheduleChatReminder } = require('../queues/chatEmailQueue');
@@ -12,14 +12,7 @@ class NotificationService {
     this.io = io;
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
     
-    // Email transporter setup
-    this.transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS
-      }
-    });
+    this.transporter = transporter;
   }
 
   // Store user socket connection

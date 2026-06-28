@@ -1,14 +1,5 @@
 const Contact = require('../models/Contact');
-const nodemailer = require('nodemailer');
-
-// Configure email transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // or another email provider
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  }
-});
+const transporter = require('../config/emailTransporter');
 
 exports.submitContactForm = async (req, res) => {
   const { name, email, message } = req.body;

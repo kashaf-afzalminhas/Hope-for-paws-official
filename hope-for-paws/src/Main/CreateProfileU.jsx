@@ -12,6 +12,7 @@ import AdoptionRequestsModal from './AdoptionRequestsModal';
 import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
+import SellerDashboard from './SellerDashboard';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -755,9 +756,8 @@ const ProfilePage = () => {
   if (user && user.isSeller) {
     profileLinks.push({
       name: 'Seller Dashboard',
-      path: '/seller/dashboard',
-      icon: <FaStore />,
-      external: true // This tells the render loop to use navigate() instead of setView()
+      view: 'sellerdashboard',
+      icon: <FaStore />
     });
   }
 
@@ -1778,6 +1778,10 @@ const ProfilePage = () => {
                   )}
                 </div>
               </section>
+            )}
+            
+            {currentView === 'sellerdashboard' && (
+              <SellerDashboard />
             )}
           </div>
         </div>

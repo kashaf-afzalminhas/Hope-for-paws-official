@@ -9,7 +9,14 @@ const sellerSchema = new mongoose.Schema(
       unique: true,
       index: true
     },
-    name: {
+    storeName: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      index: true
+    },
+    fullName: {
       type: String,
       required: true,
       trim: true
@@ -19,20 +26,45 @@ const sellerSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    cnic: {
+    phone: {
       type: String,
       required: true,
       trim: true
     },
-    location: {
+    address: {
       type: String,
       required: true,
       trim: true
+    },
+    paymentDetails: {
+      bankName: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      accountTitle: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      accountNumber: {
+        type: String,
+        required: true,
+        trim: true
+      }
+    },
+    profileImage: {
+      type: String,
+      default: ''
     },
     status: {
       type: String,
       enum: ['pending', 'verified', 'suspended'],
       default: 'pending'
+    },
+    isVerified: {
+      type: Boolean,
+      default: false
     },
     notes: {
       type: String,
