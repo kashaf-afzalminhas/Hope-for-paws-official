@@ -13,7 +13,11 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
+<<<<<<< HEAD
 import MyOrdersPage from '../marketplace/BuyerOrders';
+=======
+import VerifiedBadge from '../components/VerifiedBadge';
+>>>>>>> 0529f2f (The seller verfication feature is done)
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -289,6 +293,7 @@ const ProfilePage = () => {
         setProfile(prev => ({
           ...prev,
           profileImage: userData.profileImage || '',
+          isVerified: userData.sellerDetails?.isVerified || false,
         }));
       }
     } catch (error) {
@@ -1283,7 +1288,12 @@ const ProfilePage = () => {
                 </div>
               )}
               
-              <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+              <div className="flex items-center justify-center gap-1.5">
+                <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+                {profile.userType === 'Seller' && (
+                  <VerifiedBadge isVerified={profile.isVerified} size="md" />
+                )}
+              </div>
               <p className="text-[#a07855] text-sm truncate">{profile.email}</p>
 
               {/* Mobile menu toggle */}
@@ -1391,8 +1401,19 @@ const ProfilePage = () => {
                 
                 <div className="mt-6">
                   <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Account Type</h3>
-                  <div className="bg-gray-50 p-4 rounded">
+                  <div className="bg-gray-50 p-4 rounded flex items-center justify-between">
                     <p className="font-medium capitalize">{profile.userType || 'Standard User'}</p>
+                    {profile.userType === 'Seller' && (
+                      profile.isVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                          Verified Seller
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                          Status: Unverified
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
                 

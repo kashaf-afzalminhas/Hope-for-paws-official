@@ -21,6 +21,7 @@ import {
   Package,
   Clock,
 } from "lucide-react";
+import VerifiedBadge from "../components/VerifiedBadge";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
 const BRAND = {
@@ -114,7 +115,7 @@ function SellerCard({ seller }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-stone-900 truncate">{seller.name}</p>
-              {seller.verified && <CheckCircle2 size={13} style={{ color: BRAND.dark }} />}
+              <VerifiedBadge isVerified={seller.verified} size="md"/>
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <StarRow rating={seller.rating} size={12} />
@@ -207,10 +208,10 @@ export default function ProductDetails() {
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {
-            name: data.sellerId?.name || "Hope For Paws Seller",
+            name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
             rating: 4.9,
             totalSales: "1.2k",
-            verified: true,
+            verified: data.sellerId?.isVerified || false,
           },
           tags: [data.category, "Premium"],
           description: data.description || "No description provided.",
