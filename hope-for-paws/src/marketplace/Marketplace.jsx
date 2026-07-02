@@ -8,6 +8,7 @@ import {
   Truck, RotateCcw, Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
+import VerifiedBadge from "../components/VerifiedBadge";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -246,7 +247,7 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                   <span style={{ fontSize:10, color:C.brownSoft, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>{p.brand}</span>
                   <span style={{ width:3, height:3, borderRadius:"50%", backgroundColor:C.border }}/>
-                  <span style={{ fontSize:10, color:C.brownSoft }}>{p.seller}</span>
+                  <span style={{ fontSize:10, color:C.brownSoft, display:"inline-flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></span>
                 </div>
                 <h2 style={{ fontSize:20, fontWeight:800, color:C.brown, lineHeight:1.25, marginBottom:10 }}>{p.name}</h2>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -535,7 +536,7 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                   </button>
                 </div>
                 <div style={{ padding: "12px 13px 14px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-                  <p style={{ fontSize: 9, color: C.brownSoft, margin: 0, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>{p.seller}</p>
+                  <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
                   <p style={{ fontSize: 13, color: C.brown, margin: 0, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <Stars rating={p.rating} size={10} />
@@ -800,7 +801,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
         </div>
         <div style={{ flex:1, padding:"12px 14px", display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:9, color:C.brownSoft, margin:"0 0 3px", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase" }}>{p.brand}</p>
+            <p style={{ fontSize:9, color:C.brownSoft, margin:"0 0 3px", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.brand}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
             <p style={{ fontSize:13, color:C.brown, margin:"0 0 5px", fontWeight:600, lineHeight:1.3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
               <Stars rating={p.rating} size={10}/>
@@ -864,7 +865,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
 
       <div style={{ padding:"13px 14px 15px", display:"flex", flexDirection:"column", gap:5, flex:1 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase" }}>{p.seller}</p>
+          <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
           {p.badge && <Badge text={p.badge}/>}
         </div>
         <p style={{ fontSize:13, color:C.brown, margin:0, fontWeight:600, lineHeight:1.35 }}>{p.name}</p>
@@ -992,7 +993,8 @@ export default function Marketplace() {
             id: p._id,
             name: p.title,
             image: imageUrl,
-            seller: p.sellerId?.name || "Hope For Paws Seller",
+            seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
+            sellerVerified: p.sellerId?.isVerified || false,
             price: p.discountPrice || p.price,
             originalPrice: p.discountPrice ? p.price : null,
             rating: p.rating || 4.5,

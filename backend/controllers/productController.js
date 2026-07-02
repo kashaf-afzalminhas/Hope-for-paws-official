@@ -96,7 +96,7 @@ exports.listProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .sort(sortObj)
-      .populate('sellerId', 'userId name status')
+      .populate('sellerId', 'userId name status isVerified storeName')
       .lean();
 
     return res.json(products);
@@ -125,7 +125,7 @@ exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
-      .populate('sellerId', 'userId name status'); 
+      .populate('sellerId', 'userId name status isVerified storeName'); 
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);

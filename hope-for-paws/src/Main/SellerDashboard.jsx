@@ -21,7 +21,8 @@ ChartJS.register(
 );
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
-  Plus, Edit2, Trash2, X, AlertCircle, ChevronDown, Check, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play
+  Plus, Edit2, Trash2, X, AlertCircle, ChevronDown, Check, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
+  BadgeCheck, Clock
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 
@@ -53,6 +54,7 @@ const SellerDashboard = () => {
   });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [sellerProfile, setSellerProfile] = useState(null);
   
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
@@ -64,15 +66,19 @@ const SellerDashboard = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const [statsRes, productsRes, ordersRes] = await Promise.all([
+      const [statsRes, productsRes, ordersRes, profileRes] = await Promise.all([
         axios.get(`${API_URL}/dashboard-stats`, getAxiosConfig()),
         axios.get(`${API_URL}/products`, getAxiosConfig()),
-        axios.get(`${API_URL}/orders`, getAxiosConfig())
+        axios.get(`${API_URL}/orders`, getAxiosConfig()),
+        axios.get(`${API_URL}/me`, getAxiosConfig()).catch(() => null)
       ]);
       
       setStats(statsRes.data);
       setProducts(productsRes.data);
       setOrders(ordersRes.data);
+      if (profileRes?.data?.seller) {
+        setSellerProfile(profileRes.data.seller);
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. Please try again.');
@@ -167,7 +173,26 @@ const SellerDashboard = () => {
     <div className="w-full">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-[#6b493d] tracking-wide">Seller Dashboard</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <h1 className="text-4xl font-bold text-[#6b493d] tracking-wide">
+            {sellerProfile?.storeName || 'Seller Dashboard'}
+          </h1>
+
+          {/* Verification Badge */}
+          {sellerProfile && (
+            sellerProfile.isVerified ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
+                <BadgeCheck className="w-4 h-4 text-green-600" />
+                Verified Seller
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
+                <Clock className="w-3.5 h-3.5 text-red-600" />
+                Pending Review
+              </span>
+            )
+          )}
+        </div>
         <p className="text-gray-500 mt-2">Manage your marketplace presence and track performance.</p>
       </div>
 
