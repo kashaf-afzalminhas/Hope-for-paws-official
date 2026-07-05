@@ -6,6 +6,7 @@ import { AdoptionProvider } from './context/AdoptionContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
+import { WishlistProvider } from './context/WishlistContext';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -46,6 +47,7 @@ import AdminUserComments from './admin/AdminUserComments';
 import AdminPostComments from './admin/AdminPostComments';
 import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
+import ReportedItems from './admin/ReportedItems.jsx';
 
 // ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
 
@@ -53,6 +55,7 @@ import Marketplace from './marketplace/Marketplace.jsx';
 import ProductDetails from './marketplace/ProductDetails.jsx';
 import Cart from './marketplace/Cart.jsx';
 import Checkout from './marketplace/Checkout.jsx';
+import Wishlist from './marketplace/Wishlist.jsx';
 import BuyerOrders from './marketplace/BuyerOrders.jsx';
 import SellerOrders from './marketplace/SellerOrders.jsx';
 import ProtectedRoute from './Components/ProtectedRoute.jsx';
@@ -234,6 +237,7 @@ const AdminDashboardRoutes = () => {
         <Route path="comments/post/:postId" element={<AdminPostComments />} />
         <Route path="seller-requests" element={<AdminSellerRequests />} />
         <Route path="seller-request/:id" element={<AdminSellerDetail />} />
+        <Route path="reported-items" element={<ReportedItems />} />
       </Routes>
     </AdminDashboardLayout>
   );
@@ -276,6 +280,7 @@ const router = createBrowserRouter(
       <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Marketplace /></ProtectedRoute>} />
       <Route path="/product/:id" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><ProductDetails /></ProtectedRoute>} />
       <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
+      <Route path="/wishlist" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Wishlist /></ProtectedRoute>} />
       <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
       <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders/></ProtectedRoute>} />
     </Route>
@@ -284,8 +289,9 @@ const router = createBrowserRouter(
 
 const AppWithProviders = () => (
   <AuthProvider>
-    <CartProvider>
-      <AdoptionProvider>
+    <WishlistProvider>
+      <CartProvider>
+        <AdoptionProvider>
         <NotificationProvider>
           <MessageProvider>
             <RouterProvider router={router} />
@@ -293,6 +299,7 @@ const AppWithProviders = () => (
         </NotificationProvider>
       </AdoptionProvider>
     </CartProvider>
+    </WishlistProvider>
   </AuthProvider>
 );
 

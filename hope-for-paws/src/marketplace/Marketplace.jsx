@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../components/VerifiedBadge";
+import StarDisplay from "../components/StarDisplay";
+import { useWishlist } from "../context/WishlistContext";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -804,8 +806,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
             <p style={{ fontSize:9, color:C.brownSoft, margin:"0 0 3px", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.brand}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
             <p style={{ fontSize:13, color:C.brown, margin:"0 0 5px", fontWeight:600, lineHeight:1.3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-              <Stars rating={p.rating} size={10}/>
-              <span style={{ fontSize:10, color:C.brownSoft }}>{p.rating} · {p.reviews.toLocaleString()}</span>
+              <StarDisplay rating={p.rating} numReviews={p.reviews} size={10} />
             </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
@@ -870,8 +871,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
         </div>
         <p style={{ fontSize:13, color:C.brown, margin:0, fontWeight:600, lineHeight:1.35 }}>{p.name}</p>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <Stars rating={p.rating} size={10}/>
-          <span style={{ fontSize:10, color:C.brownSoft }}>{p.rating.toFixed(1)} ({p.reviews.toLocaleString()})</span>
+          <StarDisplay rating={p.rating} numReviews={p.reviews} size={10} />
         </div>
 
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto", paddingTop:10 }}>
@@ -958,10 +958,9 @@ export default function Marketplace() {
   const [sortOpen,    setSortOpen]   = useState(false);
   const [filterOpen,  setFilterOpen] = useState(false);
   const [listView,    setListView]   = useState(false);
-  const [favs,        setFavs]       = useState(new Set());
-  const [wishCount,   setWishCount]  = useState(0);
   const [toasts,      setToasts]     = useState([]);
   const { addToCart: ctxAddToCart, isInCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const cartNavigate = useNavigate();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
@@ -977,7 +976,7 @@ export default function Marketplace() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
         const res = await fetch(`${API_BASE}/api/products`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch products");
         const data = await res.json();
@@ -997,8 +996,8 @@ export default function Marketplace() {
             sellerVerified: p.sellerId?.isVerified || false,
             price: p.discountPrice || p.price,
             originalPrice: p.discountPrice ? p.price : null,
-            rating: p.rating || 4.5,
-            reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
+            rating: p.averageRating || 0,
+            reviews: p.numReviews || 0,
             pop: p.pop || Math.floor(Math.random() * 10000),
             isNew: p.isNew || Math.random() > 0.7,
           };
@@ -1033,14 +1032,12 @@ export default function Marketplace() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
   }, []);
 
-  const onFav = useCallback(id => {
-    setFavs(s => {
-      const n = new Set(s);
-      if (n.has(id)) { n.delete(id); setWishCount(c => Math.max(0,c-1)); }
-      else { n.add(id); setWishCount(c => c+1); addToast("fav", products.find(x=>x.id===id)?.name); }
-      return n;
-    });
-  }, [addToast, products]);
+  const onFav = useCallback(async (id) => {
+    const result = await toggleWishlist(id);
+    if (result.success && result.message.includes('added')) {
+      addToast("fav", products.find(x => x.id === id)?.name);
+    }
+  }, [toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
     const result = await ctxAddToCart(id, 1);
@@ -1098,8 +1095,8 @@ export default function Marketplace() {
       {/* ── HERO BANNER ── */}
       <HeroBanner query={query} setQuery={setQuery} isMobile={isMobile} />
 
-      {/* ── TOP PICKS FOR YOU ── */}
-      <TopPicks onFav={onFav} favs={favs} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={products} />
+      {/* Top Picks Slider */}
+      <TopPicks onFav={onFav} favs={{ has: isInWishlist }} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={products} />
 
       {/* ── STICKY CATEGORY + TOOLBAR ── */}
       <div style={{ position:"sticky", top:0, zIndex:150, backgroundColor:"rgba(245,240,232,0.96)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.borderSoft}` }}>
@@ -1176,13 +1173,13 @@ export default function Marketplace() {
             ) : listView ? (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {displayed.map((p, i) => (
-                  <ProductCard key={p.id} p={p} isFav={favs.has(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} listView animDelay={Math.min(i,8)*0.04}/>
+                  <ProductCard key={p.id} p={p} isFav={isInWishlist(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} listView animDelay={Math.min(i,8)*0.04}/>
                 ))}
               </div>
             ) : (
               <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:isMobile?10:16 }}>
                 {displayed.map((p, i) => (
-                  <ProductCard key={p.id} p={p} isFav={favs.has(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} animDelay={Math.min(i,12)*0.045}/>
+                  <ProductCard key={p.id} p={p} isFav={isInWishlist(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} animDelay={Math.min(i,12)*0.045}/>
                 ))}
               </div>
             )}
@@ -1191,7 +1188,7 @@ export default function Marketplace() {
       </div>
 
       <MobileSheet open={filterOpen} onClose={() => setFilterOpen(false)} filters={filters} setFilters={setFilters} brands={BRANDS} sellers={SELLERS} maxPrice={absoluteMaxPrice}/>
-      {quickView && <QuickView product={quickView} isFav={favs.has(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
+      {quickView && <QuickView product={quickView} isFav={isInWishlist(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
       <ToastStack toasts={toasts}/>
       <ScrollToTop visible={scrollY > 400}/>
     </div>

@@ -18,7 +18,7 @@ exports.createProduct = async (req, res) => {
 
     const { 
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, weight, ingredients, usageInstructions, expiryDate
+      brand, sku, discountPrice, additionalInfo
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
@@ -31,8 +31,14 @@ exports.createProduct = async (req, res) => {
     if (discountPrice && Number(discountPrice) >= Number(price)) {
       return res.status(400).json({ message: 'Discount price must be less than the regular price' });
     }
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      return res.status(400).json({ message: 'Expiry date must be in the future' });
+
+    let parsedAdditionalInfo = [];
+    if (additionalInfo) {
+      try {
+        parsedAdditionalInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+      } catch (e) {
+        console.error('Error parsing additionalInfo:', e);
+      }
     }
 
     let images = req.body.images || [];
@@ -53,10 +59,7 @@ exports.createProduct = async (req, res) => {
       brand,
       sku,
       discountPrice: discountPrice ? Number(discountPrice) : undefined,
-      weight,
-      ingredients,
-      usageInstructions,
-      expiryDate,
+      additionalInfo: parsedAdditionalInfo,
       images,
       status: 'active',
       isVisible: true
@@ -76,7 +79,8 @@ exports.createProduct = async (req, res) => {
 exports.listProducts = async (req, res) => {
   try {
     const { category, search, sort } = req.query;
-    let query = { isVisible: true };
+    // Strictly filter out hidden items (from automated moderation)
+    let query = { isVisible: true, isHidden: { $ne: true } };
 
     if (category && category !== 'All') {
       query.category = category;
@@ -176,7 +180,7 @@ exports.updateProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, weight, ingredients, usageInstructions, expiryDate
+      brand, sku, discountPrice, additionalInfo
     } = req.body;
 
     // Strict Validations
@@ -185,8 +189,19 @@ exports.updateProduct = async (req, res) => {
     if (discountPrice && Number(discountPrice) >= Number(price || product.price)) {
       return res.status(400).json({ message: 'Discount price must be less than the regular price' });
     }
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      return res.status(400).json({ message: 'Expiry date must be in the future' });
+
+    let parsedAdditionalInfo;
+    if (additionalInfo !== undefined) {
+      if (typeof additionalInfo === 'string') {
+        try {
+          parsedAdditionalInfo = JSON.parse(additionalInfo);
+        } catch (e) {
+          console.error('Error parsing additionalInfo:', e);
+          parsedAdditionalInfo = [];
+        }
+      } else {
+        parsedAdditionalInfo = additionalInfo;
+      }
     }
 
     // Validation & Index Safety: Prevent false-positive duplicate errors
@@ -212,10 +227,7 @@ exports.updateProduct = async (req, res) => {
     product.brand = brand || product.brand;
     product.sku = sku || product.sku;
     product.discountPrice = discountPrice ? Number(discountPrice) : product.discountPrice;
-    if (weight !== undefined) product.weight = weight;
-    if (ingredients !== undefined) product.ingredients = ingredients;
-    if (usageInstructions !== undefined) product.usageInstructions = usageInstructions;
-    if (expiryDate) product.expiryDate = expiryDate;
+    if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
 
     // Media Sync Logic
     let imagesToDelete = [];
