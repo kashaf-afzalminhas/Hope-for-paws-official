@@ -66,6 +66,10 @@ const sellerSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    warningCount: {
+      type: Number,
+      default: 0
+    },
     notes: {
       type: String,
       default: ''

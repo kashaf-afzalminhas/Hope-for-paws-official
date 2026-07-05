@@ -17,7 +17,9 @@ import {
   Sparkles,
   Copy,
   Check,
+  BadgeCheck,
 } from "lucide-react";
+import ReviewModal from "./ReviewModal";
 import { API_BASE_URL } from "../config";
 import { useNavigate } from "react-router-dom";
 
@@ -412,10 +414,13 @@ function OrderItem({ item }) {
 // ORDER CARD
 // ─────────────────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onCancel, showToast }) {
+function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview }) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showTracking, setShowTracking] = useState(false);
+
+  const orderId = order._id || order.id;
+  const isReviewed = reviewedOrders?.has(orderId);
 
   const cfg        = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
   const isPending  = order.status === "Pending";
@@ -615,14 +620,28 @@ function OrderCard({ order, onCancel, showToast }) {
               )}
 
               {isDelivered && !isCancelled && (
-                <button className="
-                  inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
-                  bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200
-                  hover:bg-amber-100 active:scale-95 transition-all duration-150
-                ">
-                  <Star size={12} className="fill-amber-400 text-amber-400" />
-                  Rate & Review
-                </button>
+                isReviewed ? (
+                  <span className="
+                    inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                    bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200
+                    cursor-default select-none
+                  ">
+                    <BadgeCheck size={12} className="text-emerald-500" />
+                    Reviewed
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onOpenReview(order)}
+                    className="
+                      inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                      bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200
+                      hover:bg-amber-100 active:scale-95 transition-all duration-150
+                    "
+                  >
+                    <Star size={12} className="fill-amber-400 text-amber-400" />
+                    Rate & Review
+                  </button>
+                )
               )}
 
               {!isCancelled && (
@@ -782,6 +801,28 @@ export default function MyOrdersPage() {
   const [loading, setLoading]     = useState(true);
   const { toast, showToast, dismissToast } = useToast();
 
+  // ── Review state ──
+  const [reviewedOrders, setReviewedOrders] = useState(new Set());
+  const [reviewModal, setReviewModal] = useState({ open: false, orderId: null, product: null });
+
+  const handleOpenReview = useCallback((order) => {
+    const firstItem = order.items?.[0];
+    setReviewModal({
+      open: true,
+      orderId: order._id || order.id,
+      product: firstItem ? {
+        productId: firstItem.productId,
+        title: firstItem.title,
+        image: firstItem.image,
+      } : null,
+    });
+  }, []);
+
+  const handleReviewSuccess = useCallback((orderId) => {
+    setReviewedOrders(prev => new Set(prev).add(orderId));
+    showToast("Review submitted! Thanks for your feedback.", "success");
+  }, [showToast]);
+
   // Inject global keyframe for toast
   useEffect(() => {
     if (document.getElementById("mo-styles")) return;
@@ -806,6 +847,25 @@ export default function MyOrdersPage() {
         const data = await res.json();
         if (res.ok) {
           setOrders(data);
+
+          // Check which delivered orders have already been reviewed
+          const deliveredIds = data
+            .filter(o => o.status === "Delivered")
+            .map(o => o._id || o.id);
+          
+          const reviewChecks = await Promise.allSettled(
+            deliveredIds.map(async (id) => {
+              const r = await fetch(`http://localhost:3000/api/reviews/check/${id}`);
+              const d = await r.json();
+              return d.reviewed ? id : null;
+            })
+          );
+          const already = new Set(
+            reviewChecks
+              .filter(r => r.status === "fulfilled" && r.value)
+              .map(r => r.value)
+          );
+          setReviewedOrders(already);
         } else {
           showToast(data.message || "Failed to load orders", "error");
         }
@@ -900,6 +960,8 @@ export default function MyOrdersPage() {
                   order={order}
                   onCancel={handleCancel}
                   showToast={showToast}
+                  reviewedOrders={reviewedOrders}
+                  onOpenReview={handleOpenReview}
                 />
               ))}
             </div>
@@ -916,6 +978,15 @@ export default function MyOrdersPage() {
           </p>
         </footer>
       </div>
+
+      {/* ── Review modal ── */}
+      <ReviewModal
+        isOpen={reviewModal.open}
+        onClose={() => setReviewModal({ open: false, orderId: null, product: null })}
+        orderId={reviewModal.orderId}
+        product={reviewModal.product}
+        onSuccess={handleReviewSuccess}
+      />
 
       {/* ── Global toast ── */}
       <Toast toast={toast} onDismiss={dismissToast} />

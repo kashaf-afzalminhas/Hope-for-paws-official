@@ -13,11 +13,7 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
-<<<<<<< HEAD
 import MyOrdersPage from '../marketplace/BuyerOrders';
-=======
-import VerifiedBadge from '../components/VerifiedBadge';
->>>>>>> 0529f2f (The seller verfication feature is done)
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -39,7 +35,7 @@ Toast.propTypes = {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, updateUser, logout } = useAuth(); // i made change here. 
+  const { user, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({
     name: '',
@@ -727,24 +723,26 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSignOut = async () => { //change here.
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const handleSignOut = async () => {
     try {
-      await fetch(`${AUTH_BASE_URL}/signout`, {
+      const response = await fetch(`${AUTH_BASE_URL}/signout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
+
+      if (response.ok) {
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        addToast('Signed out successfully!');
+        navigate('/signin');
+      } else {
+        addToast('Failed to sign out. Please try again.', 'error');
+      }
     } catch (error) {
-      console.error('Error during sign out (continuing local logout anyway):', error);
-    } finally {
-      logout();
-      addToast('Signed out successfully!');
-      navigate('/signin');
+      console.error('Error during sign out:', error);
+      addToast('An error occurred while signing out.', 'error');
     }
-  }; //till here.
+  };
 
   // 1. Add new sidebar links for the three pages
   const profileLinks = [
