@@ -74,9 +74,13 @@ const Login = () => {
             localStorage.setItem('rememberMe', 'true');
             localStorage.setItem('savedEmail', email);
             localStorage.setItem('savedPassword', password);
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
           } else {
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
           }
           
           // Check if phone verification is required

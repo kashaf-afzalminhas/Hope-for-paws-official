@@ -253,16 +253,15 @@ const verifyRegistrationOTP = async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    const userSafe = user.toObject();
+    delete userSafe.password;
+    const hasValidPhone = Boolean(userSafe.phone && !validateInternationalPhone(userSafe.phone));
+    userSafe.phoneVerified = Boolean(userSafe.phoneVerified) && hasValidPhone;
+
     res.status(200).json({
       message: 'Verified successfully.',
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        isSeller: user.isSeller,
-        sellerStatus: user.sellerStatus
-      }
+      user: userSafe,
     });
 
   } catch (error) {

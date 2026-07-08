@@ -103,11 +103,11 @@ const VerifyRegistration = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Store the token and user data
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-        }
+        // Clear any stale auth so sign-in stores a fresh session with full user data (incl. phone)
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setMessage('Email verified successfully! Redirecting to sign in...');
         setTimeout(() => navigate('/signin'), 2000);
       } else {
