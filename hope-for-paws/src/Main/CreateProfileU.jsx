@@ -13,7 +13,6 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
-import MyOrdersPage from '../marketplace/BuyerOrders';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -763,11 +762,7 @@ const ProfilePage = () => {
 
   // Only show 'My Orders' if user is NOT a seller (i.e. Buyer/Vet)
   if (!user?.isSeller && user?.role !== 'seller') {
-    profileLinks.push({
-      name: 'My Orders',
-      view: 'myorders',
-      icon: <FaShoppingBag />
-    });
+    profileLinks.push({ name: 'My Orders', external: true, path: '/my-orders', icon: <FaShoppingBag /> });
   }
 
   profileLinks.push(
@@ -1664,9 +1659,6 @@ const ProfilePage = () => {
             )}
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
             {currentView === 'myadoptions' && <MyAdoptions embedded />}
-            {currentView === 'myorders' && (
-                <MyOrdersPage embedded />
-            )}
             {currentView === 'myposts' && (
               <section className="min-h-screen py-4">
                 <div className="w-full">
