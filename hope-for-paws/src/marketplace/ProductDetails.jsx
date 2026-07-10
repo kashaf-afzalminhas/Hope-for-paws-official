@@ -326,6 +326,23 @@ export default function ProductDetails() {
     }
   };
 
+  const handleBuyNow = async () => {
+    if (addingToCart) return;
+    setAddingToCart(true);
+    const result = await addToCart(PRODUCT._id, qty);
+    setAddingToCart(false);
+    if (result.success) {
+      navigate('/checkout');
+    } else {
+      if (result.message?.includes('sign in')) {
+        alert('Please sign in to add items to your cart.');
+        navigate('/signin');
+      } else {
+        alert(result.message || 'Failed to add to cart');
+      }
+    }
+  };
+
   function ImageGallery({ images }) {
     const [active, setActive] = useState(0);
     const [imgErrors, setImgErrors] = useState({});
@@ -672,6 +689,7 @@ export default function ProductDetails() {
                 </button>
 
                 <button
+                  onClick={handleBuyNow}
                   className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98]"
                   style={{ borderColor: BRAND.dark, color: BRAND.dark, backgroundColor: "transparent" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND.light; }}
