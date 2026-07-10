@@ -11,7 +11,19 @@ import ImagePopupModal from './Components/ImagePopupModal';
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+  const getStoredUser = () => {
+    if (localStorage.getItem('token')) {
+      const user = localStorage.getItem('user');
+      if (user) return JSON.parse(user);
+    }
+    if (sessionStorage.getItem('token')) {
+      const user = sessionStorage.getItem('user');
+      if (user) return JSON.parse(user);
+    }
+    const legacy = localStorage.getItem('user') || sessionStorage.getItem('user');
+    return legacy ? JSON.parse(legacy) : null;
+  };
+  const user = getStoredUser();
   const [justVerifiedPhone, setJustVerifiedPhone] = useState(false);
 
   // 🚨 CHANGED HERE: Removed "&& user && user.isAdmin" to bypass the security check for your demo

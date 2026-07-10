@@ -44,12 +44,15 @@ const NotificationService = require('./services/notificationService');
 
 dotenv.config();
 console.log('MONGO_URI:', process.env.MONGO_URI);
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI, {
+  tls: true,
+  serverSelectionTimeoutMS: 30000,
+})
   .then(() => {
     console.log('MongoDB connected successfully');
   })
   .catch(err => {
-    console.error('MongoDB connection error:', err);
+    console.error('Failed to connect MongoDB:', err);
     console.error('Error details:', {
       name: err.name,
       message: err.message,
@@ -360,6 +363,6 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
