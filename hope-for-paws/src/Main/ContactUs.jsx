@@ -54,7 +54,7 @@ const ContactUs = () => {
 
   return (
     <section className="py-12 sm:py-16 bg-gradient-to-b from-[#2c1810] to-[#000000] text-white relative">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4 flex flex-col items-center lg:block">
         <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             <span className="text-[#6b493d]">Connect</span> With Compassion
@@ -69,7 +69,7 @@ const ContactUs = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-8 items-center w-full">
           {/* Left Section */}
           <div className="space-y-6 relative z-10">
             <div className="bg-[#ffffff08] p-6 rounded-2xl backdrop-blur-sm">
@@ -170,17 +170,17 @@ const ContactUs = () => {
         </div>
 
         {/* Cat Image Positioning */}
-        <div className="flex justify-center sm:absolute sm:-bottom-28 sm:left-0 sm:max-w-xl -mb-28 sm:mb-0">
+        <div className="hidden lg:flex justify-center lg:absolute lg:-bottom-28 lg:left-6 lg:max-w-xl">
           <img 
             src={ContactCat} 
             alt="Cat" 
-            className="w-full h-auto object-cover ml-0 sm:ml-24 -mb-1 sm:mb-0" 
+            className="w-full h-auto object-cover lg:ml-24 lg:mb-0" 
           />
         </div>
       </div>
 
       {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+      <div className="hidden lg:block absolute top-0 left-0 w-full h-full pointer-events-none">
         <div className="absolute top-20 right-20 w-24 h-24 bg-[#6b493d33] rounded-full blur-xl"></div>
         <div className="absolute bottom-40 left-10 w-32 h-32 bg-[#a0785533] rounded-full blur-xl"></div>
       </div>

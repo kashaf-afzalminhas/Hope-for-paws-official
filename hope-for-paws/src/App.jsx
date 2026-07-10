@@ -164,7 +164,7 @@ function App() {
     // </div>
     <>
       {/* <DisclaimerBanner /> */}
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen w-full overflow-x-hidden flex flex-col">
         {/* <ImagePopupModal /> */}
         {/* <RabiesAwarenessModal /> */}
         <RandomPopups />
