@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
 import { FaUser, FaPaw, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';
 import { useMessages } from '../context/MessageContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import React, { useState, useRef } from 'react';
+
+
 
 const Navbar = ({ handleSignOut }) => {
   const { user } = useAuth(); 
@@ -16,9 +18,18 @@ const Navbar = ({ handleSignOut }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  const handleMouseEnter = () => setIsHovered(true);
-  const handleMouseLeave = () => setIsHovered(false);
+
+  const hoverTimeout = useRef(null);
+  const handleMouseEnter = () => {
+    clearTimeout(hoverTimeout.current);
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeout.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 100);
+  };
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prevState) => !prevState);
@@ -208,8 +219,7 @@ const Navbar = ({ handleSignOut }) => {
 
                   {isHovered && (
                     <div
-                      className="absolute right-0 mt-3 w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"
-                      onMouseEnter={handleMouseEnter}
+                      className="absolute right-0 top-full mt-1 w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"                      onMouseEnter={handleMouseEnter}
                       onMouseLeave={handleMouseLeave}
                     >
                       <div className="flex justify-center mb-4">
