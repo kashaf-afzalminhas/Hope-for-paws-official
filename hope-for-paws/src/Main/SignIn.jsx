@@ -68,7 +68,7 @@ const Login = () => {
             window.location.reload();
             return;
           }
-          if (rememberMe) {
+          if (rememberMe) { // change here.
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
@@ -144,19 +144,25 @@ const Login = () => {
           setShowUserTypeModal(true);
           return;
         }
-        if (data.user && data.user.isAdmin) {
+       if (data.user && data.user.isAdmin) { //change here.
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
           navigate('/admin-dashboard');
           window.location.reload();
           return;
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        localStorage.removeItem('savedPassword');
         
         // Check if phone verification is required
         if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
+          // User will be redirected to phone verification by App.jsx (till here.)
           navigate("/");
           window.location.reload();
         } else {
@@ -197,19 +203,25 @@ const Login = () => {
       setLoading(false);
       setShowUserTypeModal(false);
       setPendingGoogleUser(null);
-      if (response.ok) {
+      if (response.ok) { // change here.
         if (data.user && data.user.isAdmin) {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
           navigate('/admin-dashboard');
           window.location.reload();
           return;
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        localStorage.removeItem('savedPassword');
         
         // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
+        if (!data.user.phone || !data.user.phoneVerified) { // till here.
           // User will be redirected to phone verification by App.jsx
           navigate("/");
           window.location.reload();

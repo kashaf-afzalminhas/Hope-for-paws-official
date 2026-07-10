@@ -35,7 +35,7 @@ Toast.propTypes = {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth(); // i made change here. 
 
   const [profile, setProfile] = useState({
     name: '',
@@ -722,26 +722,24 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = async () => { //change here.
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     try {
-      const response = await fetch(`${AUTH_BASE_URL}/signout`, {
+      await fetch(`${AUTH_BASE_URL}/signout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
-
-      if (response.ok) {
-        localStorage.removeItem('user');
-        sessionStorage.removeItem('user');
-        addToast('Signed out successfully!');
-        navigate('/signin');
-      } else {
-        addToast('Failed to sign out. Please try again.', 'error');
-      }
     } catch (error) {
-      console.error('Error during sign out:', error);
-      addToast('An error occurred while signing out.', 'error');
+      console.error('Error during sign out (continuing local logout anyway):', error);
+    } finally {
+      logout();
+      addToast('Signed out successfully!');
+      navigate('/signin');
     }
-  };
+  }; //till here.
 
   // 1. Add new sidebar links for the three pages
   const profileLinks = [
