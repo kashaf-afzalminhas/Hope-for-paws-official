@@ -14,6 +14,7 @@ import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
+import VerifiedBadge from '../Components/VerifiedBadge';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (

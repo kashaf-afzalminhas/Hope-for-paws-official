@@ -311,9 +311,11 @@ const deleteCommentForAdmin = async (req, res) => {
 const getAllUsersWithStats = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token provided' });
+    if (!token || token === 'null' || token === 'undefined') {
+      return res.status(401).json({ message: 'No token provided' });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const adminUser = await User.findById(decoded.id);
+    const adminUser = await User.findById(decoded.id || decoded.userId);
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     
     const users = await User.find({});
@@ -362,6 +364,9 @@ const getAllUsersWithStats = async (req, res) => {
       userStats: statsObject 
     });
   } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
     console.error('Error fetching users with stats:', error);
     res.status(500).json({ message: 'Server error' });
   }

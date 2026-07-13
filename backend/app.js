@@ -41,6 +41,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const aiAssistantRoutes = require('./routes/aiAssistantRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
@@ -319,6 +320,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ai', aiAssistantRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {
@@ -369,6 +371,6 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-// server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 

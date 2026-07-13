@@ -194,3 +194,64 @@ body {
 .smooth-scroll {
   scroll-behavior: smooth;
 }
+
+/* AI Assistant animations */
+@keyframes aiPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes aiBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-ai-pulse {
+  animation: aiPulse 2s ease-in-out infinite;
+}
+
+.animate-ai-bounce {
+  animation: aiBounce 0.6s ease-in-out infinite;
+}
+
+/* AI chat scrollbar */
+.ai-chat-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #8B5A2B #f5f0e1;
+}
+
+.ai-chat-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ai-chat-scrollbar::-webkit-scrollbar-track {
+  background: #f5f0e1;
+  border-radius: 2px;
+}
+
+.ai-chat-scrollbar::-webkit-scrollbar-thumb {
+  background: #8B5A2B;
+  border-radius: 2px;
+}
+
+.ai-chat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6F4C3E;
+}
+
+/* Dark mode support for AI assistant */
+@media (prefers-color-scheme: dark) {
+  .ai-dark-mode {
+    background-color: #1a1a1a;
+    color: #e0d0c0;
+  }
+}

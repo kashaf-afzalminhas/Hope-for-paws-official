@@ -13,7 +13,11 @@ const RATE_LIMIT_DELAY = 100; // 100ms between requests
 let lastRequestTime = 0;
 
 // Helper function to get token
-const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+const getToken = () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (!token || token === 'null' || token === 'undefined') return null;
+  return token;
+};
 
 // Helper function to check cache
 const getCachedData = (key) => {
@@ -91,6 +95,8 @@ export const adminAPI = {
     if (cached) return cached;
 
     const token = getToken();
+    if (!token) throw new Error('No authentication token');
+
     const response = await apiFetch(`${API_BASE_URL}/admin/users-with-stats`, {
       headers: { Authorization: `Bearer ${token}` }
     });

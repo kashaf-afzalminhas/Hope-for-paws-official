@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { AIAssistantProvider } from './context/AIAssistantContext';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -84,6 +85,14 @@ const AdminDashboardRoutes = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!admin || !admin.isAdmin) {
       navigate('/');
+      return;
+    }
+    if (!token || token === 'null' || token === 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      navigate('/signin');
       return;
     }
     
@@ -296,7 +305,9 @@ const AppWithProviders = () => (
         <AdoptionProvider>
         <NotificationProvider>
           <MessageProvider>
-            <RouterProvider router={router} />
+            <AIAssistantProvider>
+              <RouterProvider router={router} />
+            </AIAssistantProvider>
           </MessageProvider>
         </NotificationProvider>
       </AdoptionProvider>
