@@ -67,10 +67,14 @@ const productSchema = new mongoose.Schema(
       uppercase: true,
       trim: true
     },
-    discountPrice: {
+
+    discountPercentage: {
       type: Number,
-      min: 0
+      default: 0,
+      min: 0,
+      max: 100
     },
+    
     additionalInfo: {
       type: [{
         heading: { type: String, trim: true },

@@ -18,7 +18,7 @@ exports.createProduct = async (req, res) => {
 
     const { 
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, additionalInfo
+      brand, sku, discountPercentage, additionalInfo
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
@@ -28,8 +28,14 @@ exports.createProduct = async (req, res) => {
     // Strict Validations
     if (Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
 
     let parsedAdditionalInfo = [];
@@ -58,7 +64,8 @@ exports.createProduct = async (req, res) => {
       countInStock: Number(countInStock),
       brand,
       sku,
-      discountPrice: discountPrice ? Number(discountPrice) : undefined,
+      discountPercentage:
+        discountPercentage !== undefined ? Number(discountPercentage) : 0,
       additionalInfo: parsedAdditionalInfo,
       images,
       status: 'active',
@@ -180,14 +187,20 @@ exports.updateProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, additionalInfo
+      brand, sku, discountPercentage, additionalInfo
     } = req.body;
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (countInStock && Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price || product.price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
 
     let parsedAdditionalInfo;
@@ -226,7 +239,10 @@ exports.updateProduct = async (req, res) => {
     product.countInStock = countInStock !== undefined ? Number(countInStock) : product.countInStock;
     product.brand = brand || product.brand;
     product.sku = sku || product.sku;
-    product.discountPrice = discountPrice ? Number(discountPrice) : product.discountPrice;
+    product.discountPercentage =
+      discountPercentage !== undefined
+        ? Number(discountPercentage)
+        : product.discountPercentage;
     if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
 
     // Media Sync Logic

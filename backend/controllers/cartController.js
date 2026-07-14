@@ -4,7 +4,7 @@ const Product = require('../models/Product');
 // ─── Populate options for cart items ─────────────────────────────────────────
 const POPULATE_OPTS = {
   path: 'items.productId',
-  select: 'title price discountPrice images sellerId category brand weight countInStock',
+  select: 'title price discountPercentage images sellerId category brand weight countInStock',
   populate: {
     path: 'sellerId',
     select: 'name',

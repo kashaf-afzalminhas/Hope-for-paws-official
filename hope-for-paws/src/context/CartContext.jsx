@@ -24,12 +24,16 @@ const normalizeCart = (cart) => {
             ? p.images[0]
             : `http://localhost:3000${p.images[0]}`
           : "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80";
+      const discountPercentage = p.discountPercentage || 0;
+      const discountedPrice =
+        p.price - (p.price * discountPercentage) / 100;
+
       return {
         _id: item._id,
         productId: p._id,
         title: p.title,
-        price: p.discountPrice || p.price,
-        originalPrice: p.discountPrice ? p.price : null,
+        price: discountedPrice,
+        originalPrice: discountPercentage > 0 ? p.price : null,
         image,
         seller: p.sellerId?.name || 'Unknown Seller',
         category: p.category,
