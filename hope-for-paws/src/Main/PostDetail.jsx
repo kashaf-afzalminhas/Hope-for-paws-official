@@ -281,9 +281,12 @@ const PostDetail = () => {
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      {userr && (comment.userId?._id === userr._id || comment.userId?._id === userr.id) && (
-                        <button
-                          onClick={() => handleDeleteComment(comment._id)}
+                      {userr && (   // change here.
+  comment.userId?._id === userr._id || comment.userId?._id === userr.id ||
+  post.userId?._id === userr._id || post.userId?._id === userr.id
+) && (
+  <button
+    onClick={() => handleDeleteComment(comment._id)} // till here. 
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                           title="Delete comment"
                         >

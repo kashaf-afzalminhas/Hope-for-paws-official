@@ -1173,6 +1173,29 @@ const ProfilePage = () => {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
+const handleDeleteComment = async (commentId, postId) => {// change here.
+  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+
+  try {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setPosts(prev => prev.map(post => {
+      if (post._id === postId) {
+        return {
+          ...post,
+          comments: post.comments.filter((c) => c._id !== commentId),
+        };
+      }
+      return post;
+    }));
+  } catch (err) {
+    addToast('Failed to delete comment.', 'error');
+  }
+}; // till here. 
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1767,17 +1790,31 @@ const ProfilePage = () => {
                                 {expandedComments[post._id] && (
                                   <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
                                     {post.comments.length > 0 ? (
-                                      post.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words">
-                                          <p className="text-[#6b493d] font-medium break-words">
-                                            {comment.userId?.username || "Unknown User"}
-                                          </p>
-                                          <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                                    )}
+  post.comments.map((comment) => (  // change here.
+    <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
+      <div>
+        <p className="text-[#6b493d] font-medium break-words">
+          {comment.userId?.username || "Unknown User"}
+        </p>
+        <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
+      </div>
+      {user && (
+        comment.userId?._id === user._id || comment.userId?._id === user.id ||
+        post.userId?._id === user._id || post.userId?._id === user.id
+      ) && (
+        <button
+          onClick={() => handleDeleteComment(comment._id, post._id)}
+          className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+          title="Delete comment"
+        >
+          🗑️
+        </button>
+      )}
+    </div>
+  ))
+) : (
+  <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
+)} // till here.
                                   </div>
                                 )}
                               </div>
