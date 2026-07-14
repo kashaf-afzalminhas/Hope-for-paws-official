@@ -1,3 +1,4 @@
+import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 // ✅ ADDED FaStore to imports
