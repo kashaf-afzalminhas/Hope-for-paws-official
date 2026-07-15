@@ -160,37 +160,12 @@ if (io) {
 global.notificationService = notificationService;
 app.set('notificationService', notificationService);
 
-// Add timeout middleware
-app.use((req, res, next) => {
-  // Set timeout to 30 seconds
-  req.setTimeout(30000, () => {
-    res.status(504).json({ message: 'Request timeout' });
-  });
-  next();
-});
-
-// Helmet: HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:", "http://localhost:3000"],
-      connectSrc: ["'self'", ...ALLOWED_ORIGINS, "ws://localhost:5173", "ws://localhost:5174"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Allow cross-origin images from Cloudinary
-  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow images to be loaded by localhost:5173/5174
-}));
-
-// CORS configuration
+// CORS must run before other middleware so preflight and errors still get headers
 const corsOptions = {
   origin: ALLOWED_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
+    'Content-Type',
     'Authorization',
     'X-Requested-With',
     'Accept',
@@ -202,30 +177,46 @@ const corsOptions = {
   ],
   exposedHeaders: ['Content-Range', 'X-Content-Range', 'ETag'],
   credentials: true,
-  maxAge: 86400 // 24 hours
+  maxAge: 86400
 };
 
-// Apply CORS middleware
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Add headers middleware for all routes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (corsOptions.origin.includes(origin)) {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
   }
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
-  res.header('Access-Control-Max-Age', corsOptions.maxAge.toString());
-  
-  // Handle OPTIONS method
   if (req.method === 'OPTIONS') {
     return res.status(204).send();
   }
   next();
 });
+
+// Node HTTP request timeouts are not available in Lambda/serverless-http
+if (!IS_LAMBDA) {
+  app.use((req, res, next) => {
+    if (typeof req.setTimeout === 'function') {
+      req.setTimeout(30000, () => {
+        if (!res.headersSent) {
+          res.status(504).json({ message: 'Request timeout' });
+        }
+      });
+    }
+    next();
+  });
+}
+
+// Helmet: HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // API does not serve HTML; CSP breaks nothing useful and can confuse gateways
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // Increased from 1000 to 5000 requests per windowMs
@@ -236,8 +227,9 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for health checks and test endpoints
-    return req.path === '/health' || 
+    // Skip rate limiting for health checks, preflight, and test endpoints
+    return req.method === 'OPTIONS' ||
+           req.path === '/health' || 
            req.path === '/socket-health' || 
            req.path === '/api/notifications/test' ||
            req.path === '/api/test' ||
@@ -361,17 +353,22 @@ app.get('/api', (req, res) => {
 // Add error handling middleware at the end
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
-  
-  // Handle timeout errors
+
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
+  }
+
   if (err.name === 'TimeoutError') {
-    return res.status(504).json({ 
+    return res.status(504).json({
       message: 'Request timeout',
       error: 'The request took too long to process'
     });
   }
 
-  // Handle other errors
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: err.message || 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err : {}
   });
