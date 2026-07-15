@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HopeForPaws API on Lambda (REST only; Socket.IO disabled)
+
+Globals:
+  Function:
+    Timeout: 29
+    MemorySize: 1024
+    Runtime: nodejs20.x
+    Architectures:
+      - x86_64
+
+Parameters:
+  StageName:
+    Type: String
+    Default: prod
+  MongoUri:
+    Type: String
+    NoEcho: true
+  JwtSecret:
+    Type: String
+    NoEcho: true
+  CloudinaryCloudName:
+    Type: String
+    Default: ''
+  CloudinaryApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+  CloudinaryApiSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+  GmailUser:
+    Type: String
+    Default: ''
+  GmailPass:
+    Type: String
+    NoEcho: true
+    Default: ''
+  ChatbotKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+  AiModel:
+    Type: String
+    Default: google/gemini-2.5-flash
+  StripeSecretKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+  StripePublishableKey:
+    Type: String
+    Default: ''
+
+Resources:
+  HopeForPawsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref StageName
+      CorsConfiguration:
+        AllowOrigins:
+          - https://hopeforpawshub.co
+          - https://www.hopeforpawshub.co
+          - http://localhost:5173
+          - http://localhost:5174
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+          - Accept
+          - Origin
+          - Cache-Control
+          - If-None-Match
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowCredentials: true
+        MaxAge: 86400
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub hopeforpaws-api-${StageName}
+      CodeUri: ./
+      Handler: lambda.handler
+      Description: HopeForPaws Express REST API
+      Environment:
+        Variables:
+          NODE_ENV: production
+          RUNTIME: lambda
+          MONGO_URI: !Ref MongoUri
+          JWT_SECRET: !Ref JwtSecret
+          CLOUDINARY_CLOUD_NAME: !Ref CloudinaryCloudName
+          CLOUDINARY_API_KEY: !Ref CloudinaryApiKey
+          CLOUDINARY_API_SECRET: !Ref CloudinaryApiSecret
+          GMAIL_USER: !Ref GmailUser
+          GMAIL_PASS: !Ref GmailPass
+          Chatbot_key: !Ref ChatbotKey
+          AI_MODEL: !Ref AiModel
+          stripe_secret_key: !Ref StripeSecretKey
+          stripe_publishable_key: !Ref StripePublishableKey
+      Events:
+        ProxyHttp:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HopeForPawsApi
+            Path: /{proxy+}
+            Method: ANY
+        RootHttp:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HopeForPawsApi
+            Path: /
+            Method: ANY
+      Policies:
+        - CloudWatchLogsFullAccess
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL for the HopeForPaws API
+    Value: !Sub https://${HopeForPawsApi}.execute-api.${AWS::Region}.amazonaws.com
+  ApiId:
+    Description: HTTP API ID (use with custom domain api.hopeforpawshub.co)
+    Value: !Ref HopeForPawsApi
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt ApiFunction.Arn

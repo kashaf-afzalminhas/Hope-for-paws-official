@@ -20,13 +20,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          BACKEND_AWS_REGION: ${{ secrets.BACKEND_AWS_REGION }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           JWT_EXPIRE: ${{ secrets.JWT_EXPIRE }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
         run: |
           set -e
-          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION MONGODB_URI JWT_EXPIRE FRONTEND_URL; do
+          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKEND_AWS_REGION MONGODB_URI JWT_EXPIRE FRONTEND_URL; do
             if [ -z "${!v}" ]; then
               echo "::error::Missing GitHub Actions secret: ${v}"
               exit 1
@@ -51,7 +51,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.BACKEND_AWS_REGION }}
 
       - name: Deploy to Lambda
         working-directory: backend

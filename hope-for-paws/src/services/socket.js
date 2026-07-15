@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, SOCKET_ENABLED } from '../config';
 
 let socket = null;
 let notificationCallback = null;
@@ -11,6 +11,11 @@ let reconnectTimeout = null;
 
 // Initialize socket connection
 export const initSocket = (userId) => {
+  if (!SOCKET_ENABLED) {
+    console.log('Socket.IO disabled in this environment (Lambda API uses REST polling)');
+    return null;
+  }
+
   // Prevent multiple socket initializations
   if (socket && socket.connected) {
     console.log('✅ Socket already connected, reusing existing connection');

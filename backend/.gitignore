@@ -1,1 +1,7 @@
 .vercel
+.lambda-pack/
+hopeforpaws-lambda.zip
+.env
+.env.*
+!.env.example
+!lambda.env.example

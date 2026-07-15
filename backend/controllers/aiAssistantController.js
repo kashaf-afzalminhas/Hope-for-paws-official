@@ -54,7 +54,7 @@ const callAIAPI = async (messages) => {
         headers: {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://hopeforpaws.club',
+          'HTTP-Referer': 'https://hopeforpawshub.co',
           'X-Title': 'HopeForPaws AI Assistant',
         },
         timeout: 30000,

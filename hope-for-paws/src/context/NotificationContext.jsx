@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, SOCKET_ENABLED } from '../config';
 import axios from 'axios';
 import { getSocket, initSocket, getSocketStatus } from '../services/socket';
 
 const NotificationContext = createContext();
+const POLL_INTERVAL_MS = 20000;
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -23,111 +24,108 @@ export const NotificationProvider = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
   
-  // Use refs to prevent multiple initializations
   const initializationRef = useRef(false);
   const pollingRef = useRef(null);
 
-  // Initialize socket connection (shared with chat) and register listeners
+  // Socket.IO on localhost only; production Lambda uses REST polling
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+    const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
 
-    if (token && user && !initializationRef.current) {
-      initializationRef.current = true;
-      
-      // First check if backend is available
-      const checkBackendHealth = async () => {
-        try {
-          // Fix the health endpoint URL - remove /api from the base URL
-          const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
-          await axios.get(healthUrl, { timeout: 5000 });
-          console.log('Backend is available, starting notification system');
-          return true;
-        } catch (error) {
-          console.log('Backend not available:', error.message);
-          setError('Backend service not available');
-          return false;
-        }
-      };
+    if (!token || !user || initializationRef.current) {
+      return undefined;
+    }
+    initializationRef.current = true;
 
-      const initializeNotificationSystem = async () => {
-        const backendAvailable = await checkBackendHealth();
-        if (!backendAvailable) {
+    const checkBackendHealth = async () => {
+      try {
+        const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+        await axios.get(healthUrl, { timeout: 5000 });
+        return true;
+      } catch (err) {
+        console.log('Backend not available:', err.message);
+        setError('Backend service not available');
+        return false;
+      }
+    };
+
+    const startPolling = () => {
+      if (pollingRef.current) return;
+      pollingRef.current = setInterval(() => {
+        fetchUnreadCount();
+        fetchNotifications(1, 20);
+      }, POLL_INTERVAL_MS);
+    };
+
+    const initializeNotificationSystem = async () => {
+      const backendAvailable = await checkBackendHealth();
+      if (!backendAvailable) {
+        setIsInitialized(true);
+        return;
+      }
+
+      if (!SOCKET_ENABLED) {
+        console.log('Socket.IO disabled — using REST polling for notifications');
+        setSocketConnected(false);
+        setIsInitialized(true);
+        startPolling();
+        return;
+      }
+
+      try {
+        const existing = getSocket();
+        const userId = user?.id || user?._id;
+        const socketInstance = existing || initSocket(userId);
+
+        if (!socketInstance) {
           setIsInitialized(true);
+          startPolling();
           return;
         }
 
-        const connectSocket = () => {
-          try {
-            const existing = getSocket();
-            const userId = user?.id || user?._id;
-            const socketInstance = existing || initSocket(userId);
+        const handleConnect = () => {
+          setSocketConnected(true);
+          setIsInitialized(true);
+        };
 
-            if (!socketInstance) {
-              console.error('Failed to initialize socket instance');
-              setIsInitialized(true);
-              return null;
-            }
+        const handleDisconnect = () => {
+          setSocketConnected(false);
+          startPolling();
+        };
 
-            const handleConnect = () => {
-              console.log('NotificationContext: socket connected');
-              setSocketConnected(true);
-              setIsInitialized(true);
-            };
-
-            const handleDisconnect = () => {
-              console.log('NotificationContext: socket disconnected');
-              setSocketConnected(false);
-            };
-
-            const handleNotification = (notification) => {
-              console.log('New notification received:', notification);
-              setNotifications(prev => [{ ...notification, read: false }, ...prev]);
-              setUnreadCount(prev => prev + 1);
-              if (Notification.permission === 'granted') {
-                new Notification(notification.title, {
-                  body: notification.message,
-                  icon: '/hfplogo.png'
-                });
-              }
-            };
-
-            // Register listeners
-            socketInstance.on('connect', handleConnect);
-            socketInstance.on('disconnect', handleDisconnect);
-            socketInstance.on('notification', handleNotification);
-
-            // Reflect current status immediately
-            const status = getSocketStatus();
-            setSocketConnected(status === 'connected');
-            setIsInitialized(true);
-
-            // Cleanup
-            return () => {
-              socketInstance.off('connect', handleConnect);
-              socketInstance.off('disconnect', handleDisconnect);
-              socketInstance.off('notification', handleNotification);
-            };
-          } catch (error) {
-            console.error('Error establishing shared socket:', error);
-            setIsInitialized(true);
-            return null;
+        const handleNotification = (notification) => {
+          setNotifications((prev) => [{ ...notification, read: false }, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.message,
+              icon: '/hfplogo.png',
+            });
           }
         };
 
-        const cleanup = connectSocket();
+        socketInstance.on('connect', handleConnect);
+        socketInstance.on('disconnect', handleDisconnect);
+        socketInstance.on('notification', handleNotification);
 
-        return () => {
-          if (typeof cleanup === 'function') cleanup();
-        };
-      };
+        setSocketConnected(getSocketStatus() === 'connected');
+        setIsInitialized(true);
+        startPolling();
+      } catch (err) {
+        console.error('Error establishing socket; falling back to polling:', err);
+        setIsInitialized(true);
+        startPolling();
+      }
+    };
 
-      initializeNotificationSystem();
-    }
+    initializeNotificationSystem();
 
-    // Cleanup function
     return () => {
       initializationRef.current = false;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     };
   }, []);
 
@@ -178,12 +176,10 @@ export const NotificationProvider = ({ children }) => {
       // Handle different error types
       if (err.response?.status === 404) {
         setError('Notification service not available');
-        // Stop polling if backend is not available
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
-        setUsePolling(false);
       } else if (err.response?.status === 429) {
         setRateLimited(true);
         setError('Too many requests. Please wait a moment.');

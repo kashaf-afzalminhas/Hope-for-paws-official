@@ -14,11 +14,8 @@ const helmet = require('helmet');
 const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-// const http = require('http');
-// const initSocket = require('./config/socket');
+const { ALLOWED_ORIGINS } = require('./config/allowedOrigins');
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -28,7 +25,6 @@ const faqRoutes = require('./routes/faqRoutes');
 const contactusRoutes = require('./routes/contactRoutes'); // Ensure this is correctly imported
 const notificationRoutes = require('./routes/notifications');
 const notificationStatsRoutes = require('./routes/notificationStats');
-const { initChatReminderWorker } = require('./queues/chatEmailQueue');
 const rateLimit = require('express-rate-limit');
 const messageRoutes = require('./routes/message');
 const conversationRoutes = require('./routes/conversation');
@@ -47,107 +43,118 @@ const aiAssistantRoutes = require('./routes/aiAssistantRoutes');
 const NotificationService = require('./services/notificationService');
 
 dotenv.config();
-console.log('MONGO_URI:', process.env.MONGO_URI);
-mongoose.connect(process.env.MONGO_URI, {
-  tls: true,
-  serverSelectionTimeoutMS: 30000,
-})
-  .then(() => {
-    console.log('MongoDB connected successfully');
+
+const IS_LAMBDA =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+
+console.log('MONGO_URI:', process.env.MONGO_URI ? '[configured]' : '[missing]');
+
+if (process.env.MONGO_URI) {
+  mongoose.connect(process.env.MONGO_URI, {
+    tls: true,
+    serverSelectionTimeoutMS: 30000,
   })
-  .catch(err => {
-    console.error('Failed to connect MongoDB:', err);
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      stack: err.stack
+    .then(() => {
+      console.log('MongoDB connected successfully');
+    })
+    .catch(err => {
+      console.error('Failed to connect MongoDB:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        code: err.code,
+      });
     });
-  });
+} else {
+  console.warn('MONGO_URI not set yet — connection will be established by the Lambda handler');
+}
 
 const app = express();
+
+// Required behind API Gateway / CloudFront so rate-limit & IPs work
+app.set('trust proxy', true);
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-// const server = http.createServer(app);
 
-// Initialize Socket.IO
-// const io = initSocket(server);
-const server = createServer(app);
+let server = null;
+let io = null;
 
-// Socket.IO setup
-const io = new Server(server, {
-  cors: {
-    origin: [
-      'https://www.hopeforpaws.club',
-      'http://localhost:5173',
-      'http://localhost:5174'
-     
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  transports: ['polling', 'websocket'],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  upgradeTimeout: 10000,
-  maxHttpBufferSize: 1e6
-});
+// Socket.IO only for local / traditional Node hosting — not available on Lambda
+if (!IS_LAMBDA) {
+  const { createServer } = require('http');
+  const { Server } = require('socket.io');
 
-// Initialize notification service
+  server = createServer(app);
+  io = new Server(server, {
+    cors: {
+      origin: ALLOWED_ORIGINS,
+      methods: ['GET', 'POST'],
+      credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e6
+  });
+}
+
+// Initialize notification service (works with or without Socket.IO)
 const notificationService = new NotificationService(io);
 
-// Attach Socket.IO instance to Express app so it can be accessed in controllers
-app.set("socketio", io);
+if (io) {
+  app.set('socketio', io);
 
-// Socket.IO authentication middleware
-io.use((socket, next) => {
-  try {
-    const token = socket.handshake.auth.token;
-    console.log('Socket.IO token received:', token); // Debug log
-    if (!token) {
-      console.log('Socket connection attempt without token');
-      return next(new Error('Authentication error: No token provided'));
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth.token;
+      console.log('Socket.IO token received:', token ? '[present]' : '[missing]');
+      if (!token) {
+        console.log('Socket connection attempt without token');
+        return next(new Error('Authentication error: No token provided'));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId || decoded.id;
+      if (!userId) {
+        console.log('Socket connection attempt with invalid token');
+        return next(new Error('Authentication error: Invalid token'));
+      }
+      socket.userId = userId;
+      console.log('Socket authentication successful for user:', socket.userId);
+      next();
+    } catch (error) {
+      console.error('Socket authentication error:', error.message);
+      return next(new Error('Authentication error: ' + error.message));
     }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId || decoded.id; // Accept either field
-    if (!userId) {
-      console.log('Socket connection attempt with invalid token');
-      return next(new Error('Authentication error: Invalid token'));
-    }
-    socket.userId = userId;
-    console.log('Socket authentication successful for user:', socket.userId);
-    next();
-  } catch (error) {
-    console.error('Socket authentication error:', error.message);
-    return next(new Error('Authentication error: ' + error.message));
-  }
-});
-
-// Socket.IO connection handling
-initChatReminderWorker(notificationService);
-
-io.on('connection', async (socket) => {
-  console.log('User connected via Socket.IO:', socket.userId);
-  
-  // Add user to notification service
-  await notificationService.addUserSocket(socket.userId, socket.id);
-
-  socket.on('disconnect', async (reason) => {
-    console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
-    await notificationService.removeUserSocket(socket.userId);
   });
 
-  socket.on('error', (error) => {
-    console.error('Socket error for user:', socket.userId, error);
-  });
+  const { initChatReminderWorker } = require('./queues/chatEmailQueue');
+  initChatReminderWorker(notificationService);
 
-  // Setup socket handlers for chat functionality
-  const { setupSocketHandlers } = require('./services/socketHandler');
-  setupSocketHandlers(io, socket, notificationService);
-});
+  io.on('connection', async (socket) => {
+    console.log('User connected via Socket.IO:', socket.userId);
+
+    await notificationService.addUserSocket(socket.userId, socket.id);
+
+    socket.on('disconnect', async (reason) => {
+      console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
+      await notificationService.removeUserSocket(socket.userId);
+    });
+
+    socket.on('error', (error) => {
+      console.error('Socket error for user:', socket.userId, error);
+    });
+
+    const { setupSocketHandlers } = require('./services/socketHandler');
+    setupSocketHandlers(io, socket, notificationService);
+  });
+} else {
+  console.log('[Lambda] Socket.IO disabled — clients should use REST polling for notifications');
+}
 
 // Make notification service available globally
 global.notificationService = notificationService;
@@ -171,7 +178,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:", "http://localhost:3000"],
-      connectSrc: ["'self'", "https://www.hopeforpaws.club", "http://localhost:5173", "http://localhost:5174", "ws://localhost:5173", "ws://localhost:5174"],
+      connectSrc: ["'self'", ...ALLOWED_ORIGINS, "ws://localhost:5173", "ws://localhost:5174"],
     },
   },
   crossOriginEmbedderPolicy: false, // Allow cross-origin images from Cloudinary
@@ -180,13 +187,7 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'https://www.hopeforpaws.club',
-
-    'http://localhost:5173',
-    'http://localhost:5174',
-
-  ],
+  origin: ALLOWED_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type', 
@@ -282,7 +283,10 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const uploadsStaticRoot = IS_LAMBDA
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsStaticRoot));
 
 // Add route logging middleware
 app.use((req, res, next) => {
@@ -334,14 +338,17 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    connections: req.app.get('socketio') ? req.app.get('socketio').engine.clientsCount : 0
+    runtime: IS_LAMBDA ? 'lambda' : 'node',
+    socketEnabled: !!io,
+    connections: io ? io.engine.clientsCount : 0
   });
 });
 
 // Socket.IO health check
 app.get('/socket-health', (req, res) => {
   res.json({ 
-    socketConnections: io.engine.clientsCount,
+    socketEnabled: !!io,
+    socketConnections: io ? io.engine.clientsCount : 0,
     notificationServiceActive: !!notificationService
   });
 });
@@ -370,7 +377,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+if (!IS_LAMBDA) {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
-
+module.exports = app;

@@ -72,8 +72,9 @@ class NotificationService {
     return this.getUserSocket(userId);
   }
 
-  // Send real-time notification
+  // Send real-time notification (no-op on Lambda when Socket.IO is disabled)
   async sendRealTimeNotification(userId, notificationData) {
+    if (!this.io) return;
     const socketId = this.getUserSocket(userId);
     if (socketId) {
       this.io.to(socketId).emit('notification', notificationData);
@@ -376,7 +377,7 @@ class NotificationService {
               ${previewHtml}
             </div>
             <div style="text-align: center; margin: 30px 0 10px;">
-              <a href="${process.env.FRONTEND_URL || 'https://hope-for-paws-official.vercel.app'}/chat"
+              <a href="${process.env.FRONTEND_URL || 'https://hopeforpawshub.co'}/chat"
                  style="background-color: #6b493d; color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; display: inline-block; font-weight: bold;">
                 Open Chat
               </a>

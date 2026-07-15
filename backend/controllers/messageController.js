@@ -103,32 +103,37 @@ exports.sendMessage = async (req, res) => {
             conversationId: conversationId.toString(),
             status: "sent"
           });
-
-          // Send email notifications to other participants
-          const notificationServiceInstance =
-            global.notificationService || new NotificationService(io);
-          updatedConversation.participants.forEach(async (participantId) => {
-            if (participantId.toString() !== senderId.toString()) {
-              try {
-                await notificationServiceInstance.notifyChatMessage(
-                  conversationId,
-                  savedMessage._id,
-                  senderId,
-                  text,
-                  participantId
-                );
-                console.log('📧 Email notification sent to participant:', participantId);
-              } catch (notificationError) {
-                console.error('❌ Error sending chat notification:', notificationError);
-              }
-            }
-          });
         }
       } catch (emitError) {
         console.error('❌ Error emitting socket event:', emitError);
       }
-    } else {
-      console.warn('⚠️ Socket.io not available for message emission');
+    }
+
+    // Persist chat notifications even when Socket.IO is disabled (Lambda)
+    try {
+      const updatedConversation =
+        await Conversation.findById(conversationId);
+      if (updatedConversation) {
+        const notificationServiceInstance =
+          global.notificationService || new NotificationService(io);
+        for (const participantId of updatedConversation.participants) {
+          if (participantId.toString() !== senderId.toString()) {
+            try {
+              await notificationServiceInstance.notifyChatMessage(
+                conversationId,
+                savedMessage._id,
+                senderId,
+                text,
+                participantId
+              );
+            } catch (notificationError) {
+              console.error('❌ Error sending chat notification:', notificationError);
+            }
+          }
+        }
+      }
+    } catch (notificationSetupError) {
+      console.error('❌ Error setting up chat notifications:', notificationSetupError);
     }
 
     res.status(201).json({ 

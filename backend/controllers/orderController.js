@@ -142,7 +142,6 @@ exports.getSellerOrders = async (req, res) => {
     res.status(200).json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
-    require('fs').writeFileSync('seller_orders_error.log', String(error.stack || error));
     res.status(500).json({ message: 'Server error' });
   }
 };
