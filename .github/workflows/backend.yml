@@ -21,12 +21,13 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           BACKEND_AWS_REGION: ${{ secrets.BACKEND_AWS_REGION }}
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          JWT_EXPIRE: ${{ secrets.JWT_EXPIRE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
         run: |
           set -e
-          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKEND_AWS_REGION MONGODB_URI JWT_EXPIRE FRONTEND_URL; do
+          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKEND_AWS_REGION LAMBDA_FUNCTION_NAME MONGODB_URI JWT_SECRET FRONTEND_URL; do
             if [ -z "${!v}" ]; then
               echo "::error::Missing GitHub Actions secret: ${v}"
               exit 1
@@ -37,14 +38,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Install Dependencies
+      - name: Pack Lambda zip
         working-directory: backend
-        run: npm install
-
-      - name: Install Serverless
-        # Use Serverless v3 to avoid the v4+ license/login requirement in CI
-        run: npm install -g serverless@3
+        run: bash scripts/pack-lambda.sh
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -53,10 +52,80 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.BACKEND_AWS_REGION }}
 
-      - name: Deploy to Lambda
+      - name: Update Lambda function code
         working-directory: backend
         env:
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+        run: |
+          aws lambda update-function-code \
+            --function-name "${LAMBDA_FUNCTION_NAME}" \
+            --zip-file "fileb://hopeforpaws-lambda.zip"
+
+      - name: Wait for Lambda code update
+        env:
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+        run: |
+          aws lambda wait function-updated --function-name "${LAMBDA_FUNCTION_NAME}"
+
+      - name: Update Lambda environment variables
+        env:
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_EXPIRE: ${{ secrets.JWT_EXPIRE }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
-        run: serverless deploy
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
+          Chatbot_key: ${{ secrets.Chatbot_key }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          stripe_secret_key: ${{ secrets.stripe_secret_key }}
+          stripe_publishable_key: ${{ secrets.stripe_publishable_key }}
+          ABSTRACT_API_KEY: ${{ secrets.ABSTRACT_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          CURRENT_ENV=$(aws lambda get-function-configuration \
+            --function-name "${LAMBDA_FUNCTION_NAME}" \
+            --query 'Environment.Variables' \
+            --output json)
+
+          export CURRENT_ENV
+          python3 - <<'PY' > /tmp/lambda-env.json
+          import json, os
+
+          current = json.loads(os.environ.get("CURRENT_ENV") or "{}")
+          if current is None:
+              current = {}
+
+          def set_if(key, env_key=None):
+              env_key = env_key or key
+              val = os.environ.get(env_key)
+              if val:
+                  current[key] = val
+
+          current["RUNTIME"] = "lambda"
+          current["NODE_ENV"] = "production"
+          set_if("MONGO_URI", "MONGODB_URI")
+          set_if("JWT_SECRET")
+          set_if("JWT_EXPIRE")
+          set_if("FRONTEND_URL")
+          set_if("CLOUDINARY_CLOUD_NAME")
+          set_if("CLOUDINARY_API_KEY")
+          set_if("CLOUDINARY_API_SECRET")
+          set_if("GMAIL_USER")
+          set_if("GMAIL_PASS")
+          set_if("Chatbot_key")
+          set_if("AI_MODEL")
+          set_if("stripe_secret_key")
+          set_if("stripe_publishable_key")
+          set_if("ABSTRACT_API_KEY")
+
+          print(json.dumps({"Variables": current}))
+          PY
+
+          aws lambda update-function-configuration \
+            --function-name "${LAMBDA_FUNCTION_NAME}" \
+            --environment "file:///tmp/lambda-env.json"

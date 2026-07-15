@@ -25,7 +25,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           FRONTEND_AWS_REGION: ${{ secrets.FRONTEND_AWS_REGION }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
           set -e
           for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY FRONTEND_AWS_REGION S3_BUCKET_NAME; do
@@ -39,17 +38,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: hope-for-paws/package-lock.json
 
       - name: Install Dependencies
-        working-directory: frontend
-        run: npm install
+        working-directory: hope-for-paws
+        run: npm ci
 
       - name: Build Frontend
-        working-directory: frontend
-        # Disable treating lint warnings as fatal in CI so deploy can proceed
+        working-directory: hope-for-paws
         env:
           CI: false
-          REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
         run: npm run build
 
       - name: Configure AWS credentials
@@ -61,7 +60,7 @@ jobs:
 
       - name: Deploy to S3
         run: |
-          aws s3 sync frontend/build "s3://${S3_BUCKET_NAME}" --delete
+          aws s3 sync hope-for-paws/dist "s3://${S3_BUCKET_NAME}" --delete
 
       - name: Invalidate CloudFront Cache
         if: ${{ env.CLOUDFRONT_DISTRIBUTION_ID != '' }}
