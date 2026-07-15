@@ -5,8 +5,8 @@ import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAl
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
-import AdoptionCard from '../components/adoption/AdoptionCard';
-import { adoptionGridClass } from '../components/adoption/adoptionTheme';
+import AdoptionCard from '../Components/adoption/AdoptionCard';
+import { adoptionGridClass } from '../Components/adoption/adoptionTheme';
 
 const PublicProfilePage = () => {
   const { userId } = useParams();

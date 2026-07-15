@@ -4,11 +4,11 @@ import { Check, X, Eye, EyeOff, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useNavigate } from 'react-router-dom';
-import { AppToastContainer, useAppToast } from '../components/AppToast';
+import { AppToastContainer, useAppToast } from '../Components/AppToast';
 import {
   getAdoptionRequesterId,
   getAdoptionRequesterName,
-} from '../components/adoption/adoptionTheme';
+} from '../Components/adoption/adoptionTheme';
 
 const RequestChatButton = ({ request, currentUserId, onChat, variant = 'compact' }) => {
   const requesterId = getAdoptionRequesterId(request);

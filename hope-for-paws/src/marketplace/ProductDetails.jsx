@@ -22,8 +22,8 @@ import {
   Clock,
   BadgeCheck,
 } from "lucide-react";
-import VerifiedBadge from "../components/VerifiedBadge";
-import StarDisplay from "../components/StarDisplay";
+import VerifiedBadge from "../Components/VerifiedBadge";
+import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import ReportModal from "./ReportModal";

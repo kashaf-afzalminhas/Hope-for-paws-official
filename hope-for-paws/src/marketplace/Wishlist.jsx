@@ -3,8 +3,8 @@ import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { HeartCrack, ShoppingCart, Trash2, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import StarDisplay from '../components/StarDisplay';
-import VerifiedBadge from '../components/VerifiedBadge';
+import StarDisplay from '../Components/StarDisplay';
+import VerifiedBadge from '../Components/VerifiedBadge';
 import { API_BASE_URL } from '../config';
 
 const C = {

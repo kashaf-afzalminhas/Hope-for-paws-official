@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
-import AdoptionHistoryCard from '../components/adoption/AdoptionHistoryCard';
-import { adoptionGridClass } from '../components/adoption/adoptionTheme';
+import AdoptionHistoryCard from '../Components/adoption/AdoptionHistoryCard';
+import { adoptionGridClass } from '../Components/adoption/adoptionTheme';
 
 const AdoptionHistory = () => {
   const [history, setHistory] = useState([]);
