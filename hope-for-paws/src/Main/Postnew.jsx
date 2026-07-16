@@ -379,14 +379,18 @@ const Postnew = () => {
                 </div>
               )}
             </div>
-            {user && comment.userId?._id === user.id && (
-              <button
-                onClick={() => handleDeleteComment(comment._id, postId)}
-                className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
-              >
-                <Trash2 className="h-4 w-4 text-[#6b493d]" />
-              </button>
-            )}
+            {user && (
+  comment.userId?._id === user.id || comment.userId?._id === user._id ||
+  posts.find(p => p._id === postId)?.userId?._id === user.id ||
+  posts.find(p => p._id === postId)?.userId?._id === user._id
+) && (
+  <button
+    onClick={() => handleDeleteComment(comment._id, postId)}
+    className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
+  >
+    <Trash2 className="h-4 w-4 text-[#6b493d]" />
+  </button>
+)}
           </div>
           {/* Render replies with incremented depth */}
           <div className="ml-8 mt-2">
