@@ -424,6 +424,7 @@ const SellerDashboard = () => {
                     <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <th className="p-4 font-medium">Product</th>
                       <th className="p-4 font-medium">Category</th>
+                      <th className="p-4 font-medium">Discount</th>
                       <th className="p-4 font-medium">Price</th>
                       <th className="p-4 font-medium">Stock</th>
                       <th className="p-4 font-medium">Status</th>
@@ -446,7 +447,26 @@ const SellerDashboard = () => {
                           </div>
                         </td>
                         <td className="p-4 text-gray-500 text-sm">{product.category || 'N/A'}</td>
-                        <td className="p-4 text-gray-900 font-medium">Rs. {product.price.toLocaleString()}</td>
+                        <td className="p-4 text-gray-500 text-sm">{product.discountPercentage || 0}%</td>
+                        <td className="p-4">
+                          {product.discountPercentage > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-400 line-through">
+                                Rs. {product.price.toLocaleString()}
+                              </span>
+                              <span className="font-semibold text-gray-900">
+                                Rs. {(
+                                  product.price -
+                                  (product.price * product.discountPercentage) / 100
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="font-medium text-gray-900">
+                              Rs. {product.price.toLocaleString()}
+                            </span>
+                          )}
+                        </td>
                         <td className="p-4">
                           <span className={`text-sm ${product.countInStock <= 5 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                             {product.countInStock}
