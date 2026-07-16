@@ -31,8 +31,13 @@ const cartSchema = new mongoose.Schema(
 // Virtual to compute total price (requires populated productId)
 cartSchema.virtual('totalPrice').get(function () {
   return this.items.reduce((sum, item) => {
-    const price = item.productId?.discountPrice || item.productId?.price || 0;
-    return sum + price * item.quantity;
+    const originalPrice = item.productId?.price || 0;
+    const discountPercentage = item.productId?.discountPercentage || 0;
+
+    const discountedPrice =
+      originalPrice - (originalPrice * discountPercentage) / 100;
+
+    return sum + discountedPrice * item.quantity;
   }, 0);
 });
 

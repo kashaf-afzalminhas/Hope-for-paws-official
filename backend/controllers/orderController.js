@@ -1,3 +1,4 @@
+const { SHIPPING_FEE } = require('../utils/constants');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
@@ -26,25 +27,42 @@ exports.createOrder = async (req, res) => {
       if (!product) continue;
       
       const sellerId = product.sellerId.toString();
+
       if (!itemsBySeller[sellerId]) {
         itemsBySeller[sellerId] = [];
       }
-      
+
+      const discountedPrice =
+        product.discountPercentage > 0
+          ? product.price * (1 - product.discountPercentage / 100)
+          : product.price;
+
       itemsBySeller[sellerId].push({
         productId: product._id,
         title: product.title,
-        image: product.images && product.images.length > 0 ? product.images[0] : item.image,
+        image:
+          product.images && product.images.length > 0
+            ? product.images[0]
+            : item.image,
         quantity: item.quantity,
-        price: product.price
+        price: discountedPrice
       });
     }
 
     const ordersToCreate = [];
-    const shippingFeePerSeller = 15; // Example fixed shipping per seller
+    
+    // Reserved for future seller shipping fee logic.
+    // Do not include in finalTotal calculation.
+    const sellerShippingFee = 15;
 
     for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
-      const subtotal = sellerItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-      const finalTotal = subtotal + shippingFeePerSeller;
+      const subtotal = sellerItems.reduce(
+        (acc, item) => acc + item.price * item.quantity,
+        0
+      );
+
+      const shippingFee = SHIPPING_FEE;
+      const finalTotal = subtotal + shippingFee;
       
       ordersToCreate.push({
         buyerId,
@@ -54,7 +72,7 @@ exports.createOrder = async (req, res) => {
         paymentMethod,
         totals: {
           subtotal,
-          shippingFee: shippingFeePerSeller,
+          shippingFee,
           finalTotal
         },
         status: 'Pending',

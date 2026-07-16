@@ -11,7 +11,7 @@ exports.getWishlist = async (req, res) => {
     
     // Use lean() for better performance since we only need to read the data
     const wishlist = await Wishlist.findOne({ user: userId })
-      .populate('products', 'title price images discountPrice countInStock averageRating numReviews category sellerId')
+      .populate('products','title price images discountPercentage countInStock averageRating numReviews category sellerId')
       .lean();
 
     if (!wishlist) {

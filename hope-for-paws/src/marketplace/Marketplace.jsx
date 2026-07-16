@@ -993,9 +993,11 @@ export default function Marketplace() {
             name: p.title,
             image: imageUrl,
             seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
-            sellerVerified: p.sellerId?.isVerified || false,
-            price: p.discountPrice || p.price,
-            originalPrice: p.discountPrice ? p.price : null,
+            price:
+              p.price - (p.price * (p.discountPercentage || 0)) / 100,
+
+            originalPrice:
+              (p.discountPercentage || 0) > 0 ? p.price : null,
             rating: p.averageRating || 0,
             reviews: p.numReviews || 0,
             pop: p.pop || Math.floor(Math.random() * 10000),

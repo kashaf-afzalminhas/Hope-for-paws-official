@@ -29,7 +29,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     category: '',
     description: '',
     price: '',
-    discountPrice: '',
+    discountPercentage: '',
     countInStock: '',
     sku: ''
   });
@@ -64,7 +64,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             category: data.category || '',
             description: data.description || '',
             price: data.price || '',
-            discountPrice: data.discountPrice || '',
+            discountPercentage: data.discountPercentage || '',
             countInStock: data.countInStock || '',
             sku: data.sku || ''
           });
@@ -135,8 +135,12 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       setIsSubmitting(false);
       return;
     }
-    if (formData.discountPrice && Number(formData.discountPrice) >= Number(formData.price)) {
-      setError("Discount price must be less than the regular price.");
+    if (
+      formData.discountPercentage &&
+      (Number(formData.discountPercentage) < 0 ||
+        Number(formData.discountPercentage) > 100)
+    ) {
+      setError("Discount percentage must be between 0 and 100.");
       setIsSubmitting(false);
       return;
     }
@@ -310,8 +314,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                   className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Discount Price (Rs.)</label>
-                <input type="number" name="discountPrice" value={formData.discountPrice} onChange={handleInputChange} min="0"
+                <label className="block text-sm font-medium text-stone-700 mb-2">Discount Percentage (%)</label>
+                <input type="number" name="discountPercentage" value={formData.discountPercentage} onChange={handleInputChange} min="0"
                   className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white"
                   placeholder="Optional" />
               </div>

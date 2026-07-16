@@ -1,3 +1,4 @@
+import { SHIPPING_FEE } from '../utils/constants';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,7 +26,7 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = 150;
+  const shippingFee = SHIPPING_FEE;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {

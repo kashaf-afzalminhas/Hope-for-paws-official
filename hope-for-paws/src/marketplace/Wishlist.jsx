@@ -25,9 +25,13 @@ const C = {
 
 const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
   const [imgOk, setImgOk] = useState(false);
-  const discount = p.discountPrice ? Math.round((1 - p.discountPrice/p.price)*100) : null;
-  const currentPrice = p.discountPrice || p.price;
-  const originalPrice = p.discountPrice ? p.price : null;
+  const discount = p.discountPercentage || null;
+
+  const currentPrice =
+    p.price - (p.price * (p.discountPercentage || 0)) / 100;
+
+  const originalPrice =
+    (p.discountPercentage || 0) > 0 ? p.price : null;
   
   // Normalizing image path
   let imageUrl = "https://placehold.co/400x400/EDE8DF/9B6B45?text=🐾";

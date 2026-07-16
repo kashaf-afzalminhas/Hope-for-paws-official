@@ -282,9 +282,15 @@ function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function OrderDetailPanel({ order }) {
-  const subtotal = order.totals?.subtotal || order.items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shippingFee = order.totals?.shippingFee || 15;
-  const finalTotal = order.totals?.finalTotal || (subtotal + shippingFee);
+  const subtotal =
+    order.totals?.subtotal ??
+    order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  const shippingFee = order.totals?.shippingFee ?? 0;
+
+  const finalTotal =
+    order.totals?.finalTotal ??
+    (subtotal + shippingFee);
 
   return (
     <div className="sd-row-expand px-6 py-5">

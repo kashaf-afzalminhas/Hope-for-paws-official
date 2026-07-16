@@ -270,9 +270,14 @@ export default function ProductDetails() {
           title: data.title,
           brand: data.brand || "Hope For Paws",
           sku: data.sku || "N/A",
-          price: data.discountPrice || data.price,
-          originalPrice: data.discountPrice ? data.price : null,
-          discount: data.discountPrice ? Math.round(((data.price - data.discountPrice) / data.price) * 100) : 0,
+          price:
+            data.price - (data.price * (data.discountPercentage || 0)) / 100,
+
+          originalPrice:
+            (data.discountPercentage || 0) > 0 ? data.price : null,
+
+          discount:
+            data.discountPercentage || 0,
           stock: data.countInStock || 0,
           rating: data.averageRating || 0,
           reviewCount: data.numReviews || 0,
