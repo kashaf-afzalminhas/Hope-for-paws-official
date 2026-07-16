@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import { FaUser, FaPaw, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';
