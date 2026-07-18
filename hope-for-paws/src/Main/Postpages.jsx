@@ -3,6 +3,7 @@ import PostUploadForm from './PostUploadForm';
 import { FaHeart, FaComment, FaEdit, FaTrash } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
 import UserBadge from '../Components/UserBadge';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 const Postpages = () => {
   const [animals, setAnimals] = useState([]);
@@ -14,6 +15,7 @@ const Postpages = () => {
   const [editedName, setEditedName] = useState('');
   const [editedAge, setEditedAge] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
+  const requireAuth = useRequireAuth();
 
   useEffect(() => {
     const fetchAnimals = async () => {
@@ -33,6 +35,7 @@ const Postpages = () => {
   }, []);
 
   const toggleLike = (id) => {
+    if (!requireAuth('like posts')) return;
     setLikedAnimals((prevLikes) => ({
       ...prevLikes,
       [id]: !prevLikes[id],
@@ -58,6 +61,7 @@ const Postpages = () => {
   };
 
   const addComment = (id) => {
+    if (!requireAuth('comment on posts')) return;
     const commentText = newComments[id];
     if (commentText) {
       setAnimals((prevAnimals) =>
@@ -75,6 +79,7 @@ const Postpages = () => {
   };
 
   const handleEdit = (id) => {
+    if (!requireAuth('edit posts')) return;
     const animalToEdit = animals.find((animal) => animal._id === id);
     setEditAnimal(animalToEdit);
     setEditedName(animalToEdit.name);
@@ -83,6 +88,7 @@ const Postpages = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!requireAuth('delete posts')) return;
     const confirmDelete = window.confirm('Are you sure you want to delete this post?');
     if (confirmDelete) {
       setAnimals(animals.filter((animal) => animal._id !== id));
@@ -235,7 +241,7 @@ const Postpages = () => {
       )}
 
       <button
-        onClick={() => setIsFormVisible(true)}
+        onClick={() => { if (requireAuth('create a post')) setIsFormVisible(true); }}
         className="mt-8 block mx-auto bg-[#6b493d] text-white px-6 py-2 rounded hover:bg-[#a07855] transition"
       >
         Add New Animal

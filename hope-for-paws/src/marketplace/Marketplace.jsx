@@ -11,6 +11,7 @@ import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../components/VerifiedBadge";
 import StarDisplay from "../components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
+import { useRequireAuth } from "../components/AuthGuard";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -962,6 +963,7 @@ export default function Marketplace() {
   const { addToCart: ctxAddToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const cartNavigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
@@ -1035,23 +1037,20 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
+    if (!requireAuth('use the wishlist')) return;
     const result = await toggleWishlist(id);
     if (result.success && result.message.includes('added')) {
       addToast("fav", products.find(x => x.id === id)?.name);
     }
-  }, [toggleWishlist, addToast, products]);
+  }, [requireAuth, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
+    if (!requireAuth('add items to your cart')) return;
     const result = await ctxAddToCart(id, 1);
     if (result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        cartNavigate('/signin');
-      }
     }
-  }, [ctxAddToCart, addToast, products, cartNavigate]);
+  }, [requireAuth, ctxAddToCart, addToast, products]);
 
   const clearAll = useCallback(() => {
     setQuery("");

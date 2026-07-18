@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '../config';
 import PropTypes from 'prop-types';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 function PostUploadForm({ onAddPost, onCancel }) {
+  const requireAuth = useRequireAuth();
   const [caption, setCaption] = useState('');
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -11,6 +13,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!requireAuth('create a post')) { setSubmitting(false); return; }
     setSubmitting(true);
     setError('');
     try {

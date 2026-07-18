@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageSquare, PawPrint, X } from 'lucide-react';
+import { useRequireAuth } from '../AuthGuard';
 import {
   adoptionTagClass,
   adoptionTagMutedClass,
@@ -19,6 +20,8 @@ const AdoptionDetailsModal = ({
   canChat,
   onChat,
 }) => {
+  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   if (!post) return null;
 
   const posterProfileId = getPosterProfileId(post);
@@ -141,6 +144,7 @@ const AdoptionDetailsModal = ({
                     <Link
                       to={`/profile/public/${posterProfileId}`}
                       className="font-semibold text-[#6b493d] hover:underline"
+                      onClick={(e) => { if (!requireAuth('view this user\'s profile')) e.preventDefault(); }}
                     >
                       {post.userId?.username || 'Anonymous'}
                     </Link>

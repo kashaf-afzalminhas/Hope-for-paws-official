@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { AuthGuardProvider } from './Components/AuthGuard';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -278,9 +279,9 @@ const router = createBrowserRouter(
       <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
       {/* Deprecated Seller Routes removed */}
 
-      {/* ✅ Marketplace Routes */}
-      <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Marketplace /></ProtectedRoute>} />
-      <Route path="/product/:id" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><ProductDetails /></ProtectedRoute>} />
+      {/* ✅ Marketplace Routes — browse public, actions require auth */}
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/product/:id" element={<ProductDetails />} />
       <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
       <Route path="/wishlist" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Wishlist /></ProtectedRoute>} />
       <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
@@ -296,7 +297,9 @@ const AppWithProviders = () => (
         <AdoptionProvider>
         <NotificationProvider>
           <MessageProvider>
-            <RouterProvider router={router} />
+            <AuthGuardProvider>
+              <RouterProvider router={router} />
+            </AuthGuardProvider>
           </MessageProvider>
         </NotificationProvider>
       </AdoptionProvider>

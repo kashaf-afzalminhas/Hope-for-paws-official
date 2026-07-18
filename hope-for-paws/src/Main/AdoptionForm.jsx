@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
 
 const PAKISTAN_CITIES = [
@@ -43,6 +44,7 @@ const AdoptionForm = () => {
     : PAKISTAN_CITIES;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -69,30 +71,16 @@ const AdoptionForm = () => {
       return;
     }
 
-    // Guard: block submission if location is not a valid Pakistani city
-    if (!location || !PAKISTAN_CITIES.includes(location)) {
-      setLocationError('Please select a valid city from Pakistan');
+    // Guard: block submission if location is not selected
+    if (!location || location.trim() === '') {
+      setLocationError('Please select a valid city from the list');
       setIsSubmitting(false);
       return;
     }
 
-    // Check authentication status
-    if (!isAuthenticated || !user) {
-      setError('You must be logged in to create an adoption post.');
-      setIsSubmitting(false);
-      return;
-    }
+    if (!requireAuth('create an adoption post')) { setIsSubmitting(false); return; }
 
-    // Get the JWT token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token is missing. Please log in again.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    console.log('Submitting form with token:', token.substring(0, 10) + '...');
-    console.log('Current user:', user);
 
     const formData = new FormData();
     formData.append('name', name);

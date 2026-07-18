@@ -47,7 +47,6 @@ export const WishlistProvider = ({ children }) => {
 
   const toggleWishlist = async (productId) => {
     if (!user) {
-      alert("Please log in to use the wishlist.");
       return { success: false, message: 'Not logged in' };
     }
 

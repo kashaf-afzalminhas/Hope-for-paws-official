@@ -26,6 +26,7 @@ import VerifiedBadge from "../components/VerifiedBadge";
 import StarDisplay from "../components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
+import { useRequireAuth } from "../components/AuthGuard";
 import ReportModal from "./ReportModal";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
@@ -246,6 +247,7 @@ export default function ProductDetails() {
   const { user } = useAuth();
   const { addToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const requireAuth = useRequireAuth();
   const [PRODUCT, setPRODUCT] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -315,36 +317,28 @@ export default function ProductDetails() {
 
   const handleAddToCart = async () => {
     if (addingToCart) return;
+    if (!requireAuth('add items to your cart')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
     setAddingToCart(false);
     if (result.success) {
       setCartAdded(true);
       setTimeout(() => setCartAdded(false), 2200);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        navigate('/signin');
-      } else {
-        alert(result.message || 'Failed to add to cart');
-      }
+    } else if (!result.message?.includes('sign in')) {
+      alert(result.message || 'Failed to add to cart');
     }
   };
 
   const handleBuyNow = async () => {
     if (addingToCart) return;
+    if (!requireAuth('purchase products')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
     setAddingToCart(false);
     if (result.success) {
       navigate('/checkout');
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        navigate('/signin');
-      } else {
-        alert(result.message || 'Failed to add to cart');
-      }
+    } else if (!result.message?.includes('sign in')) {
+      alert(result.message || 'Failed to add to cart');
     }
   };
 
@@ -707,7 +701,7 @@ export default function ProductDetails() {
 
               {/* Wishlist */}
               <button
-                onClick={() => toggleWishlist(PRODUCT._id)}
+                onClick={() => { if (requireAuth('use the wishlist')) toggleWishlist(PRODUCT._id); }}
                 aria-pressed={isWishlisted}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150"
                 style={{ color: isWishlisted ? "#e24c4c" : "#9c8474" }}

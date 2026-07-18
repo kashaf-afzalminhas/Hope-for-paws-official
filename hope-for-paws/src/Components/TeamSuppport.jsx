@@ -8,20 +8,19 @@ import avator from '../assets/avatar.png';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '../lib/utils';
 import { getConversationBetweenUsers } from '../Main/api';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 export const PersonCard = ({ name, role, image, summary, details, contact, className, userId }) => {
   const [activeAccordion, setActiveAccordion] = useState(null);
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const user =
     JSON.parse(localStorage.getItem('user')) ||
     JSON.parse(sessionStorage.getItem('user'));
   const currentUserId = getCurrentUserId(user);
 
   const handleStartConversation = async (targetUserId) => {
-    if (!user) {
-      navigate('/signin');
-      return;
-    }
+    if (!requireAuth('start a conversation')) return;
     try {
       await getConversationBetweenUsers(currentUserId, targetUserId);
     } catch (_) {
