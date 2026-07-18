@@ -63,7 +63,11 @@ function App() {
       }
       
       if (user && !isSkipRoute && !user.isAdmin && !justVerifiedPhone) {
-        // Check if user needs phone verification - redirect to profile instead of showing modal
+        // Skip phone verification for sellers with incomplete onboarding—
+        // they'll provide their phone number during the onboarding process.
+        if (user.isSeller && user.sellerStatus === 'incomplete') {
+          return;
+        }
         if (!user.phone || !user.phoneVerified) {
           navigate('/profile', { replace: true });
         }

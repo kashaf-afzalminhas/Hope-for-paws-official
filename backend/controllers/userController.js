@@ -17,6 +17,7 @@ const COUNTRY_PHONE_LENGTH_RULES = {
   '+44': { min: 10, max: 10, label: 'United Kingdom' },
   '+91': { min: 10, max: 10, label: 'India' }
 };
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
 const LINK_CONFIRMATION_REQUIRED = process.env.REQUIRE_GOOGLE_LINK_CONFIRMATION === 'true';
 
 const validateInternationalPhone = (phone) => {
@@ -319,10 +320,10 @@ const signIn = async (req, res) => {
 const googleLogins = async (req, res) => {
   try {
     const { credential, confirmLinking } = req.body;
-    const client = new OAuth2Client("495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com");
+    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
     const ticket = await client.verifyIdToken({ 
       idToken: credential, 
-      audience: "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com" 
+      audience: GOOGLE_CLIENT_ID
     });
     const payload = ticket.getPayload();
     const email = normalizeEmail(payload.email);
@@ -388,10 +389,14 @@ const completeGoogleRegistration = async (req, res) => {
     
     // Seller details check moved to onboarding
     
-    let user = await User.findOne({ email: normalizedEmail }).select('-password');
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
       if (!hasProvider(user, 'google')) {
         linkAuthProvider(user, 'google', googleId || null);
+      }
+      if (isSeller && !user.isSeller) {
+        user.isSeller = true;
+        user.sellerStatus = 'incomplete';
       }
       await user.save();
     } else {
@@ -400,25 +405,19 @@ const completeGoogleRegistration = async (req, res) => {
         email: normalizedEmail,
         password: null,
         isVeterinarian: isVet,
-        isSeller, 
-        phone: "", 
+        isSeller,
+        sellerStatus: isSeller ? 'incomplete' : undefined,
+        phone: "",
         phoneVerified: false,
         authProviders: [{ provider: 'google', providerId: googleId || null }]
       });
-      user = user.toObject();
-      delete user.password;
-    }
-    
-    if (isSeller && !user.isSeller) {
-      user.isSeller = true;
-      user.sellerStatus = 'incomplete';
-      await user.save();
     }
 
-    // Seller Profile creation moved to post-registration onboarding
-    
+    const userSafe = user.toObject();
+    delete userSafe.password;
+
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
+      { id: userSafe._id, username: userSafe.username, isVeterinarian: userSafe.isVeterinarian, isSeller: userSafe.isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -426,7 +425,7 @@ const completeGoogleRegistration = async (req, res) => {
     return res.status(201).json({
       message: 'Registration successful',
       token,
-      user
+      user: userSafe
     });
 
   } catch (error) {
