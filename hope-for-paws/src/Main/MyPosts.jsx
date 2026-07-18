@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { useAuth } from "../context/AuthContext";
 import { Pencil, Trash2, X } from "lucide-react";
 import { API_BASE_URL } from '../config';
+import { getCurrentUserId } from '../lib/utils';
 
 const MyPosts = () => {
   const [posts, setPosts] = useState([]);
@@ -17,17 +18,17 @@ const MyPosts = () => {
   const [expandedComments, setExpandedComments] = useState({});
   // Check user authentication state
   const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-  
+  const userId = getCurrentUserId(userr);
 
   useEffect(() => {
-    if (!userr || !userr.id) return;
+    if (!userId) return;
   
     setLoading(true);
     fetchUserPosts();
   }, []); // Run only once when the component mounts
   
   const fetchUserPosts = async () => {
-    if (!userr?.id) {
+    if (!userId) {
       console.log("User ID is missing");
       return; // Prevent unnecessary calls
     }
@@ -42,7 +43,7 @@ const MyPosts = () => {
       }
   
       const response = await axios.get(
-        `${API_BASE_URL}/posts/user/${userr.id}`,
+        `${API_BASE_URL}/posts/user/${userId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
   

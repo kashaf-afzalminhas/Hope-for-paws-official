@@ -275,17 +275,15 @@ const SignUp = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         
-        // Navigate incomplete sellers directly to onboarding
+        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
-          window.location.reload();
         } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate("/");
-          window.location.reload();
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -319,17 +317,15 @@ const SignUp = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         
-        // Navigate incomplete sellers directly to onboarding
+        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
-          window.location.reload();
         } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate("/");
-          window.location.reload();
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }

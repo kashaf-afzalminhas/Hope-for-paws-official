@@ -1108,8 +1108,9 @@ const ProfilePage = () => {
   useEffect(() => {
     if (currentView !== 'myposts') return;
     const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-    if (!userr || !userr.id) return;
-    fetchUserPosts(userr.id);
+    const uid = getCurrentUserId(userr);
+    if (!uid) return;
+    fetchUserPosts(uid);
   }, [currentView]);
   const fetchUserPosts = async (userId) => {
     if (!userId) return;

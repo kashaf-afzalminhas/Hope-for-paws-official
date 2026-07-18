@@ -83,15 +83,15 @@ const Login = () => {
             localStorage.removeItem('user');
           }
           
-          // Check if phone verification is required
-          if (!data.user.phone || !data.user.phoneVerified) {
-            // User will be redirected to phone verification by App.jsx
-            navigate("/");
-            window.location.reload();
+          // Navigate directly to the correct destination
+          if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+            navigate('/seller/onboard');
+          } else if (!data.user.phone || !data.user.phoneVerified) {
+            navigate('/profile');
           } else {
             navigate("/");
-            window.location.reload();
           }
+          window.location.reload();
         } else {
           setError('Login failed: No token received.');
         }
@@ -160,17 +160,15 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Navigate incomplete sellers directly to onboarding
+        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
-          window.location.reload();
         } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate("/");
-          window.location.reload();
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google login failed");
       }
@@ -222,17 +220,15 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Navigate incomplete sellers directly to onboarding
+        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
-          window.location.reload();
         } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate("/");
-          window.location.reload();
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }
