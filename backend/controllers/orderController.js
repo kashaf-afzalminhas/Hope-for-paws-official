@@ -2,7 +2,8 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const Cart = require('../models/Cart');
-
+const User = require('../models/User');           
+const { sendEmail } = require('../routes/mailer');
 // ------------------------------------------------------------------
 // BUYER CONTROLLERS
 // ------------------------------------------------------------------
@@ -66,15 +67,34 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Invalid products in order' });
     }
 
-    const createdOrders = await Order.insertMany(ordersToCreate);
+   const createdOrders = await Order.insertMany(ordersToCreate);
 
-    // Empty the user's cart
-    await Cart.findOneAndUpdate(
-      { userId: buyerId },
-      { $set: { items: [] } }
+// Empty the user's cart
+await Cart.findOneAndUpdate(
+  { userId: buyerId },
+  { $set: { items: [] } }
+);
+
+// Send order confirmation email
+try {
+  const buyer = await User.findById(buyerId).select('email username');
+  if (buyer?.email) {
+    const orderSummary = createdOrders.map(o =>
+      `Order ID: ${o._id}\nTotal: Rs. ${o.totals.finalTotal}\nStatus: ${o.status}`
+    ).join('\n\n');
+
+    await sendEmail(
+      buyer.email,
+      'Order Confirmation - Hope For Paws',
+      `Hi ${buyer.username || 'there'},\n\nThank you for your order! Here are your order details:\n\n${orderSummary}\n\nWe'll notify you when your order status updates.`
     );
+  }
+} catch (emailError) {
+  // Don't fail the order if email sending fails — just log it
+  console.error('Failed to send order confirmation email:', emailError);
+}
 
-    res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
+res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
   } catch (error) {
     console.error('createOrder error:', error);
     res.status(500).json({ message: 'Failed to place order', error: error.message });
@@ -111,6 +131,21 @@ exports.cancelOrder = async (req, res) => {
     });
     
     await order.save();
+
+    // Send order cancellation email
+    try {
+      const buyer = await User.findById(buyerId).select('email username');
+      if (buyer?.email) {
+        await sendEmail(
+          buyer.email,
+          'Order Cancelled - Hope For Paws',
+          `Hi ${buyer.username || 'there'},\n\nYour order (Order ID: ${order._id}) has been cancelled successfully.\n\nTotal: RS. ${order.totals.finalTotal}\n\nIf you didn't request this cancellation, please contact support.`
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order cancellation email:', emailError);
+    }
+
     res.json({ success: true, order, message: 'Order cancelled successfully' });
   } catch (error) {
     console.error('Error cancelling order:', error);

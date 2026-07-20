@@ -976,7 +976,7 @@ export default function Marketplace() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
         const res = await fetch(`${API_BASE}/api/products`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch products");
         const data = await res.json();
