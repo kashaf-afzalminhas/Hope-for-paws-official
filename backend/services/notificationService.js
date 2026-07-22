@@ -11,7 +11,7 @@ class NotificationService {
   constructor(io) {
     this.io = io;
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
-    
+
     this.transporter = transporter;
   }
 
@@ -124,34 +124,129 @@ class NotificationService {
         return;
       }
 
-          const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: recipient.email,
-      subject: notification.title,
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: recipient.email,
+        subject: notification.title,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #6b493d; color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0;">Hope for Paws</h1>
-            </div>
-            <div style="padding: 20px; background-color: #f9f9f9;">
-              <h2 style="color: #6b493d;">${notification.title}</h2>
-              <p style="color: #333; line-height: 1.6;">${notification.message}</p>
-              <div style="margin-top: 20px; padding: 15px; background-color: white; border-left: 4px solid #6b493d;">
-                <p style="margin: 0; color: #666; font-size: 14px;">
-                  This is an automated notification from Hope for Paws. 
-                  You can manage your notification preferences in your account settings.
-                </p>
-              </div>
-            </div>
-            <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #666; font-size: 12px;">
-              <p>© 2024 Hope for Paws. All rights reserved.</p>
-            </div>
-          </div>
-        `
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>${notification.title}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; }
+    @media only screen and (max-width: 600px) {
+      .email-container { width: 100% !important; max-width: 100% !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f1eb; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f4f1eb;">
+    <tr>
+      <td align="center" style="padding: 24px 12px;">
+        <!--[if mso]>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tr><td>
+        <![endif]-->
+
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px; width:100%; margin:0 auto; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- ====== HEADER ====== -->
+          <tr>
+            <td style="background-color: #6b493d; padding: 28px 40px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                Hope for Paws
+              </h1>
+            </td>
+          </tr>
+
+          <!-- ====== BODY ====== -->
+          <tr>
+            <td style="padding: 40px 40px 16px;">
+              <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #6b493d; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                ${notification.title}
+              </h2>
+              <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.6; color: #333333; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                ${notification.message}
+              </p>
+            </td>
+          </tr>
+
+          <!-- ====== DISCLAIMER BOX ====== -->
+          <tr>
+            <td style="padding: 0 40px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="background-color: #f2f2f2; border-left: 4px solid #6b493d; border-radius: 6px; padding: 14px 18px;">
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #666666; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                      This is an automated notification from Hope for Paws.
+                      You can manage your notification preferences in your account settings.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ====== DIVIDER ====== -->
+          <tr>
+            <td style="padding: 0 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="border-top: 1px solid #eee8da; font-size: 1px; line-height: 1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ====== FOOTER ====== -->
+          <tr>
+            <td style="padding: 24px 40px 32px; text-align: center; background-color: #f2f2f2;">
+              <p style="margin: 0 0 6px; font-size: 13px; color: #999999; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                Need help? Contact us at
+                <a href="mailto:hopeforpaws24@gmail.com" style="color: #6b493d; text-decoration: none; font-weight: 600;">hopeforpaws24@gmail.com</a>
+              </p>
+              <p style="margin: 0 0 4px; font-size: 12px; color: #bbbbbb; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                &copy; 2024 Hope for Paws. All rights reserved.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #cccccc; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                This is an automated message &mdash; please do not reply directly.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+        <!--[if mso]>
+        </td></tr></table>
+        <![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `.trim()
       };
 
       await this.transporter.sendMail(mailOptions);
-      
+
       // Update notification as email sent
       notification.emailSent = true;
       notification.emailSentAt = new Date();
@@ -239,14 +334,14 @@ class NotificationService {
   async notifyAdoptionRequestStatus(adoptionId, requesterId, status, adoptionName) {
     try {
       console.log('notifyAdoptionRequestStatus called with:', { adoptionId, requesterId, status, adoptionName });
-      
+
       const requester = await User.findById(requesterId);
       if (!requester) return;
 
-      const title = status === 'accepted' 
-        ? 'Adoption Request Accepted!' 
+      const title = status === 'accepted'
+        ? 'Adoption Request Accepted!'
         : 'Adoption Request Update';
-      
+
       const message = status === 'accepted'
         ? `Congratulations! Your adoption request for ${adoptionName} has been accepted.`
         : `Your adoption request for ${adoptionName} has been ${status}.`;
@@ -270,11 +365,11 @@ class NotificationService {
   async notifyVetsNewPost(postId, postCaption, postCreatorId) {
     try {
       const vets = await User.find({ isVeterinarian: true });
-      
+
       for (const vet of vets) {
         // Don't notify the post creator
         if (vet._id.toString() === postCreatorId.toString()) continue;
-        
+
         await this.createNotification({
           recipient: vet._id,
           sender: null, // System notification
@@ -294,7 +389,7 @@ class NotificationService {
     try {
       const sender = await User.findById(senderId);
       const recipient = await User.findById(recipientId);
-      
+
       if (!sender || !recipient) {
         console.log('Sender or recipient not found for chat message notification');
         return;
