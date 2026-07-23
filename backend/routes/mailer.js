@@ -1,12 +1,13 @@
 // mailer.js
 const transporter = require('../config/emailTransporter');
 
-const sendEmail = async (to, subject, text) => {
+const sendEmail = async (to, subject, text, html) => {
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to,
       subject,
       text,
+      ...(html && { html }),
     };
   
     console.log("Mail options:", mailOptions); // Log mail options for debugging
