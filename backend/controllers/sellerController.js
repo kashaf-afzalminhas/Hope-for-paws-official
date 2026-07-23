@@ -135,7 +135,7 @@ exports.updateSellerStatus = async (req, res) => {
     let emailWarning = null;
     try {
       if (isVerified) {
-        const { subject, html } = emailTemplates.sellerApprovedEmail({ storeName: seller.storeName });
+        const { subject, html } = emailTemplates.buildSellerApprovedEmail({ storeName: seller.storeName });
         await transporter.sendMail({
           from: process.env.GMAIL_USER,
           to: seller.email,
@@ -143,7 +143,7 @@ exports.updateSellerStatus = async (req, res) => {
           html,
         });
       } else {
-        const { subject, html } = emailTemplates.sellerRejectedEmail({ storeName: seller.storeName, notes });
+        const { subject, html } = emailTemplates.buildSellerRejectedEmail({ storeName: seller.storeName, notes });
         await transporter.sendMail({
           from: process.env.GMAIL_USER,
           to: seller.email,

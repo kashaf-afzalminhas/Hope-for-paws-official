@@ -20,7 +20,7 @@ exports.submitContactForm = async (req, res) => {
     await newContact.save();
 
     // Send email
-    const { subject, html } = emailTemplates.contactFormEmail({ name, email, message });
+    const { subject, html } = emailTemplates.buildContactFormEmail({ name, email, message });
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: process.env.GMAIL_USER,

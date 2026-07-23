@@ -12,7 +12,7 @@ class NotificationService {
   constructor(io) {
     this.io = io;
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
-    
+
     this.transporter = transporter;
   }
 
@@ -125,7 +125,7 @@ class NotificationService {
         return;
       }
 
-          const { subject, html } = emailTemplates.notificationEmail({
+      const { subject, html } = emailTemplates.buildNotificationEmail({
         title: notification.title,
         message: notification.message,
       });
@@ -137,7 +137,7 @@ class NotificationService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      
+
       // Update notification as email sent
       notification.emailSent = true;
       notification.emailSentAt = new Date();
@@ -225,14 +225,14 @@ class NotificationService {
   async notifyAdoptionRequestStatus(adoptionId, requesterId, status, adoptionName) {
     try {
       console.log('notifyAdoptionRequestStatus called with:', { adoptionId, requesterId, status, adoptionName });
-      
+
       const requester = await User.findById(requesterId);
       if (!requester) return;
 
-      const title = status === 'accepted' 
-        ? 'Adoption Request Accepted!' 
+      const title = status === 'accepted'
+        ? 'Adoption Request Accepted!'
         : 'Adoption Request Update';
-      
+
       const message = status === 'accepted'
         ? `Congratulations! Your adoption request for ${adoptionName} has been accepted.`
         : `Your adoption request for ${adoptionName} has been ${status}.`;
@@ -256,11 +256,11 @@ class NotificationService {
   async notifyVetsNewPost(postId, postCaption, postCreatorId) {
     try {
       const vets = await User.find({ isVeterinarian: true });
-      
+
       for (const vet of vets) {
         // Don't notify the post creator
         if (vet._id.toString() === postCreatorId.toString()) continue;
-        
+
         await this.createNotification({
           recipient: vet._id,
           sender: null, // System notification
@@ -280,7 +280,7 @@ class NotificationService {
     try {
       const sender = await User.findById(senderId);
       const recipient = await User.findById(recipientId);
-      
+
       if (!sender || !recipient) {
         console.log('Sender or recipient not found for chat message notification');
         return;
@@ -323,7 +323,7 @@ class NotificationService {
       return;
     }
 
-    const { subject: mailSubject, html } = emailTemplates.chatDigestEmail({
+    const { subject: mailSubject, html } = emailTemplates.buildChatDigestEmail({
       recipient,
       totalMessages,
       uniqueSenderNames,

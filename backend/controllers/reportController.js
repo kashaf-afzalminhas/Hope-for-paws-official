@@ -61,7 +61,7 @@ exports.createProductReport = async (req, res) => {
           const sellerUser = await User.findById(seller.userId);
           
           if (sellerUser && sellerUser.email) {
-            const { subject, html } = emailTemplates.productHiddenEmail({ productTitle: product.title });
+            const { subject, html } = emailTemplates.buildProductHiddenEmail({ productTitle: product.title });
             await transporter.sendMail({
               from: process.env.GMAIL_USER,
               to: sellerUser.email,
@@ -70,7 +70,7 @@ exports.createProductReport = async (req, res) => {
             });
           }
 
-          const { subject: adminSubject, html: adminHtml } = emailTemplates.adminAlertEmail({
+          const { subject: adminSubject, html: adminHtml } = emailTemplates.buildAdminAlertEmail({
             productTitle: product.title,
             storeName: seller.storeName || 'Seller',
           });
