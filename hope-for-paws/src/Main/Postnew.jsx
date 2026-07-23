@@ -30,7 +30,7 @@ const Postnew = () => {
   // Check user authentication state
   const user =
     JSON.parse(localStorage.getItem("user")) ||
-    JSON.parse(sessionStorage.getItem("user"));
+    null;
   const currentUserId = getCurrentUserId(user);
     
   const toggleComments = (postId) => {
@@ -47,7 +47,7 @@ const Postnew = () => {
       } else {
         setIsRefreshing(true);
       }
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/posts`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -153,7 +153,7 @@ const Postnew = () => {
 
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/posts/${postId}/like`,
         {},
@@ -177,7 +177,7 @@ const Postnew = () => {
 
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/comments/${postId}`,
         { content: newComment[postId] },
@@ -209,7 +209,7 @@ const Postnew = () => {
   
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.delete(`${API_BASE_URL}/comments/${commentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -234,7 +234,7 @@ const Postnew = () => {
   const handleReply = async (postId, parentCommentId) => {
     if (!replyInput[parentCommentId] || !requireAuth('reply to comments')) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/comments/${postId}/comments`,
         { content: replyInput[parentCommentId], parentCommentId },

@@ -163,10 +163,8 @@ const AdoptionForm = () => {
           <p><strong>Debug Info:</strong></p>
           <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
           <p>user: {user ? 'present' : 'null'}</p>
-          <p>localStorage token: {localStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>sessionStorage token: {sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>localStorage user: {localStorage.getItem('user') ? 'present' : 'missing'}</p>
-          <p>sessionStorage user: {sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
+          <p>localStorage token: {localStorage.getItem('token') || sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
+          <p>localStorage user: {localStorage.getItem('user') || sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
         </div>
       </div>
     );
@@ -231,7 +229,7 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>⚠</span> {ageError}
+                <span>Ã¢Å¡Â </span> {ageError}
               </p>
             )}
           </div>
@@ -363,7 +361,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>⚠</span> {locationError}
+              <span>Ã¢Å¡Â </span> {locationError}
             </p>
           )}
         </div>
@@ -408,7 +406,7 @@ const AdoptionForm = () => {
                     }}
                     className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
                   >
-                    ×
+                    Ãƒâ€”
                   </button>
                 </div>
                 <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>

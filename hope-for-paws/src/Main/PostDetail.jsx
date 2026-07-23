@@ -15,7 +15,7 @@ const PostDetail = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Check user authentication state
-  const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const requireAuth = useRequireAuth();
 
   useEffect(() => {

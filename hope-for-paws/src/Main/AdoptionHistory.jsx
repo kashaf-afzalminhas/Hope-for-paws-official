@@ -16,7 +16,7 @@ const AdoptionHistory = () => {
   useEffect(() => {
     if (!user) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (storedUser) setEffectiveUser(storedUser);
       } catch (e) {
         console.error('Error parsing stored user:', e);

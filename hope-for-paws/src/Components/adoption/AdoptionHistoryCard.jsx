@@ -15,9 +15,7 @@ const AdoptionHistoryCard = ({ item }) => {
 
   useEffect(() => {
     try {
-      const s =
-        JSON.parse(localStorage.getItem('user') || 'null') ||
-        JSON.parse(sessionStorage.getItem('user') || 'null');
+      const s = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
       setStoredUser(s);
     } catch {
       setStoredUser(null);

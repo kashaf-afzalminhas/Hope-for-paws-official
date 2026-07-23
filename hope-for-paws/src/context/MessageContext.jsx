@@ -20,20 +20,20 @@ const MessageProvider = ({ children }) => {
 
   // Initialize socket globally when MessageProvider mounts
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+    const user = JSON.parse(localStorage.getItem("user")) || null;
     const currentUserId = user?.id || user?._id;
     
     if (currentUserId) {
-      console.log('📡 MessageProvider: Initializing global socket for user:', currentUserId);
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Initializing global socket for user:', currentUserId);
       const socket = initSocket(currentUserId);
-      console.log('📡 MessageProvider: Global socket initialized:', !!socket);
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Global socket initialized:', !!socket);
     } else {
-      console.log('📡 MessageProvider: No user ID found, cannot initialize global socket');
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: No user ID found, cannot initialize global socket');
     }
     
     // Cleanup on unmount
     return () => {
-      console.log('📡 MessageProvider: Cleaning up global socket');
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Cleaning up global socket');
     };
   }, []); // Run only once on mount
 
@@ -59,22 +59,22 @@ const MessageProvider = ({ children }) => {
     }
 
     const handleNewMessage = (message) => {
-      console.log('📨 MessageContext: Received newMessage:', message);
-      console.log('📨 MessageContext: currentConversationId:', currentConversationId);
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Received newMessage:', message);
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentConversationId:', currentConversationId);
       
       // Get current user ID from localStorage/sessionStorage
-      const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+      const user = JSON.parse(localStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
-      console.log('📨 MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);
       
       // Only increment unread count if not in the current conversation and not user's own message
       // When currentConversationId is null (outside chat), we should increment for all messages from others
       if (message.senderId !== currentUserId && (currentConversationId === null || String(message.conversationId) !== String(currentConversationId))) {
-        console.log('📨 MessageContext: Incrementing unread count');
+        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Incrementing unread count');
         setUnreadCount(prev => prev + 1);
       } else {
-        console.log('📨 MessageContext: Not incrementing unread count (own message or in current conversation)');
+        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Not incrementing unread count (own message or in current conversation)');
       }
       
       // Update conversations list with the new message
@@ -182,7 +182,7 @@ const MessageProvider = ({ children }) => {
   useEffect(() => {
     const handleRefreshConversations = () => {
       // Get current user ID from storage
-      const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       const userId = user?.id || user?._id;
       if (userId) {
         refreshConversations(userId);

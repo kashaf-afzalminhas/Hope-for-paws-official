@@ -1,5 +1,6 @@
 const Contact = require('../models/Contact');
 const transporter = require('../config/emailTransporter');
+const emailTemplates = require('../utils/emailTemplates');
 
 exports.submitContactForm = async (req, res) => {
   const { name, email, message } = req.body;
@@ -18,16 +19,14 @@ exports.submitContactForm = async (req, res) => {
     const newContact = new Contact({ name, email, message });
     await newContact.save();
 
-    // Set up email options
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: process.env.GMAIL_USER, // Send to the same email address for now
-      subject: 'New Contact Form Submission',
-      text: `You have a new contact form submission:\n\nName: ${name}\nEmail: ${email}\nMessage: ${message}`
-    };
-
     // Send email
-    await transporter.sendMail(mailOptions);
+    const { subject, html } = emailTemplates.contactFormEmail({ name, email, message });
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: process.env.GMAIL_USER,
+      subject,
+      html,
+    });
 
     res.status(201).json({ message: 'Form submitted successfully!' });
   } catch (error) {

@@ -68,7 +68,7 @@ const Login = () => {
             window.location.reload();
             return;
           }
-          if (rememberMe) { // change here.
+          if (rememberMe) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
@@ -79,6 +79,9 @@ const Login = () => {
           } else {
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('savedEmail');
+            localStorage.removeItem('savedPassword');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
           }
@@ -154,13 +157,19 @@ const Login = () => {
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
         } else if (!data.user.phone || !data.user.phoneVerified) {
@@ -214,13 +223,19 @@ const Login = () => {
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Navigate directly to the correct destination
         if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
           navigate('/seller/onboard');
         } else if (!data.user.phone || !data.user.phoneVerified) {

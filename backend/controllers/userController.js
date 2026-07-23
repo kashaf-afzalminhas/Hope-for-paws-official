@@ -4,6 +4,7 @@ const Seller = require('../models/Seller');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const transporter = require('../config/emailTransporter');
+const emailTemplates = require('../utils/emailTemplates');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const { OAuth2Client } = require("google-auth-library");
@@ -157,12 +158,16 @@ const signUp = async (req, res) => {
     }
 
     // 8. Send OTP Email
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
+    const { subject, html } = emailTemplates.simpleEmail({
       subject: 'Hope for Paws: Verification Code',
-      text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`,
+      bodyLines: [
+        { type: 'heading', text: 'Verify Your Email Address' },
+        { type: 'paragraph', text: 'Thank you for registering with Hope for Paws. Use the verification code below to complete your registration:' },
+        { type: 'code', text: otp },
+        { type: 'paragraph', text: 'This code expires in 2 minutes. If you did not request this code, please ignore this email.' },
+      ],
     });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject, html });
 
     res.status(201).json({ message: 'OTP sent to your email.' });
 
@@ -449,12 +454,16 @@ const resendOTP = async (req, res) => {
     tempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
     await tempUser.save();
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
+    const { subject, html } = emailTemplates.simpleEmail({
       subject: 'Hope for Paws: New OTP',
-      text: `Your new OTP: ${newOtp}`,
+      bodyLines: [
+        { type: 'heading', text: 'New Verification Code' },
+        { type: 'paragraph', text: 'Here is your new verification code:' },
+        { type: 'code', text: newOtp },
+        { type: 'paragraph', text: 'This code expires in 2 minutes.' },
+      ],
     });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject, html });
     res.status(200).json({ message: 'New OTP sent.' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -535,12 +544,16 @@ const forgotPassword = async (req, res) => {
     user.verificationCodeExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
+    const { subject, html } = emailTemplates.simpleEmail({
       subject: 'Password Reset',
-      text: `Code: ${code}`,
+      bodyLines: [
+        { type: 'heading', text: 'Reset Your Password' },
+        { type: 'paragraph', text: 'You requested a password reset. Use the code below to reset your password:' },
+        { type: 'code', text: code },
+        { type: 'paragraph', text: 'This code expires in 15 minutes. If you did not request this, please ignore this email.' },
+      ],
     });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject, html });
     res.status(200).json({ message: 'Code sent.' });
   } catch (error) {
     res.status(500).json({ error: 'Server error.' });

@@ -15,8 +15,8 @@ export const PersonCard = ({ name, role, image, summary, details, contact, class
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
   const user =
-    JSON.parse(localStorage.getItem('user')) ||
-    JSON.parse(sessionStorage.getItem('user'));
+    JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user')) ||
+    null;
   const currentUserId = getCurrentUserId(user);
 
   const handleStartConversation = async (targetUserId) => {

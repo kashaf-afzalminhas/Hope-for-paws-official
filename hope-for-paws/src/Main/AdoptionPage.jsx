@@ -7,7 +7,7 @@ const AdoptionPage = () => {
   const [petFilter, setPetFilter] = useState('all');
   const user =
     JSON.parse(localStorage.getItem("user")) ||
-    JSON.parse(sessionStorage.getItem("user"));
+    null;
 
   return (
     <div className="min-h-screen bg-[#e2d6cb]/10 pb-12">
@@ -38,7 +38,7 @@ const AdoptionPage = () => {
       {/* Disclaimer Banner - now flush below hero section */}
       <div className="w-full bg-yellow-100 border-b border-yellow-300 py-3 px-4 flex items-center justify-center shadow-sm">
         <span className="text-yellow-900 text-sm font-medium text-center">
-          ⚠️ Note: All adoption ads are user-generated. Please verify all information independently. We maintain a neutral stance in all third-party interactions between adopters and pet owners.
+          âš ï¸ Note: All adoption ads are user-generated. Please verify all information independently. We maintain a neutral stance in all third-party interactions between adopters and pet owners.
         </span>
       </div>
       

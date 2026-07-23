@@ -37,7 +37,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   useEffect(() => {
     if (!user) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (storedUser) {
           setEffectiveUser(storedUser);
         }
@@ -304,7 +304,7 @@ const AdoptionList = ({ filter = 'all' }) => {
               )}
               {hasPendingRequest && !isOwner && listingStatus === 'available' && (
                 <div className={adoptionAlertInfo('warning')}>
-                  Request sent — awaiting owner review. You can message the owner from the card above.
+                  Request sent Ã¢â‚¬â€ awaiting owner review. You can message the owner from the card above.
                 </div>
               )}
               {hasAcceptedRequest && !isOwner && listingStatus !== 'available' && (

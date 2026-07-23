@@ -37,7 +37,7 @@ const useIsMobile = () => {
 };
 
 const ChatPage = () => {
-  const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user")) || null;
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
   
@@ -231,12 +231,12 @@ const addUserToCache = useCallback((user) => {
   // Initialize socket when user is authenticated
   useEffect(() => {
     if (currentUserId && isAuthenticated) {
-      console.log('🚀 Initializing socket for user:', currentUserId);
+      console.log('ðŸš€ Initializing socket for user:', currentUserId);
       
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
-          console.log('📱 Notification permission:', permission);
+          console.log('ðŸ“± Notification permission:', permission);
         });
       }
       
@@ -245,9 +245,9 @@ const addUserToCache = useCallback((user) => {
         try {
           const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
           const data = await response.json();
-          console.log('🏥 Backend health check:', data);
+          console.log('ðŸ¥ Backend health check:', data);
         } catch (error) {
-          console.error('❌ Backend connectivity test failed:', error);
+          console.error('âŒ Backend connectivity test failed:', error);
           setError('Cannot connect to chat server');
         }
       };
@@ -258,14 +258,14 @@ const addUserToCache = useCallback((user) => {
         // Check if socket is already connected (now handled globally by MessageProvider)
         const existingSocket = getSocket();
         if (existingSocket && existingSocket.connected) {
-          console.log('✅ Socket already connected, reusing existing connection');
+          console.log('âœ… Socket already connected, reusing existing connection');
         } else {
-          console.log('⚠️ Socket not connected yet, MessageProvider should handle initialization');
+          console.log('âš ï¸ Socket not connected yet, MessageProvider should handle initialization');
         }
         
         // Set up notification callback for real-time notifications
         setNotificationCallback((notification) => {
-          console.log('📢 Received notification:', notification);
+          console.log('ðŸ“¢ Received notification:', notification);
           
           // Show toast notification
           addToast({
@@ -283,14 +283,14 @@ const addUserToCache = useCallback((user) => {
           }
         });
       } catch (error) {
-        console.error('❌ Error initializing socket:', error);
+        console.error('âŒ Error initializing socket:', error);
         setError('Failed to initialize chat connection');
       }
     }
 
     // No cleanup needed - socket is managed globally by MessageProvider
     return () => {
-      console.log('🧹 Chat component unmounting...');
+      console.log('ðŸ§¹ Chat component unmounting...');
     };
   }, [currentUserId, isAuthenticated, addToast]);
 
@@ -461,7 +461,7 @@ const addUserToCache = useCallback((user) => {
 
   // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
-    console.log('🔄 Updating conversation last message:', { conversationId, message });
+    console.log('ðŸ”„ Updating conversation last message:', { conversationId, message });
     
     // This function is now only used for optimistic updates when sending messages
     // The actual conversation updates are handled by MessageContext via socket events

@@ -40,7 +40,7 @@ const MyAdoptions = ({ embedded = false }) => {
 
   // Get user from storage if context user is not available
   useEffect(() => {
-    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const userFromStorage = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     setStoredUser(userFromStorage);
   }, []);
 
@@ -402,7 +402,7 @@ const MyAdoptions = ({ embedded = false }) => {
                       <X className="h-5 w-5 text-[#6b493d]" />
                     </button>
                     <button type="button" onClick={() => handleSaveEdit(post._id)} disabled={!hasChanges(post._id) || savingStates[post._id]} className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3d32] disabled:opacity-50">
-                      {savingStates[post._id] ? 'Saving…' : 'Save changes'}
+                      {savingStates[post._id] ? 'SavingÃ¢â‚¬Â¦' : 'Save changes'}
                     </button>
                   </div>
                 </div>

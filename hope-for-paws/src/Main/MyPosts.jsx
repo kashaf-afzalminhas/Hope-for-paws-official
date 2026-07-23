@@ -17,7 +17,7 @@ const MyPosts = () => {
   const { user } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
   // Check user authentication state
-  const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const userId = getCurrentUserId(userr);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ const MyPosts = () => {
       setLoading(true);
       setError(""); // Reset error before making a request
   
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
         throw new Error("Token is missing. Please log in again.");
       }
@@ -69,7 +69,7 @@ const MyPosts = () => {
       // Set saving state for this specific post
       setSavingStates(prev => ({ ...prev, [postId]: true }));
       
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.put(
         `${API_BASE_URL}/posts/${postId}`,
         { caption: editCaption },
@@ -96,7 +96,7 @@ const MyPosts = () => {
   const handleDelete = async (postId) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.delete(`${API_BASE_URL}/posts/${postId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -198,11 +198,11 @@ const MyPosts = () => {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4 text-[#6b493d]/80">
                           <div className="flex items-center space-x-1">
-                            <span>❤️</span>
+                            <span>ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
                             <span>{post.likes.length}</span>
                           </div>
                           <div className="flex items-center space-x-1">
-                            <span>💬</span>
+                            <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬</span>
                             <span>{post.comments.length}</span>
                           </div>
                         </div>

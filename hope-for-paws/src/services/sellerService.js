@@ -1,8 +1,5 @@
 import { API_BASE_URL } from '../config';
 
-/**
- * Get the auth token from storage
- */
 const getToken = () => {
   return localStorage.getItem('token') || sessionStorage.getItem('token');
 };
@@ -67,17 +64,10 @@ export const checkSellerStatus = () => {
   };
 };
 
-/**
- * Update local user data after becoming a seller
- */
 export const updateLocalUserAsSeller = (sellerStatus = 'pending') => {
-  const storageKey = localStorage.getItem('user') ? 'localStorage' : 'sessionStorage';
-  const storage = storageKey === 'localStorage' ? localStorage : sessionStorage;
-  
-  const user = JSON.parse(storage.getItem('user') || '{}');
+  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
   user.isSeller = true;
   user.sellerStatus = sellerStatus;
-  
-  storage.setItem('user', JSON.stringify(user));
+  localStorage.setItem('user', JSON.stringify(user));
   return user;
 };

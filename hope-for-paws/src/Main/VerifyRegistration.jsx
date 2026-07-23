@@ -103,7 +103,6 @@ const VerifyRegistration = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Clear any stale auth so sign-in stores a fresh session with full user data (incl. phone)
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         sessionStorage.removeItem('token');

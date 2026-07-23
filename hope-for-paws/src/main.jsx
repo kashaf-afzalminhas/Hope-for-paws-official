@@ -50,7 +50,7 @@ import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 import ReportedItems from './admin/ReportedItems.jsx';
 
-// ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
+// âœ… MERGED IMPORTS (Both Seller and Buyer/Admin)
 
 import Marketplace from './marketplace/Marketplace.jsx';
 import ProductDetails from './marketplace/ProductDetails.jsx';
@@ -273,13 +273,13 @@ const router = createBrowserRouter(
       <Route path="chat/:recipientId?" element={<ChatPage />} />
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
       
-      {/* ✅ Seller Routes (from bi branch) */}
+      {/* âœ… Seller Routes (from bi branch) */}
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
       <Route path="/seller/dashboard" element={<ProtectedRoute allowedRoles={['seller']}><SellerDashboard /></ProtectedRoute>} />
       <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
       {/* Deprecated Seller Routes removed */}
 
-      {/* ✅ Marketplace Routes — browse public, actions require auth */}
+      {/* âœ… Marketplace Routes â€” browse public, actions require auth */}
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/product/:id" element={<ProductDetails />} />
       <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
