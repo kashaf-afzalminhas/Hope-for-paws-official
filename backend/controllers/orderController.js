@@ -75,22 +75,51 @@ await Cart.findOneAndUpdate(
   { $set: { items: [] } }
 );
 
-// Send order confirmation email
+// Send order confirmation email (HTML styled, matching Hope for Paws branding)
 try {
   const buyer = await User.findById(buyerId).select('email username');
   if (buyer?.email) {
-    const orderSummary = createdOrders.map(o =>
-      `Order ID: ${o._id}\nTotal: Rs. ${o.totals.finalTotal}\nStatus: ${o.status}`
-    ).join('\n\n');
+    const orderItemsHtml = createdOrders.map(o => `
+      <div style="margin-bottom: 16px; padding: 15px; background-color: white; border-left: 4px solid #6b493d; border-radius: 4px;">
+        <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold;">Order ID: ${o._id}</p>
+        <p style="margin: 0 0 4px 0; color: #333;">Total: Rs. ${o.totals.finalTotal}</p>
+        <p style="margin: 0; color: #333;">Status: ${o.status}</p>
+      </div>
+    `).join('');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #6b493d; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0;">Hope for Paws</h1>
+        </div>
+        <div style="padding: 20px; background-color: #f9f9f9;">
+          <h2 style="color: #6b493d;">Order Confirmation</h2>
+          <p style="color: #333; line-height: 1.6;">
+            Hi ${buyer.username || 'there'}, thank you for your order! Here are your order details:
+          </p>
+          <div style="margin-top: 20px;">
+            ${orderItemsHtml}
+          </div>
+          <div style="margin-top: 20px; padding: 15px; background-color: white; border-left: 4px solid #6b493d;">
+            <p style="margin: 0; color: #666; font-size: 14px;">
+              We'll notify you when your order status updates.
+            </p>
+          </div>
+        </div>
+        <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #666; font-size: 12px;">
+          <p>© 2024 Hope for Paws. All rights reserved.</p>
+        </div>
+      </div>
+    `;
 
     await sendEmail(
       buyer.email,
       'Order Confirmation - Hope For Paws',
-      `Hi ${buyer.username || 'there'},\n\nThank you for your order! Here are your order details:\n\n${orderSummary}\n\nWe'll notify you when your order status updates.`
+      `Hi ${buyer.username || 'there'}, thank you for your order! We'll notify you when your order status updates.`,
+      html
     );
   }
 } catch (emailError) {
-  // Don't fail the order if email sending fails — just log it
   console.error('Failed to send order confirmation email:', emailError);
 }
 
@@ -132,19 +161,46 @@ exports.cancelOrder = async (req, res) => {
     
     await order.save();
 
-    // Send order cancellation email
-    try {
-      const buyer = await User.findById(buyerId).select('email username');
-      if (buyer?.email) {
-        await sendEmail(
-          buyer.email,
-          'Order Cancelled - Hope For Paws',
-          `Hi ${buyer.username || 'there'},\n\nYour order (Order ID: ${order._id}) has been cancelled successfully.\n\nTotal: RS. ${order.totals.finalTotal}\n\nIf you didn't request this cancellation, please contact support.`
-        );
-      }
-    } catch (emailError) {
-      console.error('Failed to send order cancellation email:', emailError);
-    }
+   // Send order cancellation email (HTML styled)
+try {
+  const buyer = await User.findById(buyerId).select('email username');
+  if (buyer?.email) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
+        <div style="background-color: #6b493d; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
+        </div>
+        <div style="padding: 30px 25px; background-color: #f5f0e8; text-align: center;">
+          <h2 style="color: #6b493d; margin: 0 0 10px 0;">Order Cancelled</h2>
+          <p style="color: #333; line-height: 1.6; margin: 0 0 20px 0;">
+            Hi ${buyer.username || 'there'}, your order has been cancelled successfully.
+          </p>
+
+          <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
+            <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${order._id}</p>
+            <p style="margin: 0; color: #333;">Total: Rs. ${order.totals.finalTotal}</p>
+          </div>
+
+          <p style="color: #666; font-size: 13px; margin-top: 20px;">
+            If you didn't request this cancellation, please contact support.
+          </p>
+        </div>
+        <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #888; font-size: 12px;">
+          <p style="margin: 0;">© 2024 Hope for Paws. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail(
+      buyer.email,
+      'Order Cancelled - Hope For Paws',
+      `Hi ${buyer.username || 'there'}, your order (Order ID: ${order._id}) has been cancelled successfully.`,
+      html
+    );
+  }
+} catch (emailError) {
+  console.error('Failed to send order cancellation email:', emailError);
+}
 
     res.json({ success: true, order, message: 'Order cancelled successfully' });
   } catch (error) {
