@@ -79,35 +79,33 @@ await Cart.findOneAndUpdate(
 try {
   const buyer = await User.findById(buyerId).select('email username');
   if (buyer?.email) {
-    const orderItemsHtml = createdOrders.map(o => `
-      <div style="margin-bottom: 16px; padding: 15px; background-color: white; border-left: 4px solid #6b493d; border-radius: 4px;">
-        <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold;">Order ID: ${o._id}</p>
+   const orderItemsHtml = createdOrders.map(o => `
+      <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
+        <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${o.orderId}</p>
         <p style="margin: 0 0 4px 0; color: #333;">Total: Rs. ${o.totals.finalTotal}</p>
         <p style="margin: 0; color: #333;">Status: ${o.status}</p>
       </div>
     `).join('');
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #6b493d; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0;">Hope for Paws</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
+        <div style="background-color: #6b493d; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
         </div>
-        <div style="padding: 20px; background-color: #f9f9f9;">
-          <h2 style="color: #6b493d;">Order Confirmation</h2>
-          <p style="color: #333; line-height: 1.6;">
-            Hi ${buyer.username || 'there'}, thank you for your order! Here are your order details:
+        <div style="padding: 30px 25px; background-color: #f5f0e8; text-align: center;">
+          <h2 style="color: #6b493d; margin: 0 0 10px 0;">Order Confirmation</h2>
+          <p style="color: #333; line-height: 1.6; margin: 0 0 20px 0;">
+            Hi ${buyer.username || 'there'}, thank you for your order! Here are your order details.
           </p>
-          <div style="margin-top: 20px;">
-            ${orderItemsHtml}
-          </div>
-          <div style="margin-top: 20px; padding: 15px; background-color: white; border-left: 4px solid #6b493d;">
-            <p style="margin: 0; color: #666; font-size: 14px;">
-              We'll notify you when your order status updates.
-            </p>
-          </div>
+
+          ${orderItemsHtml}
+
+          <p style="color: #666; font-size: 13px; margin-top: 20px;">
+            We'll notify you when your order status updates.
+          </p>
         </div>
-        <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #666; font-size: 12px;">
-          <p>© 2024 Hope for Paws. All rights reserved.</p>
+        <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #888; font-size: 12px;">
+          <p style="margin: 0;">© 2024 Hope for Paws. All rights reserved.</p>
         </div>
       </div>
     `;
@@ -177,7 +175,7 @@ try {
           </p>
 
           <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
-            <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${order._id}</p>
+            <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${order.orderId}</p>
             <p style="margin: 0; color: #333;">Total: Rs. ${order.totals.finalTotal}</p>
           </div>
 
