@@ -1,3 +1,4 @@
+import { SHIPPING_FEE } from '../utils/constants';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -184,7 +185,7 @@ function PromoCode() {
 // ─── OrderSummary ────────────────────────────────────────────────────────────
 function OrderSummary({ subtotal, itemCount, onCheckout }) {
   const freeThreshold = 5000;
-  const shipping = subtotal >= freeThreshold ? 0 : 350;
+  const shipping = subtotal >= freeThreshold ? 0 : SHIPPING_FEE;
   const total = subtotal + shipping;
   const progress = Math.min((subtotal / freeThreshold) * 100, 100);
 

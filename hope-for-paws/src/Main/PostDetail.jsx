@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, UserCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -14,7 +15,8 @@ const PostDetail = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Check user authentication state
-  const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+  const requireAuth = useRequireAuth();
 
   useEffect(() => {
     fetchPost();
@@ -38,7 +40,7 @@ const PostDetail = () => {
   };
 
   const handleLike = async () => {
-    if (!userr) return;
+    if (!requireAuth('like posts')) return;
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -59,7 +61,7 @@ const PostDetail = () => {
 
   const handleComment = async (e) => {
     e.preventDefault();
-    if (!userr || !newComment.trim()) return;
+    if (!newComment.trim() || !requireAuth('comment on posts')) return;
 
     try {
       setSubmittingComment(true);
@@ -233,7 +235,6 @@ const PostDetail = () => {
               <h4 className="font-semibold text-[#6b493d] mb-3">Comments</h4>
               
               {/* Add Comment Form */}
-              {userr && (
                 <form onSubmit={handleComment} className="mb-4">
                   <div className="flex gap-2">
                     <input
@@ -253,7 +254,6 @@ const PostDetail = () => {
                     </button>
                   </div>
                 </form>
-              )}
 
               {/* Comments List */}
               <div className="space-y-3">
@@ -281,9 +281,12 @@ const PostDetail = () => {
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      {userr && (comment.userId?._id === userr._id || comment.userId?._id === userr.id) && (
-                        <button
-                          onClick={() => handleDeleteComment(comment._id)}
+                      {userr && (   // change here.
+  comment.userId?._id === userr._id || comment.userId?._id === userr.id ||
+  post.userId?._id === userr._id || post.userId?._id === userr.id
+) && (
+  <button
+    onClick={() => handleDeleteComment(comment._id)} // till here. 
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                           title="Delete comment"
                         >

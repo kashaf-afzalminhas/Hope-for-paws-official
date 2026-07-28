@@ -1,6 +1,7 @@
+import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-// ✅ ADDED FaStore to imports
+// ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED FaStore to imports
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag } from 'react-icons/fa';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -13,6 +14,7 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
+import MyOrdersPage from '../marketplace/BuyerOrders';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -68,76 +70,76 @@ const ProfilePage = () => {
     countryCode: '+92'
   });
   const [countryCodes] = useState([
-    { code: '+92', name: 'Pakistan', flag: '🇵🇰' },
-    { code: '+1', name: 'United States', flag: '🇺🇸' },
-    { code: '+44', name: 'United Kingdom', flag: '🇬🇧' },
-    { code: '+91', name: 'India', flag: '🇮🇳' },
-    { code: '+86', name: 'China', flag: '🇨🇳' },
-    { code: '+33', name: 'France', flag: '🇫🇷' },
-    { code: '+49', name: 'Germany', flag: '🇩🇪' },
-    { code: '+81', name: 'Japan', flag: '🇯🇵' },
-    { code: '+82', name: 'South Korea', flag: '🇰🇷' },
-    { code: '+61', name: 'Australia', flag: '🇦🇺' },
-    { code: '+55', name: 'Brazil', flag: '🇧🇷' },
-    { code: '+52', name: 'Mexico', flag: '🇲🇽' },
-    { code: '+39', name: 'Italy', flag: '🇮🇹' },
-    { code: '+34', name: 'Spain', flag: '🇪🇸' },
-    { code: '+7', name: 'Russia', flag: '🇷🇺' },
-    { code: '+90', name: 'Turkey', flag: '🇹🇷' },
-    { code: '+966', name: 'Saudi Arabia', flag: '🇸🇦' },
-    { code: '+971', name: 'UAE', flag: '🇦🇪' },
-    { code: '+974', name: 'Qatar', flag: '🇶🇦' },
-    { code: '+965', name: 'Kuwait', flag: '🇰🇼' },
-    { code: '+973', name: 'Bahrain', flag: '🇧🇭' },
-    { code: '+968', name: 'Oman', flag: '🇴🇲' },
-    { code: '+20', name: 'Egypt', flag: '🇪🇬' },
-    { code: '+27', name: 'South Africa', flag: '🇿🇦' },
-    { code: '+234', name: 'Nigeria', flag: '🇳🇬' },
-    { code: '+254', name: 'Kenya', flag: '🇰🇪' },
-    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
-    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
-    { code: '+98', name: 'Iran', flag: '🇮🇷' },
-    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
-    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
-    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
-    { code: '+963', name: 'Syria', flag: '🇸🇾' },
-    { code: '+972', name: 'Israel', flag: '🇮🇱' },
-    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
-    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
-    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
-    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
-    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
-    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
-    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
-    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
-    { code: '+856', name: 'Laos', flag: '🇱🇦' },
-    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
-    { code: '+670', name: 'East Timor', flag: '🇹🇱' },
-    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
-    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
-    { code: '+98', name: 'Iran', flag: '🇮🇷' },
-    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
-    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
-    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
-    { code: '+963', name: 'Syria', flag: '🇸🇾' },
-    { code: '+972', name: 'Israel', flag: '🇮🇱' },
-    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
-    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
-    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
-    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
-    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
-    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
-    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
-    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
-    { code: '+856', name: 'Laos', flag: '🇱🇦' },
-    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
-    { code: '+670', name: 'East Timor', flag: '🇹🇱' }
+    { code: '+92', name: 'Pakistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
+    { code: '+1', name: 'United States', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂºÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
+    { code: '+44', name: 'United Kingdom', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
+    { code: '+91', name: 'India', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+86', name: 'China', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¨ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+33', name: 'France', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+49', name: 'Germany', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
+    { code: '+81', name: 'Japan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
+    { code: '+82', name: 'South Korea', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+61', name: 'Australia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âº' },
+    { code: '+55', name: 'Brazil', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+52', name: 'Mexico', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â½' },
+    { code: '+39', name: 'Italy', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹' },
+    { code: '+34', name: 'Spain', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂªÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
+    { code: '+7', name: 'Russia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âº' },
+    { code: '+90', name: 'Turkey', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+966', name: 'Saudi Arabia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
+    { code: '+971', name: 'UAE', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
+    { code: '+974', name: 'Qatar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
+    { code: '+965', name: 'Kuwait', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¼' },
+    { code: '+973', name: 'Bahrain', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+968', name: 'Oman', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
+    { code: '+20', name: 'Egypt', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂªÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
+    { code: '+27', name: 'South Africa', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¿ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
+    { code: '+234', name: 'Nigeria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
+    { code: '+254', name: 'Kenya', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
+    { code: '+880', name: 'Bangladesh', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
+    { code: '+94', name: 'Sri Lanka', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
+    { code: '+977', name: 'Nepal', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
+    { code: '+93', name: 'Afghanistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«' },
+    { code: '+98', name: 'Iran', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+964', name: 'Iraq', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶' },
+    { code: '+962', name: 'Jordan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´' },
+    { code: '+961', name: 'Lebanon', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
+    { code: '+963', name: 'Syria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
+    { code: '+972', name: 'Israel', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
+    { code: '+970', name: 'Palestine', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
+    { code: '+60', name: 'Malaysia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
+    { code: '+65', name: 'Singapore', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
+    { code: '+66', name: 'Thailand', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+84', name: 'Vietnam', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â»ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+63', name: 'Philippines', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+62', name: 'Indonesia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
+    { code: '+95', name: 'Myanmar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
+    { code: '+855', name: 'Cambodia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+856', name: 'Laos', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
+    { code: '+673', name: 'Brunei', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+670', name: 'East Timor', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
+    { code: '+880', name: 'Bangladesh', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
+    { code: '+94', name: 'Sri Lanka', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
+    { code: '+977', name: 'Nepal', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
+    { code: '+93', name: 'Afghanistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«' },
+    { code: '+98', name: 'Iran', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
+    { code: '+964', name: 'Iraq', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶' },
+    { code: '+962', name: 'Jordan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´' },
+    { code: '+961', name: 'Lebanon', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
+    { code: '+963', name: 'Syria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
+    { code: '+972', name: 'Israel', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
+    { code: '+970', name: 'Palestine', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
+    { code: '+60', name: 'Malaysia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
+    { code: '+65', name: 'Singapore', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
+    { code: '+66', name: 'Thailand', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+84', name: 'Vietnam', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â»ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+63', name: 'Philippines', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+62', name: 'Indonesia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
+    { code: '+95', name: 'Myanmar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
+    { code: '+855', name: 'Cambodia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
+    { code: '+856', name: 'Laos', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
+    { code: '+673', name: 'Brunei', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
+    { code: '+670', name: 'East Timor', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -212,7 +214,7 @@ const ProfilePage = () => {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (userData) {
       // Convert isVeterinarian to userType for display
       const getUserType = (user) => {
@@ -288,6 +290,7 @@ const ProfilePage = () => {
         setProfile(prev => ({
           ...prev,
           profileImage: userData.profileImage || '',
+          isVerified: userData.sellerDetails?.isVerified || false,
         }));
       }
     } catch (error) {
@@ -417,12 +420,10 @@ const ProfilePage = () => {
         const newImagePath = response.data.data.profileImage;
         setProfile(prev => ({ ...prev, profileImage: newImagePath }));
         
-        // Update local storage
-        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = newImagePath;
           localStorage.setItem('user', JSON.stringify(userData));
-          sessionStorage.setItem('user', JSON.stringify(userData));
         }
         
         addToast('Profile image uploaded successfully!');
@@ -452,12 +453,10 @@ const ProfilePage = () => {
       if (response.data && response.data.success) {
         setProfile(prev => ({ ...prev, profileImage: '' }));
         
-        // Update local storage
-        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = '';
           localStorage.setItem('user', JSON.stringify(userData));
-          sessionStorage.setItem('user', JSON.stringify(userData));
         }
         
         addToast('Profile image removed successfully!');
@@ -750,7 +749,7 @@ const ProfilePage = () => {
     { name: 'My Posts', view: 'myposts', icon: <FaListAlt /> },
   ];
 
-  // ✅ ADDED: Conditionally add Order Management below My Posts for Sellers
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Order Management below My Posts for Sellers
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Order Management',
@@ -762,7 +761,11 @@ const ProfilePage = () => {
 
   // Only show 'My Orders' if user is NOT a seller (i.e. Buyer/Vet)
   if (!user?.isSeller && user?.role !== 'seller') {
-    profileLinks.push({ name: 'My Orders', external: true, path: '/my-orders', icon: <FaShoppingBag /> });
+    profileLinks.push({
+      name: 'My Orders',
+      view: 'myorders',
+      icon: <FaShoppingBag />
+    });
   }
 
   profileLinks.push(
@@ -770,7 +773,7 @@ const ProfilePage = () => {
     { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> }
   );
 
-  // ✅ ADDED: Conditionally add Seller Dashboard
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Seller Dashboard
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Seller Dashboard',
@@ -822,7 +825,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (currentView !== 'adoptionhistory') return;
     // Check for user in localStorage/sessionStorage if not in context
-    const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (!user && storedUser) {
       setAdoptionHistoryEffectiveUser(storedUser);
     } else {
@@ -883,7 +886,7 @@ const ProfilePage = () => {
   // MyAdoptions logic
   useEffect(() => {
     if (currentView !== 'myadoptions') return;
-    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const userFromStorage = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     setAdoptionsStoredUser(userFromStorage);
   }, [currentView]);
   useEffect(() => {
@@ -1100,16 +1103,17 @@ const ProfilePage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentView !== 'myposts') return;
-    const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-    if (!userr || !userr.id) return;
-    fetchUserPosts(userr.id);
+    const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+    const uid = getCurrentUserId(userr);
+    if (!uid) return;
+    fetchUserPosts(uid);
   }, [currentView]);
   const fetchUserPosts = async (userId) => {
     if (!userId) return;
     try {
       setPostsLoading(true);
       setPostsError("");
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) throw new Error("Token is missing. Please log in again.");
       const response = await fetch(`${API_BASE_URL}/posts/user/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1132,7 +1136,7 @@ const ProfilePage = () => {
       // Set saving state for this specific post
       setPostSavingStates(prev => ({ ...prev, [postId]: true }));
       
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -1164,17 +1168,40 @@ const ProfilePage = () => {
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       fetchUserPosts(userr.id);
     } catch {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
+const handleDeleteComment = async (commentId, postId) => {// change here.
+  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setPosts(prev => prev.map(post => {
+      if (post._id === postId) {
+        return {
+          ...post,
+          comments: post.comments.filter((c) => c._id !== commentId),
+        };
+      }
+      return post;
+    }));
+  } catch (err) {
+    addToast('Failed to delete comment.', 'error');
+  }
+}; // till here. 
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1280,7 +1307,12 @@ const ProfilePage = () => {
                 </div>
               )}
               
-              <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+              <div className="flex items-center justify-center gap-1.5">
+                <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+                {profile.userType === 'Seller' && (
+                  <VerifiedBadge isVerified={profile.isVerified} size="md" />
+                )}
+              </div>
               <p className="text-[#a07855] text-sm truncate">{profile.email}</p>
 
               {/* Mobile menu toggle */}
@@ -1388,8 +1420,19 @@ const ProfilePage = () => {
                 
                 <div className="mt-6">
                   <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Account Type</h3>
-                  <div className="bg-gray-50 p-4 rounded">
+                  <div className="bg-gray-50 p-4 rounded flex items-center justify-between">
                     <p className="font-medium capitalize">{profile.userType || 'Standard User'}</p>
+                    {profile.userType === 'Seller' && (
+                      profile.isVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                          Verified Seller
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                          Status: Unverified
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
                 
@@ -1605,7 +1648,7 @@ const ProfilePage = () => {
                       </div>
                       {passwords.newPassword && unmetRequirements.length === 0 && (
                         <div className="mt-2 flex items-center text-green-700 text-xs">
-                          <span className="mr-1">✓</span>
+                          <span className="mr-1">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
                           Password meets all requirements
                         </div>
                       )}
@@ -1659,6 +1702,9 @@ const ProfilePage = () => {
             )}
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
             {currentView === 'myadoptions' && <MyAdoptions embedded />}
+            {currentView === 'myorders' && (
+                <MyOrdersPage embedded />
+            )}
             {currentView === 'myposts' && (
               <section className="min-h-screen py-4">
                 <div className="w-full">
@@ -1705,7 +1751,7 @@ const ProfilePage = () => {
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     disabled={postSavingStates[post._id]}
                                   >
-                                    <span className="h-5 w-5 text-[#6b493d]">✕</span>
+                                    <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¢</span>
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditPost(post._id)}
@@ -1737,11 +1783,11 @@ const ProfilePage = () => {
                                 <div className="flex items-center justify-between mt-4 flex-wrap gap-y-2">
                                   <div className="flex items-center space-x-4 text-[#6b493d]/80">
                                     <div className="flex items-center space-x-1">
-                                      <span>❤️</span>
+                                      <span>ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
                                       <span>{post.likes.length}</span>
                                     </div>
                                     <div className="flex items-center space-x-1">
-                                      <span>💬</span>
+                                      <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬</span>
                                       <span>{post.comments.length}</span>
                                     </div>
                                   </div>
@@ -1750,13 +1796,13 @@ const ProfilePage = () => {
                                       onClick={() => handleEditPost(post)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     >
-                                      <span className="h-5 w-5 text-[#6b493d]">✎</span>
+                                      <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ¢Ã…â€œÃ…Â½</span>
                                     </button>
                                     <button
                                       onClick={() => handleDeletePost(post._id)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     >
-                                      <span className="h-5 w-5 text-[#6b493d]">🗑️</span>
+                                      <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â</span>
                                     </button>
                                   </div>
                                   <button
@@ -1769,17 +1815,31 @@ const ProfilePage = () => {
                                 {expandedComments[post._id] && (
                                   <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
                                     {post.comments.length > 0 ? (
-                                      post.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words">
-                                          <p className="text-[#6b493d] font-medium break-words">
-                                            {comment.userId?.username || "Unknown User"}
-                                          </p>
-                                          <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                                    )}
+  post.comments.map((comment) => (  // change here.
+    <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
+      <div>
+        <p className="text-[#6b493d] font-medium break-words">
+          {comment.userId?.username || "Unknown User"}
+        </p>
+        <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
+      </div>
+      {user && (
+        comment.userId?._id === user._id || comment.userId?._id === user.id ||
+        post.userId?._id === user._id || post.userId?._id === user.id
+      ) && (
+        <button
+          onClick={() => handleDeleteComment(comment._id, post._id)}
+          className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+          title="Delete comment"
+        >
+          ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â
+        </button>
+      )}
+    </div>
+  ))
+) : (
+  <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
+)} // till here.
                                   </div>
                                 )}
                               </div>

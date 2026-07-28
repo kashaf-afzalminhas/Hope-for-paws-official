@@ -8,6 +8,7 @@ import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { getConversationBetweenUsers } from './api'; // <-- Make sure this is imported
 import PostUploadForm from './PostUploadForm';
+import { useRequireAuth } from '../Components/AuthGuard';
  
 const Postnew = () => {
   const [posts, setPosts] = useState([]);
@@ -24,11 +25,12 @@ const Postnew = () => {
   const [replyingTo, setReplyingTo] = useState(null); // commentId being replied to
   const intervalRef = useRef(null); // Ref to track the interval
   const [isRefreshing, setIsRefreshing] = useState(false); // For subtle background refresh indicator
+  const requireAuth = useRequireAuth();
   
   // Check user authentication state
   const user =
     JSON.parse(localStorage.getItem("user")) ||
-    JSON.parse(sessionStorage.getItem("user"));
+    null;
   const currentUserId = getCurrentUserId(user);
     
   const toggleComments = (postId) => {
@@ -45,7 +47,7 @@ const Postnew = () => {
       } else {
         setIsRefreshing(true);
       }
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/posts`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -147,11 +149,11 @@ const Postnew = () => {
 
 
   const handleLike = async (postId) => {
-    if (!user) return; // Only allow likes if the user is logged in
+    if (!requireAuth('like posts')) return;
 
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/posts/${postId}/like`,
         {},
@@ -171,11 +173,11 @@ const Postnew = () => {
   };
 
   const handleComment = async (postId) => {
-    if (!user || !newComment[postId]) return; // Only allow comments if the user is logged in
+    if (!newComment[postId] || !requireAuth('comment on posts')) return;
 
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/comments/${postId}`,
         { content: newComment[postId] },
@@ -207,7 +209,7 @@ const Postnew = () => {
   
     try {
       const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+        localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.delete(`${API_BASE_URL}/comments/${commentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -230,9 +232,9 @@ const Postnew = () => {
   };
 
   const handleReply = async (postId, parentCommentId) => {
-    if (!user || !replyInput[parentCommentId]) return;
+    if (!replyInput[parentCommentId] || !requireAuth('reply to comments')) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/comments/${postId}/comments`,
         { content: replyInput[parentCommentId], parentCommentId },
@@ -257,10 +259,7 @@ const Postnew = () => {
 
   // Enhanced navigation handler
   const handleStartConversation = async (postCreatorId) => {
-    if (!user) {
-      navigate('/signin');
-      return;
-    }
+    if (!requireAuth('start a conversation')) return;
 
     try {
       // First check if conversation exists in local state
@@ -379,14 +378,18 @@ const Postnew = () => {
                 </div>
               )}
             </div>
-            {user && comment.userId?._id === user.id && (
-              <button
-                onClick={() => handleDeleteComment(comment._id, postId)}
-                className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
-              >
-                <Trash2 className="h-4 w-4 text-[#6b493d]" />
-              </button>
-            )}
+            {user && (
+  comment.userId?._id === user.id || comment.userId?._id === user._id ||
+  posts.find(p => p._id === postId)?.userId?._id === user.id ||
+  posts.find(p => p._id === postId)?.userId?._id === user._id
+) && (
+  <button
+    onClick={() => handleDeleteComment(comment._id, postId)}
+    className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
+  >
+    <Trash2 className="h-4 w-4 text-[#6b493d]" />
+  </button>
+)}
           </div>
           {/* Render replies with incremented depth */}
           <div className="ml-8 mt-2">
@@ -597,31 +600,29 @@ const Postnew = () => {
 
                   {/* Comments Section - Better spacing for mobile */}
                   <div className="mt-3 space-y-3 sm:mt-4 sm:space-y-4">
-                    {user && (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newComment[post._id] || ""}
-                          onChange={(e) =>
-                            setNewComment({
-                              ...newComment,
-                              [post._id]: e.target.value,
-                            })
-                          }
-                          placeholder="Write a comment..."
-                          className="flex-1 bg-[#f5f3ed] rounded-full px-4 py-2 text-[#4E3B31] text-sm placeholder-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
-                          onKeyPress={(e) =>
-                            e.key === "Enter" && handleComment(post._id)
-                          }
-                        />
-                        <button
-                          onClick={() => handleComment(post._id)}
-                          className="px-3 py-2 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins font-medium text-sm"
-                        >
-                          Post
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newComment[post._id] || ""}
+                        onChange={(e) =>
+                          setNewComment({
+                            ...newComment,
+                            [post._id]: e.target.value,
+                          })
+                        }
+                        placeholder="Write a comment..."
+                        className="flex-1 bg-[#f5f3ed] rounded-full px-4 py-2 text-[#4E3B31] text-sm placeholder-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && handleComment(post._id)
+                        }
+                      />
+                      <button
+                        onClick={() => handleComment(post._id)}
+                        className="px-3 py-2 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins font-medium text-sm"
+                      >
+                        Post
+                      </button>
+                    </div>
 
                     <div className="space-y-2 sm:space-y-3">
                       {renderComments(

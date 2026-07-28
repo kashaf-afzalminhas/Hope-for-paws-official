@@ -47,7 +47,7 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
   const { toasts, showToast, dismiss } = useAppToast();
 
   // Get current user
-  const currentUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const currentUserId = currentUser?._id || currentUser?.id;
 
   const handleRequestAction = async (requestId, action) => {
@@ -62,7 +62,7 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
 
       showToast(
         action === 'accept'
-          ? 'Request accepted. Use “Message” below to chat with the adopter on the site.'
+          ? 'Request accepted. Use Ã¢â‚¬Å“MessageÃ¢â‚¬Â below to chat with the adopter on the site.'
           : 'Adoption request rejected.',
         'success'
       );
@@ -127,7 +127,7 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
           <div className="flex-1 min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold text-[#4E3B31]">Adoption Requests</h2>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              {post.name} - {post.petType} • {requests.length} request{requests.length !== 1 ? 's' : ''}
+              {post.name} - {post.petType} Ã¢â‚¬Â¢ {requests.length} request{requests.length !== 1 ? 's' : ''}
             </p>
           </div>
           <button
@@ -158,9 +158,9 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
                       <h3 className="text-base sm:text-lg font-semibold text-[#4E3B31] break-words">{request.name}</h3>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1 text-xs sm:text-sm text-gray-600">
                         <span className="break-all">{request.email}</span>
-                        <span className="hidden sm:inline">•</span>
+                        <span className="hidden sm:inline">Ã¢â‚¬Â¢</span>
                         <span>{request.phone}</span>
-                        <span className="hidden sm:inline">•</span>
+                        <span className="hidden sm:inline">Ã¢â‚¬Â¢</span>
                         <span>{formatDate(request.createdAt)}</span>
                       </div>
                     </div>

@@ -14,3 +14,5 @@ export const ADMIN_BASE_URL = isLocalhost
   : 'https://api.hopeforpaws.club/api/admin';
 export const API_ROUTES_BASE_URL = API_BASE_URL;
 
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
+

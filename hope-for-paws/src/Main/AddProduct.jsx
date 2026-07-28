@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle } from 'lucide-react';
+import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle, Trash2, Plus } from 'lucide-react';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -29,17 +29,28 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     category: '',
     description: '',
     price: '',
-    discountPrice: '',
+    discountPercentage: '',
     countInStock: '',
-    sku: '',
-    weight: '',
-    ingredients: '',
-    usageInstructions: '',
-    expiryDate: ''
+    sku: ''
   });
 
+  const [customFields, setCustomFields] = useState([{ heading: '', description: '' }]);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaPreviews, setMediaPreviews] = useState([]);
+
+  const addCustomField = () => {
+    setCustomFields(prev => [...prev, { heading: '', description: '' }]);
+  };
+
+  const handleFieldChange = (index, field, value) => {
+    const updatedFields = [...customFields];
+    updatedFields[index][field] = value;
+    setCustomFields(updatedFields);
+  };
+
+  const removeCustomField = (index) => {
+    setCustomFields(prev => prev.filter((_, i) => i !== index));
+  };
 
   React.useEffect(() => {
     if (isEditMode) {
@@ -53,14 +64,13 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             category: data.category || '',
             description: data.description || '',
             price: data.price || '',
-            discountPrice: data.discountPrice || '',
+            discountPercentage: data.discountPercentage || '',
             countInStock: data.countInStock || '',
-            sku: data.sku || '',
-            weight: data.weight || '',
-            ingredients: data.ingredients || '',
-            usageInstructions: data.usageInstructions || '',
-            expiryDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : ''
+            sku: data.sku || ''
           });
+          if (data.additionalInfo && data.additionalInfo.length > 0) {
+            setCustomFields(data.additionalInfo);
+          }
           if (data.images) {
             setExistingImages(data.images);
           }
@@ -125,18 +135,17 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       setIsSubmitting(false);
       return;
     }
-    if (formData.discountPrice && Number(formData.discountPrice) >= Number(formData.price)) {
-      setError("Discount price must be less than the regular price.");
+    if (
+      formData.discountPercentage &&
+      (Number(formData.discountPercentage) < 0 ||
+        Number(formData.discountPercentage) > 100)
+    ) {
+      setError("Discount percentage must be between 0 and 100.");
       setIsSubmitting(false);
       return;
     }
     if (Number(formData.countInStock) < 0) {
       setError("Stock count cannot be negative.");
-      setIsSubmitting(false);
-      return;
-    }
-    if (formData.expiryDate && new Date(formData.expiryDate) < new Date()) {
-      setError("Expiry date cannot be in the past.");
       setIsSubmitting(false);
       return;
     }
@@ -151,6 +160,12 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       Object.keys(formData).forEach(key => {
         if (formData[key] !== '') submitData.append(key, formData[key]);
       });
+      
+      // Attach the custom fields as a JSON string
+      const validFields = customFields.filter(f => f.heading.trim() !== '' && f.description.trim() !== '');
+      if (validFields.length > 0) {
+        submitData.append('additionalInfo', JSON.stringify(validFields));
+      }
       
       mediaFiles.forEach(file => {
         submitData.append('media', file);
@@ -299,8 +314,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                   className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Discount Price (Rs.)</label>
-                <input type="number" name="discountPrice" value={formData.discountPrice} onChange={handleInputChange} min="0"
+                <label className="block text-sm font-medium text-stone-700 mb-2">Discount Percentage (%)</label>
+                <input type="number" name="discountPercentage" value={formData.discountPercentage} onChange={handleInputChange} min="0"
                   className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white"
                   placeholder="Optional" />
               </div>
@@ -375,33 +390,59 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
 
           {/* Card 4: Additional Info */}
           <div id="additional" className="bg-white shadow-sm hover:shadow-md transition-shadow duration-300 border border-stone-100 rounded-2xl p-8" onMouseEnter={() => setActiveSection('additional')}>
-            <h2 className="text-2xl font-bold text-[#6b493d] mb-6 tracking-wide">Additional Info</h2>
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Weight / Volume</label>
-                <input type="text" name="weight" value={formData.weight} onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white"
-                  placeholder="e.g. 1.5 kg, 500 ml" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Expiry Date</label>
-                <input type="date" name="expiryDate" value={formData.expiryDate} onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white text-stone-700" />
-              </div>
+            <h2 className="text-2xl font-bold text-[#6b493d] mb-2 tracking-wide">Additional Info</h2>
+            <p className="text-sm text-[#856046] mb-6">Add dynamic custom fields like Material, Dimensions, Expiry Date, or Instructions.</p>
+            
+            <div className="space-y-4 mb-6">
+              {customFields.map((field, index) => (
+                <div key={index} className="flex gap-4 items-start p-4 bg-stone-50 border border-stone-200 rounded-xl relative group">
+                  <div className="flex-1 space-y-3">
+                    <input 
+                      type="text" 
+                      value={field.heading} 
+                      onChange={(e) => handleFieldChange(index, 'heading', e.target.value)}
+                      placeholder="e.g., Material, Dimensions, Expiry"
+                      className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm font-semibold text-stone-800"
+                    />
+                    <textarea 
+                      value={field.description} 
+                      onChange={(e) => handleFieldChange(index, 'description', e.target.value)}
+                      placeholder="Enter details..."
+                      rows={2}
+                      className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm text-stone-700 resize-none"
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => removeCustomField(index)}
+                    className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Remove Field"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              ))}
             </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Ingredients (if applicable)</label>
-                <textarea name="ingredients" value={formData.ingredients} onChange={handleInputChange} rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white resize-none"
-                  placeholder="List ingredients comma-separated..." />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Usage / Feeding Instructions</label>
-                <textarea name="usageInstructions" value={formData.usageInstructions} onChange={handleInputChange} rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white resize-none"
-                  placeholder="How should this product be used?" />
-              </div>
+            
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={addCustomField}
+                disabled={customFields.length >= 5}
+                className={`w-full py-3 border-2 border-dashed rounded-xl font-medium flex items-center justify-center transition-colors ${
+                  customFields.length >= 5 
+                    ? 'border-gray-200 text-gray-400 opacity-50 cursor-not-allowed bg-gray-50'
+                    : 'border-[#c9a280] text-[#856046] hover:bg-[#F8F4ED] hover:border-[#6b493d] hover:text-[#6b493d]'
+                }`}
+              >
+                <Plus size={18} className="mr-2" />
+                Add Custom Detail
+              </button>
+              {customFields.length >= 5 && (
+                <p className="text-center text-xs text-gray-400 mt-2">
+                  Maximum of 5 custom fields reached.
+                </p>
+              )}
             </div>
           </div>
 

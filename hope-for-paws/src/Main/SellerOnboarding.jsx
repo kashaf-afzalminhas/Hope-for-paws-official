@@ -159,7 +159,7 @@ const SellerOnboarding = () => {
       setSuccess(true);
       
       setTimeout(() => {
-        navigate('/seller/dashboard');
+        navigate('/');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Failed to complete onboarding');

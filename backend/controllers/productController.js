@@ -18,7 +18,7 @@ exports.createProduct = async (req, res) => {
 
     const { 
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, weight, ingredients, usageInstructions, expiryDate
+      brand, sku, discountPercentage, additionalInfo
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
@@ -28,11 +28,23 @@ exports.createProduct = async (req, res) => {
     // Strict Validations
     if (Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      return res.status(400).json({ message: 'Expiry date must be in the future' });
+
+    let parsedAdditionalInfo = [];
+    if (additionalInfo) {
+      try {
+        parsedAdditionalInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+      } catch (e) {
+        console.error('Error parsing additionalInfo:', e);
+      }
     }
 
     let images = req.body.images || [];
@@ -52,11 +64,9 @@ exports.createProduct = async (req, res) => {
       countInStock: Number(countInStock),
       brand,
       sku,
-      discountPrice: discountPrice ? Number(discountPrice) : undefined,
-      weight,
-      ingredients,
-      usageInstructions,
-      expiryDate,
+      discountPercentage:
+        discountPercentage !== undefined ? Number(discountPercentage) : 0,
+      additionalInfo: parsedAdditionalInfo,
       images,
       status: 'active',
       isVisible: true
@@ -76,7 +86,8 @@ exports.createProduct = async (req, res) => {
 exports.listProducts = async (req, res) => {
   try {
     const { category, search, sort } = req.query;
-    let query = { isVisible: true };
+    // Strictly filter out hidden items (from automated moderation)
+    let query = { isVisible: true, isHidden: { $ne: true } };
 
     if (category && category !== 'All') {
       query.category = category;
@@ -96,7 +107,7 @@ exports.listProducts = async (req, res) => {
 
     const products = await Product.find(query)
       .sort(sortObj)
-      .populate('sellerId', 'userId name status')
+      .populate('sellerId', 'userId name status isVerified storeName')
       .lean();
 
     return res.json(products);
@@ -125,7 +136,7 @@ exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
-      .populate('sellerId', 'userId name status'); 
+      .populate('sellerId', 'userId name status isVerified storeName'); 
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
@@ -176,17 +187,34 @@ exports.updateProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, weight, ingredients, usageInstructions, expiryDate
+      brand, sku, discountPercentage, additionalInfo
     } = req.body;
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (countInStock && Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price || product.price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      return res.status(400).json({ message: 'Expiry date must be in the future' });
+
+    let parsedAdditionalInfo;
+    if (additionalInfo !== undefined) {
+      if (typeof additionalInfo === 'string') {
+        try {
+          parsedAdditionalInfo = JSON.parse(additionalInfo);
+        } catch (e) {
+          console.error('Error parsing additionalInfo:', e);
+          parsedAdditionalInfo = [];
+        }
+      } else {
+        parsedAdditionalInfo = additionalInfo;
+      }
     }
 
     // Validation & Index Safety: Prevent false-positive duplicate errors
@@ -211,11 +239,11 @@ exports.updateProduct = async (req, res) => {
     product.countInStock = countInStock !== undefined ? Number(countInStock) : product.countInStock;
     product.brand = brand || product.brand;
     product.sku = sku || product.sku;
-    product.discountPrice = discountPrice ? Number(discountPrice) : product.discountPrice;
-    if (weight !== undefined) product.weight = weight;
-    if (ingredients !== undefined) product.ingredients = ingredients;
-    if (usageInstructions !== undefined) product.usageInstructions = usageInstructions;
-    if (expiryDate) product.expiryDate = expiryDate;
+    product.discountPercentage =
+      discountPercentage !== undefined
+        ? Number(discountPercentage)
+        : product.discountPercentage;
+    if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
 
     // Media Sync Logic
     let imagesToDelete = [];

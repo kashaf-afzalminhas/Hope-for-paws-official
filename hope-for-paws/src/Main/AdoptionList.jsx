@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
 import AdoptionRequestForm from './AdoptionRequestForm';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
@@ -18,12 +18,13 @@ import {
   adoptionAlertInfo,
   getPosterProfileId,
 } from '../components/adoption/adoptionTheme';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 const AdoptionList = ({ filter = 'all' }) => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts, checkUserRequest } = useAdoption();
   const { user } = useAuth();
+  const requireAuth = useRequireAuth();
   const [selectedPost, setSelectedPost] = useState(null);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [effectiveUser, setEffectiveUser] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
@@ -36,7 +37,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   useEffect(() => {
     if (!user) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (storedUser) {
           setEffectiveUser(storedUser);
         }
@@ -132,11 +133,8 @@ const AdoptionList = ({ filter = 'all' }) => {
 
   // Robust chat navigation handler (copied from Postnew.jsx)
   const handleStartConversation = async (postCreatorId, postCreatorUsername, event) => {
+    if (!requireAuth('start a conversation')) return;
     const currentUserId = getCurrentUserId(effectiveUser);
-    if (!effectiveUser) {
-      navigate('/signin');
-      return;
-    }
     
     try {
       // Show loading state or disable button temporarily
@@ -228,10 +226,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   }
 
   const handleRequestClick = (post) => {
-    if (!effectiveUser) {
-      setShowLoginPrompt(true);
-      return;
-    }
+    if (!requireAuth('request adoption')) return;
     setSelectedPost(post);
   };
 
@@ -245,14 +240,6 @@ const AdoptionList = ({ filter = 'all' }) => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-[#4E3B31] mb-8 text-center">Pets Looking for Forever Homes</h1>
       
-      {showLoginPrompt && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
-          <p className="mb-2">You need to be logged in to request adoption.</p>
-          <Link to="/signin" className="text-[#6b493d] font-medium hover:underline">
-            Log in to continue
-          </Link>
-        </div>
-      )}
       
       <div className={adoptionGridClass}>
         {posts.map((post) => {
@@ -317,7 +304,7 @@ const AdoptionList = ({ filter = 'all' }) => {
               )}
               {hasPendingRequest && !isOwner && listingStatus === 'available' && (
                 <div className={adoptionAlertInfo('warning')}>
-                  Request sent — awaiting owner review. You can message the owner from the card above.
+                  Request sent Ã¢â‚¬â€ awaiting owner review. You can message the owner from the card above.
                 </div>
               )}
               {hasAcceptedRequest && !isOwner && listingStatus !== 'available' && (

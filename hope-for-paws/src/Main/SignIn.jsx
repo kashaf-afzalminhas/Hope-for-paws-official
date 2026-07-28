@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
@@ -74,20 +74,27 @@ const Login = () => {
             localStorage.setItem('rememberMe', 'true');
             localStorage.setItem('savedEmail', email);
             localStorage.setItem('savedPassword', password);
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
           } else {
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('savedEmail');
+            localStorage.removeItem('savedPassword');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
           }
           
-          // Check if phone verification is required
-          if (!data.user.phone || !data.user.phoneVerified) {
-            // User will be redirected to phone verification by App.jsx
-            navigate("/");
-            window.location.reload();
+          // Navigate directly to the correct destination
+          if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+            navigate('/seller/onboard');
+          } else if (!data.user.phone || !data.user.phoneVerified) {
+            navigate('/profile');
           } else {
             navigate("/");
-            window.location.reload();
           }
+          window.location.reload();
         } else {
           setError('Login failed: No token received.');
         }
@@ -140,25 +147,37 @@ const Login = () => {
           setShowUserTypeModal(true);
           return;
         }
-        if (data.user && data.user.isAdmin) {
+       if (data.user && data.user.isAdmin) { //change here.
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
           navigate('/admin-dashboard');
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        localStorage.removeItem('savedPassword');
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
+        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+        } else if (!data.user.phone || !data.user.phoneVerified) {
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google login failed");
       }
@@ -197,22 +216,34 @@ const Login = () => {
         if (data.user && data.user.isAdmin) {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
           navigate('/admin-dashboard');
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedEmail');
+        localStorage.removeItem('savedPassword');
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
+        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+        } else if (!data.user.phone || !data.user.phoneVerified) {
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -228,6 +259,7 @@ const Login = () => {
       setError('Please enter a valid Gmail address to reset password.');
       return;
     }
+    setLoading(true);
     try {
       const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
         method: 'POST',
@@ -243,6 +275,8 @@ const Login = () => {
       }
     } catch {
       setError('An error occurred while sending the verification code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -340,7 +374,8 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
+                  disabled={loading}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Forgot Password?
                 </button>
@@ -355,7 +390,7 @@ const Login = () => {
               </button>
             </form>
             <motion.div variants={itemVariants} className="flex justify-center">
-              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
+              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
                 <GoogleLogin 
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={(error) => console.log(error)}

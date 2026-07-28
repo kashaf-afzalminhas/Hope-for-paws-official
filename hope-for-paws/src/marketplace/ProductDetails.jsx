@@ -20,7 +20,14 @@ import {
   AlertTriangle,
   Package,
   Clock,
+  BadgeCheck,
 } from "lucide-react";
+import VerifiedBadge from "../components/VerifiedBadge";
+import StarDisplay from "../components/StarDisplay";
+import { useWishlist } from "../context/WishlistContext";
+import { useAuth } from "../context/AuthContext";
+import { useRequireAuth } from "../components/AuthGuard";
+import ReportModal from "./ReportModal";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
 const BRAND = {
@@ -114,7 +121,7 @@ function SellerCard({ seller }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-stone-900 truncate">{seller.name}</p>
-              {seller.verified && <CheckCircle2 size={13} style={{ color: BRAND.dark }} />}
+              <VerifiedBadge isVerified={seller.verified} size="md"/>
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <StarRow rating={seller.rating} size={12} />
@@ -168,19 +175,88 @@ function TrustStrip() {
   );
 }
 
+function CustomerReviews({ productId }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`http://localhost:3000/api/reviews/product/${productId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch reviews", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReviews();
+  }, [productId]);
+
+  if (loading) return <div className="py-10 text-center text-stone-400">Loading reviews...</div>;
+
+  return (
+    <div className="mt-12 sm:mt-16 pt-10 border-t" style={{ borderColor: BRAND.softBorder }}>
+      <h2 className="text-xl sm:text-2xl font-bold text-stone-900 mb-6 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Customer Reviews</h2>
+      
+      {reviews.length === 0 ? (
+        <div className="bg-stone-50 rounded-2xl p-8 text-center border border-stone-100 transition-all hover:shadow-sm">
+          <Star size={32} className="mx-auto mb-3 text-stone-300" />
+          <p className="text-stone-800 font-semibold text-lg">No reviews yet</p>
+          <p className="text-stone-500 text-sm mt-1">Buy this product to be the first to review!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((r) => (
+            <div key={r._id} className="p-5 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-shadow" style={{ borderColor: BRAND.softBorder }}>
+              <div className="flex justify-between items-start mb-3 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full flex-shrink-0 bg-stone-100 flex items-center justify-center text-stone-500 font-bold shadow-inner">
+                    {r.user?.username?.[0]?.toUpperCase() || "U"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-stone-900 truncate max-w-[120px] sm:max-w-[200px]">{r.user?.username || "Unknown User"}</p>
+                      <span className="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <BadgeCheck size={11} className="text-emerald-500" /> Verified Buyer
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-400 mt-0.5">{new Date(r.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <StarDisplay rating={r.rating} showText={false} size={12} />
+                </div>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed mt-1 whitespace-pre-wrap">{r.comment}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─────────────────────────── MAIN PAGE ─────────────────────────── */
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addToCart, isInCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const requireAuth = useRequireAuth();
   const [PRODUCT, setPRODUCT] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const [qty, setQty]           = useState(1);
-  const [wishlisted, setWishlisted] = useState(false);
   const [cartAdded, setCartAdded]   = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+
+  const isWishlisted = PRODUCT ? isInWishlist(PRODUCT._id) : false;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -196,21 +272,26 @@ export default function ProductDetails() {
           title: data.title,
           brand: data.brand || "Hope For Paws",
           sku: data.sku || "N/A",
-          price: data.discountPrice || data.price,
-          originalPrice: data.discountPrice ? data.price : null,
-          discount: data.discountPrice ? Math.round(((data.price - data.discountPrice) / data.price) * 100) : 0,
+          price:
+            data.price - (data.price * (data.discountPercentage || 0)) / 100,
+
+          originalPrice:
+            (data.discountPercentage || 0) > 0 ? data.price : null,
+
+          discount:
+            data.discountPercentage || 0,
           stock: data.countInStock || 0,
-          rating: data.rating || 4.5,
-          reviewCount: data.reviews || Math.floor(Math.random() * 500) + 50,
+          rating: data.averageRating || 0,
+          reviewCount: data.numReviews || 0,
           weight: data.weight || "N/A",
           images: data.images?.length > 0 ? data.images.map(img => img.startsWith('http') ? img : `http://localhost:3000${img}`) : [
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {
-            name: data.sellerId?.name || "Hope For Paws Seller",
+            name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
             rating: 4.9,
             totalSales: "1.2k",
-            verified: true,
+            verified: data.sellerId?.isVerified || false,
           },
           tags: [data.category, "Premium"],
           description: data.description || "No description provided.",
@@ -236,19 +317,28 @@ export default function ProductDetails() {
 
   const handleAddToCart = async () => {
     if (addingToCart) return;
+    if (!requireAuth('add items to your cart')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
     setAddingToCart(false);
     if (result.success) {
       setCartAdded(true);
       setTimeout(() => setCartAdded(false), 2200);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        navigate('/signin');
-      } else {
-        alert(result.message || 'Failed to add to cart');
-      }
+    } else if (!result.message?.includes('sign in')) {
+      alert(result.message || 'Failed to add to cart');
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (addingToCart) return;
+    if (!requireAuth('purchase products')) return;
+    setAddingToCart(true);
+    const result = await addToCart(PRODUCT._id, qty);
+    setAddingToCart(false);
+    if (result.success) {
+      navigate('/checkout');
+    } else if (!result.message?.includes('sign in')) {
+      alert(result.message || 'Failed to add to cart');
     }
   };
 
@@ -351,53 +441,48 @@ export default function ProductDetails() {
 
   function DetailTabs() {
     const [active, setActive] = useState(0);
-    const TABS = ["Description", "Ingredients", "Usage", "Delivery"];
+    const TABS = ["Description", "Specifications", "Delivery"];
 
     const panels = [
       /* Description */
       <div key="desc">
-        {PRODUCT.description.split("\n\n").map((p, i) => (
+        {PRODUCT?.description?.split("\n\n").map((p, i) => (
           <p key={i} className="text-sm sm:text-base text-stone-600 leading-relaxed mb-4 last:mb-0">{p}</p>
         ))}
-        <div className="flex flex-wrap gap-2 mt-5">
-          {PRODUCT.tags.map((t) => (
-            <span
-              key={t}
-              className="px-3 py-1 rounded-full text-xs font-medium border"
-              style={{ borderColor: BRAND.softBorder, color: BRAND.mid, backgroundColor: BRAND.light }}
-            >
-              {t}
-            </span>
-          ))}
-        </div>
+        {PRODUCT?.tags && PRODUCT.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-5">
+            {PRODUCT.tags.map((t) => (
+              <span
+                key={t}
+                className="px-3 py-1 rounded-full text-xs font-medium border"
+                style={{ borderColor: BRAND.softBorder, color: BRAND.mid, backgroundColor: BRAND.light }}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>,
 
-      /* Ingredients */
-      <div key="ingr">
-        <p className="text-xs text-stone-400 uppercase tracking-widest mb-3 font-semibold">Full ingredient list</p>
-        <p className="text-sm text-stone-600 leading-relaxed">{PRODUCT.ingredients}</p>
-        <div className="mt-5 rounded-xl p-4 border" style={{ backgroundColor: BRAND.light, borderColor: BRAND.softBorder }}>
-          <p className="text-xs font-semibold" style={{ color: BRAND.dark }}>Allergen note</p>
-          <p className="text-xs text-stone-500 mt-1">Contains fish (salmon). Manufactured in a facility that also processes poultry.</p>
-        </div>
-      </div>,
-
-      /* Usage */
-      <div key="usage">
-        <p className="text-sm text-stone-600 leading-relaxed mb-5">{PRODUCT.usage}</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: "Serving size",   value: "~280 g / day (20 kg dog)" },
-            { label: "Meals per day",  value: "2 (morning & evening)" },
-            { label: "Min. age",       value: "12 months" },
-            { label: "Life stage",     value: "Adult maintenance" },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-xl p-3 border" style={{ borderColor: BRAND.softBorder }}>
-              <p className="text-xs text-stone-400">{label}</p>
-              <p className="text-xs sm:text-sm font-medium text-stone-800 mt-0.5">{value}</p>
-            </div>
-          ))}
-        </div>
+      /* Specifications */
+      <div key="specs">
+        {PRODUCT?.additionalInfo && PRODUCT.additionalInfo.length > 0 ? (
+          <dl className="space-y-0">
+            {PRODUCT.additionalInfo.map((item, index) => (
+              <div 
+                key={index} 
+                className={`py-3 flex flex-col sm:flex-row gap-1 sm:gap-4 ${index !== PRODUCT.additionalInfo.length - 1 ? 'border-b border-gray-200' : ''}`}
+              >
+                <dt className="text-sm font-medium text-gray-700 w-full sm:w-1/3 flex-shrink-0">{item.heading}</dt>
+                <dd className="text-sm text-gray-600 w-full sm:w-2/3">{item.description}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <div className="py-6 text-center text-sm text-gray-500 italic">
+            No additional specifications provided.
+          </div>
+        )}
       </div>,
 
       /* Delivery */
@@ -538,10 +623,8 @@ export default function ProductDetails() {
             </h1>
 
             {/* Rating */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <StarRow rating={PRODUCT.rating} size={15} />
-              <span className="text-sm font-semibold text-stone-700">{PRODUCT.rating}</span>
-              <span className="text-sm text-stone-400">({PRODUCT.reviewCount.toLocaleString()} reviews)</span>
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap mt-1 mb-2">
+              <StarDisplay rating={PRODUCT.rating} numReviews={PRODUCT.reviewCount} size={15} />
             </div>
 
             {/* Price */}
@@ -605,6 +688,7 @@ export default function ProductDetails() {
                 </button>
 
                 <button
+                  onClick={handleBuyNow}
                   className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98]"
                   style={{ borderColor: BRAND.dark, color: BRAND.dark, backgroundColor: "transparent" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND.light; }}
@@ -617,13 +701,13 @@ export default function ProductDetails() {
 
               {/* Wishlist */}
               <button
-                onClick={() => setWishlisted((w) => !w)}
-                aria-pressed={wishlisted}
+                onClick={() => { if (requireAuth('use the wishlist')) toggleWishlist(PRODUCT._id); }}
+                aria-pressed={isWishlisted}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150"
-                style={{ color: wishlisted ? "#e24c4c" : "#9c8474" }}
+                style={{ color: isWishlisted ? "#e24c4c" : "#9c8474" }}
               >
-                <Heart size={16} fill={wishlisted ? "#e24c4c" : "none"} className="transition-all duration-200" />
-                {wishlisted ? "Saved to Wishlist" : "Add to Wishlist"}
+                <Heart size={16} fill={isWishlisted ? "#e24c4c" : "none"} className="transition-all duration-200" />
+                {isWishlisted ? "Saved to Wishlist" : "Add to Wishlist"}
               </button>
             </div>
 
@@ -641,15 +725,32 @@ export default function ProductDetails() {
           <DetailTabs />
         </div>
 
+        {/* ── CUSTOMER REVIEWS ── */}
+        <CustomerReviews productId={PRODUCT._id} />
+
         {/* Report listing */}
-        <div className="mt-8 flex justify-center pb-4">
-          <button className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-red-500 transition-colors duration-150 group">
-            <Flag size={12} className="group-hover:text-red-400 transition-colors duration-150" />
-            Report this listing
-          </button>
-        </div>
+        {user && (
+          <div className="mt-8 flex justify-center pb-4">
+            <button 
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-red-500 transition-colors duration-150 group"
+            >
+              <Flag size={12} className="group-hover:text-red-400 transition-colors duration-150" />
+              Report this listing
+            </button>
+          </div>
+        )}
 
       </div>
+
+      {/* Report Modal */}
+      {PRODUCT && (
+        <ReportModal 
+          productId={PRODUCT._id} 
+          isOpen={isReportModalOpen} 
+          onClose={() => setIsReportModalOpen(false)} 
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import Paws from '/Hopeforpaws.jpg';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { motion } from "framer-motion";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import UserTypeModal from '../Components/UserTypeModal';
@@ -275,15 +275,15 @@ const SignUp = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
+        // Navigate directly to the correct destination
+        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+        } else if (!data.user.phone || !data.user.phoneVerified) {
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -317,15 +317,15 @@ const SignUp = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
+        // Navigate directly to the correct destination
+        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+        } else if (!data.user.phone || !data.user.phoneVerified) {
+          navigate('/profile');
         } else {
           navigate("/");
-          window.location.reload();
         }
+        window.location.reload();
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -505,7 +505,7 @@ const SignUp = () => {
           </form>
           
           <motion.div variants={itemVariants} className="flex justify-center mt-4">
-              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
+              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
                   <GoogleLogin 
                     onSuccess={(response) => googleLoginHandler(response)}
                     onError={(error) => console.log(error)}

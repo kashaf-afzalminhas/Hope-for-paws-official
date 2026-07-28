@@ -1,24 +1,35 @@
-import React, { useState } from 'react';
+import { useState, useRef } from 'react';
 import { FaUser, FaPaw, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';
 import { useMessages } from '../context/MessageContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 
 const Navbar = ({ handleSignOut }) => {
   const { user } = useAuth(); 
   const { unreadCount } = useMessages();
   const { cartQuantity } = useCart();
+  const { wishlist } = useWishlist();
   
   const isSeller = user && (user.role === 'seller' || user.isSeller);
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  const handleMouseEnter = () => setIsHovered(true);
-  const handleMouseLeave = () => setIsHovered(false);
+
+  const hoverTimeout = useRef(null);
+  const handleMouseEnter = () => {
+    clearTimeout(hoverTimeout.current);
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeout.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 100);
+  };
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen((prevState) => !prevState);
@@ -55,8 +66,13 @@ const Navbar = ({ handleSignOut }) => {
               </span>
               {!isSeller && (
                 <>
-                  <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                  <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                     <FaHeart className="text-xl sm:text-2xl" />
+                    {wishlist?.length > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
+                        {wishlist.length > 9 ? '9+' : wishlist.length}
+                      </span>
+                    )}
                   </NavLink>
                   <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
                     <FaShoppingCart className="text-xl sm:text-2xl" />
@@ -101,8 +117,13 @@ const Navbar = ({ handleSignOut }) => {
             </div>
           ) : (
             <>
-              <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+              <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                 <FaHeart className="text-xl sm:text-2xl" />
+                {wishlist?.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
+                    {wishlist.length > 9 ? '9+' : wishlist.length}
+                  </span>
+                )}
               </NavLink>
               <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
                 <FaShoppingCart className="text-xl sm:text-2xl" />
@@ -183,8 +204,13 @@ const Navbar = ({ handleSignOut }) => {
                 </span>
                 {!isSeller && (
                   <>
-                    <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                    <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                       <FaHeart className="text-2xl" />
+                      {wishlist?.length > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                          {wishlist.length > 9 ? '9+' : wishlist.length}
+                        </span>
+                      )}
                     </NavLink>
                     <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
                       <FaShoppingCart className="text-2xl" />
@@ -208,8 +234,7 @@ const Navbar = ({ handleSignOut }) => {
 
                   {isHovered && (
                     <div
-                      className="absolute right-0 mt-3 w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"
-                      onMouseEnter={handleMouseEnter}
+                      className="absolute right-0 top-full mt-1 w-48 p-4 bg-white border border-gray-300 rounded-lg shadow-lg text-center z-50"                      onMouseEnter={handleMouseEnter}
                       onMouseLeave={handleMouseLeave}
                     >
                       <div className="flex justify-center mb-4">
@@ -230,8 +255,13 @@ const Navbar = ({ handleSignOut }) => {
               </>
             ) : (
               <>
-                <NavLink to="/marketplace" className="text-[#a07855] hover:text-gray-400">
+                <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                   <FaHeart className="text-2xl" />
+                  {wishlist?.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                      {wishlist.length > 9 ? '9+' : wishlist.length}
+                    </span>
+                  )}
                 </NavLink>
                 <NavLink to="/cart" className="text-[#a07855] hover:text-gray-400 relative">
                   <FaShoppingCart className="text-2xl" />

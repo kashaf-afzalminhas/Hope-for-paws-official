@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
 
 const PAKISTAN_CITIES = [
@@ -43,6 +44,7 @@ const AdoptionForm = () => {
     : PAKISTAN_CITIES;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -69,30 +71,16 @@ const AdoptionForm = () => {
       return;
     }
 
-    // Guard: block submission if location is not a valid Pakistani city
-    if (!location || !PAKISTAN_CITIES.includes(location)) {
-      setLocationError('Please select a valid city from Pakistan');
+    // Guard: block submission if location is not selected
+    if (!location || location.trim() === '') {
+      setLocationError('Please select a valid city from the list');
       setIsSubmitting(false);
       return;
     }
 
-    // Check authentication status
-    if (!isAuthenticated || !user) {
-      setError('You must be logged in to create an adoption post.');
-      setIsSubmitting(false);
-      return;
-    }
+    if (!requireAuth('create an adoption post')) { setIsSubmitting(false); return; }
 
-    // Get the JWT token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token is missing. Please log in again.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    console.log('Submitting form with token:', token.substring(0, 10) + '...');
-    console.log('Current user:', user);
 
     const formData = new FormData();
     formData.append('name', name);
@@ -175,10 +163,8 @@ const AdoptionForm = () => {
           <p><strong>Debug Info:</strong></p>
           <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
           <p>user: {user ? 'present' : 'null'}</p>
-          <p>localStorage token: {localStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>sessionStorage token: {sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>localStorage user: {localStorage.getItem('user') ? 'present' : 'missing'}</p>
-          <p>sessionStorage user: {sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
+          <p>localStorage token: {localStorage.getItem('token') || sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
+          <p>localStorage user: {localStorage.getItem('user') || sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
         </div>
       </div>
     );
@@ -243,7 +229,7 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>⚠</span> {ageError}
+                <span>Ã¢Å¡Â </span> {ageError}
               </p>
             )}
           </div>
@@ -375,7 +361,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>⚠</span> {locationError}
+              <span>Ã¢Å¡Â </span> {locationError}
             </p>
           )}
         </div>
@@ -420,7 +406,7 @@ const AdoptionForm = () => {
                     }}
                     className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
                   >
-                    ×
+                    Ãƒâ€”
                   </button>
                 </div>
                 <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>

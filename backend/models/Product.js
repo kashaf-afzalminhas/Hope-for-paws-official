@@ -67,30 +67,20 @@ const productSchema = new mongoose.Schema(
       uppercase: true,
       trim: true
     },
-    discountPrice: {
+
+    discountPercentage: {
       type: Number,
-      min: 0
+      default: 0,
+      min: 0,
+      max: 100
     },
-    weight: {
-      type: String,
-      trim: true
-    },
-    ingredients: {
-      type: String,
-      trim: true
-    },
-    usageInstructions: {
-      type: String,
-      trim: true
-    },
-    expiryDate: {
-      type: Date,
-      validate: {
-        validator: function(v) {
-          return !v || v > new Date();
-        },
-        message: 'Expiry date must be in the future'
-      }
+    
+    additionalInfo: {
+      type: [{
+        heading: { type: String, trim: true },
+        description: { type: String, trim: true }
+      }],
+      validate: [(val) => val.length <= 5, '{PATH} exceeds the limit of 5 custom fields']
     },
 
     // ✅ NEW FIELD: Stock (Matches your frontend code)
@@ -131,6 +121,29 @@ const productSchema = new mongoose.Schema(
 
       default: 'active'
 
+    },
+
+    // ✅ Cached review statistics (updated by reviewController after each review)
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5
+    },
+    numReviews: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    // Automated Moderation Engine Fields
+    reportCount: {
+      type: Number,
+      default: 0
+    },
+    isHidden: {
+      type: Boolean,
+      default: false
     }
 
   },

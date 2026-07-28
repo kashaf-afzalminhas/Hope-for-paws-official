@@ -14,18 +14,9 @@ const apiRoutes = axios.create({
 // Add request interceptor to include auth token for apiRoutes
 apiRoutes.interceptors.request.use(
   (config) => {
-    // Check both localStorage and sessionStorage for token
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    console.log('API Routes - Token found:', !!token, 'URL:', config.url);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('API Routes - Authorization header set');
-      console.log('API Routes - Token length:', token.length);
-      console.log('API Routes - Token preview:', token.substring(0, 20) + '...');
-    } else {
-      console.log('API Routes - No token found in storage');
-      console.log('API Routes - localStorage token:', localStorage.getItem('token') ? 'Present' : 'Missing');
-      console.log('API Routes - sessionStorage token:', sessionStorage.getItem('token') ? 'Present' : 'Missing');
     }
     return config;
   },
@@ -34,31 +25,24 @@ apiRoutes.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle 401 errors
 apiRoutes.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
     if (error.response?.status === 401) {
-      console.log('API Routes - 401 Unauthorized error, clearing token and redirecting to login');
-      // Clear token and user data
       localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      
-      // Redirect to signin page
       window.location.href = '/signin';
     }
     return Promise.reject(error);
   }
 );
 
-// Add request interceptor to include auth token for authApi
 authApi.interceptors.request.use(
   (config) => {
-    // Check both localStorage and sessionStorage for token
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -70,21 +54,16 @@ authApi.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle 401 errors for authApi
 authApi.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
     if (error.response?.status === 401) {
-      console.log('Auth API - 401 Unauthorized error, clearing token and redirecting to login');
-      // Clear token and user data
       localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
-      
-      // Redirect to signin page
       window.location.href = '/signin';
     }
     return Promise.reject(error);
@@ -261,23 +240,17 @@ export const removeProfileImage = async () => {
   }
 };
 
-// Debug function to test token availability
 export const debugToken = () => {
-  const localStorageToken = localStorage.getItem('token');
-  const sessionStorageToken = sessionStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
   
   console.log('Debug Token Info:', {
-    localStorageToken: localStorageToken ? 'Present' : 'Missing',
-    sessionStorageToken: sessionStorageToken ? 'Present' : 'Missing',
+    hasToken: !!token,
     user: user ? { id: user.id, _id: user._id, username: user.username } : 'No user',
-    tokenLength: localStorageToken?.length || sessionStorageToken?.length || 0
+    tokenLength: token?.length || 0
   });
   
-  return {
-    hasToken: !!(localStorageToken || sessionStorageToken),
-    user: user
-  };
+  return { hasToken: !!token, user };
 };
 
 // Get adoption ads for a user (public)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useRequireAuth } from '../Components/AuthGuard';
 import { ImagePlus } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
@@ -11,15 +11,8 @@ const CreatePost = () => {
   const [error, setError] = useState('');
   const [preview, setPreview] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const requireAuth = useRequireAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token is missing. Please log in.');
-    }
-  }, []);
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -48,6 +41,7 @@ const CreatePost = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!requireAuth('create a post')) return;
     setIsLoading(true);
     if (!image) {
         setError('Please select an image');
@@ -61,12 +55,6 @@ const CreatePost = () => {
 
     try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (!token) {
-            setError('Authentication token is missing. Please log in.');
-            setIsLoading(false);
-            return;
-        }
-
         await axios.post(`${API_BASE_URL}/posts`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',

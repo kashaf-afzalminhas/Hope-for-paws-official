@@ -12,24 +12,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Check both localStorage and sessionStorage for token
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         if (token) {
-          // Try to validate the token by making a request to a protected endpoint
-          // Since there's no dedicated validate endpoint, we'll use the user data from storage
-          const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
-          if (storedUser) {
-            try {
-              const userData = JSON.parse(storedUser);
-              setUser(userData);
-              setIsAuthenticated(true);
-            } catch (e) {
-              console.error('Error parsing stored user:', e);
-            }
-          }
-        } else {
-          // If no token, try to get user from storage as fallback
           const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
           if (storedUser) {
             try {
@@ -43,7 +28,6 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        // Clear invalid tokens
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
       } finally {
@@ -54,7 +38,7 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = true) => {
     try {
       const response = await axios.post(`${AUTH_BASE_URL}/signin`, {
         email,
@@ -63,9 +47,17 @@ export const AuthProvider = ({ children }) => {
       
       const { token, user } = response.data;
       
-      // Store in localStorage by default (can be changed based on "remember me")
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      if (rememberMe) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+      } else {
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
       
       setUser(user);
       setIsAuthenticated(true);

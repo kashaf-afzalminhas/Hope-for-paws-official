@@ -8,6 +8,10 @@ import {
   Truck, RotateCcw, Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
+import VerifiedBadge from "../components/VerifiedBadge";
+import StarDisplay from "../components/StarDisplay";
+import { useWishlist } from "../context/WishlistContext";
+import { useRequireAuth } from "../components/AuthGuard";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -246,7 +250,7 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                   <span style={{ fontSize:10, color:C.brownSoft, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>{p.brand}</span>
                   <span style={{ width:3, height:3, borderRadius:"50%", backgroundColor:C.border }}/>
-                  <span style={{ fontSize:10, color:C.brownSoft }}>{p.seller}</span>
+                  <span style={{ fontSize:10, color:C.brownSoft, display:"inline-flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></span>
                 </div>
                 <h2 style={{ fontSize:20, fontWeight:800, color:C.brown, lineHeight:1.25, marginBottom:10 }}>{p.name}</h2>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -535,7 +539,7 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                   </button>
                 </div>
                 <div style={{ padding: "12px 13px 14px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-                  <p style={{ fontSize: 9, color: C.brownSoft, margin: 0, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>{p.seller}</p>
+                  <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
                   <p style={{ fontSize: 13, color: C.brown, margin: 0, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <Stars rating={p.rating} size={10} />
@@ -800,11 +804,10 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
         </div>
         <div style={{ flex:1, padding:"12px 14px", display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:9, color:C.brownSoft, margin:"0 0 3px", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase" }}>{p.brand}</p>
+            <p style={{ fontSize:9, color:C.brownSoft, margin:"0 0 3px", fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.brand}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
             <p style={{ fontSize:13, color:C.brown, margin:"0 0 5px", fontWeight:600, lineHeight:1.3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-              <Stars rating={p.rating} size={10}/>
-              <span style={{ fontSize:10, color:C.brownSoft }}>{p.rating} · {p.reviews.toLocaleString()}</span>
+              <StarDisplay rating={p.rating} numReviews={p.reviews} size={10} />
             </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
@@ -864,13 +867,12 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
 
       <div style={{ padding:"13px 14px 15px", display:"flex", flexDirection:"column", gap:5, flex:1 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase" }}>{p.seller}</p>
+          <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
           {p.badge && <Badge text={p.badge}/>}
         </div>
         <p style={{ fontSize:13, color:C.brown, margin:0, fontWeight:600, lineHeight:1.35 }}>{p.name}</p>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <Stars rating={p.rating} size={10}/>
-          <span style={{ fontSize:10, color:C.brownSoft }}>{p.rating.toFixed(1)} ({p.reviews.toLocaleString()})</span>
+          <StarDisplay rating={p.rating} numReviews={p.reviews} size={10} />
         </div>
 
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto", paddingTop:10 }}>
@@ -957,11 +959,11 @@ export default function Marketplace() {
   const [sortOpen,    setSortOpen]   = useState(false);
   const [filterOpen,  setFilterOpen] = useState(false);
   const [listView,    setListView]   = useState(false);
-  const [favs,        setFavs]       = useState(new Set());
-  const [wishCount,   setWishCount]  = useState(0);
   const [toasts,      setToasts]     = useState([]);
   const { addToCart: ctxAddToCart, isInCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const cartNavigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
@@ -992,11 +994,14 @@ export default function Marketplace() {
             id: p._id,
             name: p.title,
             image: imageUrl,
-            seller: p.sellerId?.name || "Hope For Paws Seller",
-            price: p.discountPrice || p.price,
-            originalPrice: p.discountPrice ? p.price : null,
-            rating: p.rating || 4.5,
-            reviews: p.reviews || Math.floor(Math.random() * 500) + 50,
+            seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
+            price:
+              p.price - (p.price * (p.discountPercentage || 0)) / 100,
+
+            originalPrice:
+              (p.discountPercentage || 0) > 0 ? p.price : null,
+            rating: p.averageRating || 0,
+            reviews: p.numReviews || 0,
             pop: p.pop || Math.floor(Math.random() * 10000),
             isNew: p.isNew || Math.random() > 0.7,
           };
@@ -1031,26 +1036,21 @@ export default function Marketplace() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
   }, []);
 
-  const onFav = useCallback(id => {
-    setFavs(s => {
-      const n = new Set(s);
-      if (n.has(id)) { n.delete(id); setWishCount(c => Math.max(0,c-1)); }
-      else { n.add(id); setWishCount(c => c+1); addToast("fav", products.find(x=>x.id===id)?.name); }
-      return n;
-    });
-  }, [addToast, products]);
+  const onFav = useCallback(async (id) => {
+    if (!requireAuth('use the wishlist')) return;
+    const result = await toggleWishlist(id);
+    if (result.success && result.message.includes('added')) {
+      addToast("fav", products.find(x => x.id === id)?.name);
+    }
+  }, [requireAuth, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
+    if (!requireAuth('add items to your cart')) return;
     const result = await ctxAddToCart(id, 1);
     if (result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        cartNavigate('/signin');
-      }
     }
-  }, [ctxAddToCart, addToast, products, cartNavigate]);
+  }, [requireAuth, ctxAddToCart, addToast, products]);
 
   const clearAll = useCallback(() => {
     setQuery("");
@@ -1096,8 +1096,8 @@ export default function Marketplace() {
       {/* ── HERO BANNER ── */}
       <HeroBanner query={query} setQuery={setQuery} isMobile={isMobile} />
 
-      {/* ── TOP PICKS FOR YOU ── */}
-      <TopPicks onFav={onFav} favs={favs} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={products} />
+      {/* Top Picks Slider */}
+      <TopPicks onFav={onFav} favs={{ has: isInWishlist }} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={products} />
 
       {/* ── STICKY CATEGORY + TOOLBAR ── */}
       <div style={{ position:"sticky", top:0, zIndex:150, backgroundColor:"rgba(245,240,232,0.96)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.borderSoft}` }}>
@@ -1174,13 +1174,13 @@ export default function Marketplace() {
             ) : listView ? (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {displayed.map((p, i) => (
-                  <ProductCard key={p.id} p={p} isFav={favs.has(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} listView animDelay={Math.min(i,8)*0.04}/>
+                  <ProductCard key={p.id} p={p} isFav={isInWishlist(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} listView animDelay={Math.min(i,8)*0.04}/>
                 ))}
               </div>
             ) : (
               <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:isMobile?10:16 }}>
                 {displayed.map((p, i) => (
-                  <ProductCard key={p.id} p={p} isFav={favs.has(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} animDelay={Math.min(i,12)*0.045}/>
+                  <ProductCard key={p.id} p={p} isFav={isInWishlist(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} animDelay={Math.min(i,12)*0.045}/>
                 ))}
               </div>
             )}
@@ -1189,7 +1189,7 @@ export default function Marketplace() {
       </div>
 
       <MobileSheet open={filterOpen} onClose={() => setFilterOpen(false)} filters={filters} setFilters={setFilters} brands={BRANDS} sellers={SELLERS} maxPrice={absoluteMaxPrice}/>
-      {quickView && <QuickView product={quickView} isFav={favs.has(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
+      {quickView && <QuickView product={quickView} isFav={isInWishlist(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
       <ToastStack toasts={toasts}/>
       <ScrollToTop visible={scrollY > 400}/>
     </div>

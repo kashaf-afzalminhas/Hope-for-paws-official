@@ -27,7 +27,7 @@ function validateInternationalPhone(phone) {
   if (nationalNumber.length < rule.min || nationalNumber.length > rule.max) {
     return rule.min === rule.max
       ? `Use ${rule.min} digits after ${matchedCode} for ${rule.label}.`
-      : `Use ${rule.min}–${rule.max} digits after ${matchedCode} for ${rule.label}.`;
+      : `Use ${rule.min}â€“${rule.max} digits after ${matchedCode} for ${rule.label}.`;
   }
   return null;
 }
@@ -74,9 +74,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       return;
     }
     try {
-      const storedUser =
-        JSON.parse(localStorage.getItem('user') || 'null') ||
-        JSON.parse(sessionStorage.getItem('user') || 'null');
+      const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
       applyUser(storedUser);
     } catch (e) {
       console.error('Error parsing stored user:', e);
@@ -262,7 +260,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
                 onChange={handleChange}
                 rows={4}
                 className={inputClass}
-                placeholder="Tell the owner about your experience with pets and why you'd like to adopt…"
+                placeholder="Tell the owner about your experience with pets and why you'd like to adoptâ€¦"
               />
             </div>
 
@@ -290,7 +288,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
                     className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-sm font-bold text-white hover:bg-rose-700"
                     aria-label="Remove image"
                   >
-                    ×
+                    Ã—
                   </button>
                 </div>
               )}
@@ -315,7 +313,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
                 disabled={loading}
                 className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5a3d32] disabled:opacity-50"
               >
-                {loading ? 'Submitting…' : 'Submit request'}
+                {loading ? 'Submittingâ€¦' : 'Submit request'}
               </button>
             </div>
           </form>

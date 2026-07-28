@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import AdoptionHistoryCard from '../components/adoption/AdoptionHistoryCard';
 import { adoptionGridClass } from '../components/adoption/adoptionTheme';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 const AdoptionHistory = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [effectiveUser, setEffectiveUser] = useState(null);
 
   useEffect(() => {
     if (!user) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (storedUser) setEffectiveUser(storedUser);
       } catch (e) {
         console.error('Error parsing stored user:', e);
@@ -86,7 +86,7 @@ const AdoptionHistory = () => {
         {!effectiveUser && (
           <button
             type="button"
-            onClick={() => navigate('/signin')}
+            onClick={() => requireAuth('view your adoption history')}
             className="mt-4 rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#5a3d32]"
           >
             Log in

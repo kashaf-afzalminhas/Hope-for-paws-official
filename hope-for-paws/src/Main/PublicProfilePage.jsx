@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, NavLink, useNavigate } from 'react-router-dom';
+import { useParams, NavLink } from 'react-router-dom';
 // import { FaUserCircle, FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment } from 'react-icons/fa';
 import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAlt,FaPaw, FaNewspaper } from 'react-icons/fa';
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
+import { useRequireAuth } from '../Components/AuthGuard';
 import AdoptionCard from '../components/adoption/AdoptionCard';
 import { adoptionGridClass } from '../components/adoption/adoptionTheme';
 
@@ -13,7 +14,7 @@ const PublicProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [activeTab, setActiveTab] = useState('ads'); // 'ads' or 'posts'
   const [adoptionAds, setAdoptionAds] = useState([]);
   const [userPosts, setUserPosts] = useState([]);
@@ -23,7 +24,7 @@ const PublicProfilePage = () => {
   const [imageFailed, setImageFailed] = useState(false);
 
   // Get current user
-  const currentUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const currentUserId = currentUser?._id || currentUser?.id;
 
   useEffect(() => {
@@ -107,10 +108,7 @@ const PublicProfilePage = () => {
   };
 
   const handleStartConversation = async (profileUserId, profileUserUsername) => {
-    if (!currentUser) {
-      navigate('/signin');
-      return;
-    }
+    if (!requireAuth('start a conversation')) return;
 
     try {
       const existingConv = conversations.find(conv => 

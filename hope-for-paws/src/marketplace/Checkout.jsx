@@ -1,3 +1,4 @@
+import { SHIPPING_FEE } from '../utils/constants';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,7 +26,7 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = 150;
+  const shippingFee = SHIPPING_FEE;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
@@ -40,22 +41,13 @@ export default function Checkout() {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       const payload = {
-        items: items.map(it => {
-          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-          let imageUrl = 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾';
-          if (it.productId?.images?.[0]) {
-            imageUrl = it.productId.images[0].startsWith('http') 
-              ? it.productId.images[0] 
-              : `${apiBase}${it.productId.images[0]}`;
-          }
-          return {
-            productId: it.productId._id || it.productId,
-            title: it.productId.title || 'Unknown Product',
-            image: imageUrl,
-            quantity: it.quantity,
-            price: it.price
-          };
-        }),
+        items: items.map(it => ({
+          productId: it.productId,
+          title: it.title || 'Unknown Product',
+          image: it.image,
+          quantity: it.quantity,
+          price: it.price
+        })),
         shippingAddress: { ...contact, ...shippingAddress },
         paymentMethod,
         totals: {
@@ -281,34 +273,25 @@ export default function Checkout() {
           {items.length === 0 ? (
             <p className="text-sm text-[#a07f77]">Your cart is empty.</p>
           ) : (
-            items.map((item) => {
-              const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-              let imageUrl = 'https://placehold.co/120x120/EDE8DF/9B6B45?text=🐾';
-              if (item.productId?.images?.[0]) {
-                imageUrl = item.productId.images[0].startsWith('http') 
-                  ? item.productId.images[0] 
-                  : `${apiBase}${item.productId.images[0]}`;
-              }
-              return (
-              <div key={item.productId._id || item.productId} className="flex gap-4 items-center">
+            items.map((item) => (
+              <div key={item.productId} className="flex gap-4 items-center">
                 <div className="relative w-16 h-16 rounded-xl border border-[#ede6e1] bg-[#f7f1ee] flex-shrink-0">
-                  <img src={imageUrl} alt={item.productId.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
+                  <img src={item.image} alt={item.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
                   <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                     {item.quantity}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.productId.title}</h3>
+                  <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.title}</h3>
                   <p className="text-[12px] text-[#a07f77] truncate mt-1">
-                    {item.productId.brand || 'Premium'} • {item.productId.weight || 'Standard'}
+                    {item.brand || 'Premium'} Ã¢â‚¬Â¢ {item.weight || 'Standard'}
                   </p>
                 </div>
                 <div className="font-bold text-[#3d2a24] text-[14px]">
                   Rs {(item.price * item.quantity).toLocaleString()}
                 </div>
               </div>
-              );
-            })
+            ))
           )}
         </div>
 

@@ -156,8 +156,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// Get all adoption posts (auth required to prevent unauthenticated data exposure)
-router.get('/', auth, async (req, res) => {
+// Get all adoption posts (public)
+router.get('/', async (req, res) => {
   try {
     console.log('Fetching adoption posts...');
     // Remove the status filter to show all posts

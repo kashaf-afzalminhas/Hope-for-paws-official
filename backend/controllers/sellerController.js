@@ -1,6 +1,17 @@
 const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const nodemailer = require('nodemailer');
+const emailTemplates = require('../utils/emailTemplates');
+
+// Email Transporter Setup (matches codebase pattern in userController/contactController)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+});
 
 /**
  * Ensure the requesting user is an admin
@@ -107,20 +118,50 @@ exports.updateSellerStatus = async (req, res) => {
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller not found' });
 
+    // --- Status Update (BUG FIX: rejection now sets 'suspended', not 'pending') ---
     seller.isVerified = isVerified;
-    seller.status = isVerified ? 'verified' : 'pending';
+    seller.status = isVerified ? 'verified' : 'suspended';
     if (notes) seller.notes = notes;
     await seller.save();
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isSeller = true; // remains seller
+    user.isSeller = true; // remains seller regardless of verification outcome
     user.sellerStatus = seller.status;
-    // canBuy logic removed, it does not gatekeep
-    if (!user.sellerSince) user.sellerSince = new Date();
+    if (isVerified && !user.sellerSince) user.sellerSince = new Date();
     await user.save();
 
-    return res.json({ message: 'Seller verification status updated', isVerified: seller.isVerified });
+    // --- Email Notification (isolated: DB update succeeds even if email fails) ---
+    let emailWarning = null;
+    try {
+      if (isVerified) {
+        const { subject, html } = emailTemplates.buildSellerApprovedEmail({ storeName: seller.storeName });
+        await transporter.sendMail({
+          from: process.env.GMAIL_USER,
+          to: seller.email,
+          subject,
+          html,
+        });
+      } else {
+        const { subject, html } = emailTemplates.buildSellerRejectedEmail({ storeName: seller.storeName, notes });
+        await transporter.sendMail({
+          from: process.env.GMAIL_USER,
+          to: seller.email,
+          subject,
+          html,
+        });
+      }
+      console.log(`Verification email sent to ${seller.email} (status: ${seller.status})`);
+    } catch (emailErr) {
+      console.error('Failed to send verification email:', emailErr.message);
+      emailWarning = 'Seller status updated successfully, but the notification email failed to send.';
+    }
+
+    return res.json({
+      message: emailWarning || 'Seller verification status updated',
+      isVerified: seller.isVerified,
+      ...(emailWarning && { warning: emailWarning })
+    });
   } catch (err) {
     if (err.name === 'ValidationError') {
       return res.status(400).json({ message: err.message, errors: err.errors });

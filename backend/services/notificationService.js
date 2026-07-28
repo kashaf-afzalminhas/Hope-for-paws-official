@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Adoption = require('../models/adoptionModel');
 const transporter = require('../config/emailTransporter');
+const emailTemplates = require('../utils/emailTemplates');
 const config = require('../config/notificationConfig');
 const activityTracker = require('./activityTracker');
 const { scheduleChatReminder } = require('../queues/chatEmailQueue');
@@ -11,7 +12,7 @@ class NotificationService {
   constructor(io) {
     this.io = io;
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
-    
+
     this.transporter = transporter;
   }
 
@@ -124,34 +125,19 @@ class NotificationService {
         return;
       }
 
-          const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: recipient.email,
-      subject: notification.title,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #6b493d; color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0;">Hope for Paws</h1>
-            </div>
-            <div style="padding: 20px; background-color: #f9f9f9;">
-              <h2 style="color: #6b493d;">${notification.title}</h2>
-              <p style="color: #333; line-height: 1.6;">${notification.message}</p>
-              <div style="margin-top: 20px; padding: 15px; background-color: white; border-left: 4px solid #6b493d;">
-                <p style="margin: 0; color: #666; font-size: 14px;">
-                  This is an automated notification from Hope for Paws. 
-                  You can manage your notification preferences in your account settings.
-                </p>
-              </div>
-            </div>
-            <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #666; font-size: 12px;">
-              <p>© 2024 Hope for Paws. All rights reserved.</p>
-            </div>
-          </div>
-        `
+      const { subject, html } = emailTemplates.buildNotificationEmail({
+        title: notification.title,
+        message: notification.message,
+      });
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: recipient.email,
+        subject,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
-      
+
       // Update notification as email sent
       notification.emailSent = true;
       notification.emailSentAt = new Date();
@@ -239,14 +225,14 @@ class NotificationService {
   async notifyAdoptionRequestStatus(adoptionId, requesterId, status, adoptionName) {
     try {
       console.log('notifyAdoptionRequestStatus called with:', { adoptionId, requesterId, status, adoptionName });
-      
+
       const requester = await User.findById(requesterId);
       if (!requester) return;
 
-      const title = status === 'accepted' 
-        ? 'Adoption Request Accepted!' 
+      const title = status === 'accepted'
+        ? 'Adoption Request Accepted!'
         : 'Adoption Request Update';
-      
+
       const message = status === 'accepted'
         ? `Congratulations! Your adoption request for ${adoptionName} has been accepted.`
         : `Your adoption request for ${adoptionName} has been ${status}.`;
@@ -270,11 +256,11 @@ class NotificationService {
   async notifyVetsNewPost(postId, postCaption, postCreatorId) {
     try {
       const vets = await User.find({ isVeterinarian: true });
-      
+
       for (const vet of vets) {
         // Don't notify the post creator
         if (vet._id.toString() === postCreatorId.toString()) continue;
-        
+
         await this.createNotification({
           recipient: vet._id,
           sender: null, // System notification
@@ -294,7 +280,7 @@ class NotificationService {
     try {
       const sender = await User.findById(senderId);
       const recipient = await User.findById(recipientId);
-      
+
       if (!sender || !recipient) {
         console.log('Sender or recipient not found for chat message notification');
         return;
@@ -337,59 +323,18 @@ class NotificationService {
       return;
     }
 
-    const senderSummary =
-      uniqueSenderNames.length === 1
-        ? uniqueSenderNames[0]
-        : `${uniqueSenderNames.length} contacts`;
-
-    const subject =
-      totalMessages === 1
-        ? `New message from ${senderSummary} - Hope for Paws`
-        : `You have ${totalMessages} new messages - Hope for Paws`;
-
-    const previewHtml = previewMessages
-      .map(
-        (msg) => `
-        <div style="margin-bottom: 12px; padding: 12px; background-color: #ffffff; border-radius: 10px; border-left: 4px solid #6b493d;">
-          <p style="margin: 0; font-weight: bold; color: #6b493d;">${msg.senderName}</p>
-          <p style="margin: 6px 0 0 0; color: #333; line-height: 1.6;">${msg.text}</p>
-        </div>
-      `
-      )
-      .join('');
-
+    const { subject: mailSubject, html } = emailTemplates.buildChatDigestEmail({
+      recipient,
+      totalMessages,
+      uniqueSenderNames,
+      conversationCount,
+      previewMessages,
+    });
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: recipient.email,
-      subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
-          <div style="background-color: #6b493d; color: white; padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
-            <h1 style="margin: 0; font-size: 24px;">Hope for Paws</h1>
-            <p style="margin: 6px 0 0 0; opacity: 0.9;">You have new messages waiting</p>
-          </div>
-          <div style="padding: 24px; background-color: #f9f9f9; border-radius: 0 0 12px 12px;">
-            <p style="color: #333; line-height: 1.6;">
-              You have <strong>${totalMessages} unread message${totalMessages === 1 ? '' : 's'}</strong> from <strong>${uniqueSenderNames.length} contact${uniqueSenderNames.length === 1 ? '' : 's'}</strong> across <strong>${conversationCount} conversation${conversationCount === 1 ? '' : 's'}</strong>.
-            </p>
-            <div style="margin-top: 24px;">
-              ${previewHtml}
-            </div>
-            <div style="text-align: center; margin: 30px 0 10px;">
-              <a href="${process.env.FRONTEND_URL || 'https://hope-for-paws-official.vercel.app'}/chat"
-                 style="background-color: #6b493d; color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; display: inline-block; font-weight: bold;">
-                Open Chat
-              </a>
-            </div>
-            <p style="margin: 0; color: #666; font-size: 13px; text-align: center;">
-              We'll only email you if you miss messages for a while.
-            </p>
-          </div>
-          <div style="background-color: #f5f3ed; padding: 16px; text-align: center; color: #666; font-size: 12px; border-radius: 0 0 12px 12px;">
-            <p>© 2024 Hope for Paws. All rights reserved.</p>
-          </div>
-        </div>
-      `
+      subject: mailSubject,
+      html,
     };
 
     await this.transporter.sendMail(mailOptions);

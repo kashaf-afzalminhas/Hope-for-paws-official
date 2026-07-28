@@ -45,7 +45,7 @@ export const AdoptionProvider = ({ children }) => {
     
     // Then try from storage
     try {
-      const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       if (storedUser?._id) return storedUser._id;
       if (storedUser?.id) return storedUser.id;
     } catch (e) {

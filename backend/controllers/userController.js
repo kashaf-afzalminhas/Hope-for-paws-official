@@ -4,6 +4,7 @@ const Seller = require('../models/Seller');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const transporter = require('../config/emailTransporter');
+const { buildVerificationEmail } = require('../utils/emailTemplates');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
 const { OAuth2Client } = require("google-auth-library");
@@ -17,6 +18,7 @@ const COUNTRY_PHONE_LENGTH_RULES = {
   '+44': { min: 10, max: 10, label: 'United Kingdom' },
   '+91': { min: 10, max: 10, label: 'India' }
 };
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
 const LINK_CONFIRMATION_REQUIRED = process.env.REQUIRE_GOOGLE_LINK_CONFIRMATION === 'true';
 
 const validateInternationalPhone = (phone) => {
@@ -81,7 +83,7 @@ const ADMIN_EMAILS = [
 const signUp = async (req, res) => {
   const { username, email, password, isVeterinarian, phone, userType } = req.body;
   const normalizedEmail = normalizeEmail(email);
-  
+
   // 1. Basic Validation
   if (!username || !email || !password || !phone) {
     return res.status(400).json({ message: 'All fields (username, email, password, phone) are required' });
@@ -133,7 +135,7 @@ const signUp = async (req, res) => {
 
     // 7. Handle TempUser (Update if exists, else Create)
     let tempUser = await TempUser.findOne({ email: normalizedEmail });
-    
+
     const tempUserData = {
       username,
       email: normalizedEmail,
@@ -156,12 +158,14 @@ const signUp = async (req, res) => {
     }
 
     // 8. Send OTP Email
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Hope for Paws: Verification Code',
-      text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`,
+    const html = buildVerificationEmail({
+      code: otp,
+      heading: 'Verification Code',
+      message: 'Use this code to verify your account and complete your registration.',
+      expiry: '2 minutes',
+      preheader: `Your Hope for Paws verification code is ${otp}`,
     });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject: 'Hope for Paws: Verification Code', text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`, html });
 
     res.status(201).json({ message: 'OTP sent to your email.' });
 
@@ -180,7 +184,7 @@ const verifyRegistrationOTP = async (req, res) => {
 
   try {
     const tempUser = await TempUser.findOne({ email: normalizedEmail });
-    
+
     if (!tempUser) return res.status(404).json({ error: 'Registration session expired or invalid.' });
     if (tempUser.verificationCode !== otp) return res.status(400).json({ error: 'Invalid OTP.' });
     if (tempUser.verificationCodeExpires < Date.now()) return res.status(400).json({ error: 'OTP expired.' });
@@ -243,26 +247,25 @@ const verifyRegistrationOTP = async (req, res) => {
     await TempUser.deleteOne({ email: normalizedEmail });
 
     const token = jwt.sign(
-      { 
-        id: user._id, 
-        username: user.username, 
+      {
+        id: user._id,
+        username: user.username,
         isVeterinarian: user.isVeterinarian,
-        isSeller: user.isSeller 
+        isSeller: user.isSeller
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
+    const userSafe = user.toObject();
+    delete userSafe.password;
+    const hasValidPhone = Boolean(userSafe.phone && !validateInternationalPhone(userSafe.phone));
+    userSafe.phoneVerified = Boolean(userSafe.phoneVerified) && hasValidPhone;
+
     res.status(200).json({
       message: 'Verified successfully.',
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        isSeller: user.isSeller,
-        sellerStatus: user.sellerStatus
-      }
+      user: userSafe,
     });
 
   } catch (error) {
@@ -277,7 +280,7 @@ const verifyRegistrationOTP = async (req, res) => {
 const signIn = async (req, res) => {
   const { email, password } = req.body;
   const normalizedEmail = normalizeEmail(email);
-  
+
   try {
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
@@ -287,11 +290,11 @@ const signIn = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign(
-      { 
-        id: user._id, 
-        username: user.username, 
+      {
+        id: user._id,
+        username: user.username,
         isVeterinarian: user.isVeterinarian,
-        isSeller: user.isSeller 
+        isSeller: user.isSeller
       },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
@@ -320,10 +323,10 @@ const signIn = async (req, res) => {
 const googleLogins = async (req, res) => {
   try {
     const { credential, confirmLinking } = req.body;
-    const client = new OAuth2Client("495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com");
-    const ticket = await client.verifyIdToken({ 
-      idToken: credential, 
-      audience: "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com" 
+    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID
     });
     const payload = ticket.getPayload();
     const email = normalizeEmail(payload.email);
@@ -331,7 +334,7 @@ const googleLogins = async (req, res) => {
     const googleId = payload.sub;
 
     let user = await User.findOne({ email }).select('-password');
-    
+
     if (user) {
       const alreadyLinked = hasProvider(user, 'google');
 
@@ -373,9 +376,9 @@ const completeGoogleRegistration = async (req, res) => {
   try {
     const { email, username, isVeterinarian, userType, googleId } = req.body;
     const normalizedEmail = normalizeEmail(email);
-    
+
     if (!normalizedEmail || !username) return res.status(400).json({ message: 'Missing fields' });
-    
+
     const resolvedUserType =
       userType === 'seller' || userType === 'veterinarian' || userType === 'user'
         ? userType
@@ -386,13 +389,17 @@ const completeGoogleRegistration = async (req, res) => {
             : 'user';
     const isSeller = resolvedUserType === 'seller';
     const isVet = resolvedUserType === 'veterinarian';
-    
+
     // Seller details check moved to onboarding
-    
-    let user = await User.findOne({ email: normalizedEmail }).select('-password');
+
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
       if (!hasProvider(user, 'google')) {
         linkAuthProvider(user, 'google', googleId || null);
+      }
+      if (isSeller && !user.isSeller) {
+        user.isSeller = true;
+        user.sellerStatus = 'incomplete';
       }
       await user.save();
     } else {
@@ -401,25 +408,19 @@ const completeGoogleRegistration = async (req, res) => {
         email: normalizedEmail,
         password: null,
         isVeterinarian: isVet,
-        isSeller, 
-        phone: "", 
+        isSeller,
+        sellerStatus: isSeller ? 'incomplete' : undefined,
+        phone: "",
         phoneVerified: false,
         authProviders: [{ provider: 'google', providerId: googleId || null }]
       });
-      user = user.toObject();
-      delete user.password;
-    }
-    
-    if (isSeller && !user.isSeller) {
-      user.isSeller = true;
-      user.sellerStatus = 'incomplete';
-      await user.save();
     }
 
-    // Seller Profile creation moved to post-registration onboarding
-    
+    const userSafe = user.toObject();
+    delete userSafe.password;
+
     const token = jwt.sign(
-      { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
+      { id: userSafe._id, username: userSafe.username, isVeterinarian: userSafe.isVeterinarian, isSeller: userSafe.isSeller },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -427,7 +428,7 @@ const completeGoogleRegistration = async (req, res) => {
     return res.status(201).json({
       message: 'Registration successful',
       token,
-      user
+      user: userSafe
     });
 
   } catch (error) {
@@ -451,12 +452,14 @@ const resendOTP = async (req, res) => {
     tempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
     await tempUser.save();
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Hope for Paws: New OTP',
-      text: `Your new OTP: ${newOtp}`,
+    const html = buildVerificationEmail({
+      code: newOtp,
+      heading: 'New Verification Code',
+      message: 'Here is your new verification code. The previous code has been invalidated.',
+      expiry: '2 minutes',
+      preheader: `Your new Hope for Paws verification code is ${newOtp}`,
     });
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject: 'Hope for Paws: New OTP', text: `Your new OTP: ${newOtp}\nIt expires in 2 minutes.`, html });
     res.status(200).json({ message: 'New OTP sent.' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -540,8 +543,15 @@ const forgotPassword = async (req, res) => {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Password Reset',
-      text: `Code: ${code}`,
+      subject: 'Hope for Paws: Password Reset',
+      text: `Your password reset code is: ${code}\nIt expires in 15 minutes.`,
+      html: buildVerificationEmail({
+        code: code,
+        heading: 'Password Reset Code',
+        message: 'You requested a password reset. Use the code below to set a new password.',
+        expiry: '15 minutes',
+        preheader: `Your Hope for Paws password reset code is ${code}`,
+      }),
     });
     res.status(200).json({ message: 'Code sent.' });
   } catch (error) {
@@ -576,7 +586,7 @@ const resetPassword = async (req, res) => {
 
 // Other Exports
 const signOut = async (req, res) => res.status(200).json({ message: 'Signed out' });
-const getUserById = async (req, res) => { 
+const getUserById = async (req, res) => {
   const user = await User.findById(req.body.id).select("-password");
   res.json({ data: user });
 };
@@ -584,35 +594,35 @@ const getAllUsers = async (req, res) => {
   const users = await User.find().select("-password");
   res.json({ data: users });
 };
-const searchUsers = async (req, res) => { 
+const searchUsers = async (req, res) => {
   const { query } = req.body;
   const users = await User.find({
-      $or: [{ username: { $regex: query, $options: 'i' } }, { email: { $regex: query, $options: 'i' } }]
+    $or: [{ username: { $regex: query, $options: 'i' } }, { email: { $regex: query, $options: 'i' } }]
   }).select("-password");
   res.json({ data: users });
 };
 const uploadProfileImage = async (req, res) => {
-    if (!req.file) return res.status(400).json({ success: false, message: "No file" });
-    const user = await User.findByIdAndUpdate(req.user.id, { profileImage: `/uploads/profile-images/${req.file.filename}` }, { new: true });
-    res.json({ success: true, data: { profileImage: user.profileImage } });
+  if (!req.file) return res.status(400).json({ success: false, message: "No file" });
+  const user = await User.findByIdAndUpdate(req.user.id, { profileImage: `/uploads/profile-images/${req.file.filename}` }, { new: true });
+  res.json({ success: true, data: { profileImage: user.profileImage } });
 };
 const removeProfileImage = async (req, res) => {
-    await User.findByIdAndUpdate(req.user.id, { profileImage: "" });
-    res.json({ success: true, message: "Removed" });
+  await User.findByIdAndUpdate(req.user.id, { profileImage: "" });
+  res.json({ success: true, message: "Removed" });
 };
 const getUserPublicProfile = async (req, res) => {
-    const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian");
-    res.json({ success: true, data: user });
+  const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian");
+  res.json({ success: true, data: user });
 };
 const changePassword = async (req, res) => {
-    const { id, currentPassword, newPassword } = req.body;
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) return res.status(400).json({ error: 'Incorrect password' });
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-    res.status(200).json({ message: 'Changed' });
+  const { id, currentPassword, newPassword } = req.body;
+  const user = await User.findById(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) return res.status(400).json({ error: 'Incorrect password' });
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+  res.status(200).json({ message: 'Changed' });
 };
 
 // For Google-first accounts: set a password once (JWT required).
@@ -647,21 +657,21 @@ const setPassword = async (req, res) => {
   }
 };
 const addPhoneNumber = async (req, res) => {
-    const normalizedPhone = String(req.body.phone || '').trim();
-    const phoneValidationError = validateInternationalPhone(normalizedPhone);
-    if (phoneValidationError) {
-      return res.status(400).json({ message: phoneValidationError });
-    }
-    const existingPhone = await User.findOne({ phone: normalizedPhone, _id: { $ne: req.user.id } });
-    if (existingPhone) {
-      return res.status(400).json({ message: 'Phone number is already used by another user' });
-    }
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    user.phone = normalizedPhone;
-    user.phoneVerified = true;
-    await user.save();
-    res.status(200).json({ message: 'Phone added', user });
+  const normalizedPhone = String(req.body.phone || '').trim();
+  const phoneValidationError = validateInternationalPhone(normalizedPhone);
+  if (phoneValidationError) {
+    return res.status(400).json({ message: phoneValidationError });
+  }
+  const existingPhone = await User.findOne({ phone: normalizedPhone, _id: { $ne: req.user.id } });
+  if (existingPhone) {
+    return res.status(400).json({ message: 'Phone number is already used by another user' });
+  }
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  user.phone = normalizedPhone;
+  user.phoneVerified = true;
+  await user.save();
+  res.status(200).json({ message: 'Phone added', user });
 };
 const verifyResetCodeRoute = async (req, res) => { verifyCode(req, res); }; // Wrapper if needed
 const resendResetCode = async (req, res) => { forgotPassword(req, res); }; // Wrapper

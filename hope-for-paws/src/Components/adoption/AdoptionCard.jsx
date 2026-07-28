@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageSquare, PawPrint } from 'lucide-react';
+import { useRequireAuth } from '../AuthGuard';
 import {
   adoptionCardShellClass,
   adoptionContentClass,
@@ -42,6 +43,8 @@ const AdoptionCard = ({
   imageOverlay,
   children,
 }) => {
+  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const statusBadge = getPostStatusBadge(post?.status);
   const lineClamp =
     descriptionLines === 2 ? 'line-clamp-2' : descriptionLines === 4 ? 'line-clamp-4' : 'line-clamp-3';
@@ -143,7 +146,10 @@ const AdoptionCard = ({
                   <Link
                     to={`/profile/public/${poster.profileId}`}
                     className="font-semibold text-[#6b493d] hover:underline underline-offset-2"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!requireAuth('view this user\'s profile')) e.preventDefault();
+                    }}
                   >
                     {poster.username || 'Anonymous'}
                   </Link>

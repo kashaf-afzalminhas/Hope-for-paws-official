@@ -79,6 +79,14 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
           >
             Show Post Comments
           </NavLink>
+          <NavLink
+            to="/admin-dashboard/reported-items"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors flex items-center justify-between ${isActive ? 'bg-[#0F766E] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            Reported Items
+          </NavLink>
         </aside>
         {/* Main Content */}
         <main className="flex-1 w-full p-6">{children}</main>

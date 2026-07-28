@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import AdoptionList from './AdoptionList';
 import CreateAdoptionAdForm from './AdoptionForm';
-
 const AdoptionPage = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [petFilter, setPetFilter] = useState('all');
+  const user =
+    JSON.parse(localStorage.getItem("user")) ||
+    null;
 
   return (
     <div className="min-h-screen bg-[#e2d6cb]/10 pb-12">
@@ -14,19 +17,28 @@ const AdoptionPage = () => {
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl font-bold mb-4">Find Your Perfect Companion</h1>
             <p className="text-lg mb-8 text-[#e2d6cb]">Connecting loving homes with pets in need</p>
-            <button 
-              onClick={() => setIsCreating(!isCreating)}
-              className="px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-            >
-              {isCreating ? 'Cancel' : 'Create Adoption Ad'}
-            </button>
+            {user ? (
+              <button
+                onClick={() => setIsCreating(!isCreating)}
+                className="px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              >
+                {isCreating ? 'Cancel' : 'Create Adoption Ad'}
+              </button>
+            ) : (
+              <Link
+                to="/signin"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              >
+                Sign in to Post
+              </Link>
+            )}
           </div>
         </div>
       </div>
       {/* Disclaimer Banner - now flush below hero section */}
       <div className="w-full bg-yellow-100 border-b border-yellow-300 py-3 px-4 flex items-center justify-center shadow-sm">
         <span className="text-yellow-900 text-sm font-medium text-center">
-          ⚠️ Note: All adoption ads are user-generated. Please verify all information independently. We maintain a neutral stance in all third-party interactions between adopters and pet owners.
+          âš ï¸ Note: All adoption ads are user-generated. Please verify all information independently. We maintain a neutral stance in all third-party interactions between adopters and pet owners.
         </span>
       </div>
       

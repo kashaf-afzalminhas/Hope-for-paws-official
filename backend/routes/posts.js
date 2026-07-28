@@ -40,8 +40,8 @@ const upload = multer({
   },
 });
 
-// Get all posts (auth required, paginated, batched comments)
-router.get('/', auth, async (req, res) => {
+// Get all posts (public, paginated, batched comments)
+router.get('/', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
@@ -85,8 +85,8 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get single post (auth required)
-router.get('/:id', auth, async (req, res) => {
+// Get single post (public)
+router.get('/:id', async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid post ID format' });
