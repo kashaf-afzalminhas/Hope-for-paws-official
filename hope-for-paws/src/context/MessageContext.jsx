@@ -20,15 +20,20 @@ const MessageProvider = ({ children }) => {
 
   // Initialize socket globally when MessageProvider mounts
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user")) || null;
+    const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
     const currentUserId = user?.id || user?._id;
     
     if (currentUserId) {
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Initializing global socket for user:', currentUserId);
-      const socket = initSocket(currentUserId);
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Global socket initialized:', !!socket);
+      console.log('MessageProvider: Initializing global socket for user:', currentUserId);
+      try {
+        const socket = initSocket(currentUserId);
+        console.log('MessageProvider: Global socket initialized:', !!socket);
+      } catch (e) {
+        console.warn('MessageProvider: Failed to initialize socket:', e.message);
+      }
     } else {
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: No user ID found, cannot initialize global socket');
+      console.log('MessageProvider: No user ID found, cannot initialize global socket');
     }
     
     // Cleanup on unmount

@@ -259,6 +259,7 @@ const Login = () => {
       setError('Please enter a valid Gmail address to reset password.');
       return;
     }
+    setLoading(true);
     try {
       const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
         method: 'POST',
@@ -274,6 +275,8 @@ const Login = () => {
       }
     } catch {
       setError('An error occurred while sending the verification code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -371,7 +374,8 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
+                  disabled={loading}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Forgot Password?
                 </button>
