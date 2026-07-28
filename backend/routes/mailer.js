@@ -7,7 +7,7 @@ const sendEmail = async (to, subject, text, html) => {
       to,
       subject,
       text,
-      ...(html && { html }),
+      ...(html && { html }), // include html only if provided
     };
   
     console.log("Mail options:", mailOptions); // Log mail options for debugging
