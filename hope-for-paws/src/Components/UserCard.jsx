@@ -15,75 +15,76 @@ const UserCard = ({
   return (
     <div
       className={cn(
-        'flex items-center p-3 gap-3 cursor-pointer rounded-xl transition-all duration-200',
-        'bg-white border border-[#e5d9c8] hover:border-[#a07855]/40',
-        selected 
-          ? 'bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md' 
-          : 'hover:shadow-md',
+        'flex items-center p-3 gap-3 cursor-pointer rounded-2xl transition-all duration-200 group',
+        selected
+          ? 'bg-gradient-to-r from-[#f0e6d8] to-[#f5efe6] shadow-md ring-1 ring-[#a07855]/30'
+          : unreadCount > 0
+            ? 'bg-white shadow-sm ring-1 ring-[#a07855]/15 hover:shadow-md hover:-translate-y-0.5'
+            : 'bg-white shadow-sm ring-1 ring-[#e5d9c8]/60 hover:shadow-md hover:-translate-y-0.5',
+        "active:scale-[0.98]",
         className
       )}
       onClick={onClick}
     >
-      <Link 
+      <Link
         to={`/profile/public/${user._id}`}
-        className="relative shrink-0 group"
+        className="relative shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {user.profileImage ? (
-          <img 
+          <img
             src={`${AUTH_BASE_URL.replace('/auth', '')}${user.profileImage}`}
-            alt={user.username || 'User'} 
-            className="w-12 h-12 rounded-xl object-cover border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200"
+            alt={user.username || 'User'}
+            className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white shadow-sm group-hover:ring-[#a07855]/30 transition-all duration-200"
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
             }}
           />
         ) : null}
-        <div 
-          className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-lg font-bold border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200 ${user.profileImage ? 'hidden' : ''}`}
+        <div
+          className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-lg font-bold ring-2 ring-white shadow-sm group-hover:ring-[#a07855]/30 transition-all duration-200 ${user.profileImage ? 'hidden' : ''}`}
         >
           {(user.username || 'U').charAt(0).toUpperCase()}
         </div>
-        {/* Online status indicator */}
         {user.status === 'online' && (
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-sm">
+            <div className="absolute inset-0.5 rounded-full bg-emerald-400 animate-ping opacity-75"></div>
+          </div>
         )}
       </Link>
-      
+
       <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex justify-between items-center gap-2">
           <h3 className={cn(
-            "font-heading text-[#2c1810] font-medium truncate",
-            selected && "font-semibold"
+            "font-heading text-[#2c1810] truncate",
+            selected || unreadCount > 0 ? "font-semibold" : "font-medium"
           )}>
             {user.username || 'Unknown User'}
           </h3>
           {timestamp && (
             <span className={cn(
-              "text-xs font-body whitespace-nowrap",
-              selected ? "text-[#a07855]" : "text-[#2c1810]/60"
+              "text-[11px] font-body whitespace-nowrap shrink-0",
+              selected ? "text-[#a07855] font-medium" : "text-[#2c1810]/45"
             )}>
               {timestamp}
             </span>
           )}
         </div>
-        
-        <div className="flex justify-between items-center mt-1.5 gap-2">
+
+        <div className="flex justify-between items-center mt-1 gap-2">
           <p className={cn(
-            "text-sm font-body truncate text-[#2c1810]/80",
-            selected && "text-[#2c1810]",
-            unreadCount > 0 && "font-medium"
+            "text-[13px] font-body truncate",
+            unreadCount > 0 ? "text-[#2c1810] font-medium" : "text-[#2c1810]/55"
           )}>
-            {lastMessage?.length > 35 ? `${lastMessage.substring(0, 35)}...` : lastMessage}
+            {lastMessage?.length > 32 ? `${lastMessage.substring(0, 32)}...` : lastMessage}
           </p>
-          
+
           {unreadCount > 0 && (
             <span className={cn(
-              "bg-[#a07855] text-[#ffd8b8] text-xs font-bold rounded-full",
-              "min-w-[20px] h-[20px] flex items-center justify-center shrink-0",
-              "transition-transform duration-200 hover:scale-110 shadow-sm",
-              unreadCount > 9 ? "px-1" : ""
+              "bg-gradient-to-br from-[#a07855] to-[#8a6a4d] text-[#ffd8b8] text-[10px] font-bold rounded-full",
+              "min-w-[19px] h-[19px] flex items-center justify-center shrink-0 shadow-sm",
+              unreadCount > 9 ? "px-1.5" : ""
             )}>
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>

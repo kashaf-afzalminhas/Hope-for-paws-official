@@ -185,32 +185,29 @@ const RecentChats = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#f5efe6]">
-      {/* Header with search and back button */}
-      <div className="flex-shrink-0 p-4 pb-3 bg-[#f5efe6] flex items-center">
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleBackClick();
-          }}
-          className="flex items-center p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:scale-95"
-          aria-label="Back"
-        >
-          <FaChevronLeft className="text-[#6b493d] text-sm" />
-        </button>
-        <div className="flex-1"></div>
-      </div>
+      {/* Header with back button */}
+<div className="flex-shrink-0 px-4 pt-4 pb-2 flex items-center">
+  <button
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleBackClick();
+    }}
+    className="flex items-center p-2 rounded-xl hover:bg-white transition-all duration-200 active:scale-90 shadow-sm ring-1 ring-transparent hover:ring-[#e5d9c8]"
+    aria-label="Back"
+  >
+    <FaChevronLeft className="text-[#6b493d] text-sm" />
+  </button>
+</div>
 
-      {/* Header with search */}
-      <div className="flex-shrink-0 p-3 pb-2 bg-[#f5efe6]">
-        <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
-        <SearchBar
-          onSearch={setSearchQuery}
-          placeholder="Search conversations..."
-          className="w-full bg-white border border-[#e5d9c8] rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200 text-sm"
-        />
-      </div>
-
+{/* Header with search */}
+<div className="flex-shrink-0 px-4 pb-3">
+  <h2 className="text-[#2c1810] font-heading font-bold text-2xl mb-3 tracking-tight">Messages</h2>
+  <SearchBar
+    onSearch={setSearchQuery}
+    placeholder="Search conversations..."
+  />
+</div>
       {/* Conversation list - Flexible height */}
       <div className="flex-1 overflow-y-auto px-3 pb-4 min-h-0">
         {isLoading ? (
@@ -243,45 +240,32 @@ const RecentChats = ({
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredForDisplay.map((conversation) => {
-              const otherUserId = conversation.participants.find(id => id !== currentUserId);
-              const otherUser = getUserById(otherUserId);
-              const timestamp = conversation.lastMessage?.createdAt
-                ? formatTimestamp(conversation.lastMessage.createdAt)
-                : formatTimestamp(conversation.updatedAt);
+  {filteredForDisplay.map((conversation) => {
+    const otherUserId = conversation.participants.find(id => id !== currentUserId);
+    const otherUser = getUserById(otherUserId);
+    const timestamp = conversation.lastMessage?.createdAt
+      ? formatTimestamp(conversation.lastMessage.createdAt)
+      : formatTimestamp(conversation.updatedAt);
 
-              const unreadCount = conversation.unreadCount || 0;
+    const unreadCount = conversation.unreadCount || 0;
 
-              return (
-                <div 
-                  key={conversation._id}
-                  onClick={() => {
-                    handleMarkAsRead(conversation._id);
-                    markAsRead(conversation._id);
-                    // Don't set currentConversationId here - it will be set when the conversation is actually opened
-                    onSelectConversation({ ...conversation, user: otherUser });
-                  }}
-                  className={cn(
-                    "bg-white rounded-lg p-3 transition-all duration-200 cursor-pointer border border-[#e5d9c8]/30",
-                    "hover:shadow-md hover:border-[#a07855]/40 hover:bg-[#fff7f0]/50 active:scale-[0.98]",
-                    selectedConversationId === conversation._id 
-                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md border-[#a07855]/40" 
-                      : unreadCount > 0 
-                        ? "border-l-4 border-l-[#a07855]/60 bg-[#fff7f0] shadow-sm" 
-                        : "shadow-sm"
-                  )}
-                >
-                  <UserCard
-                    user={otherUser}
-                    selected={selectedConversationId === conversation._id}
-                    lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
-                    timestamp={timestamp}
-                    unreadCount={unreadCount}
-                  />
-                </div>
-              );
-            })}
-          </div>
+    return (
+      <UserCard
+        key={conversation._id}
+        user={otherUser}
+        selected={selectedConversationId === conversation._id}
+        lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
+        timestamp={timestamp}
+        unreadCount={unreadCount}
+        onClick={() => {
+          handleMarkAsRead(conversation._id);
+          markAsRead(conversation._id);
+          onSelectConversation({ ...conversation, user: otherUser });
+        }}
+      />
+    );
+  })}
+</div>
         )}
       </div>
     </div> 

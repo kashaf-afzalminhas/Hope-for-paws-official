@@ -15,32 +15,25 @@ const ChatBubble = ({
   className,
 }) => (
   <div className={cn(
-    "flex mb-4",
+    "flex mb-1 animate-[fadeInUp_0.25s_ease-out]",
     isCurrentUser ? "justify-end" : "justify-start",
     className
   )}>
     <div
       className={cn(
-        "relative px-4 py-3 rounded-2xl shadow-sm",
+        "relative px-4 py-2.5 rounded-[20px] shadow-sm max-w-[78%] sm:max-w-[65%]",
+        "break-words whitespace-pre-line text-[15px] leading-relaxed",
+        "transition-shadow duration-200",
         isCurrentUser
-          ? "bg-gradient-to-br from-[#6b493d] to-[#5a3d32] text-[#ffd8b8] rounded-br-sm shadow-md"
-          : "bg-white text-[#2c1810] rounded-bl-sm border border-[#e5d9c8]",
-        "max-w-[85%] break-words whitespace-pre-line",
-        "text-base transition-all duration-200",
-        isCurrentUser ? "hover:shadow-lg" : "hover:shadow-md"
+          ? "bg-gradient-to-br from-[#7a5641] to-[#5a3d32] text-[#ffe4c4] rounded-br-md shadow-[0_2px_10px_rgba(90,61,50,0.25)] hover:shadow-[0_4px_16px_rgba(90,61,50,0.32)]"
+          : "bg-white text-[#2c1810] rounded-bl-md ring-1 ring-[#e5d9c8] hover:shadow-md"
       )}
-      style={{
-        wordBreak: "break-word",
-        overflowWrap: "break-word",
-      }}
     >
-      <p className="font-body leading-relaxed">{message}</p>
-      
+      <p className="font-body">{message}</p>
+
       <div className={cn(
-        "flex items-center mt-2 text-xs",
-        isCurrentUser 
-          ? "text-[#ffd8b8]/90 justify-end" 
-          : "text-[#2c1810]/70 justify-start"
+        "flex items-center mt-1 text-[10.5px] gap-1",
+        isCurrentUser ? "text-[#ffe4c4]/75 justify-end" : "text-[#2c1810]/45 justify-start"
       )}>
         <span className="font-medium">{formatMessageTime(timestamp)}</span>
       </div>

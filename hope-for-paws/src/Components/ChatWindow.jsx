@@ -303,7 +303,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   return (
     <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">
       {/* Header - Fixed height with improved styling */}
-      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-b border-[#e5d9c8] shadow-sm flex items-center gap-4 chat-header">
+      <div className="flex-shrink-0 p-4 bg-white/80 backdrop-blur-sm border-b border-[#e5d9c8] flex items-center gap-4 chat-header sticky top-0 z-10">
         {isMobile && onBack && (
           <button
             onClick={handleBackClick}
@@ -378,9 +378,10 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
 
       {/* Messages area - Enhanced styling */}
       <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-[#f8f4ea] to-[#f5efe6] min-h-0 chat-messages-container smooth-scroll"
-      >
+  ref={messagesContainerRef}
+  className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8f4ea] min-h-0 chat-messages-container smooth-scroll"
+  style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(160,120,85,0.06) 1px, transparent 0)', backgroundSize: '24px 24px' }}
+>
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <div className="flex flex-col items-center">
@@ -451,13 +452,12 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       </div>
 
       {/* Input area - Enhanced styling */}
-      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-t border-[#e5d9c8] chat-input shadow-sm">
-        <MessageInput 
-          onSendMessage={handleSendMessage} 
-          className="bg-white border border-[#e5d9c8] rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-[#a07855]/30 focus-within:border-[#a07855]/60 focus-within:shadow-md"
-          disabled={!conversationId}
-        />
-      </div>
+<div className="flex-shrink-0 p-3 sm:p-4 bg-white/80 backdrop-blur-sm border-t border-[#e5d9c8] chat-input">
+  <MessageInput 
+    onSendMessage={handleSendMessage} 
+    disabled={!conversationId}
+  />
+</div>
     </div>
   );
 };
