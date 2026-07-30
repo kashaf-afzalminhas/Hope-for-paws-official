@@ -295,6 +295,43 @@ exports.updateOrderStatus = async (req, res) => {
     order.status = newStatus;
     order.statusHistory.push({ status: newStatus, date: Date.now() });
     await order.save();
+
+    // Send status update email to buyer
+    try {
+      const buyer = await User.findById(order.buyerId).select('email username');
+      if (buyer?.email) {
+        const html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
+            <div style="background-color: #6b493d; padding: 20px; text-align: center;">
+              <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
+            </div>
+            <div style="padding: 30px 25px; background-color: #f5f0e8; text-align: center;">
+              <h2 style="color: #6b493d; margin: 0 0 10px 0;">Order Status Updated</h2>
+              <p style="color: #333; line-height: 1.6; margin: 0 0 20px 0;">
+                Hi ${buyer.username || 'there'}, your order status has been updated.
+              </p>
+              <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
+                <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${order.orderId}</p>
+                <p style="margin: 0 0 4px 0; color: #333;">Total: Rs. ${order.totals.finalTotal}</p>
+                <p style="margin: 0; color: #6b493d; font-weight: bold;">Status: ${newStatus}</p>
+              </div>
+            </div>
+            <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #888; font-size: 12px;">
+              <p style="margin: 0;">&copy; 2024 Hope for Paws. All rights reserved.</p>
+            </div>
+          </div>
+        `;
+
+        await sendEmail(
+          buyer.email,
+          `Order ${newStatus} - Hope For Paws`,
+          `Hi ${buyer.username || 'there'}, your order (${order.orderId}) status has been updated to ${newStatus}.`,
+          html
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order status update email:', emailError);
+    }
     
     res.json(order);
   } catch (error) {

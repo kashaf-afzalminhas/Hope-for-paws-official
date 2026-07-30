@@ -1,14 +1,45 @@
 import { SHIPPING_FEE } from '../utils/constants';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Check,
   Lock,
   ShieldCheck,
-  PawPrint
+  PawPrint,
+  ShoppingCart,
+  XCircle,
+  X
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
+
+function ToastStack({ toasts, dismissToast }) {
+  if (toasts.length === 0) return null;
+  return (
+    <div style={{ position: "fixed", bottom: 24, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none" }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          display: "flex", alignItems: "center", gap: 12,
+          backgroundColor: t.type === "success" ? "#6b493d" : "#dc2626",
+          color: "#fff", borderRadius: 16, padding: "13px 18px",
+          boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
+          animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1) both",
+          pointerEvents: "auto", minWidth: 240, maxWidth: 360,
+        }}>
+          <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {t.type === "success" ? <ShoppingCart size={14} /> : <XCircle size={14} />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, lineHeight: 1.3 }}>{t.message}</p>
+          </div>
+          <button onClick={() => dismissToast(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, display: "flex", flexShrink: 0 }}>
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Checkout() {
   const { items, cartTotal, clearCart } = useCart();
@@ -16,6 +47,17 @@ export default function Checkout() {
   
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((type, message) => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t.slice(-2), { id, type, message }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts(t => t.filter(x => x.id !== id));
+  }, []);
   
   const [contact, setContact] = useState({ email: '', phone: '' });
   const [shippingAddress, setShippingAddress] = useState({
@@ -30,10 +72,14 @@ export default function Checkout() {
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0) return alert('Your cart is empty');
+    if (items.length === 0) {
+      addToast('error', 'Your cart is empty');
+      return;
+    }
     
     if (!contact.email || !shippingAddress.fullName || !shippingAddress.street) {
-      return alert('Please fill in all required contact and shipping fields.');
+      addToast('error', 'Please fill in all required contact and shipping fields.');
+      return;
     }
 
     setIsSubmitting(true);
@@ -70,12 +116,12 @@ export default function Checkout() {
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
       await clearCart();
-      alert('Order placed successfully!');
-      navigate('/marketplace');
+      addToast('success', 'Order placed successfully!');
+      setTimeout(() => navigate('/my-orders'), 800);
       
     } catch (err) {
       console.error(err);
-      alert('Error: ' + err.message);
+      addToast('error', err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -340,6 +386,8 @@ export default function Checkout() {
         </div >
 
       </main >
+      <ToastStack toasts={toasts} dismissToast={dismissToast} />
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
     </div >
   );
 }

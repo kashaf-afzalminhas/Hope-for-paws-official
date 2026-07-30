@@ -1,7 +1,6 @@
 import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-// ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED FaStore to imports
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag } from 'react-icons/fa';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -15,6 +14,7 @@ import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
+import { COUNTRY_CODES } from '../utils/constants';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -52,7 +52,6 @@ const ProfilePage = () => {
   // Phone validation states
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [countryCode, setCountryCode] = useState('+92');
   
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
@@ -69,78 +68,6 @@ const ProfilePage = () => {
     about: '',
     countryCode: '+92'
   });
-  const [countryCodes] = useState([
-    { code: '+92', name: 'Pakistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
-    { code: '+1', name: 'United States', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂºÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
-    { code: '+44', name: 'United Kingdom', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
-    { code: '+91', name: 'India', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+86', name: 'China', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¨ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+33', name: 'France', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+49', name: 'Germany', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
-    { code: '+81', name: 'Japan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
-    { code: '+82', name: 'South Korea', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+61', name: 'Australia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âº' },
-    { code: '+55', name: 'Brazil', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+52', name: 'Mexico', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â½' },
-    { code: '+39', name: 'Italy', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹' },
-    { code: '+34', name: 'Spain', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂªÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
-    { code: '+7', name: 'Russia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âº' },
-    { code: '+90', name: 'Turkey', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+966', name: 'Saudi Arabia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
-    { code: '+971', name: 'UAE', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
-    { code: '+974', name: 'Qatar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
-    { code: '+965', name: 'Kuwait', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¼' },
-    { code: '+973', name: 'Bahrain', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+968', name: 'Oman', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
-    { code: '+20', name: 'Egypt', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂªÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
-    { code: '+27', name: 'South Africa', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¿ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
-    { code: '+234', name: 'Nigeria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
-    { code: '+254', name: 'Kenya', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âª' },
-    { code: '+880', name: 'Bangladesh', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
-    { code: '+94', name: 'Sri Lanka', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
-    { code: '+977', name: 'Nepal', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
-    { code: '+93', name: 'Afghanistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«' },
-    { code: '+98', name: 'Iran', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+964', name: 'Iraq', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶' },
-    { code: '+962', name: 'Jordan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´' },
-    { code: '+961', name: 'Lebanon', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
-    { code: '+963', name: 'Syria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
-    { code: '+972', name: 'Israel', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
-    { code: '+970', name: 'Palestine', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
-    { code: '+60', name: 'Malaysia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
-    { code: '+65', name: 'Singapore', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
-    { code: '+66', name: 'Thailand', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+84', name: 'Vietnam', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â»ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+63', name: 'Philippines', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+62', name: 'Indonesia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
-    { code: '+95', name: 'Myanmar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
-    { code: '+855', name: 'Cambodia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+856', name: 'Laos', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
-    { code: '+673', name: 'Brunei', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+670', name: 'East Timor', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
-    { code: '+880', name: 'Bangladesh', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
-    { code: '+94', name: 'Sri Lanka', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°' },
-    { code: '+977', name: 'Nepal', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Âµ' },
-    { code: '+93', name: 'Afghanistan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â«' },
-    { code: '+98', name: 'Iran', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â·' },
-    { code: '+964', name: 'Iraq', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¶' },
-    { code: '+962', name: 'Jordan', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¯ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â´' },
-    { code: '+961', name: 'Lebanon', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§' },
-    { code: '+963', name: 'Syria', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
-    { code: '+972', name: 'Israel', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' },
-    { code: '+970', name: 'Palestine', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸' },
-    { code: '+60', name: 'Malaysia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¾' },
-    { code: '+65', name: 'Singapore', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¸ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¬' },
-    { code: '+66', name: 'Thailand', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+84', name: 'Vietnam', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â»ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+63', name: 'Philippines', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚ÂµÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+62', name: 'Indonesia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â®ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â©' },
-    { code: '+95', name: 'Myanmar', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â²' },
-    { code: '+855', name: 'Cambodia', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â°ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â­' },
-    { code: '+856', name: 'Laos', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¦' },
-    { code: '+673', name: 'Brunei', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â§ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â³' },
-    { code: '+670', name: 'East Timor', flag: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â¹ÃƒÂ°Ã…Â¸Ã¢â‚¬Â¡Ã‚Â±' }
-  ]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -230,7 +157,7 @@ const ProfilePage = () => {
       
       if (userData.phone) {
         // Find matching country code
-        const matchingCountry = countryCodes.find(country => userData.phone.startsWith(country.code));
+        const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
         if (matchingCountry) {
           phoneCountryCode = matchingCountry.code;
           phoneNumber = userData.phone.substring(matchingCountry.code.length);
@@ -239,7 +166,6 @@ const ProfilePage = () => {
         }
       }
 
-      setCountryCode(phoneCountryCode);
       setProfile({
         id: userData.id || userData._id || '',
         name: userData.username,
@@ -331,7 +257,6 @@ const ProfilePage = () => {
       setFormData({ ...formData, countryCode: newCountryCode });
     }
     
-    setCountryCode(newCountryCode);
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
@@ -382,7 +307,6 @@ const ProfilePage = () => {
       about: originalProfile.about,
       countryCode: originalProfile.countryCode
     });
-    setCountryCode(originalProfile.countryCode);
     setPhoneError('');
     setPhoneTouched(false);
     setCurrentView('profile');
@@ -528,7 +452,7 @@ const ProfilePage = () => {
         let phoneCountryCode = '+92';
         
         if (updatedUser.phone) {
-          const matchingCountry = countryCodes.find(country => updatedUser.phone.startsWith(country.code));
+          const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
           if (matchingCountry) {
             phoneCountryCode = matchingCountry.code;
             phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
@@ -537,7 +461,6 @@ const ProfilePage = () => {
           }
         }
 
-        setCountryCode(phoneCountryCode);
         const resolvedUserId = updatedUser.id || updatedUser._id || id;
 
         setProfile({
@@ -1505,7 +1428,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           onChange={handleCountryCodeChange}
                           className="px-3 py-2 border border-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
                         >
-                          {countryCodes.map((country, index) => (
+                          {COUNTRY_CODES.map((country, index) => (
                             <option key={index} value={country.code}>
                               {country.flag} {country.code}
                             </option>
