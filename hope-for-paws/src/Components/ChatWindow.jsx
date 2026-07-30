@@ -21,12 +21,10 @@ function formatMessageDate(timestamp) {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === now.toDateString()) {
-      // Use a simple time format without the date-fns library
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else if (date.getFullYear() === now.getFullYear()) {
-      // Use a simple date format without the date-fns library
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     } else {
       return date.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: 'numeric' });
@@ -69,7 +67,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const messagesContainerRef = useRef(null);
 
-  // Handle window resize for mobile detection
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
     window.addEventListener('resize', handleResize);
@@ -82,9 +79,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         setIsLoading(true);
         const response = await getMessagesByConversation(conversationId);
         
-        // Normalize the response data with proper timestamp validation
         const normalizedMessages = (response.data || []).map(msg => {
-          // Validate and ensure timestamp is valid
           let timestamp = msg.createdAt || msg.timestamp;
           if (!timestamp || isNaN(new Date(timestamp).getTime())) {
             console.warn('Invalid timestamp found, using current time:', timestamp);
@@ -97,7 +92,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             senderId: msg.senderId || msg.sender?.id || '',
             createdAt: timestamp
           };
-        }).filter(msg => msg.text); // Remove empty messages
+        }).filter(msg => msg.text);
         
         setMessages(normalizedMessages);
       } catch (error) {
@@ -113,10 +108,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     }
   }, [conversationId]);
 
-  // Mark conversation as read when opened and set as current conversation
   useEffect(() => {
     if (conversationId && setCurrentConversationId) {
-      // Only set current conversation ID if this ChatWindow is actually visible
       if (document.visibilityState === 'visible' && !document.hidden) {
         setCurrentConversationId(conversationId);
       }
@@ -125,16 +118,12 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         try {
           const result = await markConversationAsRead(conversationId);
           
-          // Update parent component to reset unread count
           if (updateConversationLastMessage) {
             updateConversationLastMessage(conversationId, { unreadCount: 0 });
           }
           
-          // Refresh conversations to get updated unread counts from backend
           if (result?.data?.modifiedCount > 0) {
-            // Wait a bit for the database to update
             setTimeout(() => {
-              // Trigger a refresh of conversations
               window.dispatchEvent(new CustomEvent('refreshConversations'));
             }, 100);
           }
@@ -165,7 +154,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         console.log('ChatWindow: Socket not connected, waiting for connection...');
         const handleConnect = () => {
           console.log('ChatWindow: Socket connected, setting up listeners');
-          socket.off('connect', handleConnect); // Remove listener to prevent duplicates
+          socket.off('connect', handleConnect);
           setupSocketListeners();
         };
         socket.on('connect', handleConnect);
@@ -174,21 +163,15 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
 
       console.log('ChatWindow: Socket connected, setting up listeners for conversation:', conversationId);
 
-      // Join the conversation room for real-time updates (with a small delay to ensure handlers are registered)
       setTimeout(() => {
         console.log('ChatWindow: Emitting joinConversation with ID:', conversationId);
     socket.emit('joinConversation', conversationId);
       }, 100);
-      
-      // Note: socket.rooms is server-side only, we can't check rooms on client side
-      // The backend will log whether the room joining was successful
 
       const handleNewMessage = (message) => {
-        // Only add message if it's for this conversation
         const conversationMatches = String(message.conversationId) === String(conversationId);
         
         if (conversationMatches) {
-          // Check if message already exists (avoid duplicates)
           setMessages(prev => {
             const messageExists = prev.some(msg => msg._id === message._id || (msg.text === message.text && msg.senderId === message.senderId && Math.abs(new Date(msg.createdAt) - new Date(message.createdAt)) < 5000));
             if (messageExists) {
@@ -201,19 +184,14 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       };
 
     const handleMessageSent = (data) => {
-      // You can add logic here to update message status if needed
     };
 
-      // Listen for both newMessage and messageSent events
       socket.on('newMessage', handleNewMessage);
     socket.on('messageSent', handleMessageSent);
 
-      // Listen for room joined confirmation
       socket.on('roomJoined', (data) => {
-        // Room joined successfully
       });
 
-      // Store cleanup function
       const cleanup = () => {
         if (socket && socket.connected) {
           socket.emit('leaveConversation', conversationId);
@@ -234,7 +212,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     if (!otherUser.username) {
       getUserById(otherUser._id)
         .then(res => {
-          // Some APIs return { data: { ...user } }
           if (res.data && res.data.data) {
             setUserDetails(res.data.data);
           } else if (res.data) {
@@ -262,9 +239,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       createdAt: new Date().toISOString(),
     };
 
-    // Don't do optimistic update since server will emit via socket
-    // setMessages(prev => [...prev, newMessage]);
-
     try {
       const response = await sendMessage({
         conversationId,
@@ -273,12 +247,9 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       });
       
       console.log('ChatWindow: Message sent successfully, waiting for socket event');
-      // Server will emit the message via socket, no need to add to local state
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      // Remove temp message on error
       setMessages(prev => prev.filter(msg => msg._id !== tempId));
-      // Show error toast
       if (addToast) {
         addToast({
           title: 'Error',
@@ -290,7 +261,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   };
 
   const handleBackClick = () => {
-    // Clear current conversation ID when navigating away
     if (setCurrentConversationId) {
       setCurrentConversationId(null);
     }
@@ -303,16 +273,16 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   return (
     <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">
       {/* Header - Fixed height with improved styling */}
-      <div className="flex-shrink-0 p-4 bg-white/80 backdrop-blur-sm border-b border-[#e5d9c8] flex items-center gap-4 chat-header sticky top-0 z-10">
+      <div className="flex-shrink-0 relative overflow-hidden bg-gradient-to-r from-[#2c1810] to-[#3d2418] p-4 flex items-center gap-4 chat-header sticky top-0 z-10">
         {isMobile && onBack && (
           <button
             onClick={handleBackClick}
-            className="p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 no-select active:scale-95"
             aria-label="Back to conversations"
           >
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
-              className="h-5 w-5 text-[#2c1810]" 
+              className="h-5 w-5 text-white" 
               viewBox="0 0 20 20" 
               fill="currentColor"
             >
@@ -329,7 +299,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             <img 
               src={`${AUTH_BASE_URL.replace('/auth', '')}${userDetails.profileImage}`}
               alt={userDetails.username || 'User'}
-              className="w-12 h-12 rounded-xl object-cover border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200"
+              className="w-12 h-12 rounded-full object-cover ring-2 ring-white/20 group-hover:ring-[#ffd8b8]/40 transition-all duration-200"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
@@ -337,39 +307,39 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             />
           ) : null}
           <div 
-            className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xl font-bold border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200 ${userDetails.profileImage ? 'hidden' : ''}`}
+            className={`w-12 h-12 rounded-full bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-white text-xl font-bold ring-2 ring-white/20 group-hover:ring-[#ffd8b8]/40 transition-all duration-200 ${userDetails.profileImage ? 'hidden' : ''}`}
           >
             {(userDetails.username || 'U').charAt(0).toUpperCase()}
           </div>
           {userDetails.status === 'online' && (
-            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#2c1810] shadow-sm"></div>
           )}
         </Link>
         
         <div className="flex-1 min-w-0">
           <Link 
             to={`/profile/public/${otherUser._id}`}
-            className="font-heading text-lg font-semibold text-[#2c1810] hover:text-[#a07855] transition-colors duration-200 block truncate"
+            className="font-heading text-lg font-semibold text-white hover:text-[#ffd8b8] transition-colors duration-200 block truncate"
           >
             {userDetails.username || 'User'}
           </Link>
-          <p className="font-body text-sm text-[#2c1810]/80 mt-1 flex items-center">
+          <p className="font-body text-sm text-white/60 mt-1 flex items-center">
             {isTyping ? (
-              <span className="flex items-center text-[#a07855] font-medium">
+              <span className="flex items-center text-[#ffd8b8] font-medium">
                 <span className="flex mr-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5 animation-delay-150"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5 animation-delay-300"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffd8b8] animate-bounce mx-0.5"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffd8b8] animate-bounce mx-0.5 animation-delay-150"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffd8b8] animate-bounce mx-0.5 animation-delay-300"></span>
                 </span>
                 typing...
               </span>
             ) : userDetails.status === 'online' ? (
               <span className="flex items-center">
                 <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-1.5 shadow-sm"></span>
-                <span className="text-[#2c1810]/80">Online now</span>
+                <span className="text-white/60">Online now</span>
               </span>
             ) : (
-              <span className="text-[#2c1810]/60">Offline</span>
+              <span className="text-white/60">Offline</span>
             )}
           </p>
         </div>
@@ -378,10 +348,10 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
 
       {/* Messages area - Enhanced styling */}
       <div 
-  ref={messagesContainerRef}
-  className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8f4ea] min-h-0 chat-messages-container smooth-scroll"
-  style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(160,120,85,0.06) 1px, transparent 0)', backgroundSize: '24px 24px' }}
->
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8f4ea] min-h-0 chat-messages-container smooth-scroll"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(160,120,85,0.06) 1px, transparent 0)', backgroundSize: '24px 24px' }}
+      >
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <div className="flex flex-col items-center">
@@ -430,8 +400,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
         ) : (
           <div className="flex flex-col justify-center items-center h-full text-center p-6">
             <div className="relative mb-8">
-              <div className="w-32 h-32 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8]">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-[#a07855]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-32 h-32 bg-gradient-to-br from-[#2c1810] to-[#6b493d] rounded-full flex items-center justify-center shadow-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-[#ffd8b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
@@ -443,7 +413,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
                 </div>
               </div>
             </div>
-            <h3 className="font-heading text-2xl font-semibold text-[#2c1810] mb-3">Start a Conversation</h3>
+            <h3 className="font-heading text-2xl font-bold text-[#2c1810] mb-3">Start a Conversation</h3>
             <p className="font-body text-[#2c1810]/70 max-w-md mb-6 leading-relaxed">
               Send your first message to {userDetails.username || 'your contact'} to begin chatting
             </p>
@@ -452,12 +422,12 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       </div>
 
       {/* Input area - Enhanced styling */}
-<div className="flex-shrink-0 p-3 sm:p-4 bg-white/80 backdrop-blur-sm border-t border-[#e5d9c8] chat-input">
-  <MessageInput 
-    onSendMessage={handleSendMessage} 
-    disabled={!conversationId}
-  />
-</div>
+      <div className="flex-shrink-0 p-3 sm:p-4 bg-white/80 backdrop-blur-sm border-t border-[#e5d9c8] chat-input">
+        <MessageInput 
+          onSendMessage={handleSendMessage} 
+          disabled={!conversationId}
+        />
+      </div>
     </div>
   );
 };
