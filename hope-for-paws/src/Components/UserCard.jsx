@@ -3,88 +3,57 @@ import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 
-const UserCard = ({
-  user,
-  selected = false,
-  onClick,
-  lastMessage,
-  timestamp,
-  unreadCount = 0,
-  className,
-}) => {
+const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unreadCount = 0, className }) => {
   return (
     <div
       className={cn(
-        'flex items-center p-3 gap-3 cursor-pointer rounded-xl transition-all duration-200',
-        'bg-white border border-[#e5d9c8] hover:border-[#a07855]/40',
-        selected 
-          ? 'bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md' 
-          : 'hover:shadow-md',
+        'relative flex items-center p-3 gap-3 cursor-pointer rounded-xl transition-all duration-200 group',
+        selected
+          ? 'bg-[#a07855]/25 border-l-4 border-[#ffd8b8]'
+          : 'hover:bg-white/5 border-l-4 border-transparent',
+        "active:scale-[0.98]",
         className
       )}
       onClick={onClick}
     >
-      <Link 
-        to={`/profile/public/${user._id}`}
-        className="relative shrink-0 group"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <Link to={`/profile/public/${user._id}`} className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
         {user.profileImage ? (
-          <img 
+          <img
             src={`${AUTH_BASE_URL.replace('/auth', '')}${user.profileImage}`}
-            alt={user.username || 'User'} 
-            className="w-12 h-12 rounded-xl object-cover border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
-            }}
+            alt={user.username || 'User'}
+            className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10 shadow-sm"
+            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
           />
         ) : null}
-        <div 
-          className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-lg font-bold border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200 ${user.profileImage ? 'hidden' : ''}`}
-        >
+        <div className={cn(
+          "w-12 h-12 rounded-full bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-white text-lg font-bold ring-2 ring-white/10 shadow-sm",
+          user.profileImage ? 'hidden' : ''
+        )}>
           {(user.username || 'U').charAt(0).toUpperCase()}
         </div>
-        {/* Online status indicator */}
         {user.status === 'online' && (
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#2c1810]"></div>
         )}
       </Link>
-      
+
       <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex justify-between items-center gap-2">
-          <h3 className={cn(
-            "font-heading text-[#2c1810] font-medium truncate",
-            selected && "font-semibold"
-          )}>
+          <h3 className={cn("font-heading truncate", selected ? "text-white font-bold" : "text-white/90 font-semibold")}>
             {user.username || 'Unknown User'}
           </h3>
           {timestamp && (
-            <span className={cn(
-              "text-xs font-body whitespace-nowrap",
-              selected ? "text-[#a07855]" : "text-[#2c1810]/60"
-            )}>
+            <span className="text-[11px] font-body whitespace-nowrap shrink-0 text-white/40">
               {timestamp}
             </span>
           )}
         </div>
-        
-        <div className="flex justify-between items-center mt-1.5 gap-2">
-          <p className={cn(
-            "text-sm font-body truncate text-[#2c1810]/80",
-            selected && "text-[#2c1810]",
-            unreadCount > 0 && "font-medium"
-          )}>
-            {lastMessage?.length > 35 ? `${lastMessage.substring(0, 35)}...` : lastMessage}
+
+        <div className="flex justify-between items-center mt-0.5 gap-2">
+          <p className={cn("text-[13px] font-body truncate", unreadCount > 0 ? "text-white/85 font-medium" : "text-white/50")}>
+            {lastMessage?.length > 30 ? `${lastMessage.substring(0, 30)}...` : lastMessage}
           </p>
-          
           {unreadCount > 0 && (
-            <span className={cn(
-              "bg-[#a07855] text-[#ffd8b8] text-xs font-bold rounded-full",
-              "min-w-[20px] h-[20px] flex items-center justify-center shrink-0",
-              "transition-transform duration-200 hover:scale-110 shadow-sm",
-              unreadCount > 9 ? "px-1" : ""
-            )}>
+            <span className="bg-[#a07855] text-white text-[10px] font-bold rounded-full min-w-[19px] h-[19px] flex items-center justify-center shrink-0 px-1">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

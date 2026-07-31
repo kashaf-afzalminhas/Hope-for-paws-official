@@ -7,42 +7,20 @@ function formatMessageTime(ts) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const ChatBubble = ({
-  message,
-  timestamp,
-  isCurrentUser,
-  status = 'sent',
-  className,
-}) => (
-  <div className={cn(
-    "flex mb-4",
-    isCurrentUser ? "justify-end" : "justify-start",
-    className
-  )}>
+const ChatBubble = ({ message, timestamp, isCurrentUser, className }) => (
+  <div className={cn("flex mb-1", isCurrentUser ? "justify-end" : "justify-start", className)}>
     <div
       className={cn(
-        "relative px-4 py-3 rounded-2xl shadow-sm",
+        "relative px-5 py-3 rounded-full shadow-sm max-w-[78%] sm:max-w-[60%]",
+        "break-words whitespace-pre-line text-[15px] leading-relaxed",
         isCurrentUser
-          ? "bg-gradient-to-br from-[#6b493d] to-[#5a3d32] text-[#ffd8b8] rounded-br-sm shadow-md"
-          : "bg-white text-[#2c1810] rounded-bl-sm border border-[#e5d9c8]",
-        "max-w-[85%] break-words whitespace-pre-line",
-        "text-base transition-all duration-200",
-        isCurrentUser ? "hover:shadow-lg" : "hover:shadow-md"
+          ? "bg-[#a07855] text-white rounded-br-md shadow-md"
+          : "bg-white text-[#2c1810] rounded-bl-md ring-1 ring-[#e5d9c8]"
       )}
-      style={{
-        wordBreak: "break-word",
-        overflowWrap: "break-word",
-      }}
     >
-      <p className="font-body leading-relaxed">{message}</p>
-      
-      <div className={cn(
-        "flex items-center mt-2 text-xs",
-        isCurrentUser 
-          ? "text-[#ffd8b8]/90 justify-end" 
-          : "text-[#2c1810]/70 justify-start"
-      )}>
-        <span className="font-medium">{formatMessageTime(timestamp)}</span>
+      <p className="font-body">{message}</p>
+      <div className={cn("text-[10.5px] mt-1", isCurrentUser ? "text-white/70 text-right" : "text-[#2c1810]/45 text-left")}>
+        {formatMessageTime(timestamp)}
       </div>
     </div>
   </div>
