@@ -28,98 +28,98 @@ import { useNavigate } from "react-router-dom";
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 const STEPS = [
-  { label: "Pending",   shortLabel: "Placed",    icon: Clock },
+  { label: "Pending", shortLabel: "Placed", icon: Clock },
   { label: "Confirmed", shortLabel: "Confirmed", icon: CheckCircle2 },
-  { label: "Processing",shortLabel: "Packed",    icon: Package },
-  { label: "Shipped",   shortLabel: "Shipped",   icon: Truck },
+  { label: "Processing", shortLabel: "Packed", icon: Package },
+  { label: "Shipped", shortLabel: "Shipped", icon: Truck },
   { label: "Delivered", shortLabel: "Delivered", icon: MapPin },
 ];
 
 /** All colour tokens per-status Ã¢â‚¬â€ single source of truth */
 const STATUS_CONFIG = {
   Pending: {
-    accent:      "#f59e0b",
-    badgeBg:     "bg-amber-50",
-    badgeText:   "text-amber-700",
-    badgeRing:   "ring-1 ring-amber-200",
-    dot:         "bg-amber-500",
-    stepDone:    "bg-amber-500 border-amber-500",
-    stepActive:  "bg-amber-500 border-amber-500 ring-4 ring-amber-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-amber-500",
-    lightBg:     "bg-amber-50",
+    accent: "#f59e0b",
+    badgeBg: "bg-amber-50",
+    badgeText: "text-amber-700",
+    badgeRing: "ring-1 ring-amber-200",
+    dot: "bg-amber-500",
+    stepDone: "bg-amber-500 border-amber-500",
+    stepActive: "bg-amber-500 border-amber-500 ring-4 ring-amber-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-amber-500",
+    lightBg: "bg-amber-50",
     cancelLabel: "bg-amber-50 text-amber-700",
   },
   Confirmed: {
-    accent:      "#8b5cf6",
-    badgeBg:     "bg-violet-50",
-    badgeText:   "text-violet-700",
-    badgeRing:   "ring-1 ring-violet-200",
-    dot:         "bg-violet-500",
-    stepDone:    "bg-violet-500 border-violet-500",
-    stepActive:  "bg-violet-500 border-violet-500 ring-4 ring-violet-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-violet-500",
-    lightBg:     "bg-violet-50",
+    accent: "#8b5cf6",
+    badgeBg: "bg-violet-50",
+    badgeText: "text-violet-700",
+    badgeRing: "ring-1 ring-violet-200",
+    dot: "bg-violet-500",
+    stepDone: "bg-violet-500 border-violet-500",
+    stepActive: "bg-violet-500 border-violet-500 ring-4 ring-violet-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-violet-500",
+    lightBg: "bg-violet-50",
     cancelLabel: "bg-violet-50 text-violet-700",
   },
   Processing: {
-    accent:      "#0ea5e9",
-    badgeBg:     "bg-sky-50",
-    badgeText:   "text-sky-700",
-    badgeRing:   "ring-1 ring-sky-200",
-    dot:         "bg-sky-500",
-    stepDone:    "bg-sky-500 border-sky-500",
-    stepActive:  "bg-sky-500 border-sky-500 ring-4 ring-sky-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-sky-500",
-    lightBg:     "bg-sky-50",
+    accent: "#0ea5e9",
+    badgeBg: "bg-sky-50",
+    badgeText: "text-sky-700",
+    badgeRing: "ring-1 ring-sky-200",
+    dot: "bg-sky-500",
+    stepDone: "bg-sky-500 border-sky-500",
+    stepActive: "bg-sky-500 border-sky-500 ring-4 ring-sky-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-sky-500",
+    lightBg: "bg-sky-50",
     cancelLabel: "bg-sky-50 text-sky-700",
   },
   Shipped: {
-    accent:      "#3b82f6",
-    badgeBg:     "bg-blue-50",
-    badgeText:   "text-blue-700",
-    badgeRing:   "ring-1 ring-blue-200",
-    dot:         "bg-blue-500",
-    stepDone:    "bg-blue-500 border-blue-500",
-    stepActive:  "bg-blue-500 border-blue-500 ring-4 ring-blue-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-blue-500",
-    lightBg:     "bg-blue-50",
+    accent: "#3b82f6",
+    badgeBg: "bg-blue-50",
+    badgeText: "text-blue-700",
+    badgeRing: "ring-1 ring-blue-200",
+    dot: "bg-blue-500",
+    stepDone: "bg-blue-500 border-blue-500",
+    stepActive: "bg-blue-500 border-blue-500 ring-4 ring-blue-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-blue-500",
+    lightBg: "bg-blue-50",
     cancelLabel: "bg-blue-50 text-blue-700",
   },
   Delivered: {
-    accent:      "#10b981",
-    badgeBg:     "bg-emerald-50",
-    badgeText:   "text-emerald-700",
-    badgeRing:   "ring-1 ring-emerald-200",
-    dot:         "bg-emerald-500",
-    stepDone:    "bg-emerald-500 border-emerald-500",
-    stepActive:  "bg-emerald-500 border-emerald-500 ring-4 ring-emerald-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-emerald-500",
-    lightBg:     "bg-emerald-50",
+    accent: "#10b981",
+    badgeBg: "bg-emerald-50",
+    badgeText: "text-emerald-700",
+    badgeRing: "ring-1 ring-emerald-200",
+    dot: "bg-emerald-500",
+    stepDone: "bg-emerald-500 border-emerald-500",
+    stepActive: "bg-emerald-500 border-emerald-500 ring-4 ring-emerald-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-emerald-500",
+    lightBg: "bg-emerald-50",
     cancelLabel: "bg-emerald-50 text-emerald-700",
   },
   Cancelled: {
-    accent:      "#ef4444",
-    badgeBg:     "bg-red-50",
-    badgeText:   "text-red-600",
-    badgeRing:   "ring-1 ring-red-200",
-    dot:         "bg-red-400",
-    stepDone:    "bg-red-400 border-red-400",
-    stepActive:  "bg-red-400 border-red-400 ring-4 ring-red-100",
-    stepFuture:  "bg-white border-stone-200",
-    bar:         "bg-red-400",
-    lightBg:     "bg-red-50",
+    accent: "#ef4444",
+    badgeBg: "bg-red-50",
+    badgeText: "text-red-600",
+    badgeRing: "ring-1 ring-red-200",
+    dot: "bg-red-400",
+    stepDone: "bg-red-400 border-red-400",
+    stepActive: "bg-red-400 border-red-400 ring-4 ring-red-100",
+    stepFuture: "bg-white border-stone-200",
+    bar: "bg-red-400",
+    lightBg: "bg-red-50",
     cancelLabel: "bg-red-50 text-red-600",
   },
 };
 
 const FILTER_TABS = [
-  { key: "all",       label: "All Orders" },
-  { key: "active",    label: "Active" },
+  { key: "all", label: "All Orders" },
+  { key: "active", label: "Active" },
   { key: "delivered", label: "Delivered" },
   { key: "cancelled", label: "Cancelled" },
 ];
@@ -251,7 +251,7 @@ function CancelConfirm({ onConfirm, onDismiss }) {
             Cancel this order?
           </p>
           <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-            Your payment will be refunded within 3Ã¢â‚¬â€œ5 business days. This cannot be undone.
+            Your payment will be refunded within 3–5 business days. This cannot be undone.
           </p>
           <div className="flex items-center gap-2 mt-3">
             <button
@@ -301,14 +301,14 @@ function TrackingTimeline({ currentStep, status, timestamps = {} }) {
             // Precise: span from first circle center to current circle center
             width: currentStep === 0
               ? 0
-              : `calc(${(currentStep / totalSegments)} * (80% - 0px))`,
+              : `calc(${currentStep / totalSegments} * (80% - 28px))`,
           }}
           aria-hidden="true"
         />
 
         {STEPS.map((step, i) => {
           const Icon = step.icon;
-          const isDone   = i < currentStep;
+          const isDone = i < currentStep;
           const isActive = i === currentStep;
           const isFuture = i > currentStep;
           const ts = timestamps[i];
@@ -324,7 +324,7 @@ function TrackingTimeline({ currentStep, status, timestamps = {} }) {
                 className={`
                   w-7 h-7 rounded-full border-2 flex items-center justify-center
                   transition-all duration-300
-                  ${isDone   ? `${cfg.stepDone} text-white` : ""}
+                  ${isDone ? `${cfg.stepDone} text-white` : ""}
                   ${isActive ? `${cfg.stepActive} text-white` : ""}
                   ${isFuture ? `${cfg.stepFuture} text-stone-300` : ""}
                 `}
@@ -400,7 +400,7 @@ function OrderItem({ item }) {
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-bold text-stone-800">Rs. {(item.price * qty).toFixed(2)}</p>
         <p className="text-[11px] text-stone-400 mt-0.5">
-          {qty > 1 ? `${qty} Ãƒâ€” Rs. ${item.price.toFixed(2)}` : `1 item`}
+          {qty > 1 ? `${qty} × Rs. ${item.price.toFixed(2)}` : `1 item`}
         </p>
       </div>
     </div>
@@ -419,25 +419,29 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
   const orderId = order._id || order.id;
   const isReviewed = reviewedOrders?.has(orderId);
 
-  const cfg        = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
-  const isPending  = order.status === "Pending";
-  const isCancelled = order.status === "Cancelled";
-  
-  const currentStepIndex = STEPS.findIndex(s => s.label === order.status);
+  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
+  const isPending = (order.status || '').toLowerCase() === "pending" || (order.status || '').toLowerCase() === "placed";
+  const isCancelled = (order.status || '').toLowerCase() === "cancelled";
+
+  const DB_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered'];
+  const safeStatus = (order.status || '').toLowerCase();
+
+  const currentStepIndex = DB_STATUSES.indexOf(safeStatus);
   const currentStep = currentStepIndex !== -1 ? currentStepIndex : 0;
   const isDelivered = currentStep === 4;
 
   const timestamps = {};
   if (order.statusHistory) {
     order.statusHistory.forEach(h => {
-      const idx = STEPS.findIndex(s => s.label === h.status);
+      const hStatus = (h.status || '').toLowerCase();
+      const idx = DB_STATUSES.indexOf(hStatus);
       if (idx !== -1) timestamps[idx] = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     });
   }
 
   const totalPrice = order.totals?.finalTotal || order.items.reduce((sum, item) => sum + item.price * (item.quantity || item.qty || 1), 0);
-  const itemCount  = order.items.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0);
-  
+  const itemCount = order.items.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0);
+
   const displayId = order.orderId || order._id || order.id;
   const displayDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : order.date;
 
@@ -475,7 +479,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               <StatusBadge status={order.status} />
             </div>
             <p className="text-[11px] text-stone-400 mt-0.5">
-              {displayDate} Ã‚Â· {itemCount} item{itemCount !== 1 ? "s" : ""}
+              {displayDate} · {itemCount} item{itemCount !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -550,7 +554,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               <X size={15} className="text-red-400 flex-shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-red-700">Order cancelled</p>
-                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3Ã¢â‚¬â€œ5 business days.</p>
+                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3–5 business days.</p>
               </div>
             </div>
           )}
@@ -573,7 +577,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-stone-400 sm:hidden">
               <span className="font-semibold text-stone-700">Rs. {totalPrice.toFixed(2)}</span>
-              <span>Ã‚Â· {order.paymentMethod || 'card'}</span>
+              <span>· {order.paymentMethod || 'card'}</span>
             </div>
           </div>
 
@@ -672,15 +676,15 @@ function PageStats({ orders }) {
     (sum, o) => sum + (o.totals?.finalTotal || o.items.reduce((s, i) => s + i.price * (i.quantity || i.qty || 1), 0)),
     0
   );
-  const activeCount   = orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length;
+  const activeCount = orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length;
   const deliveredCount = orders.filter(o => o.status === "Delivered").length;
 
   return (
     <div className="grid grid-cols-3 gap-3 mb-8">
       {[
-        { label: "Total spent",    value: `Rs. ${totalSpent.toFixed(0)}`, sub: "all time" },
-        { label: "Active orders",  value: activeCount,                  sub: "in progress" },
-        { label: "Delivered",      value: deliveredCount,               sub: "completed" },
+        { label: "Total spent", value: `Rs. ${totalSpent.toFixed(0)}`, sub: "all time" },
+        { label: "Active orders", value: activeCount, sub: "in progress" },
+        { label: "Delivered", value: deliveredCount, sub: "completed" },
       ].map(stat => (
         <div
           key={stat.label}
@@ -709,8 +713,8 @@ const isRecentlyCancelled = (order) => {
 
 function FilterTabs({ activeFilter, onFilter, orders }) {
   const counts = {
-    all:       orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
-    active:    orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
+    all: orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
+    active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
     delivered: orders.filter(o => o.status === "Delivered").length,
     cancelled: orders.filter(o => o.status === "Cancelled").length,
   };
@@ -762,10 +766,10 @@ function FilterTabs({ activeFilter, onFilter, orders }) {
 function EmptyState({ filter }) {
   const navigate = useNavigate();
   const messages = {
-    all:       { title: "No orders yet",        sub: "Your next furry friend's supplies are waiting." },
-    active:    { title: "No active orders",     sub: "Everything you've ordered has been delivered." },
-    delivered: { title: "No delivered orders",  sub: "Delivered orders will appear here." },
-    cancelled: { title: "No cancelled orders",  sub: "Great Ã¢â‚¬â€ nothing's been cancelled!" },
+    all: { title: "No orders yet", sub: "Your next furry friend's supplies are waiting." },
+    active: { title: "No active orders", sub: "Everything you've ordered has been delivered." },
+    delivered: { title: "No delivered orders", sub: "Delivered orders will appear here." },
+    cancelled: { title: "No cancelled orders", sub: "Great Ã¢â‚¬â€ nothing's been cancelled!" },
   };
   const { title, sub } = messages[filter] ?? messages.all;
 
@@ -777,7 +781,7 @@ function EmptyState({ filter }) {
       <p className="text-[#6b493d] font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>{title}</p>
       <p className="text-[#a07855] text-xs mt-1 max-w-xs mx-auto leading-relaxed">{sub}</p>
       {filter === "all" && (
-        <button 
+        <button
           onClick={() => navigate('/marketplace')}
           className="mt-5 inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#573b31] transition-all shadow-md hover:shadow-lg active:scale-95"
         >
@@ -793,9 +797,9 @@ function EmptyState({ filter }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export default function MyOrdersPage() {
-  const [orders, setOrders]       = useState([]);
+  const [orders, setOrders] = useState([]);
   const [activeFilter, setFilter] = useState("all");
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading] = useState(true);
   const { toast, showToast, dismissToast } = useToast();
 
   // Ã¢â€â‚¬Ã¢â€â‚¬ Review state Ã¢â€â‚¬Ã¢â€â‚¬
@@ -849,7 +853,7 @@ export default function MyOrdersPage() {
           const deliveredIds = data
             .filter(o => o.status === "Delivered")
             .map(o => o._id || o.id);
-          
+
           const reviewChecks = await Promise.allSettled(
             deliveredIds.map(async (id) => {
               const r = await fetch(`http://localhost:3000/api/reviews/check/${id}`);
@@ -883,7 +887,7 @@ export default function MyOrdersPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setOrders(prev =>
           prev.map(o =>
@@ -900,8 +904,8 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-    if (activeFilter === "all")       return o.status !== "Cancelled" || isRecentlyCancelled(o);
-    if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
+    if (activeFilter === "all") return o.status !== "Cancelled" || isRecentlyCancelled(o);
+    if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
     if (activeFilter === "delivered") return o.status === "Delivered";
     if (activeFilter === "cancelled") return o.status === "Cancelled";
     return true;
