@@ -234,7 +234,7 @@ function Toast({ toast, onDismiss }) {
 // CANCEL CONFIRMATION (inline)
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-function CancelConfirm({ onConfirm, onDismiss }) {
+function CancelConfirm({ onConfirm, onDismiss, isCOD }) {
   return (
     <div
       role="dialog"
@@ -251,8 +251,10 @@ function CancelConfirm({ onConfirm, onDismiss }) {
             Cancel this order?
           </p>
           <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-            Your payment will be refunded within 3Ã¢â‚¬â€œ5 business days. This cannot be undone.
-          </p>
+  {isCOD
+    ? "This order will be cancelled. No payment was made, so there's nothing to refund. This cannot be undone."
+    : "Your payment will be refunded within 3-5 business days. This cannot be undone."}
+</p>
           <div className="flex items-center gap-2 mt-3">
             <button
               onClick={onConfirm}
@@ -544,24 +546,28 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
             </div>
           )}
 
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancelled banner Ã¢â€â‚¬Ã¢â€â‚¬ */}
-          {isCancelled && (
-            <div className="mx-5 mb-4 mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 flex items-center gap-3">
-              <X size={15} className="text-red-400 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-red-700">Order cancelled</p>
-                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3Ã¢â‚¬â€œ5 business days.</p>
-              </div>
-            </div>
-          )}
-
+          {/* Cancelled banner */}
+{isCancelled && (
+  <div className="mx-5 mb-4 mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 flex items-center gap-3">
+    <X size={15} className="text-red-400 flex-shrink-0" />
+    <div>
+      <p className="text-sm font-semibold text-red-700">Order cancelled</p>
+      {order.paymentMethod?.toLowerCase() === 'cod' ? (
+        <p className="text-xs text-red-400 mt-0.5">No payment was made for this order — nothing to refund.</p>
+      ) : (
+        <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3-5 business days.</p>
+      )}
+    </div>
+  </div>
+)}
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancel confirm (inline) Ã¢â€â‚¬Ã¢â€â‚¬ */}
-          {showCancelConfirm && (
-            <CancelConfirm
-              onConfirm={handleCancelConfirm}
-              onDismiss={() => setShowCancelConfirm(false)}
-            />
-          )}
+         {showCancelConfirm && (
+  <CancelConfirm
+    onConfirm={handleCancelConfirm}
+    onDismiss={() => setShowCancelConfirm(false)}
+    isCOD={order.paymentMethod?.toLowerCase() === 'cod'}
+  />
+)}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order meta (shipping, payment) Ã¢â‚¬â€ subtle row Ã¢â€â‚¬Ã¢â€â‚¬ */}
           <div className="px-5 pb-3 flex items-center gap-4 flex-wrap">
