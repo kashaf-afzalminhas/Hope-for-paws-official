@@ -149,7 +149,9 @@ res.status(201).json({ success: true, orders: createdOrders, message: 'Orders pl
 exports.getBuyerOrders = async (req, res) => {
   try {
     const buyerId = req.user?.id || req.user?.userId;
-    const orders = await Order.find({ buyerId }).sort({ createdAt: -1 });
+    const orders = await Order.find({ buyerId })
+      .populate('sellerId', 'userId storeName')
+      .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     console.error('Error fetching buyer orders:', error);
