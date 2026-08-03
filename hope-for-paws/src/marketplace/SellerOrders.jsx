@@ -629,7 +629,7 @@ function FilterTabs({ active, onSelect, orders }) {
     <div
       role="tablist"
       aria-label="Filter orders by status"
-      className="flex flex-wrap items-center gap-2"
+      className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 max-w-full"
     >
       {FILTER_TABS.map(tab => {
         const isActive = active === tab;
@@ -704,7 +704,7 @@ function EmptyState({ filter, query }) {
 // PAGE ROOT
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export default function SellerOrderDashboard() {
+export default function SellerOrderDashboard({ embedded = false }) {
   useGlobalStyles();
 
   const [orders, setOrders]       = useState([]);
@@ -794,11 +794,11 @@ export default function SellerOrderDashboard() {
     .reduce((s, o) => s + (o.totals?.finalTotal || 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#f8f6f4]">
-      <div className="max-w-[1200px] mx-auto px-4 py-8">
+    <div className={embedded ? "w-full" : "min-h-screen bg-[#f8f6f4]"}>
+      <div className={embedded ? "w-full" : "max-w-[1200px] mx-auto px-4 py-8"}>
 
         {/* â”€â”€ Page header â”€â”€ */}
-        <header className="flex items-start justify-between mb-10 gap-4">
+        <header className={`flex items-start justify-between gap-4 ${embedded ? "mb-6" : "mb-10"}`}>
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg bg-[#6b493d] flex items-center justify-center shadow-sm">
@@ -808,7 +808,7 @@ export default function SellerOrderDashboard() {
                 HopeForPaws Seller Hub
               </span>
             </div>
-            <h1 className="text-3xl font-bold text-stone-900 tracking-tight">
+            <h1 className={`font-bold text-stone-900 tracking-tight ${embedded ? "text-2xl" : "text-3xl"}`}>
               Order Management
             </h1>
             <p className="text-sm text-stone-500 mt-1.5 font-medium">
@@ -827,7 +827,7 @@ export default function SellerOrderDashboard() {
         </header>
 
         {/* â”€â”€ Stat cards â”€â”€ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${embedded ? "mb-6" : "mb-10"}`}>
           <StatCard
             icon={Bell}
             label="New orders"

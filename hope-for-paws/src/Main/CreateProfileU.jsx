@@ -13,6 +13,7 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
+import SellerOrders from '../marketplace/SellerOrders';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import { COUNTRY_CODES } from '../utils/constants';
 
@@ -676,8 +677,7 @@ const ProfilePage = () => {
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Order Management',
-      external: true,
-      path: '/seller/orders',
+      view: 'ordermanagement',
       icon: <FaShoppingBag />
     });
   }
@@ -696,10 +696,10 @@ const ProfilePage = () => {
     { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> }
   );
 
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Seller Dashboard
+  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Store Dashboard
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
-      name: 'Seller Dashboard',
+      name: 'Store Dashboard',
       view: 'sellerdashboard',
       icon: <FaStore />
     });
@@ -1304,7 +1304,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
           </div>
 
           {/* Content Area */}
-          <div className="min-w-0 flex-1 rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10">
+          <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">My Profile</h2>
@@ -1782,7 +1782,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             )}
             
             {currentView === 'sellerdashboard' && (
-              <SellerDashboard />
+              <SellerDashboard onNavigateOrders={() => handleViewChange('ordermanagement')} />
+            )}
+
+            {currentView === 'ordermanagement' && (
+              <SellerOrders embedded />
             )}
           </div>
         </div>

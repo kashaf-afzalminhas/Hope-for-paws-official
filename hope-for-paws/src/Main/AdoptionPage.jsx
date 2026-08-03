@@ -6,7 +6,7 @@ const AdoptionPage = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [petFilter, setPetFilter] = useState('all');
   const user =
-    JSON.parse(localStorage.getItem("user")) ||
+    JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) ||
     null;
 
   return (

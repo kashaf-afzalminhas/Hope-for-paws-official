@@ -202,7 +202,7 @@ const SellerOnboarding = () => {
             Start Selling Today
           </h1>
           <p className="text-[#6b493d] text-lg max-w-2xl mx-auto font-medium">
-            Join thousands of pet lovers. Complete your profile to unlock your dedicated Seller Dashboard and start reaching customers nationwide.
+            Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.
           </p>
         </div>
 

@@ -68,7 +68,7 @@ const MessageProvider = ({ children }) => {
       console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentConversationId:', currentConversationId);
       
       // Get current user ID from localStorage/sessionStorage
-      const user = JSON.parse(localStorage.getItem("user")) || null;
+      const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
       console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);

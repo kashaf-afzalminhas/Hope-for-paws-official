@@ -37,7 +37,7 @@ const useIsMobile = () => {
 };
 
 const ChatPage = () => {
-  const user = JSON.parse(localStorage.getItem("user")) || null;
+  const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
   

@@ -29,7 +29,7 @@ const Postnew = () => {
   
   // Check user authentication state
   const user =
-    JSON.parse(localStorage.getItem("user")) ||
+    JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) ||
     null;
   const currentUserId = getCurrentUserId(user);
     
