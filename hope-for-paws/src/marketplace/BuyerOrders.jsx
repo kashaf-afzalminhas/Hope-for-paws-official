@@ -709,7 +709,7 @@ const isRecentlyCancelled = (order) => {
 
 function FilterTabs({ activeFilter, onFilter, orders }) {
   const counts = {
-    all:       orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
+    all:       orders.length,
     active:    orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
     delivered: orders.filter(o => o.status === "Delivered").length,
     cancelled: orders.filter(o => o.status === "Cancelled").length,
@@ -900,7 +900,7 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-    if (activeFilter === "all")       return o.status !== "Cancelled" || isRecentlyCancelled(o);
+    if (activeFilter === "all")       return true;
     if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
     if (activeFilter === "delivered") return o.status === "Delivered";
     if (activeFilter === "cancelled") return o.status === "Cancelled";
