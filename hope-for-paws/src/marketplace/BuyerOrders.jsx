@@ -698,7 +698,94 @@ function PageStats({ orders }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // FILTER TABS
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+const ALL_STATUSES = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered", "Cancelled"];
 
+function StatusFilterDropdown({ selectedStatus, onSelect, orders }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const counts = {};
+  ALL_STATUSES.forEach(s => {
+    counts[s] = orders.filter(o => o.status === s).length;
+  });
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        aria-label="Filter by exact status"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(v => !v)}
+        className={`
+          w-9 h-9 rounded-xl border flex items-center justify-center transition-colors shadow-sm
+          ${selectedStatus
+            ? "bg-[#6b493d] border-[#6b493d] text-white"
+            : "border-stone-200 bg-white text-stone-500 hover:bg-stone-50"
+          }
+        `}
+      >
+        <Filter size={15} />
+      </button>
+
+      {isOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-xl border border-stone-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          <p className="px-4 pb-1.5 pt-1 text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+            Filter by status
+          </p>
+
+          <button
+            role="menuitem"
+            onClick={() => { onSelect(null); setIsOpen(false); }}
+            className={`
+              w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-colors
+              ${!selectedStatus ? "text-[#6b493d] bg-[#6b493d]/5" : "text-stone-600 hover:bg-stone-50"}
+            `}
+          >
+            All statuses
+            {!selectedStatus && <Check size={13} />}
+          </button>
+
+          {ALL_STATUSES.map(status => {
+            const cfg = STATUS_CONFIG[status];
+            const isActive = selectedStatus === status;
+            return (
+              <button
+                key={status}
+                role="menuitem"
+                onClick={() => { onSelect(status); setIsOpen(false); }}
+                className={`
+                  w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-colors
+                  ${isActive ? "bg-[#6b493d]/5" : "hover:bg-stone-50"}
+                `}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                  <span className={isActive ? "text-[#6b493d]" : "text-stone-600"}>{status}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-stone-400">{counts[status]}</span>
+                  {isActive && <Check size={13} className="text-[#6b493d]" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 const isRecentlyCancelled = (order) => {
   if (order.status !== 'Cancelled') return false;
   const cancelledEntry = order.statusHistory?.find(h => h.status === 'Cancelled');
@@ -795,6 +882,7 @@ function EmptyState({ filter }) {
 export default function MyOrdersPage() {
   const [orders, setOrders]       = useState([]);
   const [activeFilter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(null);
   const [loading, setLoading]     = useState(true);
   const { toast, showToast, dismissToast } = useToast();
 
@@ -900,12 +988,14 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-    if (activeFilter === "all")       return o.status !== "Cancelled" || isRecentlyCancelled(o);
-    if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
-    if (activeFilter === "delivered") return o.status === "Delivered";
-    if (activeFilter === "cancelled") return o.status === "Cancelled";
-    return true;
-  });
+  if (statusFilter) return o.status === statusFilter;
+
+  if (activeFilter === "all")       return o.status !== "Cancelled" || isRecentlyCancelled(o);
+  if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
+  if (activeFilter === "delivered") return o.status === "Delivered";
+  if (activeFilter === "cancelled") return o.status === "Cancelled";
+  return true;
+});
 
   return (
     <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -922,12 +1012,11 @@ export default function MyOrdersPage() {
                 {orders.length} order{orders.length !== 1 ? "s" : ""} across all time
               </p>
             </div>
-            <button
-              aria-label="Filter options"
-              className="w-9 h-9 rounded-xl border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:bg-stone-50 shadow-sm transition-colors"
-            >
-              <Filter size={15} />
-            </button>
+            <StatusFilterDropdown
+  selectedStatus={statusFilter}
+  onSelect={setStatusFilter}
+  orders={orders}
+/>
           </div>
         </header>
 
