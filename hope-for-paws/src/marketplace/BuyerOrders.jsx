@@ -812,6 +812,7 @@ function EmptyState({ filter }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export default function MyOrdersPage() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [activeFilter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -985,13 +986,41 @@ export default function MyOrdersPage() {
         </main>
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer note Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        <footer className="mt-10 text-center">
-          <p className="text-[10px] text-stone-300">
-            Questions about your order?{" "}
-            <button className="text-[#6b493d] font-semibold hover:underline">
-              Reach out to us
+        <footer className="mt-12 text-center">
+          <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-2xl bg-white/60 border border-stone-100 shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[#f5ebe0] flex items-center justify-center">
+              <MessageCircle size={18} className="text-[#6b493d]" />
+            </div>
+            <p className="text-xs text-stone-400 font-medium">
+              Questions about your order?
+            </p>
+            <button
+              onClick={() => {
+                const recentOrder = filteredOrders[0] || orders[0];
+                const sellerUserId = recentOrder?.sellerId?.userId;
+                if (sellerUserId) {
+                  navigate(`/chat/${sellerUserId}`, {
+                    state: {
+                      fromOrder: true,
+                      orderId: recentOrder.orderId || recentOrder._id,
+                      sellerStoreName: recentOrder.sellerId?.storeName,
+                    }
+                  });
+                } else {
+                  navigate('/chat');
+                }
+              }}
+              className="
+                inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                bg-[#6b493d] text-white text-xs font-semibold
+                hover:bg-[#573b31] active:scale-95
+                transition-all duration-150 shadow-md hover:shadow-lg
+              "
+            >
+              <MessageCircle size={14} />
+              Chat with Seller
             </button>
-          </p>
+          </div>
         </footer>
       </div>
 
