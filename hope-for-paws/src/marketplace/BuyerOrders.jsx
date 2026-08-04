@@ -8,6 +8,7 @@ import {
   X,
   ShoppingBag,
   ChevronRight,
+  ChevronDown,
   Star,
   AlertTriangle,
   RotateCcw,
@@ -18,6 +19,11 @@ import {
   Copy,
   Check,
   BadgeCheck,
+  CreditCard,
+  Receipt,
+  Info,
+  Calendar,
+  Hash,
 } from "lucide-react";
 import ReviewModal from "./ReviewModal";
 import { API_BASE_URL } from "../config";
@@ -415,18 +421,17 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showTracking, setShowTracking] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const navigate = useNavigate();
 
   const orderId = order._id || order.id;
   const isReviewed = reviewedOrders?.has(orderId);
 
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
-  const isPending = (order.status || '').toLowerCase() === "pending" || (order.status || '').toLowerCase() === "placed";
-  const isCancelled = (order.status || '').toLowerCase() === "cancelled";
+  const isPending = order.status === "Pending";
+  const isCancelled = order.status === "Cancelled";
 
-  const DB_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered'];
-  const safeStatus = (order.status || '').toLowerCase();
-
-  const currentStepIndex = DB_STATUSES.indexOf(safeStatus);
+  const currentStepIndex = STEPS.findIndex(s => s.label === order.status);
   const currentStep = currentStepIndex !== -1 ? currentStepIndex : 0;
   const isDelivered = currentStep === 4;
 
@@ -548,7 +553,183 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
             </div>
           )}
 
-          {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancelled banner Ã¢â€â‚¬Ã¢â€â‚¬ */}
+          {/* ── Order Details Panel ── */}
+          {showDetails && !isCancelled && (
+            <div className="mx-5 mb-4 mt-3 rounded-2xl border border-stone-100 bg-stone-50/60 overflow-hidden"
+                 style={{ animation: "slideUp 0.2s ease-out" }}>
+              {/* Panel header */}
+              <div className="px-4 pt-4 pb-3 border-b border-stone-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                         style={{ backgroundColor: cfg.accent + '18' }}>
+                      <Receipt size={13} style={{ color: cfg.accent }} />
+                    </div>
+                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                      Order Summary
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDetails(false)}
+                    className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-stone-200 transition-colors text-stone-400"
+                    aria-label="Close details"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Price breakdown */}
+              <div className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-500">Subtotal ({itemCount} item{itemCount !== 1 ? 's' : ''})</span>
+                  <span className="text-xs font-semibold text-stone-700">
+                    Rs. {(order.totals?.subtotal || totalPrice).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-500">Shipping fee</span>
+                  <span className="text-xs font-semibold text-stone-700">
+                    {order.totals?.shippingFee
+                      ? `Rs. ${order.totals.shippingFee.toFixed(2)}`
+                      : <span className="text-emerald-600 font-semibold">Free</span>
+                    }
+                  </span>
+                </div>
+                <div className="h-px bg-stone-200 my-1" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-stone-800">Total</span>
+                  <span className="text-sm font-bold" style={{ color: cfg.accent }}>
+                    Rs. {totalPrice.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Meta info grid */}
+              <div className="px-4 pb-4 pt-1 grid grid-cols-2 gap-2.5">
+                {/* Payment method */}
+                <div className="rounded-xl bg-white border border-stone-100 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CreditCard size={10} className="text-stone-400" />
+                    <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">Payment</span>
+                  </div>
+                  <p className="text-xs font-semibold text-stone-700 capitalize">
+                    {order.paymentMethod || 'Card'}
+                  </p>
+                </div>
+
+                {/* Order date */}
+                <div className="rounded-xl bg-white border border-stone-100 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Calendar size={10} className="text-stone-400" />
+                    <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">Ordered</span>
+                  </div>
+                  <p className="text-xs font-semibold text-stone-700">
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                      : order.date || '\u2014'
+                    }
+                  </p>
+                </div>
+
+                {/* Order ID */}
+                <div className="rounded-xl bg-white border border-stone-100 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Hash size={10} className="text-stone-400" />
+                    <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">Order ID</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-mono font-semibold text-stone-700 truncate">
+                      {displayId}
+                    </p>
+                    <CopyButton text={displayId} />
+                  </div>
+                </div>
+
+                {/* Estimated delivery */}
+                <div className="rounded-xl bg-white border border-stone-100 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Truck size={10} className="text-stone-400" />
+                    <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">
+                      {isDelivered ? 'Delivered' : 'Est. Delivery'}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-stone-700">
+                    {order.estimatedDelivery || 'TBD'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Shipping address */}
+              {order.shippingAddress && (
+                <div className="px-4 pb-4">
+                  <div className="rounded-xl bg-white border border-stone-100 px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <MapPin size={10} className="text-stone-400" />
+                      <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">Shipping Address</span>
+                    </div>
+                    <p className="text-xs text-stone-700 leading-relaxed">
+                      {[order.shippingAddress.street, order.shippingAddress.city, order.shippingAddress.province, order.shippingAddress.postalCode]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Status history timeline */}
+              {order.statusHistory && order.statusHistory.length > 0 && (
+                <div className="px-4 pb-4">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Info size={10} className="text-stone-400" />
+                    <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">Status History</span>
+                  </div>
+                  <div className="space-y-0">
+                    {[...order.statusHistory].reverse().map((entry, i) => {
+                      const entryCfg = STATUS_CONFIG[entry.status] ?? STATUS_CONFIG.Pending;
+                      const isLast = i === order.statusHistory.length - 1;
+                      return (
+                        <div key={i} className="flex items-start gap-2.5 relative">
+                          {/* Vertical connector line */}
+                          {!isLast && (
+                            <div
+                              className="absolute left-[7px] top-[18px] w-px h-[calc(100%-4px)] bg-stone-200"
+                              aria-hidden="true"
+                            />
+                          )}
+                          {/* Dot */}
+                          <div
+                            className="w-[15px] h-[15px] rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{
+                              borderColor: entryCfg.accent,
+                              backgroundColor: i === 0 ? entryCfg.accent : 'white',
+                            }}
+                          >
+                            {i === 0 && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                          {/* Content */}
+                          <div className="pb-3 min-w-0">
+                            <p className="text-xs font-semibold text-stone-700">{entry.status}</p>
+                            <p className="text-[10px] text-stone-400">
+                              {new Date(entry.date).toLocaleDateString(undefined, {
+                                month: 'short', day: 'numeric', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                            </p>
+                            {entry.note && (
+                              <p className="text-[10px] text-stone-500 mt-0.5 italic">{entry.note}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Cancelled banner ── */}
           {isCancelled && (
             <div className="mx-5 mb-4 mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 flex items-center gap-3">
               <X size={15} className="text-red-400 flex-shrink-0" />
@@ -646,16 +827,29 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               )}
 
               {!isCancelled && (
-                <button className="
-                  inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
-                  bg-[#6b493d] text-white text-xs font-semibold
-                  hover:bg-[#5a3c32] active:scale-95 transition-all duration-150
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6b493d]
-                ">
-                  {isDelivered ? "Reorder" : "View details"}
+                <button
+                  onClick={() => {
+                    if (isDelivered) {
+                      navigate('/marketplace');
+                    } else {
+                      setShowDetails(v => !v);
+                    }
+                  }}
+                  className={`
+                    inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl
+                    text-xs font-semibold
+                    active:scale-95 transition-all duration-150
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6b493d]
+                    ${showDetails && !isDelivered
+                      ? 'bg-[#5a3c32] text-white ring-2 ring-[#6b493d]/30'
+                      : 'bg-[#6b493d] text-white hover:bg-[#5a3c32]'
+                    }
+                  `}
+                >
+                  {isDelivered ? "Reorder" : showDetails ? "Hide details" : "View details"}
                   {isDelivered
                     ? <RotateCcw size={11} />
-                    : <ChevronRight size={11} />
+                    : <ChevronDown size={11} className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
                   }
                 </button>
               )}
