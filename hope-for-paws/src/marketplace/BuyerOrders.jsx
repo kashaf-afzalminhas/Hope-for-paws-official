@@ -257,7 +257,7 @@ function CancelConfirm({ onConfirm, onDismiss }) {
             Cancel this order?
           </p>
           <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
-            Your payment will be refunded within 3Ã¢â‚¬â€œ5 business days. This cannot be undone.
+            Your payment will be refunded within 3–5 business days. This cannot be undone.
           </p>
           <div className="flex items-center gap-2 mt-3">
             <button
@@ -307,7 +307,7 @@ function TrackingTimeline({ currentStep, status, timestamps = {} }) {
             // Precise: span from first circle center to current circle center
             width: currentStep === 0
               ? 0
-              : `calc(${(currentStep / totalSegments)} * (80% - 0px))`,
+              : `calc(${currentStep / totalSegments} * (80% - 28px))`,
           }}
           aria-hidden="true"
         />
@@ -406,7 +406,7 @@ function OrderItem({ item }) {
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-bold text-stone-800">Rs. {(item.price * qty).toFixed(2)}</p>
         <p className="text-[11px] text-stone-400 mt-0.5">
-          {qty > 1 ? `${qty} Ãƒâ€” Rs. ${item.price.toFixed(2)}` : `1 item`}
+          {qty > 1 ? `${qty} × Rs. ${item.price.toFixed(2)}` : `1 item`}
         </p>
       </div>
     </div>
@@ -438,7 +438,8 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
   const timestamps = {};
   if (order.statusHistory) {
     order.statusHistory.forEach(h => {
-      const idx = STEPS.findIndex(s => s.label === h.status);
+      const hStatus = (h.status || '').toLowerCase();
+      const idx = DB_STATUSES.indexOf(hStatus);
       if (idx !== -1) timestamps[idx] = new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     });
   }
@@ -483,7 +484,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               <StatusBadge status={order.status} />
             </div>
             <p className="text-[11px] text-stone-400 mt-0.5">
-              {displayDate} Ã‚Â· {itemCount} item{itemCount !== 1 ? "s" : ""}
+              {displayDate} · {itemCount} item{itemCount !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -734,7 +735,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               <X size={15} className="text-red-400 flex-shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-red-700">Order cancelled</p>
-                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3Ã¢â‚¬â€œ5 business days.</p>
+                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3–5 business days.</p>
               </div>
             </div>
           )}
@@ -757,7 +758,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-stone-400 sm:hidden">
               <span className="font-semibold text-stone-700">Rs. {totalPrice.toFixed(2)}</span>
-              <span>Ã‚Â· {order.paymentMethod || 'card'}</span>
+              <span>· {order.paymentMethod || 'card'}</span>
             </div>
           </div>
 
