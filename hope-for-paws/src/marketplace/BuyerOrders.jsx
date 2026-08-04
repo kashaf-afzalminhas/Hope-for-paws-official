@@ -22,6 +22,7 @@ import {
 import ReviewModal from "./ReviewModal";
 import { API_BASE_URL } from "../config";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // CONSTANTS
@@ -813,6 +814,7 @@ function EmptyState({ filter }) {
 
 export default function MyOrdersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [activeFilter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -986,41 +988,16 @@ export default function MyOrdersPage() {
         </main>
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer note Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        <footer className="mt-12 text-center">
-          <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-2xl bg-white/60 border border-stone-100 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-[#f5ebe0] flex items-center justify-center">
-              <MessageCircle size={18} className="text-[#6b493d]" />
-            </div>
-            <p className="text-xs text-stone-400 font-medium">
-              Questions about your order?
-            </p>
-            <button
-              onClick={() => {
-                const recentOrder = filteredOrders[0] || orders[0];
-                const sellerUserId = recentOrder?.sellerId?.userId;
-                if (sellerUserId) {
-                  navigate(`/chat/${sellerUserId}`, {
-                    state: {
-                      fromOrder: true,
-                      orderId: recentOrder.orderId || recentOrder._id,
-                      sellerStoreName: recentOrder.sellerId?.storeName,
-                    }
-                  });
-                } else {
-                  navigate('/chat');
-                }
-              }}
-              className="
-                inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                bg-[#6b493d] text-white text-xs font-semibold
-                hover:bg-[#573b31] active:scale-95
-                transition-all duration-150 shadow-md hover:shadow-lg
-              "
+        <footer className="mt-12 text-center pb-8">
+          <span className="text-sm text-stone-400">
+            Questions about your order?{" "}
+            <span
+              onClick={() => navigate('/contactus', { state: { name: user?.username, email: user?.email } })}
+              className="font-bold text-stone-600 hover:text-stone-900 cursor-pointer transition-colors"
             >
-              <MessageCircle size={14} />
-              Chat with Seller
-            </button>
-          </div>
+              Reach out to us
+            </span>
+          </span>
         </footer>
       </div>
 
