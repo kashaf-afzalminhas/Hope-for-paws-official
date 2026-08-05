@@ -51,7 +51,7 @@ exports.createProduct = async (req, res) => {
     if (typeof images === 'string') images = [images];
     
     if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/profile-images/${file.filename}`);
+      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
       images = [...images, ...uploadedImages];
     }
 
@@ -264,7 +264,7 @@ exports.updateProduct = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/profile-images/${file.filename}`);
+      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
       product.images = [...product.images, ...uploadedImages];
     }
 
