@@ -303,13 +303,17 @@ function OrderDetailPanel({ order }) {
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-3 border border-stone-100 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
-                    {item.image ? (
-                       <img src={item.image} alt={item.title} className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                       <Package size={14} className="text-[#6b493d]" />
-                    )}
-                  </div>
+                 <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
+  {item.image ? (
+     <img 
+       src={item.image.startsWith('http') ? item.image : `http://localhost:3000${item.image}`} 
+       alt={item.title} 
+       className="w-full h-full object-cover rounded-lg" 
+     />
+  ) : (
+     <Package size={14} className="text-[#6b493d]" />
+  )}
+</div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-stone-800 truncate">{item.title}</p>
                     <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0,8) || "N/A"} Â· Qty: {item.quantity}</p>

@@ -7,15 +7,24 @@ const profileImageStorage = multer.diskStorage({
     cb(null, 'uploads/profile-images/');
   },
   filename: function (req, file, cb) {
-    // Generate unique filename with timestamp
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
+// Configure storage for product images
+const productImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/products/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
 // File filter for images
 const imageFileFilter = (req, file, cb) => {
-  // Check file type
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
@@ -32,6 +41,16 @@ const uploadProfileImage = multer({
   }
 });
 
+// Create multer instance for product images
+const uploadProductImage = multer({
+  storage: productImageStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
 module.exports = {
-  uploadProfileImage
+  uploadProfileImage,
+  uploadProductImage
 };
