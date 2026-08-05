@@ -426,7 +426,6 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
   const [isExpanded, setIsExpanded] = useState(true);
   const [showTracking, setShowTracking] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const navigate = useNavigate();
 
   const orderId = order._id || order.id;
   const isReviewed = reviewedOrders?.has(orderId);
@@ -1101,6 +1100,7 @@ export default function MyOrdersPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [activeFilter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast, showToast, dismissToast } = useToast();
 
@@ -1206,6 +1206,7 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
+    if (statusFilter && o.status !== statusFilter) return false;
     if (activeFilter === "all") return o.status !== "Cancelled" || isRecentlyCancelled(o);
     if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
     if (activeFilter === "delivered") return o.status === "Delivered";
