@@ -242,7 +242,7 @@ function Toast({ toast, onDismiss }) {
 // CANCEL CONFIRMATION (inline)
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-function CancelConfirm({ onConfirm, onDismiss }) {
+function CancelConfirm({ onConfirm, onDismiss, isCOD }) {
   return (
     <div
       role="dialog"
@@ -744,12 +744,13 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           )}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancel confirm (inline) Ã¢â€â‚¬Ã¢â€â‚¬ */}
-          {showCancelConfirm && (
-            <CancelConfirm
-              onConfirm={handleCancelConfirm}
-              onDismiss={() => setShowCancelConfirm(false)}
-            />
-          )}
+         {showCancelConfirm && (
+  <CancelConfirm
+    onConfirm={handleCancelConfirm}
+    onDismiss={() => setShowCancelConfirm(false)}
+    isCOD={order.paymentMethod?.toLowerCase() === 'cod'}
+  />
+)}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order meta (shipping, payment) Ã¢â‚¬â€ subtle row Ã¢â€â‚¬Ã¢â€â‚¬ */}
           <div className="px-5 pb-3 flex items-center gap-4 flex-wrap">
