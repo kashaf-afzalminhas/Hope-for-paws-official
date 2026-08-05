@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { uploadProfileImage } = require('../middleware/multer_middleware');
+const { uploadProfileImage, uploadProductImage } = require('../middleware/multer_middleware');
 const { onboardSellerRules, updateStatusRules } = require('../validators/sellerValidators');
 const {
   onboardSeller,
@@ -48,8 +48,8 @@ router.get('/admin/:sellerId', auth, getSellerApplicationById);
 // Products CRUD
 router.get('/products', auth, listMyProducts);
 router.get('/products/:id', auth, getSellerProductById);
-router.post('/products', auth, uploadProfileImage.array('media', 5), createProduct);
-router.put('/products/:id', auth, uploadProfileImage.array('media', 5), updateProduct);
+router.post('/products', auth, uploadProductImage.array('media', 5), createProduct);
+router.put('/products/:id', auth, uploadProductImage.array('media', 5), updateProduct);
 router.delete('/products/:id', auth, deleteProduct);
 router.patch('/products/:id/toggle-visibility', auth, toggleProductVisibility);
 
