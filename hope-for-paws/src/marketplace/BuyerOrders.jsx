@@ -41,6 +41,8 @@ const STEPS = [
   { label: "Delivered", shortLabel: "Delivered", icon: MapPin },
 ];
 
+const DB_STATUSES = STEPS.map(s => s.label.toLowerCase());
+
 /** All colour tokens per-status Ã¢â‚¬â€ single source of truth */
 const STATUS_CONFIG = {
   Pending: {
