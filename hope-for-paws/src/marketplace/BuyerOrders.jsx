@@ -770,23 +770,23 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           <div className="px-5 py-3 border-t border-stone-50 bg-stone-50/40 flex items-center justify-between gap-3 flex-wrap">
             {/* Left: support link */}
             <button
-              onClick={() => {
-                const sellerUserId = order.sellerId?.userId;
-                if (sellerUserId) {
-                  navigate(`/chat/${sellerUserId}`, {
-                    state: {
-                      fromOrder: true,
-                      orderId: order.orderId || order._id,
-                      sellerStoreName: order.sellerId?.storeName,
-                    }
-                  });
-                }
-              }}
-              className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
-            >
-              <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
-              {isCancelled ? "Contact support" : "Get help with this order"}
-            </button>
+  onClick={() => {
+    const sellerUserId = order.sellerId?.userId;
+    if (sellerUserId) {
+      navigate(`/chat/${sellerUserId}`, {
+        state: {
+          fromOrder: true,
+          orderId: order.orderId || order._id,
+          sellerStoreName: order.sellerId?.storeName,
+        }
+      });
+    }
+  }}
+  className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
+>
+  <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
+  Get help with this order
+</button>
 
             {/* Right: primary CTAs */}
             <div className="flex items-center gap-2">
