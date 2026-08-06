@@ -149,59 +149,75 @@ const NotificationsPage = () => {
     );
   }
 
+  const unreadCount = notifications.filter((item) => !item.read).length;
+
   return (
     <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-8">
       <div className="max-w-4xl mx-auto px-2 sm:px-4">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center justify-center sm:justify-start gap-3">
-              <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-[#6b493d]" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#6b493d] text-center sm:text-left">Notifications</h1>
+        <div className="mb-6 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-[#6b493d]/10 p-3 text-[#6b493d]">
+                <Bell className="h-6 w-6 sm:h-7 sm:w-7" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-[#6b493d]">Notifications</h1>
+                <p className="mt-1 text-sm text-[#715645]">Stay on top of updates, requests, and important activity.</p>
+              </div>
             </div>
-            {(() => {
-              const hasUnread = notifications.some(n => !n.read);
-              const multiAction = hasUnread && notifications.length > 0;
-              return (
-                <div className={`${multiAction ? 'grid grid-cols-2 gap-2' : 'flex justify-center'} w-full sm:w-auto sm:flex sm:justify-end sm:gap-2`}>
-              {hasUnread && (
-                <button
-                  onClick={handleMarkAllAsRead}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-[#6b493d] border border-[#6b493d]/30 bg-[#6b493d]/5 rounded-lg hover:bg-[#6b493d]/10 transition-colors text-sm sm:text-base"
-                >
-                  <Check className="h-4 w-4" />
-                  <span className="truncate">Read All</span>
-                </button>
-              )}
-              {notifications.length > 0 && (
-                <button
-                  onClick={handleDeleteAll}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors text-sm sm:text-base"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="truncate">Delete</span>
-                </button>
-              )}
-                </div>
-              );
-            })()}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Unread</p>
+                <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{unreadCount}</p>
+              </div>
+              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Total</p>
+                <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{notifications.length}</p>
+              </div>
+            </div>
           </div>
+
+          {(() => {
+            const hasUnread = notifications.some(n => !n.read);
+            const multiAction = hasUnread && notifications.length > 0;
+            return (
+              <div className={`${multiAction ? 'mt-4 grid grid-cols-2 gap-2 sm:w-auto sm:grid-cols-2' : 'mt-4 flex justify-center'} w-full sm:flex sm:justify-end sm:gap-2`}>
+                {hasUnread && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#6b493d]/30 bg-[#6b493d]/5 px-3 py-2 text-sm font-medium text-[#6b493d] transition hover:bg-[#6b493d]/10"
+                  >
+                    <Check className="h-4 w-4" />
+                    <span className="truncate">Read All</span>
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={handleDeleteAll}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="truncate">Delete</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
-        {/* Notifications List */}
         <div className="space-y-4">
           {notifications.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 text-center">
-              <Bell className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-gray-300" />
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">No notifications yet</h2>
-              <p className="text-sm sm:text-base text-gray-500">You&apos;ll see notifications here when you receive likes, comments, or adoption requests.</p>
+            <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-8 text-center shadow-sm">
+              <Bell className="mx-auto mb-4 h-12 w-12 text-gray-300 sm:h-16 sm:w-16" />
+              <h2 className="mb-2 text-lg font-semibold text-[#6b493d] sm:text-xl">No notifications yet</h2>
+              <p className="text-sm text-[#7a6554] sm:text-base">You&apos;ll see likes, comments, and adoption updates here as they arrive.</p>
             </div>
           ) : (
             notifications.map((notification) => (
               <div
                 key={notification._id || notification.id}
-                className={`bg-white rounded-xl shadow-md p-4 sm:p-6 transition-colors cursor-pointer hover:shadow-lg ${
-                  !notification.read ? 'border-l-4 border-blue-500 bg-blue-50' : ''
+                className={`cursor-pointer rounded-[24px] border border-[#e8dcc8] bg-white p-4 shadow-sm transition hover:shadow-md sm:p-6 ${
+                  !notification.read ? 'border-l-4 border-[#6b493d] bg-[#f8f4ed]' : ''
                 }`}
                 onClick={(event) => handleNotificationClick(notification, event)}
               >

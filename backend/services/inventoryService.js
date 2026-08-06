@@ -1,5 +1,9 @@
 const Product = require('../models/Product');
 const EventEmitter = require('events');
+const Seller = require('../models/Seller');
+const User = require('../models/User');
+const { sendEmail } = require('../routes/mailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 // Create a dedicated event emitter for inventory operations
 class InventoryEventEmitter extends EventEmitter {}
@@ -17,6 +21,22 @@ inventoryEvents.on('checkLowStock', async (productsToCheck) => {
         
         // 1. Trigger Notification System (e.g., to Seller)
         console.log(`[Inventory Alert] Product ${item.productId} is running low (Stock: ${item.newStock})`);
+        try {
+          const product = await Product.findById(item.productId).populate('sellerId');
+          if (product && product.sellerId) {
+            const sellerProfile = product.sellerId;
+            const sellerUser = sellerProfile.userId ? await User.findById(sellerProfile.userId).select('email username') : null;
+            if (sellerUser && sellerUser.email) {
+              const { subject, html } = emailTemplates.buildNotificationEmail({
+                title: `Low Stock Alert: ${product.title}`,
+                message: `Your product "${product.title}" is low on stock (remaining: ${item.newStock}). Please restock to avoid missed sales.`
+              });
+              await sendEmail(sellerUser.email, subject, `Low stock for ${product.title}`, html);
+            }
+          }
+        } catch (emailErr) {
+          console.error('[Inventory Alert] Failed to send low-stock email:', emailErr);
+        }
         // e.g. global.notificationService.createSystemNotification(sellerId, 'Low Stock Alert');
 
         // 2. Check if completely Out of Stock

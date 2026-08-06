@@ -1,7 +1,7 @@
 import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -35,6 +35,12 @@ Toast.propTypes = {
   ).isRequired
 };
 
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  email: 'instant',
+  inApp: true,
+  push: false
+};
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
@@ -48,6 +54,7 @@ const ProfilePage = () => {
     userType: '',
     id: '',
     profileImage: '',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
 
   // Phone validation states
@@ -59,7 +66,8 @@ const ProfilePage = () => {
     phone: '',
     city: '',
     about: '',
-    countryCode: '+92'
+    countryCode: '+92',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
   
   // Track original profile data to detect changes
@@ -67,7 +75,8 @@ const ProfilePage = () => {
     phone: '',
     city: '',
     about: '',
-    countryCode: '+92'
+    countryCode: '+92',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
 
   const [loading, setLoading] = useState(false);
@@ -75,6 +84,9 @@ const ProfilePage = () => {
   const [currentView, setCurrentView] = useState('profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const totalLikes = posts.reduce((sum, post) => sum + (post.likes?.length || 0), 0);
+  const totalComments = posts.reduce((sum, post) => sum + (post.comments?.length || 0), 0);
 
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -177,6 +189,7 @@ const ProfilePage = () => {
         userType: getUserType(userData),
         // userType: userData.userType,
         profileImage: userData.profileImage || '',
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // Initialize form data with current profile data
@@ -184,7 +197,8 @@ const ProfilePage = () => {
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
-        countryCode: phoneCountryCode
+        countryCode: phoneCountryCode,
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // Set original profile data for change detection
@@ -214,10 +228,23 @@ const ProfilePage = () => {
       const response = await getUserProfile();
       if (response.data && response.data.data) {
         const userData = response.data.data;
+        const notificationPreferences = userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
+
         setProfile(prev => ({
           ...prev,
           profileImage: userData.profileImage || '',
           isVerified: userData.sellerDetails?.isVerified || false,
+          notificationPreferences
+        }));
+
+        setFormData(prev => ({
+          ...prev,
+          notificationPreferences
+        }));
+
+        setOriginalProfile(prev => ({
+          ...prev,
+          notificationPreferences
         }));
       }
     } catch (error) {
@@ -231,6 +258,16 @@ const ProfilePage = () => {
 
   const handleProfileChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleNotificationPreferenceChange = (key, value) => {
+    setFormData({
+      ...formData,
+      notificationPreferences: {
+        ...formData.notificationPreferences,
+        [key]: value
+      }
+    });
   };
 
   const handlePhoneChange = (e) => {
@@ -268,7 +305,8 @@ const ProfilePage = () => {
       formData.phone !== originalProfile.phone ||
       formData.city !== originalProfile.city ||
       formData.about !== originalProfile.about ||
-      formData.countryCode !== originalProfile.countryCode
+      formData.countryCode !== originalProfile.countryCode ||
+      JSON.stringify(formData.notificationPreferences) !== JSON.stringify(originalProfile.notificationPreferences)
     );
   };
 
@@ -306,7 +344,8 @@ const ProfilePage = () => {
       phone: originalProfile.phone,
       city: originalProfile.city,
       about: originalProfile.about,
-      countryCode: originalProfile.countryCode
+      countryCode: originalProfile.countryCode,
+      notificationPreferences: originalProfile.notificationPreferences
     });
     setPhoneError('');
     setPhoneTouched(false);
@@ -428,7 +467,13 @@ const ProfilePage = () => {
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, phone: fullPhone, city, about })
+        body: JSON.stringify({
+          id,
+          phone: fullPhone,
+          city,
+          about,
+          notificationPreferences: formData.notificationPreferences
+        })
       });
 
       const data = await response.json();
@@ -474,6 +519,7 @@ const ProfilePage = () => {
           userType: getUserType(updatedUser),
           // userType: updatedUser.userType,
           profileImage: profile.profileImage, // Keep the current profile image
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
         
         // Update form data to match the saved profile
@@ -481,7 +527,8 @@ const ProfilePage = () => {
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          countryCode: phoneCountryCode
+          countryCode: phoneCountryCode,
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
         
         // Update original profile data to reflect the saved state
@@ -489,7 +536,8 @@ const ProfilePage = () => {
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          countryCode: phoneCountryCode
+          countryCode: phoneCountryCode,
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
         
         // Clear phone validation errors
@@ -733,7 +781,6 @@ const ProfilePage = () => {
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
   
   // MyPosts state
-  const [posts, setPosts] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [editCaption, setEditCaption] = useState("");
   const [postsLoading, setPostsLoading] = useState(false);
@@ -1182,7 +1229,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           {/* Sidebar */}
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
-            <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
+            <div className="rounded-[24px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-4 text-center shadow-sm">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
                   <img 
@@ -1242,19 +1289,19 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
               <div className="mt-4 md:hidden">
                 <button
                   onClick={toggleMobileMenu}
-                  className="w-full flex items-center justify-between bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-4 rounded-md"
+                  className="flex w-full items-center justify-between rounded-full bg-[#6b493d] px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#57392f]"
                 >
                   <span>{currentView === 'profile' ? 'View Profile' : currentView === 'edit' ? 'Edit Profile' : 'Security Settings'}</span>
                   {mobileMenuOpen ? <FaTimes /> : <FaBars />}
                 </button>
                 {mobileMenuOpen && (
-                  <div className="absolute z-20 mt-2 w-64 bg-white rounded-md shadow-lg py-1 left-1/2 transform -translate-x-1/2">
+                  <div className="absolute left-1/2 z-20 mt-2 w-64 -translate-x-1/2 rounded-[20px] border border-[#e8dcc8] bg-white p-2 shadow-lg">
                     {profileLinks.map((link, i) =>
                       link.external ? (
                         <button
                           key={i}
                           onClick={() => handleExternalNavigation(link.path)}
-                          className="flex items-center w-full px-4 py-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]"
+                          className="flex w-full items-center rounded-2xl px-3 py-3 text-[#6b493d] transition hover:bg-[#f8f4ed]"
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
                         </button>
@@ -1263,10 +1310,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           key={i}
                           onClick={() => handleViewChange(link.view)}
                           disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                          className={`flex items-center w-full px-4 py-3 border-b border-gray-100 ${
-                            currentView === link.view ? 'bg-[#6b493d] text-white' : 
+                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${
+                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
                             ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                            'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                            'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                           }`}
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
@@ -1279,10 +1326,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             </div>
 
             {/* Desktop navigation */}
-            <div className="mt-4 bg-white rounded-lg shadow hidden md:block">
+            <div className="mt-4 hidden rounded-[24px] border border-[#e8dcc8] bg-[#fcfaf7] p-2 shadow-sm md:block">
               {profileLinks.map((link, i) =>
                 link.external ? (
-                  <NavLink key={i} to={link.path} className="flex items-center p-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]">
+                  <NavLink key={i} to={link.path} className="flex items-center rounded-2xl px-3 py-3 text-[#6b493d] transition hover:bg-[#f8f4ed]">
                     {link.icon}<span className="ml-2">{link.name}</span>
                   </NavLink>
                 ) : (
@@ -1290,10 +1337,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     key={i}
                     onClick={() => handleViewChange(link.view)}
                     disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                    className={`flex items-center w-full p-3 border-b border-gray-100 text-left ${
-                      currentView === link.view ? 'bg-[#6b493d] text-white' : 
+                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${
+                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
                       ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                      'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                      'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                     }`}
                   >
                     {link.icon}<span className="ml-2">{link.name}</span>
@@ -1306,188 +1353,324 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
           {/* Content Area */}
           <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">My Profile</h2>
-                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Personal Information</h3>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Name</p>
-                        <p className="font-medium">{profile.name}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{profile.email}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{profile.phone || 'Not provided'}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">City</p>
-                        <p className="font-medium">{profile.city || 'Not provided'}</p>
-                      </div>
+              <div className="space-y-6">
+                <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Profile overview</p>
+                      <h2 className="mt-2 text-2xl font-bold text-[#6b493d]">My Profile</h2>
+                      <p className="mt-2 max-w-2xl text-sm text-[#715645]">A calm, trustworthy snapshot of your account for buyers, adopters, and fellow sellers.</p>
                     </div>
+                    <button
+                      onClick={() => setCurrentView('edit')}
+                      className="inline-flex items-center justify-center rounded-full bg-[#6b493d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#57392f]"
+                    >
+                      Edit Profile
+                    </button>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">About Me</h3>
-                    <div className="bg-gray-50 p-4 rounded h-full">
-                      <p>{profile.about || 'No information provided yet.'}</p>
+
+                  <div className="mt-6 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Primary contact</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.phone || 'No phone added yet'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Account type</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.userType || 'Standard User'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Notifications</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.notificationPreferences?.inApp ? 'Active' : 'Muted'}</p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Account Type</h3>
-                  <div className="bg-gray-50 p-4 rounded flex items-center justify-between">
-                    <p className="font-medium capitalize">{profile.userType || 'Standard User'}</p>
+
+                {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#6b493d]">Personal information</h3>
+                        <p className="mt-1 text-sm text-[#7a6554]">Keep your profile helpful and easy to recognize.</p>
+                      </div>
+                      <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Contact</span>
+                    </div>
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Name</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.name}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Email</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.email}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Phone</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.phone || 'Not provided'}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">City</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.city || 'Not provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#6b493d]">Notification preferences</h3>
+                        <p className="mt-1 text-sm text-[#7a6554]">Choose how updates should reach you.</p>
+                      </div>
+                      <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Alerts</span>
+                    </div>
+                    <div className="mt-5 grid gap-3">
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">Email</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.email === 'instant' ? 'Instant' : profile.notificationPreferences?.email === 'daily_summary' ? 'Daily summary' : 'Disabled'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">In-app</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.inApp ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">Push</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.push ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#6b493d]">About me</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">A short intro helps people connect with your profile.</p>
+                    </div>
+                    <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Story</span>
+                  </div>
+                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm leading-7 text-[#5f473b]">
+                    {profile.about || 'No information provided yet.'}
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Account type</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">Your current role and verification status.</p>
+                    </div>
                     {profile.userType === 'Seller' && (
                       profile.isVerified ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                           Verified Seller
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                          Status: Unverified
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                          Unverified Seller
                         </span>
                       )
                     )}
                   </div>
-                </div>
-                
-                <div className="mt-8 flex justify-end">
-                  <button 
-                    onClick={() => setCurrentView('edit')}
-                    className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
-                  >
-                    Edit Profile
-                  </button>
+                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm font-semibold text-[#4E3B31]">
+                    {profile.userType || 'Standard User'}
+                  </div>
                 </div>
               </div>
             )}
 
             {currentView === 'edit' && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Edit Profile</h2>
-                {error && !(phoneTouched && phoneError) && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
+              <div className="space-y-6">
+                <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Edit account</p>
+                      <h2 className="mt-2 text-2xl font-bold text-[#6b493d]">Personal details</h2>
+                      <p className="mt-2 text-sm text-[#715645]">Keep your public profile polished and your alert preferences easy to manage.</p>
+                    </div>
+                    <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Secure update</span>
+                  </div>
+                </div>
+
+                {error && !(phoneTouched && phoneError) && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
                 
-                {/* Warning message for users without phone (but not for phone validation errors) */}
                 {(!profile.phone || !user?.phoneVerified) && !(phoneTouched && phoneError) && (
-                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mb-6">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex-shrink-0">
                         <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium">
-                          Phone Number Required
-                        </h3>
-                        <div className="mt-2 text-sm">
-                          <p>You must add a phone number to access other features of the application.</p>
-                        </div>
+                      <div>
+                        <h3 className="text-sm font-semibold">Phone number required</h3>
+                        <p className="mt-1 text-sm">Add a phone number to unlock the rest of the experience.</p>
                       </div>
                     </div>
                   </div>
                 )}
                 
-                <form onSubmit={handleSaveProfile}>
-                  <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input 
-                        type="text" 
-                        disabled
-                        value={profile.name}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
+                <form onSubmit={handleSaveProfile} className="space-y-6">
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="mb-5">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Basic details</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">These details help people recognize and contact you.</p>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input 
-                        type="email" 
-                        disabled
-                        value={profile.email}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                      <div className="flex gap-2">
-                        <select
-                          value={formData.countryCode}
-                          onChange={handleCountryCodeChange}
-                          className="px-3 py-2 border border-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
-                        >
-                          {COUNTRY_CODES.map((country, index) => (
-                            <option key={index} value={country.code}>
-                              {country.flag} {country.code}
-                            </option>
-                          ))}
-                        </select>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
                         <input 
-                          type="tel" 
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handlePhoneChange}
-                          onBlur={() => setPhoneTouched(true)}
-                          className={`flex-1 px-3 py-2 border ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'} text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
-                          placeholder="XXXXXXXXXX"
+                          type="text" 
+                          disabled
+                          value={profile.name}
+                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
+                      </div>
+                      
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                        <input 
+                          type="email" 
+                          disabled
+                          value={profile.email}
+                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
+                      </div>
+                      
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
+                        <div className="flex gap-2">
+                          <select
+                            value={formData.countryCode}
+                            onChange={handleCountryCodeChange}
+                            className="min-w-[120px] rounded-2xl border border-gray-300 px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm"
+                          >
+                            {COUNTRY_CODES.map((country, index) => (
+                              <option key={index} value={country.code}>
+                                {country.flag} {country.code}
+                              </option>
+                            ))}
+                          </select>
+                          <input 
+                            type="tel" 
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handlePhoneChange}
+                            onBlur={() => setPhoneTouched(true)}
+                            className={`flex-1 rounded-2xl border px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="XXXXXXXXXX"
+                          />
+                        </div>
+                        {phoneTouched && phoneError && (
+                          <p className="mt-1 text-xs text-red-600">{phoneError}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
+                        <input 
+                          type="text" 
+                          name="city"
+                          value={formData.city}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
                         />
                       </div>
-                      {phoneTouched && phoneError && (
-                        <p className="text-xs text-red-600 mt-1">{phoneError}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                      <input 
-                        type="text" 
-                        name="city"
-                        value={formData.city}
-                        onChange={handleProfileChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
                     </div>
                   </div>
                   
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">About Me</label>
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="mb-5">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">About you</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">A short introduction makes your profile feel warmer and more personal.</p>
+                    </div>
                     <textarea 
                       name="about"
                       value={formData.about}
                       onChange={handleProfileChange}
                       rows="4"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
                       placeholder="Tell us a bit about yourself..."
                     ></textarea>
                   </div>
+
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-[#fcfaf7] p-6 shadow-sm">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Notification preferences</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">Choose how updates should reach you without overwhelming your inbox.</p>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div>
+                        <p className="mb-2 text-sm font-medium text-gray-700">Email notifications</p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {[
+                            { value: 'instant', label: 'Instant' },
+                            { value: 'daily_summary', label: 'Daily summary' },
+                            { value: 'disabled', label: 'Disabled' }
+                          ].map(option => (
+                            <button
+                              type="button"
+                              key={option.value}
+                              onClick={() => handleNotificationPreferenceChange('email', option.value)}
+                              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${formData.notificationPreferences.email === option.value ? 'border-[#6b493d] bg-[#6b493d]/10 text-[#1f2a3d]' : 'border-gray-200 bg-white text-gray-700 hover:border-[#6b493d]/70 hover:bg-[#f8f6f4]'}`}
+                            >
+                              <p className="font-semibold">{option.label}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {option.value === 'instant' ? 'Send urgent updates immediately.' : option.value === 'daily_summary' ? 'Bundle routine alerts into one daily digest.' : 'Disable email alerts.'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={formData.notificationPreferences.inApp}
+                            onChange={(e) => handleNotificationPreferenceChange('inApp', e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
+                          />
+                          <div>
+                            <p className="font-semibold text-gray-900">In-app notifications</p>
+                            <p className="text-xs text-gray-500">Show alerts inside the app whenever activity happens.</p>
+                          </div>
+                        </label>
+
+                        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={formData.notificationPreferences.push}
+                            onChange={(e) => handleNotificationPreferenceChange('push', e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
+                          />
+                          <div>
+                            <p className="font-semibold text-gray-900">Push notifications</p>
+                            <p className="text-xs text-gray-500">Receive mobile push alerts where supported.</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                   
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <button 
                       type="button"
                       onClick={handleCancelEdit}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md"
+                      className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                     >
                       Cancel
                     </button>
                     <button 
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
-                      className={`font-medium py-2 px-6 rounded-md ${
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${
                         loading || !hasChanges() || (phoneTouched && phoneError)
-                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-[#6b493d] hover:bg-[#57392f] text-white'
+                          ? 'cursor-not-allowed bg-gray-400 text-gray-200'
+                          : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
                       }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}

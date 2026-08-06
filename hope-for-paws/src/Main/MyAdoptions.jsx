@@ -312,10 +312,18 @@ const MyAdoptions = ({ embedded = false }) => {
     );
   }
 
+  const activeListings = adoptions.filter((post) => post.status !== 'adopted').length;
+  const adoptedListings = adoptions.filter((post) => post.status === 'adopted').length;
+  const pendingRequests = adoptions.reduce((total, post) => {
+    const requests = Array.isArray(post.requests) ? post.requests : [];
+    return total + requests.filter((request) => request.status === 'pending').length;
+  }, 0);
+
   if (adoptions.length === 0) {
     return (
-      <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
-        <p className="text-xl text-[#6b493d]/80 italic">No adoption posts yet. Create your first adoption post!</p>
+      <div className="rounded-[28px] border border-dashed border-[#d8c0a7] bg-[#fcf7f1] p-8 text-center shadow-sm">
+        <p className="text-xl font-semibold text-[#6b493d]">No adoption posts yet</p>
+        <p className="mt-2 text-sm text-[#7a6554]">Create your first adoption listing to start helping pets find loving homes.</p>
       </div>
     );
   }
@@ -324,13 +332,35 @@ const MyAdoptions = ({ embedded = false }) => {
     <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-12'}>
       <div className={embedded ? 'w-full' : 'mx-auto max-w-[1440px] px-4 sm:px-6'}>
         {!embedded && (
-          <h3 className="mb-8 text-center text-3xl font-bold text-[#6b493d]" style={{ fontFamily: '"Playfair Display", serif' }}>
-            My Adoption Posts
-          </h3>
+          <div className="mb-8 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm sm:p-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Adoption management</p>
+                <h3 className="mt-2 text-3xl font-bold text-[#6b493d]" style={{ fontFamily: '"Playfair Display", serif' }}>
+                  My Adoption Posts
+                </h3>
+                <p className="mt-2 max-w-2xl text-sm text-[#715645]">Keep your listings polished, update their status easily, and stay on top of incoming requests.</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Active</p>
+                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{activeListings}</p>
+                </div>
+                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Adopted</p>
+                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{adoptedListings}</p>
+                </div>
+                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Pending</p>
+                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{pendingRequests}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {successMessage && (
-          <div className="mt-4 mb-8 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center">
+          <div className="mb-8 rounded-2xl border border-green-200 bg-green-50 p-3 text-center text-sm font-medium text-green-700">
             <p>{successMessage}</p>
           </div>
         )}
@@ -402,7 +432,7 @@ const MyAdoptions = ({ embedded = false }) => {
                       <X className="h-5 w-5 text-[#6b493d]" />
                     </button>
                     <button type="button" onClick={() => handleSaveEdit(post._id)} disabled={!hasChanges(post._id) || savingStates[post._id]} className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3d32] disabled:opacity-50">
-                      {savingStates[post._id] ? 'SavingÃ¢â‚¬Â¦' : 'Save changes'}
+                      {savingStates[post._id] ? 'Saving...' : 'Save changes'}
                     </button>
                   </div>
                 </div>

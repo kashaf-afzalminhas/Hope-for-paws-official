@@ -15,12 +15,16 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'post_like',
-      'post_comment', 
+      'post_comment',
       'adoption_request',
       'adoption_request_accepted',
       'adoption_request_rejected',
       'new_post_vet_notification',
-      'chat_message'
+      'chat_message',
+      'new_order',
+      'payment_confirmed',
+      'refund_request',
+      'order_status_update'
     ],
     required: true
   },
@@ -33,18 +37,31 @@ const notificationSchema = new mongoose.Schema({
     required: true
   },
   data: {
-    // Additional data for the notification
-    postId: mongoose.Schema.Types.ObjectId,
-    commentId: mongoose.Schema.Types.ObjectId,
-    adoptionId: mongoose.Schema.Types.ObjectId,
-    adoptionRequestId: mongoose.Schema.Types.ObjectId,
-    conversationId: mongoose.Schema.Types.ObjectId,
-    messageId: mongoose.Schema.Types.ObjectId,
-    // Add any other relevant data
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   read: {
     type: Boolean,
     default: false
+  },
+  priority: {
+    type: String,
+    enum: ['high', 'routine'],
+    default: 'routine'
+  },
+  channels: {
+    email: {
+      type: Boolean,
+      default: true
+    },
+    inApp: {
+      type: Boolean,
+      default: true
+    },
+    push: {
+      type: Boolean,
+      default: false
+    }
   },
   emailSent: {
     type: Boolean,

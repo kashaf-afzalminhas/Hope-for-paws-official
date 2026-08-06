@@ -101,9 +101,15 @@ class NotificationService {
         read: notification.read
       });
 
-      // Send email notification if explicitly allowed
       if (sendEmail && !notification.emailSent) {
-        await this.sendEmailNotification(notification);
+        const recipient = await User.findById(notification.recipient).select('email notificationPreferences');
+        if (this.shouldSendEmailImmediately(recipient, notification)) {
+          await this.sendEmailNotification(notification, recipient);
+        } else {
+          if (recipient?.notificationPreferences?.email !== 'disabled') {
+            console.log(`Notification queued for digest for user ${recipient._id}`);
+          }
+        }
       }
 
       return notification;
@@ -113,10 +119,23 @@ class NotificationService {
     }
   }
 
-  // Send email notification
-  async sendEmailNotification(notification) {
+  shouldSendEmailImmediately(recipient, notification) {
+    if (!recipient || !recipient.email) return false;
+    if (notification.type === 'chat_message') return false;
+
+    const preference = recipient.notificationPreferences?.email || 'instant';
+    const isHighPriority = notification.priority === 'high';
+    const isEmailChannelEnabled = notification.channels?.email !== false;
+
+    if (!isEmailChannelEnabled) return false;
+    if (preference === 'disabled') return false;
+    if (isHighPriority) return true;
+    return preference === 'instant';
+  }
+
+  async sendEmailNotification(notification, recipientOverride = null) {
     try {
-      const recipient = await User.findById(notification.recipient);
+      const recipient = recipientOverride || await User.findById(notification.recipient);
       if (!recipient || !recipient.email) {
         console.log('No recipient or email found for notification:', notification._id);
         return;
@@ -341,6 +360,81 @@ class NotificationService {
     console.log(
       `Chat digest email sent to ${recipient.email} (${totalMessages} messages from ${uniqueSenderNames.length} senders)`
     );
+  }
+
+  async getPendingDigestNotifications(recipient) {
+    if (!recipient?._id) return [];
+    return Notification.find({
+      recipient: recipient._id,
+      'channels.email': true,
+      emailSent: false,
+      type: { $ne: 'chat_message' },
+      priority: 'routine'
+    })
+      .sort({ createdAt: -1 })
+      .limit(config.NOTIFICATION_DIGEST_BATCH_SIZE)
+      .lean();
+  }
+
+  async sendDailyDigestEmail(recipient, notifications) {
+    if (!recipient?.email || !notifications?.length) return;
+
+    const { subject, html } = emailTemplates.buildDailyDigestEmail({
+      recipient,
+      notifications,
+    });
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: recipient.email,
+      subject,
+      html,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+    await Notification.updateMany(
+      { _id: { $in: notifications.map(n => n._id) } },
+      { $set: { emailSent: true, emailSentAt: new Date() } }
+    );
+
+    console.log(`Daily digest email sent to ${recipient.email} (${notifications.length} notifications)`);
+  }
+
+  async runDailyDigestJob() {
+    try {
+      const users = await User.find({
+        'notificationPreferences.email': 'daily_summary',
+        email: { $exists: true, $ne: '' }
+      }).select('email notificationPreferences');
+
+      for (const user of users) {
+        const pendingNotifications = await this.getPendingDigestNotifications(user);
+        if (!pendingNotifications.length) continue;
+        await this.sendDailyDigestEmail(user, pendingNotifications);
+      }
+    } catch (error) {
+      console.error('Error running daily digest job:', error);
+    }
+  }
+
+  scheduleDailyDigestJob() {
+    const hour = config.NOTIFICATION_DAILY_DIGEST_HOUR;
+    const minute = config.NOTIFICATION_DAILY_DIGEST_MINUTE;
+
+    const now = new Date();
+    const nextRun = new Date(now);
+    nextRun.setHours(hour, minute, 0, 0);
+    if (nextRun <= now) {
+      nextRun.setDate(nextRun.getDate() + 1);
+    }
+
+    const delay = nextRun - now;
+    setTimeout(async () => {
+      await this.runDailyDigestJob();
+      setInterval(() => this.runDailyDigestJob(), 24 * 60 * 60 * 1000);
+    }, delay);
+
+    console.log(`Scheduled daily digest job at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} local time`);
   }
 
   // Get user notifications
