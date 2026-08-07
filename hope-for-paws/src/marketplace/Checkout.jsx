@@ -25,7 +25,7 @@ function ToastStack({ toasts, dismissToast }) {
           boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
           animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1) both",
           pointerEvents: "auto", minWidth: 240, maxWidth: 360,
-        }}>
+        }}> 
           <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {t.type === "success" ? <ShoppingCart size={14} /> : <XCircle size={14} />}
           </div>
@@ -91,7 +91,7 @@ export default function Checkout() {
       newErrors.phone = 'Please enter a valid phone number (e.g., 03001234567 or +923001234567).';
     }
 
-    // Shipping Validation
+    // Shipping Validations
     if (!shippingAddress.fullName.trim()) {
       newErrors.fullName = 'Full name is required.';
     }
