@@ -91,7 +91,7 @@ export default function Checkout() {
       newErrors.phone = 'Please enter a valid phone number (e.g., 03001234567 or +923001234567).';
     }
 
-    // Shipping Validations
+    // Shipping Validation
     if (!shippingAddress.fullName.trim()) {
       newErrors.fullName = 'Full name is required.';
     }
