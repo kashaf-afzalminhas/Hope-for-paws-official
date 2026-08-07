@@ -329,8 +329,8 @@ const MyAdoptions = ({ embedded = false }) => {
   }
 
   return (
-    <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-12'}>
-      <div className={embedded ? 'w-full' : 'mx-auto max-w-[1440px] px-4 sm:px-6'}>
+    <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}>
+      <div className={embedded ? 'w-full' : 'mx-auto max-w-6xl w-full'}>
         {!embedded && (
           <div className="mb-8 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm sm:p-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

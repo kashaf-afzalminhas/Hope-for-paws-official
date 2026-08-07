@@ -1206,29 +1206,23 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Toast toasts={toasts} />
-      {/* Header */}
-      <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <NavLink to="/" className="flex items-center">
-            <FaChevronLeft className="text-xl text-[#6b493d]" />
-            <span className="ml-2 text-[#6b493d]">Back</span>
-          </NavLink>
-          <h1 className="text-lg font-bold text-[#6b493d]">My Profile</h1>
-          <button 
-            onClick={handleSignOut} 
-            className="flex items-center text-[#a07855] hover:text-[#6b493d]"
-          >
-            <span className="mr-1 hidden md:inline">Sign Out</span>
-            <FaSignOutAlt />
-          </button>
-        </div>
-      </header>
 
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           {/* Sidebar */}
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
+            {/* Back Button */}
+            <div className="mb-4">
+              <NavLink 
+                to="/" 
+                className="inline-flex items-center gap-2 rounded-full border border-[#e8dcc8] bg-white px-4 py-2 text-sm font-semibold text-[#6b493d] shadow-sm transition hover:bg-[#f8f4ed] hover:text-[#57392f]"
+              >
+                <FaChevronLeft className="text-xs" />
+                <span>Back to Home</span>
+              </NavLink>
+            </div>
+
             <div className="rounded-[24px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-4 text-center shadow-sm">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
@@ -1320,6 +1314,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         </button>
                       )
                     )}
+                    <div className="my-1 border-t border-[#e8dcc8]/60" />
+                    <button
+                      onClick={handleSignOut}
+                      className="flex w-full items-center rounded-2xl px-3 py-3 text-left text-red-600 hover:bg-red-50 font-medium transition"
+                    >
+                      <FaSignOutAlt /><span className="ml-2">Sign Out</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1347,6 +1348,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                   </button>
                 )
               )}
+              <div className="my-1.5 border-t border-[#e8dcc8]/60" />
+              <button
+                onClick={handleSignOut}
+                className="flex w-full items-center rounded-2xl px-3 py-3 text-left text-red-600 hover:bg-red-50 hover:text-red-700 font-medium transition"
+              >
+                <FaSignOutAlt /><span className="ml-2">Sign Out</span>
+              </button>
             </div>
           </div>
 

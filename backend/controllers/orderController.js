@@ -7,7 +7,11 @@ const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
 
-const notificationService = global.notificationService;
+
+function getNotificationService() {
+  return global.notificationService;
+}
+
 // ------------------------------------------------------------------
 // BUYER CONTROLLERS
 // ------------------------------------------------------------------
@@ -97,9 +101,12 @@ await Cart.findOneAndUpdate(
 );
 
 // Send order confirmation email (HTML styled, matching Hope for Paws branding)
+// Respects the buyer's notificationPreferences.email setting — a buyer who
+// has disabled email must not receive this regardless of any other logic.
 try {
-  const buyer = await User.findById(buyerId).select('email username');
-  if (buyer?.email) {
+  const buyer = await User.findById(buyerId).select('email username notificationPreferences');
+  const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
+  if (buyer?.email && buyerEmailPref !== 'disabled') {
    const orderItemsHtml = createdOrders.map(o => `
       <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
         <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${o.orderId}</p>
@@ -144,6 +151,7 @@ try {
 
 // Notify each seller about their respective new order(s)
 try {
+  const notificationService = getNotificationService();
   const ordersBySeller = createdOrders.reduce((acc, o) => {
     const sid = o.sellerId.toString();
     acc[sid] = acc[sid] || [];
@@ -153,7 +161,7 @@ try {
 
   for (const [sellerId, orders] of Object.entries(ordersBySeller)) {
     try {
-      const seller = await Seller.findById(sellerId).populate('userId', 'email username storeName');
+      const seller = await Seller.findById(sellerId).populate('userId', 'email username storeName notificationPreferences');
       const sellerUser = seller && seller.userId ? seller.userId : null;
       if (!sellerUser || !sellerUser.email) continue;
 
@@ -192,7 +200,9 @@ try {
           priority: 'high',
           channels: { email: true, inApp: true, push: false }
         });
-      } else {
+      } else if (sellerUser.notificationPreferences?.email !== 'disabled') {
+        // Last-resort fallback if the notification service genuinely isn't
+        // available. Still respects the seller's email preference.
         await sendEmail(
           sellerUser.email,
           'New Order Received - Hope For Paws',
@@ -206,6 +216,32 @@ try {
   }
 } catch (notifyErr) {
   console.error('Error while notifying sellers about new orders:', notifyErr);
+}
+
+// Notify buyer in-app that their order was placed
+// NOTE: notificationPreferences on this schema only exposes an `email`
+// setting (instant/disabled) — there's no separate inApp toggle to check,
+// so this always fires when the notification service is available,
+// mirroring how seller in-app notifications already work above.
+try {
+  const notificationService = getNotificationService();
+  if (notificationService) {
+    await notificationService.createNotification({
+      recipient: buyerId,
+      sender: buyerId,
+      type: 'order_placed',
+      title: 'Order Placed',
+      message: `Your order${createdOrders.length > 1 ? 's have' : ' has'} been placed successfully.`,
+      data: {
+        orderIds: createdOrders.map(o => o._id),
+        orderCount: createdOrders.length
+      },
+      priority: 'routine',
+      channels: { email: false, inApp: true, push: false }
+    });
+  }
+} catch (buyerNotifyErr) {
+  console.error('Failed to send in-app notification to buyer:', buyerNotifyErr);
 }
 
 res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
@@ -247,9 +283,11 @@ exports.cancelOrder = async (req, res) => {
     await order.save();
 
    // Send order cancellation email (HTML styled)
+   // Respects the buyer's notificationPreferences.email setting.
 try {
-  const buyer = await User.findById(buyerId).select('email username');
-  if (buyer?.email) {
+  const buyer = await User.findById(buyerId).select('email username notificationPreferences');
+  const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
+  if (buyer?.email && buyerEmailPref !== 'disabled') {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
         <div style="background-color: #6b493d; padding: 20px; text-align: center;">
@@ -289,7 +327,8 @@ try {
 
 // Notify seller about cancellation
 try {
-  const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName');
+  const notificationService = getNotificationService();
+  const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName notificationPreferences');
   const sellerUser = sellerProfile && sellerProfile.userId ? sellerProfile.userId : null;
   if (sellerUser) {
     if (notificationService) {
@@ -306,7 +345,7 @@ try {
         priority: 'routine',
         channels: { email: true, inApp: true, push: false }
       });
-    } else if (sellerUser.email) {
+    } else if (sellerUser.email && sellerUser.notificationPreferences?.email !== 'disabled') {
       const sellerHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
           <div style="background-color: #6b493d; padding: 16px; text-align: center; color: #fff;"><h2 style="margin:0">Order Cancelled</h2></div>
@@ -460,9 +499,11 @@ exports.updateOrderStatus = async (req, res) => {
     await order.save();
 
     // Send status update email to buyer
+    // Respects the buyer's notificationPreferences.email setting.
     try {
-      const buyer = await User.findById(order.buyerId).select('email username');
-      if (buyer?.email) {
+      const buyer = await User.findById(order.buyerId).select('email username notificationPreferences');
+      const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
+      if (buyer?.email && buyerEmailPref !== 'disabled') {
         const html = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
             <div style="background-color: #6b493d; padding: 20px; text-align: center;">
@@ -495,9 +536,35 @@ exports.updateOrderStatus = async (req, res) => {
     } catch (emailError) {
       console.error('Failed to send order status update email:', emailError);
     }
+
+    // Notify buyer in-app about the status change
+    // Same note as in createOrder: no separate inApp preference field exists
+    // on this schema, so this fires independently of the email preference.
+    try {
+      const notificationService = getNotificationService();
+      if (notificationService) {
+        await notificationService.createNotification({
+          recipient: order.buyerId,
+          sender: userId,
+          type: 'order_status_update',
+          title: `Order ${newStatus}`,
+          message: `Your order ${order.orderId} status has been updated to ${newStatus}.`,
+          data: {
+            orderId: order._id,
+            orderStatus: newStatus
+          },
+          priority: 'routine',
+          channels: { email: false, inApp: true, push: false }
+        });
+      }
+    } catch (buyerNotifyErr) {
+      console.error('Failed to send in-app notification to buyer:', buyerNotifyErr);
+    }
+
     // Also notify seller for status changes
     try {
-      const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName');
+      const notificationService = getNotificationService();
+      const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName notificationPreferences');
       const sellerUser = sellerProfile && sellerProfile.userId ? sellerProfile.userId : null;
       if (sellerUser) {
         if (notificationService) {
@@ -514,7 +581,7 @@ exports.updateOrderStatus = async (req, res) => {
             priority: ['Confirmed', 'Delivered', 'Cancelled'].includes(newStatus) ? 'routine' : 'routine',
             channels: { email: true, inApp: true, push: false }
           });
-        } else if (sellerUser.email) {
+        } else if (sellerUser.email && sellerUser.notificationPreferences?.email !== 'disabled') {
           const sellerHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
               <div style="background-color: #6b493d; padding: 16px; text-align: center; color: #fff;"><h2 style="margin:0">Order ${newStatus}</h2></div>

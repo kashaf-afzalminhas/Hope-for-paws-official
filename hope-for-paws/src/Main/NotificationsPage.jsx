@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Bell, Check, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Check, Trash2, X, Settings, AlertCircle } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '../Components/ConfirmationModal';
+import { getNotificationLink, getNotificationCategoryInfo } from '../utils/notificationHelpers';
 
 const NotificationsPage = () => {
   const { 
@@ -13,7 +14,8 @@ const NotificationsPage = () => {
     deleteNotification,
     deleteAllNotifications,
     fetchNotifications,
-    setNotifications // Added setNotifications to the context
+    setNotifications,
+    inAppEnabled
   } = useNotifications();
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,11 +26,10 @@ const NotificationsPage = () => {
   // Helper to fetch notifications with limit and update hasMore
   const fetchAndSetNotifications = async (page) => {
     try {
-      // Always fetch 5 per page
-      const response = await fetchNotifications(page, 5);
+      const response = await fetchNotifications(page, 10);
       if (response && response.notifications) {
         if (page === 1) {
-          setNotifications(response.notifications); // Replace for page 1
+          setNotifications(response.notifications);
           setCurrentPage(1);
         } else {
           setNotifications(prev => {
@@ -43,7 +44,7 @@ const NotificationsPage = () => {
       } else if (response && typeof response.hasMore !== 'undefined') {
         setHasMore(response.hasMore);
       } else {
-        setHasMore(Array.isArray(response?.notifications) ? response.notifications.length === 5 : notifications.length % 5 === 0);
+        setHasMore(Array.isArray(response?.notifications) ? response.notifications.length === 10 : notifications.length % 10 === 0);
       }
     } catch {
       setHasMore(false);
@@ -51,7 +52,6 @@ const NotificationsPage = () => {
   };
 
   useEffect(() => {
-    // On mount, fetch first page
     fetchAndSetNotifications(1);
   }, []);
 
@@ -78,39 +78,31 @@ const NotificationsPage = () => {
       await deleteAllNotifications();
     } catch (error) {
       console.error('Error deleting all notifications:', error);
+    } finally {
+      setShowDeleteConfirm(false);
     }
   };
 
-  const handleNotificationClick = async (notification, event) => {
+  const handleNotificationClick = (notification, event) => {
     // Prevent click if user clicked on action buttons
-    if (event.target.closest('button')) {
+    if (event && event.target.closest('button')) {
       return;
     }
 
     if (!notification.read) {
-      await markAsRead(notification._id || notification.id);
+      markAsRead(notification._id || notification.id).catch((err) => {
+        console.error('Error marking notification as read:', err);
+      });
     }
 
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'post_like':
-      case 'post_comment':
-      case 'new_post_vet_notification':
-        navigate(`/posts/${notification.data.postId}`);
-        break;
-      case 'adoption_request':
-        navigate('/my-adoptions');
-        break;
-      case 'adoption_request_accepted':
-      case 'adoption_request_rejected':
-        navigate('/adoptionhistory');
-        break;
-      default:
-        break;
+    const targetLink = getNotificationLink(notification);
+    if (targetLink) {
+      navigate(targetLink);
     }
   };
 
   const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Just now';
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
@@ -120,25 +112,6 @@ const NotificationsPage = () => {
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
     return date.toLocaleDateString();
-  };
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'post_like':
-        return '❤️';
-      case 'post_comment':
-        return '💬';
-      case 'adoption_request':
-        return '🐾';
-      case 'adoption_request_accepted':
-        return '✅';
-      case 'adoption_request_rejected':
-        return '❌';
-      case 'new_post_vet_notification':
-        return '📝';
-      default:
-        return '🔔';
-    }
   };
 
   if (loading && notifications.length === 0) {
@@ -152,9 +125,11 @@ const NotificationsPage = () => {
   const unreadCount = notifications.filter((item) => !item.read).length;
 
   return (
-    <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-8">
-      <div className="max-w-4xl mx-auto px-2 sm:px-4">
-        <div className="mb-6 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-5 shadow-sm sm:p-6">
+    <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto w-full">
+
+        {/* Header Card */}
+        <div className="mb-6 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-5 shadow-xs sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl bg-[#6b493d]/10 p-3 text-[#6b493d]">
@@ -162,103 +137,137 @@ const NotificationsPage = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-[#6b493d]">Notifications</h1>
-                <p className="mt-1 text-sm text-[#715645]">Stay on top of updates, requests, and important activity.</p>
+                <p className="mt-1 text-sm text-[#715645]">Stay updated on requests, posts, and community activity.</p>
               </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Unread</p>
-                <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{unreadCount}</p>
+            <div className="grid gap-2 grid-cols-2">
+              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-4 py-3 text-center">
+                <p className="text-[11px] uppercase tracking-[0.2em] font-semibold text-[#a07855]">Unread</p>
+                <p className="mt-0.5 text-lg font-bold text-[#4E3B31]">{unreadCount}</p>
               </div>
-              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Total</p>
-                <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{notifications.length}</p>
+              <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-4 py-3 text-center">
+                <p className="text-[11px] uppercase tracking-[0.2em] font-semibold text-[#a07855]">Total</p>
+                <p className="mt-0.5 text-lg font-bold text-[#4E3B31]">{notifications.length}</p>
               </div>
             </div>
           </div>
 
-          {(() => {
-            const hasUnread = notifications.some(n => !n.read);
-            const multiAction = hasUnread && notifications.length > 0;
-            return (
-              <div className={`${multiAction ? 'mt-4 grid grid-cols-2 gap-2 sm:w-auto sm:grid-cols-2' : 'mt-4 flex justify-center'} w-full sm:flex sm:justify-end sm:gap-2`}>
-                {hasUnread && (
-                  <button
-                    onClick={handleMarkAllAsRead}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#6b493d]/30 bg-[#6b493d]/5 px-3 py-2 text-sm font-medium text-[#6b493d] transition hover:bg-[#6b493d]/10"
-                  >
-                    <Check className="h-4 w-4" />
-                    <span className="truncate">Read All</span>
-                  </button>
-                )}
-                {notifications.length > 0 && (
-                  <button
-                    onClick={handleDeleteAll}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span className="truncate">Delete</span>
-                  </button>
-                )}
+          {/* Muted preferences alert banner */}
+          {!inAppEnabled && (
+            <div className="mt-4 p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <span>In-app notifications are currently muted in your profile settings.</span>
               </div>
-            );
-          })()}
+              <button
+                onClick={() => navigate('/profile')}
+                className="font-semibold text-amber-900 hover:underline flex items-center gap-1 ml-2 flex-shrink-0"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Profile Settings
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          {notifications.length > 0 && (
+            <div className="mt-4 flex items-center justify-end gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#6b493d]/30 bg-[#6b493d]/5 px-4 py-2 text-xs font-semibold text-[#6b493d] transition hover:bg-[#6b493d]/15"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Mark All Read</span>
+                </button>
+              )}
+              <button
+                onClick={handleDeleteAll}
+                className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete All</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-4">
+        {/* Notifications List */}
+        <div className="space-y-3">
           {notifications.length === 0 ? (
-            <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-8 text-center shadow-sm">
-              <Bell className="mx-auto mb-4 h-12 w-12 text-gray-300 sm:h-16 sm:w-16" />
-              <h2 className="mb-2 text-lg font-semibold text-[#6b493d] sm:text-xl">No notifications yet</h2>
-              <p className="text-sm text-[#7a6554] sm:text-base">You&apos;ll see likes, comments, and adoption updates here as they arrive.</p>
+            <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-8 sm:p-12 text-center shadow-xs">
+              <div className="w-16 h-16 bg-[#f8f4ed] rounded-full flex items-center justify-center mx-auto mb-4 text-[#a07855]">
+                <Bell className="h-8 w-8 opacity-60" />
+              </div>
+              <h2 className="mb-1 text-lg font-bold text-[#6b493d] sm:text-xl">No notifications yet</h2>
+              <p className="text-sm text-[#7a6554]">You will see likes, comments, and adoption updates here as they arrive.</p>
             </div>
           ) : (
-            notifications.map((notification) => (
-              <div
-                key={notification._id || notification.id}
-                className={`cursor-pointer rounded-[24px] border border-[#e8dcc8] bg-white p-4 shadow-sm transition hover:shadow-md sm:p-6 ${
-                  !notification.read ? 'border-l-4 border-[#6b493d] bg-[#f8f4ed]' : ''
-                }`}
-                onClick={(event) => handleNotificationClick(notification, event)}
-              >
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="flex-shrink-0 text-xl sm:text-2xl">
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-[#6b493d] text-base sm:text-lg break-words">
-                        {notification.title}
-                      </h3>
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        {!notification.read && (
-                          <button
-                            onClick={() => markAsRead(notification._id)}
-                            className="p-1 sm:p-2 text-blue-500 hover:text-blue-700 transition-colors rounded-md hover:bg-blue-50"
-                            title="Mark as read"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deleteNotification(notification._id)}
-                          className="p-1 sm:p-2 text-gray-400 hover:text-red-500 transition-colors rounded-md hover:bg-gray-100"
-                          title="Delete notification"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
+            notifications.map((notification) => {
+              const category = getNotificationCategoryInfo(notification.type);
+              const isUnread = !notification.read;
+
+              return (
+                <div
+                  key={notification._id || notification.id}
+                  onClick={(e) => handleNotificationClick(notification, e)}
+                  className={`cursor-pointer rounded-[20px] border border-[#e8dcc8] bg-white p-4 shadow-xs transition-all duration-200 hover:shadow-md relative group ${
+                    isUnread ? 'border-l-4 border-l-[#6b493d] bg-[#fcf9f4]' : 'hover:bg-[#faf7f2]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl border ${category.bgClass}`}>
+                      {category.icon}
                     </div>
-                    <p className="text-gray-700 mt-2 leading-relaxed text-sm sm:text-base break-words">
-                      {notification.message}
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-500 mt-3">
-                      {formatTimeAgo(notification.createdAt)}
-                    </p>
+
+                    <div className="flex-1 min-w-0 pr-8">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className={`text-sm sm:text-base break-words ${isUnread ? 'font-bold text-[#4E3B31]' : 'font-medium text-gray-800'}`}>
+                          {notification.title}
+                        </h3>
+                        <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium flex-shrink-0">
+                          {category.label}
+                        </span>
+                      </div>
+
+                      <p className="text-gray-600 mt-1 leading-relaxed text-xs sm:text-sm break-words">
+                        {notification.message}
+                      </p>
+
+                      <p className="text-[11px] sm:text-xs text-gray-400 mt-2 font-medium">
+                        {formatTimeAgo(notification.createdAt)}
+                      </p>
+                    </div>
+
+                    {/* Quick Item Actions */}
+                    <div className="absolute right-3 top-3 flex items-center gap-1 bg-white/90 backdrop-blur-xs p-1 rounded-lg border border-gray-200 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isUnread && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(notification._id || notification.id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                          title="Mark as read"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(notification._id || notification.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Delete notification"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -268,7 +277,7 @@ const NotificationsPage = () => {
             <button
               onClick={handleLoadMore}
               disabled={loading}
-              className="px-4 sm:px-6 py-3 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3c32] transition-colors disabled:opacity-50 text-sm sm:text-base"
+              className="px-6 py-2.5 bg-[#6b493d] text-white rounded-xl hover:bg-[#5a3c32] transition-colors disabled:opacity-50 text-sm font-semibold shadow-xs"
             >
               {loading ? 'Loading...' : 'Load More'}
             </button>
@@ -291,4 +300,4 @@ const NotificationsPage = () => {
   );
 };
 
-export default NotificationsPage; 
+export default NotificationsPage;

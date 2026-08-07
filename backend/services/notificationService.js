@@ -75,10 +75,56 @@ class NotificationService {
 
   // Send real-time notification
   async sendRealTimeNotification(userId, notificationData) {
-    const socketId = this.getUserSocket(userId);
-    if (socketId) {
-      this.io.to(socketId).emit('notification', notificationData);
-    }
+  const socketId = this.getUserSocket(userId);
+  console.log(`[RT push] looking up userId=${userId} → socketId=${socketId || 'NOT FOUND'}`);
+  console.log('[RT push] current userSockets map:', Array.from(this.userSockets.entries()));
+  if (socketId) {
+    this.io.to(socketId).emit('notification', notificationData);
+  }
+}
+  // ---------------------------------------------------------------------
+  // Centralized email-preference gate.
+  //
+  // This is the single source of truth for whether a recipient may be
+  // emailed at all. Every function in this service that actually sends
+  // mail (sendEmailNotification, sendChatDigestEmail, sendDailyDigestEmail)
+  // must call this first, so that a user who has set
+  // notificationPreferences.email = "disabled" can never receive an email
+  // regardless of which code path (instant, digest, chat reminder, or a
+  // direct call from outside this service) triggered it.
+  //
+  // `recipient` may be a full User doc, a lean object, or a partial
+  // projection (e.g. `.select('email notificationPreferences')`) — it only
+  // needs `email` and `notificationPreferences.email`.
+  // ---------------------------------------------------------------------
+  isEmailAllowedForRecipient(recipient) {
+    if (!recipient || !recipient.email) return false;
+    const preference = recipient.notificationPreferences?.email || 'instant';
+    return preference !== 'disabled';
+  }
+
+  // ---------------------------------------------------------------------
+  // Centralized in-app-delivery gate. Mirrors isEmailAllowedForRecipient:
+  // both the per-notification channel flag AND the user's global
+  // preference must allow it, or the real-time (socket) push is skipped.
+  //
+  // Note: this only gates the *live* push via sendRealTimeNotification.
+  // The Notification document itself is always created and persisted
+  // regardless of this preference (same as email, whose document is
+  // always saved even when the message is only ever delivered via a
+  // digest) — this preserves getUserNotifications/getUnreadCount/
+  // markAsRead behavior exactly as it was before this change.
+  //
+  // If `recipient` couldn't be loaded (e.g. the user record is missing),
+  // we deliberately default to allowing delivery rather than blocking it,
+  // since that matches the prior behavior (the emit always fired) and we
+  // have no explicit preference to enforce.
+  // ---------------------------------------------------------------------
+  isInAppDeliveryAllowed(recipient, notification) {
+    const isInAppChannelEnabled = notification?.channels?.inApp !== false;
+    if (!isInAppChannelEnabled) return false;
+    if (!recipient) return true;
+    return recipient.notificationPreferences?.inApp !== false;
   }
 
   // Create and send notification
@@ -90,23 +136,29 @@ class NotificationService {
       const notification = new Notification(data);
       await notification.save();
 
-      // Send real-time notification
-      await this.sendRealTimeNotification(notification.recipient, {
-        id: notification._id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        data: notification.data,
-        createdAt: notification.createdAt,
-        read: notification.read
-      });
+      // Fetch the recipient once, up front — used to gate both the
+      // real-time in-app push below and the email path further down.
+      const recipient = await User.findById(notification.recipient).select('email notificationPreferences');
+
+      // Send real-time (in-app) notification, respecting the channel flag
+      // and the recipient's notificationPreferences.inApp setting.
+      if (this.isInAppDeliveryAllowed(recipient, notification)) {
+        await this.sendRealTimeNotification(notification.recipient, {
+          id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          createdAt: notification.createdAt,
+          read: notification.read
+        });
+      }
 
       if (sendEmail && !notification.emailSent) {
-        const recipient = await User.findById(notification.recipient).select('email notificationPreferences');
         if (this.shouldSendEmailImmediately(recipient, notification)) {
           await this.sendEmailNotification(notification, recipient);
         } else {
-          if (recipient?.notificationPreferences?.email !== 'disabled') {
+          if (this.isEmailAllowedForRecipient(recipient)) {
             console.log(`Notification queued for digest for user ${recipient._id}`);
           }
         }
@@ -119,8 +171,13 @@ class NotificationService {
     }
   }
 
+  // Decides whether this specific notification should be emailed *right now*,
+  // as opposed to being left for a digest. This is an additional, narrower
+  // check on top of isEmailAllowedForRecipient — it does NOT replace the
+  // preference gate inside sendEmailNotification itself, since that method
+  // can also be called directly from outside this function.
   shouldSendEmailImmediately(recipient, notification) {
-    if (!recipient || !recipient.email) return false;
+    if (!this.isEmailAllowedForRecipient(recipient)) return false;
     if (notification.type === 'chat_message') return false;
 
     const preference = recipient.notificationPreferences?.email || 'instant';
@@ -128,7 +185,6 @@ class NotificationService {
     const isEmailChannelEnabled = notification.channels?.email !== false;
 
     if (!isEmailChannelEnabled) return false;
-    if (preference === 'disabled') return false;
     if (isHighPriority) return true;
     return preference === 'instant';
   }
@@ -136,8 +192,11 @@ class NotificationService {
   async sendEmailNotification(notification, recipientOverride = null) {
     try {
       const recipient = recipientOverride || await User.findById(notification.recipient);
-      if (!recipient || !recipient.email) {
-        console.log('No recipient or email found for notification:', notification._id);
+
+      // Preference gate lives here too (not just in shouldSendEmailImmediately)
+      // so this method is safe to call directly from anywhere, now or in the future.
+      if (!this.isEmailAllowedForRecipient(recipient)) {
+        console.log(`Email notification skipped for user ${notification.recipient} (no email on file or email notifications disabled)`);
         return;
       }
       if (notification.type === 'chat_message') {
@@ -337,8 +396,10 @@ class NotificationService {
   }
 
   async sendChatDigestEmail({ recipient, totalMessages, uniqueSenderNames, conversationCount, previewMessages }) {
-    if (!recipient?.email) {
-      console.log('No recipient email provided for chat digest');
+    // Preference gate: chat digests go out from a queue worker, outside the
+    // normal createNotification flow, so they need their own explicit check.
+    if (!this.isEmailAllowedForRecipient(recipient)) {
+      console.log(`Chat digest email skipped for user ${recipient?._id} (no email on file or email notifications disabled)`);
       return;
     }
 
@@ -377,7 +438,14 @@ class NotificationService {
   }
 
   async sendDailyDigestEmail(recipient, notifications) {
-    if (!recipient?.email || !notifications?.length) return;
+    if (!notifications?.length) return;
+
+    // Preference gate: defensive check in case this is ever called from a
+    // path other than runDailyDigestJob's pre-filtered user query.
+    if (!this.isEmailAllowedForRecipient(recipient)) {
+      console.log(`Daily digest email skipped for user ${recipient?._id} (no email on file or email notifications disabled)`);
+      return;
+    }
 
     const { subject, html } = emailTemplates.buildDailyDigestEmail({
       recipient,
@@ -496,4 +564,4 @@ class NotificationService {
   }
 }
 
-module.exports = NotificationService; 
+module.exports = NotificationService;

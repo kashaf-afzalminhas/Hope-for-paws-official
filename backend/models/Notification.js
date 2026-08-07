@@ -19,6 +19,12 @@ const notificationSchema = new mongoose.Schema({
       'adoption_request',
       'adoption_request_accepted',
       'adoption_request_rejected',
+      // Added: used by adoptionRoutes.js's reopenListingRequestsForAvailability()
+      // when a listing goes adopted -> available and a previously
+      // accepted/rejected request is reset to pending. Without this value,
+      // Notification.save() throws a ValidationError that was being silently
+      // swallowed, so the requester was never notified.
+      'adoption_request_pending',
       'new_post_vet_notification',
       'chat_message',
       'new_order',
@@ -80,4 +86,4 @@ notificationSchema.index({ type: 1, createdAt: -1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 
-module.exports = Notification; 
+module.exports = Notification;

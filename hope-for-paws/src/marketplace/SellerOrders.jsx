@@ -812,7 +812,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
 
   return (
     <div className={embedded ? "w-full" : "min-h-screen bg-[#f8f6f4]"}>
-      <div className={embedded ? "w-full" : "max-w-[1200px] mx-auto px-4 py-8"}>
+      <div className={embedded ? "w-full" : "max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6"}>
 
         {/* ── Page header ── */}
         <header className={`rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm ${embedded ? "mb-6" : "mb-8"}`}>
@@ -872,21 +872,21 @@ export default function SellerOrderDashboard({ embedded = false }) {
         </div>
 
         {/* UNIFIED DATA TABLE CONTAINER */}
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(107,73,61,0.04),0_12px_32px_-16px_rgba(107,73,61,0.18)] border border-[#e7dfd6] overflow-hidden">
           
           {/* Top Toolbar */}
-          <div className="p-6 border-b border-stone-100 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">
+          <div className="p-6 border-b border-[#ece4da] flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">
             <SearchBar value={searchQuery} onChange={setSearch} />
             <FilterTabs active={activeFilter} onSelect={setFilter} orders={orders} />
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto min-h-[400px] pb-32">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-stone-50/50">
+                <tr className="bg-[#f6f1ea]">
                   {["Order", "Customer", "Items", "Status", "Actions"].map((h, i) => (
-                    <th key={i} className="px-6 py-4 text-xs font-bold text-stone-500 uppercase tracking-widest border-b border-stone-100">
+                    <th key={i} className="px-6 py-3.5 text-[11px] font-bold text-[#6b493d] uppercase tracking-widest border-b-2 border-[#6b493d]/15">
                       {h}
                     </th>
                   ))}
@@ -917,10 +917,25 @@ export default function SellerOrderDashboard({ embedded = false }) {
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/*  Footer  */}
-        <div className="pb-8"></div>
+          {/* Bottom strip — closes the card on content instead of empty space */}
+          {!loading && (
+            <div className="flex items-center justify-between px-6 py-3 border-t border-[#ece4da] bg-[#faf7f3]">
+              <p className="text-xs font-medium text-stone-500">
+                Showing <span className="font-bold text-stone-700">{filteredOrders.length}</span> of{" "}
+                <span className="font-bold text-stone-700">{orders.length}</span> orders
+              </p>
+              {(activeFilter !== "All" || searchQuery) && (
+                <button
+                  onClick={() => { setFilter("All"); setSearch(""); }}
+                  className="text-xs font-semibold text-[#6b493d] hover:text-[#5a3c32] transition-colors"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/*  Toast notifications */}
