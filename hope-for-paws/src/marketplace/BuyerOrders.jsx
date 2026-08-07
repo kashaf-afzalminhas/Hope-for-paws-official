@@ -28,6 +28,7 @@ import {
 import ReviewModal from "./ReviewModal";
 import { API_BASE_URL } from "../config";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // CONSTANTS
@@ -242,7 +243,7 @@ function Toast({ toast, onDismiss }) {
 // CANCEL CONFIRMATION (inline)
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-function CancelConfirm({ onConfirm, onDismiss }) {
+function CancelConfirm({ onConfirm, onDismiss, isCOD }) {
   return (
     <div
       role="dialog"
@@ -420,11 +421,11 @@ function OrderItem({ item }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview }) {
+  const navigate = useNavigate();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showTracking, setShowTracking] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const navigate = useNavigate();
 
   const orderId = order._id || order.id;
   const isReviewed = reviewedOrders?.has(orderId);
@@ -743,12 +744,13 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           )}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancel confirm (inline) Ã¢â€â‚¬Ã¢â€â‚¬ */}
-          {showCancelConfirm && (
-            <CancelConfirm
-              onConfirm={handleCancelConfirm}
-              onDismiss={() => setShowCancelConfirm(false)}
-            />
-          )}
+         {showCancelConfirm && (
+  <CancelConfirm
+    onConfirm={handleCancelConfirm}
+    onDismiss={() => setShowCancelConfirm(false)}
+    isCOD={order.paymentMethod?.toLowerCase() === 'cod'}
+  />
+)}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order meta (shipping, payment) Ã¢â‚¬â€ subtle row Ã¢â€â‚¬Ã¢â€â‚¬ */}
           <div className="px-5 pb-3 flex items-center gap-4 flex-wrap">
@@ -767,7 +769,21 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Action footer Ã¢â€â‚¬Ã¢â€â‚¬ */}
           <div className="px-5 py-3 border-t border-stone-50 bg-stone-50/40 flex items-center justify-between gap-3 flex-wrap">
             {/* Left: support link */}
-            <button className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group">
+            <button
+              onClick={() => {
+                const sellerUserId = order.sellerId?.userId;
+                if (sellerUserId) {
+                  navigate(`/chat/${sellerUserId}`, {
+                    state: {
+                      fromOrder: true,
+                      orderId: order.orderId || order._id,
+                      sellerStoreName: order.sellerId?.storeName,
+                    }
+                  });
+                }
+              }}
+              className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
+            >
               <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
               {isCancelled ? "Contact support" : "Get help with this order"}
             </button>
@@ -898,7 +914,94 @@ function PageStats({ orders }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // FILTER TABS
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+const ALL_STATUSES = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered", "Cancelled"];
 
+function StatusFilterDropdown({ selectedStatus, onSelect, orders }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const counts = {};
+  ALL_STATUSES.forEach(s => {
+    counts[s] = orders.filter(o => o.status === s).length;
+  });
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        aria-label="Filter by exact status"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(v => !v)}
+        className={`
+          w-9 h-9 rounded-xl border flex items-center justify-center transition-colors shadow-sm
+          ${selectedStatus
+            ? "bg-[#6b493d] border-[#6b493d] text-white"
+            : "border-stone-200 bg-white text-stone-500 hover:bg-stone-50"
+          }
+        `}
+      >
+        <Filter size={15} />
+      </button>
+
+      {isOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-xl border border-stone-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          <p className="px-4 pb-1.5 pt-1 text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+            Filter by status
+          </p>
+
+          <button
+            role="menuitem"
+            onClick={() => { onSelect(null); setIsOpen(false); }}
+            className={`
+              w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-colors
+              ${!selectedStatus ? "text-[#6b493d] bg-[#6b493d]/5" : "text-stone-600 hover:bg-stone-50"}
+            `}
+          >
+            All statuses
+            {!selectedStatus && <Check size={13} />}
+          </button>
+
+          {ALL_STATUSES.map(status => {
+            const cfg = STATUS_CONFIG[status];
+            const isActive = selectedStatus === status;
+            return (
+              <button
+                key={status}
+                role="menuitem"
+                onClick={() => { onSelect(status); setIsOpen(false); }}
+                className={`
+                  w-full flex items-center justify-between px-4 py-2 text-sm font-medium transition-colors
+                  ${isActive ? "bg-[#6b493d]/5" : "hover:bg-stone-50"}
+                `}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                  <span className={isActive ? "text-[#6b493d]" : "text-stone-600"}>{status}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-stone-400">{counts[status]}</span>
+                  {isActive && <Check size={13} className="text-[#6b493d]" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 const isRecentlyCancelled = (order) => {
   if (order.status !== 'Cancelled') return false;
   const cancelledEntry = order.statusHistory?.find(h => h.status === 'Cancelled');
@@ -993,8 +1096,11 @@ function EmptyState({ filter }) {
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export default function MyOrdersPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [activeFilter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast, showToast, dismissToast } = useToast();
 
@@ -1100,6 +1206,7 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
+    if (statusFilter && o.status !== statusFilter) return false;
     if (activeFilter === "all") return o.status !== "Cancelled" || isRecentlyCancelled(o);
     if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
     if (activeFilter === "delivered") return o.status === "Delivered";
@@ -1122,12 +1229,11 @@ export default function MyOrdersPage() {
                 {orders.length} order{orders.length !== 1 ? "s" : ""} across all time
               </p>
             </div>
-            <button
-              aria-label="Filter options"
-              className="w-9 h-9 rounded-xl border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:bg-stone-50 shadow-sm transition-colors"
-            >
-              <Filter size={15} />
-            </button>
+            <StatusFilterDropdown
+  selectedStatus={statusFilter}
+  onSelect={setStatusFilter}
+  orders={orders}
+/>
           </div>
         </header>
 
@@ -1166,13 +1272,16 @@ export default function MyOrdersPage() {
         </main>
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Footer note Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        <footer className="mt-10 text-center">
-          <p className="text-[10px] text-stone-300">
+        <footer className="mt-12 text-center pb-8">
+          <span className="text-sm text-stone-400">
             Questions about your order?{" "}
-            <button className="text-[#6b493d] font-semibold hover:underline">
+            <span
+              onClick={() => navigate('/contactus', { state: { name: user?.username, email: user?.email } })}
+              className="font-bold text-stone-600 hover:text-stone-900 cursor-pointer transition-colors"
+            >
               Reach out to us
-            </button>
-          </p>
+            </span>
+          </span>
         </footer>
       </div>
 

@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FaPaw, FaHeart, FaHandsHelping } from 'react-icons/fa';
 import ContactCat from '../assets/CAT-CU.png';
 import { API_BASE_URL } from '../config';
 
 const ContactUs = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const location = useLocation();
+  const prefill = location.state || {};
+  const [formData, setFormData] = useState({
+    name: prefill.name || '',
+    email: prefill.email || '',
+    message: '',
+  });
   const [errors, setErrors] = useState({ email: '' });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

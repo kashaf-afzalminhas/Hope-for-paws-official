@@ -301,13 +301,17 @@ function OrderDetailPanel({ order }) {
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-3 border border-stone-100 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
-                    {item.image ? (
-                       <img src={item.image} alt={item.title} className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                       <Package size={14} className="text-[#6b493d]" />
-                    )}
-                  </div>
+                 <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
+  {item.image ? (
+     <img 
+       src={item.image.startsWith('http') ? item.image : `http://localhost:3000${item.image}`} 
+       alt={item.title} 
+       className="w-full h-full object-cover rounded-lg" 
+     />
+  ) : (
+     <Package size={14} className="text-[#6b493d]" />
+  )}
+</div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-stone-800 truncate">{item.title}</p>
                     <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0,8) || "N/A"} · Qty: {item.quantity}</p>
@@ -390,10 +394,126 @@ function OrderRow({ order, onStatusChange, addToast }) {
   const customerName = order.shippingAddress?.fullName || 'Guest';
   const color = avatarColor(customerName);
   const initials = customerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+const handlePrint = useCallback(() => {
+  const subtotal = order.totals?.subtotal ?? order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const shippingFee = order.totals?.shippingFee ?? 0;
+  const finalTotal = order.totals?.finalTotal ?? (subtotal + shippingFee);
 
-  const handlePrint = useCallback(() => {
-    addToast(`Printing label for ${order.orderId || order._id}…`, "info");
-  }, [order, addToast]);
+  const itemsHtml = order.items.map(item => `
+    <tr>
+      <td style="padding:10px 0; border-bottom:1px solid #eee;">
+        <div style="font-weight:600; color:#292524;">${item.title}</div>
+        <div style="font-size:12px; color:#78716c; margin-top:2px;">
+          SKU: ${item.productId?.toString().substring(0,8) || "N/A"} · Qty: ${item.quantity}
+        </div>
+      </td>
+      <td style="padding:10px 0; border-bottom:1px solid #eee; text-align:right; font-weight:600; color:#292524;">
+        Rs ${(item.price * item.quantity).toLocaleString()}
+      </td>
+    </tr>
+  `).join('');
+
+  const receiptHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Receipt - ${order.orderId || order._id}</title>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+          margin: 0;
+          padding: 40px;
+          background: #f8f6f4;
+          color: #292524;
+        }
+        .receipt {
+          max-width: 600px;
+          margin: 0 auto;
+          background: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .header {
+          background: #6b493d;
+          color: #fff;
+          padding: 28px 32px;
+          text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+        .header p { margin: 4px 0 0; font-size: 12px; opacity: 0.85; }
+        .body { padding: 28px 32px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #a8a29e; margin-bottom: 6px; }
+        .meta-grid { display: flex; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #e7e5e4; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .totals-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+        .totals-row.final { font-weight: 700; font-size: 16px; border-top: 1px solid #e7e5e4; margin-top: 8px; padding-top: 10px; }
+        .ship-box { background: #f8f6f4; border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+        .footer { text-align: center; padding: 20px; font-size: 11px; color: #a8a29e; border-top: 1px solid #f0ede9; }
+        .print-btn {
+          display: block; margin: 20px auto; padding: 12px 28px;
+          background: #6b493d; color: #fff; border: none; border-radius: 10px;
+          font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        @media print {
+          body { background: #fff; padding: 0; }
+          .receipt { box-shadow: none; border-radius: 0; }
+          .print-btn { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <button class="print-btn" onclick="window.print()">🖨 Print Receipt</button>
+      <div class="receipt">
+        <div class="header">
+          <h1>HopeForPaws</h1>
+          <p>Order Receipt</p>
+        </div>
+        <div class="body">
+          <div class="meta-grid">
+            <div>
+              <div class="label">Order ID</div>
+              <div style="font-weight:700;">${order.orderId || order._id}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="label">Date</div>
+              <div>${new Date(order.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+          </div>
+
+          <div class="label">Items</div>
+          <table>${itemsHtml}</table>
+
+          <div class="totals-row"><span>Subtotal</span><span>Rs ${subtotal.toLocaleString()}</span></div>
+          <div class="totals-row"><span>Shipping</span><span>Rs ${shippingFee.toLocaleString()}</span></div>
+          <div class="totals-row final"><span>ORDER TOTAL</span><span>Rs ${finalTotal.toLocaleString()}</span></div>
+
+          <div class="label" style="margin-top:24px;">Ship To</div>
+          <div class="ship-box">
+            <div style="font-weight:600;">${order.shippingAddress?.fullName || 'Guest'}</div>
+            <div style="font-size:13px; color:#78716c; margin-top:4px;">
+              ${order.shippingAddress?.street || ''}<br/>
+              ${order.shippingAddress?.city || ''}, ${order.shippingAddress?.province || ''} ${order.shippingAddress?.postalCode || ''}
+            </div>
+          </div>
+        </div>
+        <div class="footer">Thank you for shopping with HopeForPaws 🐾</div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=700,height=900');
+  if (printWindow) {
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+  } else {
+    addToast("Please allow pop-ups to print receipts.", "error");
+  }
+}, [order, addToast]);
 
   const d = new Date(order.createdAt || Date.now());
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
