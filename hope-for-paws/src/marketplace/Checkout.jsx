@@ -48,6 +48,7 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [errors, setErrors] = useState({});
 
   const addToast = useCallback((type, message) => {
     const id = Date.now() + Math.random();
@@ -72,13 +73,34 @@ export default function Checkout() {
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
+    setErrors({});
+    const newErrors = {};
+
     if (items.length === 0) {
       addToast('error', 'Your cart is empty');
       return;
     }
     
-    if (!contact.email || !shippingAddress.fullName || !shippingAddress.street) {
-      addToast('error', 'Please fill in all required contact and shipping fields.');
+    // Contact Validation
+    if (!contact.email.trim()) {
+      newErrors.email = 'Email address is required.';
+    }
+
+    const phoneRegex = /^(0[0-9]{10}|\+92[0-9]{10})$/;
+    if (!contact.phone || !phoneRegex.test(contact.phone.trim())) {
+      newErrors.phone = 'Please enter a valid phone number (e.g., 03001234567 or +923001234567).';
+    }
+
+    // Shipping Validation
+    if (!shippingAddress.fullName.trim()) {
+      newErrors.fullName = 'Full name is required.';
+    }
+    if (!shippingAddress.street.trim()) {
+      newErrors.street = 'Street address is required.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -164,32 +186,45 @@ export default function Checkout() {
       {/* Left Column: Forms */ }
       < div className = "space-y-6" >
 
-        {/* Contact Section */ }
-        < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
-            <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address</label>
-                <input 
-                  type="email" 
-                  value={contact.email}
-                  onChange={(e) => setContact({...contact, email: e.target.value})}
-                  placeholder="you@example.com"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number</label>
-                <input 
-                  type="tel" 
-                  value={contact.phone}
-                  onChange={(e) => setContact({...contact, phone: e.target.value})}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-            </div>
-          </section >
+          {/* Contact Section */}
+  <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]">
+    <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div>
+        <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address</label>
+        <input 
+          type="email" 
+          value={contact.email}
+          onChange={(e) => {
+            setContact({...contact, email: e.target.value});
+            if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+          }}
+          placeholder="you@example.com"
+          className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+            errors.email ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+          }`}
+        />
+        {errors.email && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.email}</p>}
+      </div>
+      <div>
+        <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number</label>
+        <input 
+          type="tel" 
+          value={contact.phone}
+          maxLength={13}
+          onChange={(e) => {
+            setContact({ ...contact, phone: e.target.value });
+            if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+          }}
+          placeholder="03001234567 or +923001234567"
+          className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+            errors.phone ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+          }`}
+        />
+        {errors.phone && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.phone}</p>}
+      </div>
+    </div>
+  </section>
 
     {/* Delivery Address Section */ }
     < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
@@ -200,20 +235,32 @@ export default function Checkout() {
                 <input 
                   type="text" 
                   value={shippingAddress.fullName}
-                  onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
+                  onChange={(e) => {
+                    setShippingAddress({...shippingAddress, fullName: e.target.value});
+                    if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
+                  }}
                   placeholder="John Doe"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                    errors.fullName ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+                  }`}
                 />
+                {errors.fullName && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.fullName}</p>}
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address</label>
                 <input 
                   type="text" 
                   value={shippingAddress.street}
-                  onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
+                  onChange={(e) => {
+                    setShippingAddress({...shippingAddress, street: e.target.value});
+                    if (errors.street) setErrors(prev => ({ ...prev, street: '' }));
+                  }}
                   placeholder="123 Main St, Apt 4B"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                    errors.street ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+                  }`}
                 />
+                {errors.street && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.street}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div>
