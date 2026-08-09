@@ -428,7 +428,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => (
-                      <tr key={product._id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={product._id} className={`transition-colors ${product.countInStock <= 0 ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50/50'}`}>
                         <td className="p-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -463,7 +463,8 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           )}
                         </td>
                         <td className="p-4">
-                          <span className={`text-sm ${product.countInStock <= 5 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                          <span className={`flex items-center gap-1.5 text-sm ${product.countInStock <= 0 ? 'text-red-600 font-bold' : product.countInStock <= 5 ? 'text-orange-500 font-medium' : 'text-gray-500'}`}>
+                            {product.countInStock <= 0 && <AlertCircle className="w-4 h-4 text-red-500" />}
                             {product.countInStock}
                           </span>
                         </td>

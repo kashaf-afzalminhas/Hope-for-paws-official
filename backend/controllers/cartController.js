@@ -70,10 +70,12 @@ exports.addToCart = async (req, res) => {
       (item) => item.productId.toString() === productId
     );
 
+    const numericQuantity = Number(quantity);
+
     if (existingIndex > -1) {
       // Increment quantity
-      const newQty = cart.items[existingIndex].quantity + quantity;
-      if (newQty > product.countInStock) {
+      const newQty = cart.items[existingIndex].quantity + numericQuantity;
+      if (newQty > Number(product.countInStock)) {
         return res.status(400).json({
           message: `Only ${product.countInStock} units available`,
         });
@@ -81,12 +83,12 @@ exports.addToCart = async (req, res) => {
       cart.items[existingIndex].quantity = newQty;
     } else {
       // Add new item
-      if (quantity > product.countInStock) {
+      if (numericQuantity > Number(product.countInStock)) {
         return res.status(400).json({
           message: `Only ${product.countInStock} units available`,
         });
       }
-      cart.items.push({ productId, quantity });
+      cart.items.push({ productId, quantity: numericQuantity });
     }
 
     await cart.save();
@@ -109,7 +111,9 @@ exports.updateQuantity = async (req, res) => {
       return res.status(400).json({ message: 'productId and quantity are required' });
     }
 
-    if (quantity < 1) {
+    const numericQuantity = Number(quantity);
+
+    if (numericQuantity < 1) {
       return res.status(400).json({ message: 'Quantity must be at least 1' });
     }
 
@@ -118,7 +122,7 @@ exports.updateQuantity = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    if (quantity > product.countInStock) {
+    if (numericQuantity > Number(product.countInStock)) {
       return res.status(400).json({
         message: `Only ${product.countInStock} units available`,
       });
@@ -126,7 +130,7 @@ exports.updateQuantity = async (req, res) => {
 
     const cart = await Cart.findOneAndUpdate(
       { userId: req.user.userId, 'items.productId': productId },
-      { $set: { 'items.$.quantity': quantity } },
+      { $set: { 'items.$.quantity': numericQuantity } },
       { new: true } // Return updated document without populating
     );
 

@@ -3,8 +3,9 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const Cart = require('../models/Cart');
-const User = require('../models/User');           
+const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
+const NotificationService = require('../services/notificationService');
 // ------------------------------------------------------------------
 // BUYER CONTROLLERS
 // ------------------------------------------------------------------
@@ -23,10 +24,10 @@ exports.createOrder = async (req, res) => {
     for (const item of items) {
       const productId = item.productId || item.product?._id;
       if (!productId) continue;
-      
+
       const product = await Product.findById(productId);
       if (!product) continue;
-      
+
       const sellerId = product.sellerId.toString();
 
       if (!itemsBySeller[sellerId]) {
@@ -51,7 +52,7 @@ exports.createOrder = async (req, res) => {
     }
 
     const ordersToCreate = [];
-    
+
     // Reserved for future seller shipping fee logic.
     // Do not include in finalTotal calculation.
     const sellerShippingFee = 15;
@@ -64,7 +65,7 @@ exports.createOrder = async (req, res) => {
 
       const shippingFee = SHIPPING_FEE;
       const finalTotal = subtotal + shippingFee;
-      
+
       ordersToCreate.push({
         buyerId,
         sellerId,
@@ -85,19 +86,67 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Invalid products in order' });
     }
 
-   const createdOrders = await Order.insertMany(ordersToCreate);
+    const createdOrders = await Order.insertMany(ordersToCreate);
 
-// Empty the user's cart
-await Cart.findOneAndUpdate(
-  { userId: buyerId },
-  { $set: { items: [] } }
-);
+    // ------------------------------------------------------------------
+    // Deduct stock for each purchased item
+    // ------------------------------------------------------------------
+    const stockUpdates = [];
+    for (const sellerItems of Object.values(itemsBySeller)) {
+      for (const item of sellerItems) {
+        stockUpdates.push({
+          updateOne: {
+            filter: { _id: item.productId },
+            update: { $inc: { countInStock: -item.quantity } }
+          }
+        });
+      }
+    }
 
-// Send order confirmation email (HTML styled, matching Hope for Paws branding)
-try {
-  const buyer = await User.findById(buyerId).select('email username');
-  if (buyer?.email) {
-   const orderItemsHtml = createdOrders.map(o => `
+    if (stockUpdates.length > 0) {
+      await Product.bulkWrite(stockUpdates);
+
+      // Find any products that hit 0 stock to notify sellers
+      const updatedProductIds = stockUpdates.map(op => op.updateOne.filter._id);
+      const outOfStockProducts = await Product.find({ _id: { $in: updatedProductIds }, countInStock: { $lte: 0 } });
+      
+      if (outOfStockProducts.length > 0) {
+        await Product.updateMany(
+          { _id: { $in: outOfStockProducts.map(p => p._id) } },
+          { $set: { countInStock: 0 } }
+        );
+
+        const notificationService = global.notificationService || new NotificationService();
+        for (const product of outOfStockProducts) {
+          try {
+            const seller = await Seller.findById(product.sellerId);
+            if (seller && seller.userId) {
+              await notificationService.createNotification({
+                recipient: seller.userId,
+                type: 'out_of_stock',
+                title: 'Product Out of Stock',
+                message: `Your product "${product.title}" is out of stock.`,
+                data: { productId: product._id }
+              });
+            }
+          } catch (err) {
+            console.error('Failed to send out of stock notification:', err);
+          }
+        }
+      }
+    }
+
+    // Empty the user's cart
+    await Cart.findOneAndUpdate(
+      { userId: buyerId },
+      { $set: { items: [] } }
+    );
+
+    // Send order confirmation email (HTML styled, matching Hope for Paws branding)
+    try {
+      const buyer = await User.findById(buyerId).select('email username');
+      if (buyer?.email) {
+        const orderItemsHtml = createdOrders.map(o => `
       <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
         <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${o.orderId}</p>
         <p style="margin: 0 0 4px 0; color: #333;">Total: Rs. ${o.totals.finalTotal}</p>
@@ -105,7 +154,7 @@ try {
       </div>
     `).join('');
 
-    const html = `
+        const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
         <div style="background-color: #6b493d; padding: 20px; text-align: center;">
           <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
@@ -128,18 +177,18 @@ try {
       </div>
     `;
 
-    await sendEmail(
-      buyer.email,
-      'Order Confirmation - Hope For Paws',
-      `Hi ${buyer.username || 'there'}, thank you for your order! We'll notify you when your order status updates.`,
-      html
-    );
-  }
-} catch (emailError) {
-  console.error('Failed to send order confirmation email:', emailError);
-}
+        await sendEmail(
+          buyer.email,
+          'Order Confirmation - Hope For Paws',
+          `Hi ${buyer.username || 'there'}, thank you for your order! We'll notify you when your order status updates.`,
+          html
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order confirmation email:', emailError);
+    }
 
-res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
+    res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
   } catch (error) {
     console.error('createOrder error:', error);
     res.status(500).json({ message: 'Failed to place order', error: error.message });
@@ -163,27 +212,27 @@ exports.cancelOrder = async (req, res) => {
   try {
     const { id } = req.params;
     const buyerId = req.user?.id || req.user?.userId;
-    
+
     const order = await Order.findOne({ _id: id, buyerId });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    
+
     if (order.status !== 'Pending') {
       return res.status(400).json({ message: 'Only Pending orders can be cancelled' });
     }
-    
+
     order.status = 'Cancelled';
     order.statusHistory.push({
       status: 'Cancelled',
       note: 'Cancelled by buyer'
     });
-    
+
     await order.save();
 
-   // Send order cancellation email (HTML styled)
-try {
-  const buyer = await User.findById(buyerId).select('email username');
-  if (buyer?.email) {
-    const html = `
+    // Send order cancellation email (HTML styled)
+    try {
+      const buyer = await User.findById(buyerId).select('email username');
+      if (buyer?.email) {
+        const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
         <div style="background-color: #6b493d; padding: 20px; text-align: center;">
           <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
@@ -209,16 +258,16 @@ try {
       </div>
     `;
 
-    await sendEmail(
-      buyer.email,
-      'Order Cancelled - Hope For Paws',
-      `Hi ${buyer.username || 'there'}, your order (Order ID: ${order._id}) has been cancelled successfully.`,
-      html
-    );
-  }
-} catch (emailError) {
-  console.error('Failed to send order cancellation email:', emailError);
-}
+        await sendEmail(
+          buyer.email,
+          'Order Cancelled - Hope For Paws',
+          `Hi ${buyer.username || 'there'}, your order (Order ID: ${order._id}) has been cancelled successfully.`,
+          html
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order cancellation email:', emailError);
+    }
 
     res.json({ success: true, order, message: 'Order cancelled successfully' });
   } catch (error) {
@@ -236,12 +285,12 @@ exports.getSellerOrders = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId;
     const seller = await Seller.findOne({ userId });
-    
+
     const queryConditions = [{ sellerId: userId }];
     if (seller) {
       queryConditions.push({ sellerId: seller._id });
     }
-    
+
     const orders = await Order.find({ $or: queryConditions }).sort({ createdAt: -1 });
 
     if (!orders || orders.length === 0) {
@@ -268,9 +317,9 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Security Check 1: Ensure ownership
     const seller = await Seller.findOne({ userId });
-    const isOwner = order.sellerId.toString() === userId || 
-                    (seller && order.sellerId.toString() === seller._id.toString());
-                    
+    const isOwner = order.sellerId.toString() === userId ||
+      (seller && order.sellerId.toString() === seller._id.toString());
+
     if (!isOwner) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
@@ -334,7 +383,7 @@ exports.updateOrderStatus = async (req, res) => {
     } catch (emailError) {
       console.error('Failed to send order status update email:', emailError);
     }
-    
+
     res.json(order);
   } catch (error) {
     console.error('Error updating order:', error);
@@ -354,10 +403,10 @@ exports.getDashboardStats = async (req, res) => {
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= 5).length;
 
     const sellerId = seller._id;
-    
+
     const statsAgg = await Order.aggregate([
       { $match: { sellerId: sellerId } },
-      { 
+      {
         $group: {
           _id: null,
           totalOrders: { $sum: 1 },

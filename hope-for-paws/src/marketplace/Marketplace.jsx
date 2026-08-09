@@ -285,9 +285,9 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                     <Plus size={13}/>
                   </button>
                 </div>
-                <button onClick={() => onCart(p.id)} className="btn-press"
-                  style={{ flex:1, height:42, borderRadius:12, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brown:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7, transition:"all 0.22s" }}>
-                  {inCart ? <><Check size={14}/> In Cart</> : <><ShoppingCart size={14}/> Add to Cart — Rs {p.price * qty}</>}
+                <button onClick={() => { if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+                  style={{ flex:1, height:42, borderRadius:12, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brown:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontWeight:700, fontSize:13, cursor:p.stock <= 0 ? "not-allowed" : "pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7, transition:"all 0.22s" }}>
+                  {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={14}/> In Cart</> : <><ShoppingCart size={14}/> Add to Cart — Rs {p.price * qty}</>}
                 </button>
                 <button onClick={() => onFav(p.id)} className="btn-press"
                   style={{ width:42, height:42, borderRadius:12, backgroundColor:isFav?C.brown:C.white, border:`1.5px solid ${isFav?C.brown:C.border}`, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.22s", flexShrink:0 }}>
@@ -801,6 +801,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
             style={{ width:"100%", height:"100%", objectFit:"cover", display:imgOk?"block":"none" }}
           />
           {discount && <span style={{ position:"absolute", top:6, left:6, padding:"2px 6px", borderRadius:999, backgroundColor:"#B03A2E", color:C.white, fontSize:8.5, fontWeight:800 }}>-{discount}%</span>}
+          {p.stock <= 0 && <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}><span style={{ padding:"4px 8px", backgroundColor:"#B03A2E", color:C.white, borderRadius:6, fontSize:10, fontWeight:800, textTransform:"uppercase" }}>Out of Stock</span></div>}
         </div>
         <div style={{ flex:1, padding:"12px 14px", display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
           <div style={{ flex:1, minWidth:0 }}>
@@ -824,9 +825,9 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
                 style={{ width:32, height:32, borderRadius:10, backgroundColor:isFav?C.brown:C.white, border:`1.5px solid ${isFav?C.brown:C.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s" }}>
                 <Heart size={12} style={{ color:isFav?C.white:C.brownSoft, fill:isFav?C.white:"none" }}/>
               </button>
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCart(p.id); }} className="btn-press"
-                style={{ height:32, padding:"0 13px", borderRadius:10, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brownMid:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:5 }}>
-                {inCart ? <><Check size={11}/> Added</> : <><ShoppingCart size={11}/> Add</>}
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+                style={{ height:32, padding:"0 13px", borderRadius:10, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brownMid:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontSize:11, fontWeight:700, cursor:p.stock <= 0 ? "not-allowed" : "pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:5 }}>
+                {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={11}/> Added</> : <><ShoppingCart size={11}/> Add</>}
               </button>
             </div>
           </div>
@@ -846,12 +847,18 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
           style={{ width:"100%", height:"100%", objectFit:"cover", display:imgOk?"block":"none" }}
         />
 
-        <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(30,15,5,0.28)", display:"flex", alignItems:"center", justifyContent:"center", opacity:hovering?1:0, transition:"opacity 0.22s" }}>
+        <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(30,15,5,0.28)", display:"flex", alignItems:"center", justifyContent:"center", opacity:hovering?1:0, transition:"opacity 0.22s", zIndex:3 }}>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onQuickView(p); }} className="btn-press"
             style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", backgroundColor:"rgba(255,255,255,0.95)", borderRadius:999, border:"none", color:C.brown, fontSize:12, fontWeight:700, cursor:"pointer" }}>
             <Eye size={13}/> Quick View
           </button>
         </div>
+
+        {p.stock <= 0 && (
+          <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>
+            <span style={{ padding:"6px 12px", backgroundColor:"#B03A2E", color:C.white, borderRadius:8, fontSize:12, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.05em", boxShadow:`0 4px 12px rgba(176,58,46,0.3)` }}>Out of Stock</span>
+          </div>
+        )}
 
         <div style={{ position:"absolute", top:10, left:10, display:"flex", flexDirection:"column", gap:5, pointerEvents:"none" }}>
           {p.isNew    && <span className="tag-pill" style={{ backgroundColor:C.brown,    color:C.white }}>New</span>}
@@ -880,9 +887,9 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
             <p style={{ fontSize:19, fontWeight:800, color:C.brown, margin:0, lineHeight:1 }}>Rs {p.price}</p>
             {p.originalPrice && <p style={{ fontSize:10, color:C.brownSoft, textDecoration:"line-through", margin:0 }}>Rs {p.originalPrice}</p>}
           </div>
-          <button onClick={e => { e.preventDefault(); e.stopPropagation(); onCart(p.id); }} className="btn-press"
-            style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:999, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brownMid:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.22s" }}>
-            {inCart ? <><Check size={11}/> Added</> : <><Plus size={11}/> Cart</>}
+          <button onClick={e => { e.preventDefault(); e.stopPropagation(); if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:999, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brownMid:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontSize:11, fontWeight:700, cursor:p.stock <= 0 ? "not-allowed" : "pointer", transition:"all 0.22s" }}>
+            {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={11}/> Added</> : <><Plus size={11}/> Cart</>}
           </button>
         </div>
       </div>
@@ -1004,6 +1011,7 @@ export default function Marketplace() {
             reviews: p.numReviews || 0,
             pop: p.pop || Math.floor(Math.random() * 10000),
             isNew: p.isNew || Math.random() > 0.7,
+            stock: p.countInStock || 0,
           };
         });
         

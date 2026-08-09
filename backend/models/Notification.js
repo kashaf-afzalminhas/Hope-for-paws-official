@@ -20,7 +20,8 @@ const notificationSchema = new mongoose.Schema({
       'adoption_request_accepted',
       'adoption_request_rejected',
       'new_post_vet_notification',
-      'chat_message'
+      'chat_message',
+      'out_of_stock'
     ],
     required: true
   },
