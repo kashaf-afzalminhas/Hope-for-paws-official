@@ -48,6 +48,7 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const addToast = useCallback((type, message) => {
     const id = Date.now() + Math.random();
@@ -76,11 +77,35 @@ export default function Checkout() {
       addToast('error', 'Your cart is empty');
       return;
     }
-    
-    if (!contact.email || !shippingAddress.fullName || !shippingAddress.street) {
-      addToast('error', 'Please fill in all required contact and shipping fields.');
+
+    // Strict validation for phone and delivery address
+    const errors = {};
+    if (!contact.phone || !contact.phone.trim()) {
+      errors.phone = 'Phone number is required to complete your order.';
+    }
+    if (!shippingAddress.street || !shippingAddress.street.trim()) {
+      errors.street = 'Delivery address is required to complete your order.';
+    }
+    if (!contact.email || !contact.email.trim()) {
+      errors.email = 'Email address is required.';
+    }
+    if (!shippingAddress.fullName || !shippingAddress.fullName.trim()) {
+      errors.fullName = 'Full name is required.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      // Build a specific toast message listing missing fields
+      const missing = [];
+      if (errors.phone) missing.push('Phone Number');
+      if (errors.street) missing.push('Delivery Address');
+      if (errors.email) missing.push('Email');
+      if (errors.fullName) missing.push('Full Name');
+      addToast('error', `Please fill in: ${missing.join(', ')}`);
       return;
     }
+
+    setFieldErrors({});
 
     setIsSubmitting(true);
     try {
@@ -169,24 +194,26 @@ export default function Checkout() {
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address <span className="text-red-400">*</span></label>
                 <input 
                   type="email" 
                   value={contact.email}
-                  onChange={(e) => setContact({...contact, email: e.target.value})}
+                  onChange={(e) => { setContact({...contact, email: e.target.value}); setFieldErrors(prev => ({ ...prev, email: undefined })); }}
                   placeholder="you@example.com"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.email && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.email}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number <span className="text-red-400">*</span></label>
                 <input 
                   type="tel" 
                   value={contact.phone}
-                  onChange={(e) => setContact({...contact, phone: e.target.value})}
+                  onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
                   placeholder="+1 (555) 000-0000"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.phone && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.phone}</p>}
               </div>
             </div>
           </section >
@@ -196,24 +223,26 @@ export default function Checkout() {
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Delivery Address</h2>
             <div className="space-y-5">
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Full Name</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Full Name <span className="text-red-400">*</span></label>
                 <input 
                   type="text" 
                   value={shippingAddress.fullName}
-                  onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
+                  onChange={(e) => { setShippingAddress({...shippingAddress, fullName: e.target.value}); setFieldErrors(prev => ({ ...prev, fullName: undefined })); }}
                   placeholder="John Doe"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.fullName ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.fullName && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.fullName}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address <span className="text-red-400">*</span></label>
                 <input 
                   type="text" 
                   value={shippingAddress.street}
-                  onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
+                  onChange={(e) => { setShippingAddress({...shippingAddress, street: e.target.value}); setFieldErrors(prev => ({ ...prev, street: undefined })); }}
                   placeholder="123 Main St, Apt 4B"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.street ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.street && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.street}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div>
