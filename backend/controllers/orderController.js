@@ -23,13 +23,13 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
 
-    // Validates 10-digit phone number (or full +92 / 03 starting format if passed combined)
-    const phoneRegex = /^(\+92|0)?[0-9]{10}$/;
+    // Validates international phone numbers (+ followed by 7 to 15 digits) or local 10-digit format
+    const phoneRegex = /^(\+[1-9]\d{6,14}|0?\d{10})$/;
     const phone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
 
     if (!phone || !phoneRegex.test(phone)) {
       return res.status(400).json({ 
-        message: 'Please enter a valid 10-digit phone number.' 
+        message: 'Please enter a valid phone number.' 
       });
     }
     // ──────────────────────────────────────────────────────────────────
