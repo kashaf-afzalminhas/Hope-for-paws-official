@@ -18,21 +18,21 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order' });
     }
 
-    // ── Phone & Address Validation ──────────────────────────────
-    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street) {
+    // ── Phone, City & Address Validation ─────────────────────────────
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city) {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
 
-    // Accepts either 11 digits starting with 0 OR +92 followed by 10 digits 
-    const phoneRegex = /^(0[0-9]{10}|\+92[0-9]{10})$/;
+    // Validates 10-digit phone number (or full +92 / 03 starting format if passed combined)
+    const phoneRegex = /^(\+92|0)?[0-9]{10}$/;
     const phone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
 
     if (!phone || !phoneRegex.test(phone)) {
       return res.status(400).json({ 
-        message: 'Please enter a valid phone number (e.g., 03001234567 or +923001234567).' 
+        message: 'Please enter a valid 10-digit phone number.' 
       });
     }
-    // ─────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     // Group items by sellerId
     const itemsBySeller = {};
