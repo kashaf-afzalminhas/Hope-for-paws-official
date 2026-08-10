@@ -19,6 +19,17 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order' });
     }
 
+    // Strict validation: phone number and delivery address are mandatory
+    const phone = shippingAddress?.phone;
+    const street = shippingAddress?.street;
+
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({ message: 'Phone number is required to complete your order.' });
+    }
+    if (!street || !String(street).trim()) {
+      return res.status(400).json({ message: 'Delivery address is required to complete your order.' });
+    }
+
     // Group items by sellerId
     const itemsBySeller = {};
     for (const item of items) {
