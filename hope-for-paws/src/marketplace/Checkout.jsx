@@ -68,8 +68,9 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = SHIPPING_FEE;
-  const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
+const freeThreshold = 5000;
+const shippingFee = items.length > 0 && cartTotal < freeThreshold ? SHIPPING_FEE : 0;
+const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
