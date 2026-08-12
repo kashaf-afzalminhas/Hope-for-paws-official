@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import React, { useState, useCallback, useEffect, useRef, useMemo, Fragment } from "react";
 import {
   Package,
@@ -842,6 +843,8 @@ function EmptyState({ filter, query }) {
 export default function SellerOrderDashboard({ embedded = false }) {
   useGlobalStyles();
 
+  const navigate = useNavigate();
+  
   const [orders, setOrders]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [activeFilter, setFilter] = useState("All");
@@ -954,15 +957,16 @@ export default function SellerOrderDashboard({ embedded = false }) {
               </p>
             </div>
 
-            <button
-              aria-label="View revenue analytics"
-              className="inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#5a3c32] hover:shadow-md"
-            >
-              <TrendingUp size={16} />
-              Analytics
-              <ArrowUpRight size={14} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/seller/analytics')}
+            aria-label="View revenue analytics"
+            className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#5a3c32] active:scale-95 transition-all shadow-md hover:shadow-lg"
+          >
+            <TrendingUp size={16} />
+            Analytics
+            <ArrowUpRight size={14} />
+          </button>
         </header>
 
         {/*  Stat cards */}
