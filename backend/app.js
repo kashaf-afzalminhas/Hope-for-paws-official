@@ -96,6 +96,7 @@ const io = new Server(server, {
 
 // Initialize notification service
 const notificationService = new NotificationService(io);
+notificationService.scheduleDailyDigestJob();
 
 // Attach Socket.IO instance to Express app so it can be accessed in controllers
 app.set("socketio", io);

@@ -107,7 +107,7 @@ function QuantitySelector({ qty, onChange, max }) {
   );
 }
 
-function SellerCard({ seller }) {
+function SellerCard({ seller, navigate }) {
   return (
     <div className="rounded-2xl p-4 sm:p-5 border" style={{ backgroundColor: BRAND.light, borderColor: BRAND.softBorder }}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -130,12 +130,18 @@ function SellerCard({ seller }) {
           </div>
         </div>
         <button
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors duration-150 hover:bg-white flex-shrink-0"
-          style={{ borderColor: BRAND.softBorder, color: BRAND.dark }}
-        >
-          <Store size={13} />
-          View Store
-        </button>
+  onClick={() => {
+    if (seller.userId) {
+      navigate(`/profile/public/${seller.userId}`);
+    }
+  }}
+  disabled={!seller.userId}
+  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors duration-150 hover:bg-white flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+  style={{ borderColor: BRAND.softBorder, color: BRAND.dark }}
+>
+  <Store size={13} />
+  View Store
+</button>
       </div>
 
       <div
@@ -288,11 +294,12 @@ export default function ProductDetails() {
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {
-            name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
-            rating: 4.9,
-            totalSales: "1.2k",
-            verified: data.sellerId?.isVerified || false,
-          },
+  name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
+  rating: 4.9,
+  totalSales: "1.2k",
+  verified: data.sellerId?.isVerified || false,
+  userId: data.sellerId?.userId || data.sellerId?._id || null,
+},
           tags: [data.category, "Premium"],
           description: data.description || "No description provided.",
           ingredients: data.ingredients || "Not specified.",
@@ -718,8 +725,8 @@ export default function ProductDetails() {
             {/* Trust strip */}
             <TrustStrip />
 
-            {/* Seller card */}
-            <SellerCard seller={PRODUCT.seller} />
+           {/* Seller card */}
+<SellerCard seller={PRODUCT.seller} navigate={navigate} />
 
           </div>
         </div>

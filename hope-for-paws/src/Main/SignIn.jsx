@@ -15,6 +15,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [fieldError, setFieldError] = useState(false);
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
@@ -48,6 +49,7 @@ const Login = () => {
     event.preventDefault();
     setLoading(true);
     setError('');
+    setFieldError(false);
 
     try {
       const response = await fetch(`${AUTH_BASE_URL}/signin`, {
@@ -96,11 +98,14 @@ const Login = () => {
           }
           window.location.reload();
         } else {
+          setLoading(false);
           setError('Login failed: No token received.');
         }
       } else {
         const data = await response.json();
+        setLoading(false);
         setError(data.error || 'Invalid email or password');
+        setFieldError(true);
       }
     } catch {
       setLoading(false);
@@ -320,8 +325,12 @@ const Login = () => {
                     autoComplete="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
+                    onChange={(e) => { setEmail(e.target.value); setFieldError(false); }}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm transition-colors text-[#4E3B31] ${
+                      fieldError
+                        ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                        : 'border-[#a07855] focus:ring-[#6b493d] focus:border-transparent'
+                    }`}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -336,8 +345,12 @@ const Login = () => {
                       autoComplete="current-password"
                       required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2 pr-10 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
+                      onChange={(e) => { setPassword(e.target.value); setFieldError(false); }}
+                      className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 text-sm transition-colors text-[#4E3B31] ${
+                        fieldError
+                          ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                          : 'border-[#a07855] focus:ring-[#6b493d] focus:border-transparent'
+                      }`}
                       placeholder="Enter your password"
                     />
                     <button

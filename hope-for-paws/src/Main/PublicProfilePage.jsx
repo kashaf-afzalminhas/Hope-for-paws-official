@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
 // import { FaUserCircle, FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment } from 'react-icons/fa';
 import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAlt,FaPaw, FaNewspaper } from 'react-icons/fa';
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
@@ -11,6 +11,7 @@ import { adoptionGridClass } from '../components/adoption/adoptionTheme';
 
 const PublicProfilePage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

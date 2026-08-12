@@ -102,6 +102,21 @@ const userSchema = new mongoose.Schema(
     sellerSince: {
       type: Date
     },
+    notificationPreferences: {
+      email: {
+        type: String,
+        enum: ['instant', 'daily_summary', 'disabled'],
+        default: 'instant'
+      },
+      inApp: {
+        type: Boolean,
+        default: true
+      },
+      push: {
+        type: Boolean,
+        default: false
+      }
+    },
     canBuy: {
       type: Boolean,
       default: true

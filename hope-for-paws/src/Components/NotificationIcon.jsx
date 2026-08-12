@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, X, Check, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Bell, X, Check, Trash2, Wifi, WifiOff, Settings, AlertCircle } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ConfirmationModal from './ConfirmationModal';
+import { getNotificationLink, getNotificationCategoryInfo } from '../utils/notificationHelpers';
 
 const NotificationIcon = () => {
   const { 
@@ -13,7 +14,8 @@ const NotificationIcon = () => {
     deleteNotification,
     deleteAllNotifications,
     socketConnected,
-    error
+    inAppEnabled,
+    error 
   } = useNotifications();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -35,7 +37,7 @@ const NotificationIcon = () => {
   }, []);
 
   const handleClick = () => {
-    // If already on notifications page, do not open dropdown; ensure we stay on the page
+    // If already on notifications page, close dropdown and navigate to /notifications
     if (location.pathname === '/notifications') {
       setIsOpen(false);
       navigate('/notifications');
@@ -44,61 +46,70 @@ const NotificationIcon = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleNotificationClick = async (notification) => {
-    console.log('Notification clicked:', notification);
-    console.log('Notification type:', notification.type);
-    console.log('Notification data:', notification.data);
-    
-    if (!notification.read) {
-      await markAsRead(notification._id || notification.id);
+  const handleNotificationClick = (notification, event) => {
+    // Prevent triggering navigation if clicked on action buttons inside item
+    if (event && event.target.closest('button')) {
+      return;
     }
 
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'post_like':
-      case 'post_comment':
-      case 'new_post_vet_notification':
-        console.log('Navigating to post:', notification.data.postId);
-        navigate(`/posts/${notification.data.postId}`);
-        break;
-      case 'adoption_request':
-        console.log('Navigating to my-adoptions');
-        navigate('/my-adoptions');
-        break;
-      case 'adoption_request_accepted':
-      case 'adoption_request_rejected':
-        console.log('Navigating to adoption history');
-        navigate('/adoptionhistory');
-        break;
-      default:
-        console.log('No navigation for notification type:', notification.type);
-        break;
+    // Mark as read non-blockingly
+    if (!notification.read) {
+      markAsRead(notification._id || notification.id).catch((err) => {
+        console.error('Failed to mark notification as read:', err);
+      });
     }
+
+    // Resolve target route safely
+    const targetLink = getNotificationLink(notification);
+    console.log('Notification clicked:', notification.type, 'Target link:', targetLink);
 
     setIsOpen(false);
-  };
 
-  const handleMarkAllAsRead = async () => {
-    try {
-      await markAllAsRead();
-    } catch (error) {
-      console.error('Error marking all as read:', error);
+    if (targetLink) {
+      navigate(targetLink);
     }
   };
 
-  const handleDeleteAll = async () => {
+  const handleMarkItemAsRead = (e, notificationId) => {
+    e.stopPropagation();
+    markAsRead(notificationId).catch((err) => {
+      console.error('Error marking item as read:', err);
+    });
+  };
+
+  const handleDeleteItem = (e, notificationId) => {
+    e.stopPropagation();
+    deleteNotification(notificationId).catch((err) => {
+      console.error('Error deleting notification:', err);
+    });
+  };
+
+  const handleMarkAllAsRead = async (e) => {
+    e.stopPropagation();
+    try {
+      await markAllAsRead();
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
+  const handleDeleteAll = (e) => {
+    e.stopPropagation();
     setShowDeleteConfirm(true);
   };
 
   const confirmDeleteAll = async () => {
     try {
       await deleteAllNotifications();
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
+    } catch (err) {
+      console.error('Error deleting all notifications:', err);
+    } finally {
+      setShowDeleteConfirm(false);
     }
   };
 
   const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Just now';
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
@@ -110,69 +121,53 @@ const NotificationIcon = () => {
     return date.toLocaleDateString();
   };
 
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'post_like':
-        return '❤️';
-      case 'post_comment':
-        return '💬';
-      case 'adoption_request':
-        return '🐾';
-      case 'adoption_request_accepted':
-        return '✅';
-      case 'adoption_request_rejected':
-        return '❌';
-      case 'new_post_vet_notification':
-        return '📝';
-      default:
-        return '🔔';
-    }
-  };
-
   const getConnectionStatus = () => {
-    if (socketConnected) return { icon: <Wifi className="h-3 w-3" />, text: 'Real-time', color: 'text-green-500' };
-    return { icon: <WifiOff className="h-3 w-3" />, text: 'Offline', color: 'text-gray-400' };
+    if (socketConnected) return { icon: <Wifi className="h-3 w-3" />, text: 'Live', color: 'text-emerald-600 bg-emerald-50' };
+    return { icon: <WifiOff className="h-3 w-3" />, text: 'Offline', color: 'text-gray-400 bg-gray-100' };
   };
 
   const connectionStatus = getConnectionStatus();
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Notification Bell Button */}
+      {/* Bell Button */}
       <button
         onClick={handleClick}
-        className="relative p-2 text-[#6b493d] hover:text-[#5a3c32] transition-colors"
+        className="relative p-2 text-[#6b493d] hover:text-[#5a3c32] hover:bg-[#6b493d]/5 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20"
         title={`${unreadCount} unread notifications (${connectionStatus.text})`}
+        aria-label="Notifications"
       >
         <Bell className="h-6 w-6" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[11px] font-bold rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center shadow-sm border-2 border-white animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-        {/* Connection status indicator */}
-        {/* <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full ${
-          socketConnected ? 'bg-green-500' : usePolling ? 'bg-yellow-500' : 'bg-gray-400'
-        }`} /> */}
       </button>
 
-      {/* Notifications Dropdown */}
+      {/* Notifications Dropdown Panel */}
       {isOpen && (
-        <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-12 w-[calc(100vw-1rem)] sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 max-h-[70vh] sm:max-h-96 z-[60] max-w-[calc(100vw-1rem)]">
+        <div className="fixed sm:absolute right-2 sm:right-0 top-16 sm:top-12 w-[calc(100vw-1rem)] sm:w-96 bg-white rounded-2xl shadow-2xl border border-[#e8dcc8] z-[100] max-w-[calc(100vw-1rem)] overflow-hidden transition-all duration-200 ease-out">
           {/* Header */}
-          <div className="flex flex-row items-center justify-between p-4 border-b border-gray-100 gap-3">
+          <div className="flex items-center justify-between p-4 border-b border-[#f0e6d8] bg-gradient-to-r from-[#faf7f2] to-white">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-[#6b493d] text-center sm:text-left">Notifications</h3>
-              <div className={`flex items-center gap-1 ${connectionStatus.color}`}>
+              <h3 className="font-bold text-[#6b493d] text-base">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 text-xs font-semibold bg-[#6b493d]/10 text-[#6b493d] rounded-full">
+                  {unreadCount} new
+                </span>
+              )}
+              <div className={`hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${connectionStatus.color}`}>
                 {connectionStatus.icon}
-                <span className="text-xs">{connectionStatus.text}</span>
+                <span>{connectionStatus.text}</span>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 ml-4">
+
+            <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
-                  className="p-2 text-gray-500 hover:text-[#6b493d] transition-colors rounded-md hover:bg-gray-100"
+                  className="p-1.5 text-gray-500 hover:text-[#6b493d] hover:bg-[#6b493d]/10 rounded-lg transition-colors"
                   title="Mark all as read"
                 >
                   <Check className="h-4 w-4" />
@@ -181,85 +176,138 @@ const NotificationIcon = () => {
               {notifications.length > 0 && (
                 <button
                   onClick={handleDeleteAll}
-                  className="p-2 text-gray-500 hover:text-red-500 transition-colors rounded-md hover:bg-gray-100"
-                  title="Delete all"
+                  className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete all notifications"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 text-gray-500 hover:text-gray-700 transition-colors rounded-md hover:bg-gray-100"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Error Message */}
+          {/* Preferences Muted Alert Banner */}
+          {!inAppEnabled && (
+            <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200/80 flex items-center justify-between text-xs text-amber-900">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <span>In-app notifications are muted in your preferences.</span>
+              </div>
+              <button
+                onClick={() => { setIsOpen(false); navigate('/profile'); }}
+                className="font-semibold text-amber-900 hover:underline flex items-center gap-1 ml-2 flex-shrink-0"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </button>
+            </div>
+          )}
+
+          {/* Connection Error Message */}
           {error && (
-            <div className="p-3 bg-red-50 border-b border-red-200">
-              <p className="text-sm text-red-600">
-                Connection error: {error}
-              </p>
+            <div className="p-3 bg-red-50 border-b border-red-200 text-xs text-red-600 flex items-center justify-between">
+              <span>{error}</span>
             </div>
           )}
 
           {/* Notifications List */}
-          <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto">
+          <div className="max-h-[65vh] sm:max-h-80 overflow-y-auto divide-y divide-gray-100/80">
             {notifications.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p>No notifications yet</p>
-                {!socketConnected && (
-                  <p className="text-xs text-gray-400 mt-1">Check your connection</p>
-                )}
+              <div className="py-10 px-6 text-center">
+                <div className="w-14 h-14 bg-[#f8f4ed] rounded-full flex items-center justify-center mx-auto mb-3 text-[#a07855]">
+                  <Bell className="h-7 w-7 opacity-60" />
+                </div>
+                <h4 className="font-semibold text-[#6b493d] text-sm">All caught up!</h4>
+                <p className="text-xs text-gray-500 mt-1">No new notifications at the moment.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
-                {notifications.map((notification) => (
+              notifications.map((notification) => {
+                const category = getNotificationCategoryInfo(notification.type);
+                const isUnread = !notification.read;
+
+                return (
                   <div
                     key={notification._id || notification.id}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-blue-50' : ''
+                    onClick={(e) => handleNotificationClick(notification, e)}
+                    className={`p-3.5 sm:p-4 hover:bg-[#faf7f2] cursor-pointer transition-all duration-150 relative group flex items-start gap-3 ${
+                      isUnread ? 'bg-[#fcf9f4]' : 'bg-white'
                     }`}
-                    onClick={() => handleNotificationClick(notification)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 text-lg">
-                        {getNotificationIcon(notification.type)}
+                    {/* Left unread accent line */}
+                    {isUnread && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#6b493d] rounded-r" />
+                    )}
+
+                    {/* Category Icon */}
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg border shadow-xs ${category.bgClass}`}>
+                      {category.icon}
+                    </div>
+
+                    {/* Notification Content */}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className={`text-sm break-words ${isUnread ? 'font-bold text-[#4E3B31]' : 'font-medium text-gray-800'}`}>
+                          {notification.title}
+                        </h4>
+                        {isUnread && (
+                          <span className="w-2 h-2 bg-[#6b493d] rounded-full flex-shrink-0 mt-1.5 ml-1" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-medium text-[#6b493d] text-sm break-words">
-                            {notification.title}
-                          </h4>
-                          {!notification.read && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></div>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-2">
+                      
+                      <p className="text-xs text-gray-600 mt-1 leading-snug line-clamp-2 break-words">
+                        {notification.message}
+                      </p>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[11px] text-gray-400 font-medium">
                           {formatTimeAgo(notification.createdAt)}
-                        </p>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-500 font-medium">
+                          {category.label}
+                        </span>
                       </div>
                     </div>
+
+                    {/* Quick Item Actions (visible on hover / touch) */}
+                    <div className="absolute right-2 top-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 bg-white/90 backdrop-blur-xs p-1 rounded-lg shadow-xs border border-gray-200">
+                      {isUnread && (
+                        <button
+                          onClick={(e) => handleMarkItemAsRead(e, notification._id || notification.id)}
+                          className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                          title="Mark as read"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => handleDeleteItem(e, notification._id || notification.id)}
+                        className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Delete notification"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="p-3 border-t border-gray-100 bg-gray-50">
+            <div className="p-3 border-t border-[#f0e6d8] bg-[#faf7f2]">
               <button
                 onClick={() => { setIsOpen(false); navigate('/notifications'); }}
-                className="w-full text-center text-sm text-[#6b493d] hover:text-[#5a3c32] transition-colors py-2 rounded-md hover:bg-gray-100"
+                className="w-full text-center text-xs font-semibold text-[#6b493d] hover:text-[#5a3c32] transition-colors py-2 rounded-xl hover:bg-[#6b493d]/10 flex items-center justify-center gap-1.5"
               >
-                View all notifications
+                <span>View all notifications</span>
+                <span>&rarr;</span>
               </button>
             </div>
           )}
@@ -281,4 +329,4 @@ const NotificationIcon = () => {
   );
 };
 
-export default NotificationIcon; 
+export default NotificationIcon;
