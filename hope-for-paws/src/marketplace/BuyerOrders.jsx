@@ -1011,12 +1011,12 @@ const isRecentlyCancelled = (order) => {
 };
 
 function FilterTabs({ activeFilter, onFilter, orders }) {
-  const counts = {
-    all: orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
-    active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
-    delivered: orders.filter(o => o.status === "Delivered").length,
-    cancelled: orders.filter(o => o.status === "Cancelled").length,
-  };
+ const counts = {
+  all: orders.length,
+  active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
+  delivered: orders.filter(o => o.status === "Delivered").length,
+  cancelled: orders.filter(o => o.status === "Cancelled").length,
+};
 
   return (
     <div
@@ -1206,13 +1206,14 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-    if (statusFilter && o.status !== statusFilter) return false;
-    if (activeFilter === "all") return o.status !== "Cancelled" || isRecentlyCancelled(o);
-    if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
-    if (activeFilter === "delivered") return o.status === "Delivered";
-    if (activeFilter === "cancelled") return o.status === "Cancelled";
-    return true;
-  });
+  if (statusFilter) return o.status === statusFilter;
+
+  if (activeFilter === "all")       return true;
+  if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
+  if (activeFilter === "delivered") return o.status === "Delivered";
+  if (activeFilter === "cancelled") return o.status === "Cancelled";
+  return true;
+});
 
   return (
     <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -1240,12 +1241,12 @@ export default function MyOrdersPage() {
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Stats strip Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <PageStats orders={orders} />
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filter tabs Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        <FilterTabs
-          activeFilter={activeFilter}
-          onFilter={setFilter}
-          orders={orders}
-        />
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filter tabs Ã¢â€â‚¬Ã¢â€â‚¬ */}
+<FilterTabs
+  activeFilter={activeFilter}
+  onFilter={(tab) => { setStatusFilter(null); setFilter(tab); }}
+  orders={orders}
+/>
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order list Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <main>
