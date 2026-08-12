@@ -26,7 +26,7 @@ import VerifiedBadge from "../components/VerifiedBadge";
 import StarDisplay from "../components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
-import { useRequireAuth } from "../components/AuthGuard";
+import { useRequireAuth } from "../Components/AuthGuard";
 import ReportModal from "./ReportModal";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
