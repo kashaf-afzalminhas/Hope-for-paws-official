@@ -848,7 +848,22 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
                 <button
                   onClick={() => {
                     if (isDelivered) {
-                      navigate('/marketplace');
+                      navigate('/checkout', {
+                        state: {
+                          reorder: true,
+                          previousOrder: {
+                            orderId: order.orderId || order._id || order.id,
+                            items: order.items,
+                            shippingAddress: order.shippingAddress,
+                            paymentMethod: order.paymentMethod,
+                            totals: order.totals,
+                            contact: order.contact || {
+                              email: order.shippingAddress?.email || '',
+                              phone: order.shippingAddress?.phone || '',
+                            },
+                          },
+                        },
+                      });
                     } else {
                       setShowDetails(v => !v);
                     }
