@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import React, { useState, useCallback, useEffect, useRef, useMemo, Fragment } from "react";
 import {
   Package,
@@ -827,6 +828,8 @@ function EmptyState({ filter, query }) {
 export default function SellerOrderDashboard({ embedded = false }) {
   useGlobalStyles();
 
+  const navigate = useNavigate();
+  
   const [orders, setOrders]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [activeFilter, setFilter] = useState("All");
@@ -937,6 +940,8 @@ export default function SellerOrderDashboard({ embedded = false }) {
           </div>
 
           <button
+            type="button"
+            onClick={() => navigate('/seller/analytics')}
             aria-label="View revenue analytics"
             className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#5a3c32] active:scale-95 transition-all shadow-md hover:shadow-lg"
           >
