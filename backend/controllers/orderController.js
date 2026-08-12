@@ -25,6 +25,22 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order' });
     }
 
+    // ── Phone, City & Address Validation ─────────────────────────────
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city) {
+      return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
+    }
+
+    // Validates international phone numbers (+ followed by 7 to 15 digits) or local 10-digit format
+    const phoneRegex = /^(\+[1-9]\d{6,14}|0?\d{10})$/;
+    const phone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
+
+    if (!phone || !phoneRegex.test(phone)) {
+      return res.status(400).json({ 
+        message: 'Please enter a valid phone number.' 
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────
+
     // Group items by sellerId
     const itemsBySeller = {};
     for (const item of items) {
