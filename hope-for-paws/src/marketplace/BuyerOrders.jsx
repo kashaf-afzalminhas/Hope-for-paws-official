@@ -1232,7 +1232,7 @@ export default function MyOrdersPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      <div className="max-w-xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Page header Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <header className="mb-6">

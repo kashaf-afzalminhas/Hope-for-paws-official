@@ -21,17 +21,18 @@ import {
   Check,
   Bell,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // DATA
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 // Dummy data removed. Real data fetched via API.
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // CONSTANTS
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
   Pending: {
@@ -105,9 +106,6 @@ const STATUS_CONFIG = {
 const STATUS_ORDER = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered"];
 const FILTER_TABS = ["All", "Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// HOOKS
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function useToast() {
   const [toasts, setToasts] = useState([]);
@@ -140,9 +138,9 @@ function useOutsideClick(ref, handler) {
   }, [ref, handler]);
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // INJECT GLOBAL STYLES
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function useGlobalStyles() {
   useEffect(() => {
@@ -162,9 +160,9 @@ function useGlobalStyles() {
   }, []);
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // STATUS BADGE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status, size = "md" }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.Pending;
@@ -178,9 +176,9 @@ function StatusBadge({ status, size = "md" }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // CUSTOMER AVATAR
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function Avatar({ initials, color }) {
   return (
@@ -194,9 +192,9 @@ function Avatar({ initials, color }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // CUSTOM STATUS DROPDOWN
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
   const [saving, setSaving] = useState(false);
@@ -254,7 +252,7 @@ function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
           }
         `}
       >
-        <span>{saving ? "Savingâ€¦" : "Update status"}</span>
+        <span>{saving ? "Saving…" : "Update status"}</span>
         {saving 
           ? <RefreshCw size={12} className="animate-spin text-stone-400 flex-shrink-0" />
           : <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-white" : "text-stone-400"}`} />
@@ -278,9 +276,9 @@ function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // EXPANDED ORDER DETAIL PANEL
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function OrderDetailPanel({ order }) {
   const subtotal =
@@ -317,7 +315,7 @@ function OrderDetailPanel({ order }) {
 </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-stone-800 truncate">{item.title}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0,8) || "N/A"} Â· Qty: {item.quantity}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0,8) || "N/A"} · Qty: {item.quantity}</p>
                   </div>
                 </div>
                 <span className="text-sm font-bold text-stone-700 flex-shrink-0">
@@ -378,9 +376,9 @@ function OrderDetailPanel({ order }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // ORDER ROW (TABLE VERSION)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ["#6b493d", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
 function avatarColor(name) {
@@ -571,7 +569,7 @@ const handlePrint = useCallback(() => {
             )}
           </p>
           <p className="text-xs text-stone-500 mt-1">
-            {itemCount} item{itemCount !== 1 ? "s" : ""} Â· <span className="font-bold text-stone-700">Rs {total.toLocaleString()}</span>
+            {itemCount} item{itemCount !== 1 ? "s" : ""} · <span className="font-bold text-stone-700">Rs {total.toLocaleString()}</span>
           </p>
         </td>
 
@@ -653,36 +651,45 @@ const handlePrint = useCallback(() => {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // STAT CARD
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Enhancement: each card now carries a soft tint of its own accent color
+// (instead of plain white), so the stat row reads as its own distinct band
+// instead of blending into the cream header above and the white table below.
+// ─────────────────────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, label, value, sub, accent, pulse }) {
   return (
-    <div className="bg-white rounded-2xl border border-stone-100 shadow-sm px-5 py-5 flex items-start gap-4">
+    <div
+      className="flex items-start gap-4 rounded-[24px] border px-5 py-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+      style={{
+        backgroundColor: accent + "0F",
+        borderColor: accent + "35",
+      }}
+    >
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: accent + "18" }}
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl"
+        style={{ backgroundColor: accent + "26" }}
       >
         <Icon size={18} style={{ color: accent }} />
       </div>
-      <div>
-        <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">{label}</p>
-        <div className="flex items-end gap-2 mt-1">
-          <span className="text-3xl font-bold text-stone-900 tracking-tight leading-none">{value}</span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-stone-500">{label}</p>
+        <div className="mt-1 flex items-end gap-2">
+          <span className="text-3xl font-bold leading-none tracking-tight text-stone-900">{value}</span>
           {pulse && (
-            <span className="mb-1 w-2 h-2 rounded-full sd-pulse-bar" style={{ backgroundColor: accent }} aria-hidden="true" />
+            <span className="mb-1 h-2 w-2 rounded-full sd-pulse-bar" style={{ backgroundColor: accent }} aria-hidden="true" />
           )}
         </div>
-        {sub && <p className="text-xs text-stone-400 mt-1">{sub}</p>}
+        {sub && <p className="mt-1 text-sm text-stone-500">{sub}</p>}
       </div>
     </div>
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // TOAST STACK
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function ToastStack({ toasts, removeToast }) {
   return (
@@ -715,9 +722,9 @@ function ToastStack({ toasts, removeToast }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // SEARCH BAR
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function SearchBar({ value, onChange }) {
   return (
@@ -735,9 +742,13 @@ function SearchBar({ value, onChange }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // FILTER TABS
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Enhancement: inactive tabs now carry a soft tint of their own status color
+// (Pending amber, Processing sky, Shipped blue, Delivered emerald, Cancelled
+// red) instead of uniform white, so they read as distinct at a glance instead
+// of looking like the same washed-out state.
+// ─────────────────────────────────────────────────────────────────────────
 
 function FilterTabs({ active, onSelect, orders }) {
   const counts = useMemo(() => {
@@ -756,18 +767,24 @@ function FilterTabs({ active, onSelect, orders }) {
         const isActive = active === tab;
         const count    = counts[tab] || 0;
         const cfg      = tab !== "All" ? STATUS_CONFIG[tab] : null;
+
+        const inactiveStyle = cfg
+          ? { backgroundColor: cfg.accent + "12", borderColor: cfg.accent + "35" }
+          : { backgroundColor: "#ffffff", borderColor: "#e7e2dd" };
+
         return (
           <button
             key={tab}
             role="tab"
             aria-selected={isActive}
             onClick={() => onSelect(tab)}
+            style={isActive ? undefined : inactiveStyle}
             className={`
-              flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold
+              flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-semibold
               transition-all duration-150
               ${isActive
-                ? "bg-[#6b493d] text-white shadow-sm"
-                : "bg-white border border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300"
+                ? "bg-[#6b493d] border-[#6b493d] text-white shadow-sm"
+                : "text-stone-600 hover:shadow-sm"
               }
             `}
           >
@@ -776,10 +793,10 @@ function FilterTabs({ active, onSelect, orders }) {
             )}
             {tab}
             {count > 0 && (
-              <span className={`
-                text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                ${isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"}
-              `}>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : ""}`}
+                style={!isActive ? { backgroundColor: (cfg ? cfg.accent : "#78716c") + "22", color: cfg ? cfg.accent : "#57534e" } : undefined}
+              >
                 {count}
               </span>
             )}
@@ -790,40 +807,38 @@ function FilterTabs({ active, onSelect, orders }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // EMPTY STATE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 function EmptyState({ filter, query }) {
   const isSearch = Boolean(query);
   return (
     <tr>
-      <td colSpan={5} className="py-20 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-stone-50 mx-auto flex items-center justify-center mb-4 border border-stone-100 shadow-sm">
-          {isSearch
-            ? <Search size={24} className="text-stone-400" />
-            : <Inbox size={24} className="text-stone-400" />
-          }
+      <td colSpan={5} className="py-16">
+        <div className="mx-auto flex max-w-md flex-col items-center rounded-[24px] border border-dashed border-stone-200 bg-stone-50/70 px-6 py-12 text-center shadow-sm">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+            {isSearch ? <Search size={24} className="text-stone-400" /> : <Inbox size={24} className="text-stone-400" />}
+          </div>
+          <p className="text-base font-semibold text-stone-800">
+            {isSearch ? `No results for "${query}"` : `No ${filter !== "All" ? filter.toLowerCase() : ""} orders`}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-stone-500">
+            {isSearch
+              ? "Try a different order ID or customer name to widen the search."
+              : filter === "All"
+                ? "New orders from buyers will appear here as soon as they arrive."
+                : `You have no orders currently marked as "${filter}".`}
+          </p>
         </div>
-        <p className="text-base font-semibold text-stone-800">
-          {isSearch ? `No results for "${query}"` : `No ${filter !== "All" ? filter.toLowerCase() : ""} orders`}
-        </p>
-        <p className="text-sm text-stone-500 mt-1 max-w-sm mx-auto leading-relaxed">
-          {isSearch
-            ? "Try a different order ID or customer name."
-            : filter === "All"
-              ? "New orders from buyers will appear here."
-              : `You have no orders with status "${filter}".`
-          }
-        </p>
       </td>
     </tr>
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 // PAGE ROOT
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────
 
 export default function SellerOrderDashboard({ embedded = false }) {
   useGlobalStyles();
@@ -854,14 +869,16 @@ export default function SellerOrderDashboard({ embedded = false }) {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         
         const data = await res.json();
-        
-        // Ensure data is an array
-        if (!Array.isArray(data)) {
+
+        // Backward-compatible: API may return an array (old) or an object { orders, counts } (new)
+        if (Array.isArray(data)) {
+          setOrders(data);
+        } else if (data && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+          // If counts provided, you could use them for badges in future
+        } else {
           setOrders([]);
-          return;
         }
-        
-        setOrders(data);
       } catch (err) {
         console.error('Error fetching orders:', err);
         addToast("Failed to load orders.", "error");
@@ -918,26 +935,27 @@ export default function SellerOrderDashboard({ embedded = false }) {
 
   return (
     <div className={embedded ? "w-full" : "min-h-screen bg-[#f8f6f4]"}>
-      <div className={embedded ? "w-full" : "max-w-[1200px] mx-auto px-4 py-8"}>
+      <div className={embedded ? "w-full" : "max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6"}>
 
-        {/* â”€â”€ Page header â”€â”€ */}
-        <header className={`flex items-start justify-between gap-4 ${embedded ? "mb-6" : "mb-10"}`}>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-[#6b493d] flex items-center justify-center shadow-sm">
-                <ShoppingBag size={14} className="text-white" />
+        {/* ── Page header ── */}
+        <header className={`rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm ${embedded ? "mb-6" : "mb-8"}`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#6b493d] shadow-sm">
+                  <ShoppingBag size={14} className="text-white" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-[0.24em] text-[#6b493d]">
+                  HopeForPaws Seller Hub
+                </span>
               </div>
-              <span className="text-xs font-bold text-[#6b493d] uppercase tracking-widest">
-                HopeForPaws Seller Hub
-              </span>
+              <h1 className={`font-bold tracking-tight text-stone-900 ${embedded ? "text-2xl" : "text-3xl"}`}>
+                Order Management
+              </h1>
+              <p className="mt-1.5 text-sm font-medium text-stone-500">
+                {orders.length} total orders • <span className="font-bold text-emerald-600">Rs {totalRevenue.toLocaleString()}</span> revenue
+              </p>
             </div>
-            <h1 className={`font-bold text-stone-900 tracking-tight ${embedded ? "text-2xl" : "text-3xl"}`}>
-              Order Management
-            </h1>
-            <p className="text-sm text-stone-500 mt-1.5 font-medium">
-              {orders.length} total orders Â· <span className="text-emerald-600 font-bold">Rs {totalRevenue.toLocaleString()}</span> revenue
-            </p>
-          </div>
 
           <button
             type="button"
@@ -951,8 +969,8 @@ export default function SellerOrderDashboard({ embedded = false }) {
           </button>
         </header>
 
-        {/* â”€â”€ Stat cards â”€â”€ */}
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${embedded ? "mb-6" : "mb-10"}`}>
+        {/*  Stat cards */}
+        <div className={`grid grid-cols-1 gap-4 md:grid-cols-3 ${embedded ? "mb-6" : "mb-8"}`}>
           <StatCard
             icon={Bell}
             label="New orders"
@@ -977,22 +995,22 @@ export default function SellerOrderDashboard({ embedded = false }) {
           />
         </div>
 
-        {/* â”€â”€ UNIFIED DATA TABLE CONTAINER â”€â”€ */}
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+        {/* UNIFIED DATA TABLE CONTAINER */}
+        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(107,73,61,0.04),0_12px_32px_-16px_rgba(107,73,61,0.18)] border border-[#e7dfd6] overflow-hidden">
           
           {/* Top Toolbar */}
-          <div className="p-6 border-b border-stone-100 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">
+          <div className="p-6 border-b border-[#ece4da] flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">
             <SearchBar value={searchQuery} onChange={setSearch} />
             <FilterTabs active={activeFilter} onSelect={setFilter} orders={orders} />
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto min-h-[400px] pb-32">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-stone-50/50">
+                <tr className="bg-[#f6f1ea]">
                   {["Order", "Customer", "Items", "Status", "Actions"].map((h, i) => (
-                    <th key={i} className="px-6 py-4 text-xs font-bold text-stone-500 uppercase tracking-widest border-b border-stone-100">
+                    <th key={i} className="px-6 py-3.5 text-[11px] font-bold text-[#6b493d] uppercase tracking-widest border-b-2 border-[#6b493d]/15">
                       {h}
                     </th>
                   ))}
@@ -1023,13 +1041,28 @@ export default function SellerOrderDashboard({ embedded = false }) {
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* â”€â”€ Footer â”€â”€ */}
-        <div className="pb-8"></div>
+          {/* Bottom strip — closes the card on content instead of empty space */}
+          {!loading && (
+            <div className="flex items-center justify-between px-6 py-3 border-t border-[#ece4da] bg-[#faf7f3]">
+              <p className="text-xs font-medium text-stone-500">
+                Showing <span className="font-bold text-stone-700">{filteredOrders.length}</span> of{" "}
+                <span className="font-bold text-stone-700">{orders.length}</span> orders
+              </p>
+              {(activeFilter !== "All" || searchQuery) && (
+                <button
+                  onClick={() => { setFilter("All"); setSearch(""); }}
+                  className="text-xs font-semibold text-[#6b493d] hover:text-[#5a3c32] transition-colors"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* â”€â”€ Toast notifications â”€â”€ */}
+      {/*  Toast notifications */}
       <ToastStack toasts={toasts} removeToast={removeToast} />
     </div>
   );

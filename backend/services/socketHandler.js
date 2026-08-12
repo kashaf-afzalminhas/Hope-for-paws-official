@@ -11,25 +11,29 @@ const setupSocketHandlers = (io, socket, notificationService) => {
   });
   
   // Handle user connection
-  socket.on('join', async (userId) => {
-    try {
-      // Validate userId
-      if (!userId || typeof userId !== 'string') {
-        console.error('Invalid userId received:', userId);
-        return;
-      }
-      
-      // Add user to online users and track activity
-      await notificationService.addUserSocket(userId, socket.id);
-      
-      // Join user's personal room
-      socket.join(userId);
-      
-      console.log(`User ${userId} joined with socket ${socket.id}`);
-    } catch (error) {
-      console.error('Error in join:', error);
+ // Handle user connection
+socket.on('join', async (userId) => {
+  try {
+  
+    if (!socket.userId) {
+      console.error('join event received but socket has no authenticated userId');
+      return;
     }
-  });
+
+    if (userId && userId !== socket.userId) {
+      console.warn(`Client-sent join userId (${userId}) does not match authenticated socket.userId (${socket.userId}) — using socket.userId`);
+    }
+
+    // Re-affirm registration (harmless if already set in app.js) and
+    // join the personal room, both keyed by the trusted id.
+    await notificationService.addUserSocket(socket.userId, socket.id);
+    socket.join(socket.userId);
+
+    console.log(`User ${socket.userId} joined with socket ${socket.id}`);
+  } catch (error) {
+    console.error('Error in join:', error);
+  }
+});
 
   // Handle user heartbeat for activity tracking
   socket.on('heartbeat', async (userId) => {
@@ -59,7 +63,7 @@ const setupSocketHandlers = (io, socket, notificationService) => {
       console.log(`✅ User successfully joined conversation room: ${conversationId}`);
       
       // Log all rooms this socket is in
-      const rooms = Array.from(socket.rooms);
+      const  sorooms = Array.from(socket.rooms);
       console.log(`📋 Socket ${socket.id} is now in rooms:`, rooms);
       
       // Verify the room was created and socket is in it
