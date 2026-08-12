@@ -1,6 +1,6 @@
 import { SHIPPING_FEE } from '../utils/constants';
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
   Lock,
@@ -42,11 +42,27 @@ function ToastStack({ toasts, dismissToast }) {
   );
 }
 
+/** Strip common mojibake sequences and replace with correct Unicode */
+function sanitizeText(str) {
+  if (!str) return str;
+  return str
+    .replace(/\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a2/g, '\u2022')
+    .replace(/\u00e2\u20ac\u00a2/g, '\u2022')
+    .replace(/\u00e2\u20ac\u201c/g, '\u2013')
+    .replace(/\u00e2\u20ac\u2122/g, '\u2019');
+}
+
 export default function Checkout() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal, clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isReorder = location.state?.reorder === true;
+  const prev = location.state?.previousOrder;
   
-  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [paymentMethod, setPaymentMethod] = useState(
+    prev?.paymentMethod?.toLowerCase() || 'cod'
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [errors, setErrors] = useState({});
@@ -61,50 +77,41 @@ export default function Checkout() {
     setToasts(t => t.filter(x => x.id !== id));
   }, []);
   
-  const [contact, setContact] = useState({ email: '', phone: '', phoneCode: '+92' });
-
-  // Phone Validation matching SignUp page rules
-  const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber) return 'Phone number is required.';
-    if (!/^\d+$/.test(phoneNumber)) return 'Please enter a valid phone number (digits only).';
-
-    const countryRules = {
-      '+92': { min: 10, max: 10, label: 'Pakistan' },
-      '+1': { min: 10, max: 10, label: 'US/Canada' },
-      '+44': { min: 10, max: 10, label: 'United Kingdom' },
-      '+91': { min: 10, max: 10, label: 'India' }
-    };
-    const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
-      if (rule.min === rule.max) {
-        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}.`;
-      }
-      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}.`;
-    }
-
-    const fullPhone = code + phoneNumber;
-    const phoneRegex = /^\+[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number.';
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be between 7-15 digits.';
-    return '';
-  };
-
+  const [contact, setContact] = useState({
+    email: prev?.contact?.email || prev?.shippingAddress?.email || '',
+    phone: prev?.contact?.phone || prev?.shippingAddress?.phone || '',
+  });
   const [shippingAddress, setShippingAddress] = useState({
-    fullName: '',
-    street: '',
-    city: '',
-    province: '',
-    postalCode: ''
+    fullName: prev?.shippingAddress?.fullName || '',
+    street:   prev?.shippingAddress?.street   || '',
+    city:     prev?.shippingAddress?.city     || '',
+    province: prev?.shippingAddress?.province || '',
+    postalCode: prev?.shippingAddress?.postalCode || '',
   });
 
+  const items = useMemo(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    if (isReorder && prev?.items?.length) {
+      return prev.items.map(it => ({
+        ...it,
+        quantity: it.quantity || it.qty || 1,
+        image: (it.image && typeof it.image === 'string') 
+          ? (it.image.startsWith('http') ? it.image : `${apiBase}${it.image}`)
+          : (it.productId?.image || it.productId?.images?.[0] || ''),
+      }));
+    }
+    return cartItems;
+  }, [isReorder, prev, cartItems]);
+
+  const displayCartTotal = isReorder
+    ? items.reduce((s, i) => s + i.price * (i.quantity || 1), 0)
+    : cartTotal;
+
   const shippingFee = SHIPPING_FEE;
-  const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
+  const finalTotal = items.length > 0 ? displayCartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
-    setErrors({});
-    const newErrors = {};
-
-    if (items.length === 0) {
+    if (items.length === 0 && !isReorder) {
       addToast('error', 'Your cart is empty');
       return;
     }
@@ -157,7 +164,7 @@ export default function Checkout() {
         },
         paymentMethod,
         totals: {
-          subtotal: cartTotal,
+          subtotal: displayCartTotal,
           shippingFee,
           finalTotal
         }
@@ -175,7 +182,7 @@ export default function Checkout() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      await clearCart();
+      if (!isReorder) await clearCart();
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);
       
@@ -432,7 +439,7 @@ export default function Checkout() {
             
             <button 
               onClick={handlePlaceOrder}
-              disabled={isSubmitting || items.length === 0}
+              disabled={isSubmitting || (items.length === 0 && !isReorder)}
               className="w-full mt-8 bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-[0_4px_16px_rgba(107,73,61,0.3)] hover:shadow-[0_6px_20px_rgba(107,73,61,0.4)] active:scale-[0.98] flex items-center justify-center gap-2 tracking-wide text-[14px]"
             >
               <Lock size={15} />
@@ -454,7 +461,7 @@ export default function Checkout() {
             items.map((item) => (
               <div key={item.productId} className="flex gap-4 items-center">
                 <div className="relative w-16 h-16 rounded-xl border border-[#ede6e1] bg-[#f7f1ee] flex-shrink-0">
-                  <img src={item.image} alt={item.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
+                  <img src={item.image || "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"} alt={item.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
                   <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                     {item.quantity}
                   </span>
@@ -462,7 +469,7 @@ export default function Checkout() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.title}</h3>
                   <p className="text-[12px] text-[#a07f77] truncate mt-1">
-                    {item.brand || 'Premium'} Ã¢â‚¬Â¢ {item.weight || 'Standard'}
+                    {sanitizeText(item.brand) || 'Premium'} • {sanitizeText(item.weight) || 'Standard'}
                   </p>
                 </div>
                 <div className="font-bold text-[#3d2a24] text-[14px]">
@@ -476,7 +483,7 @@ export default function Checkout() {
         <div className="border-t border-[#ede6e1] pt-5 space-y-3 mb-5">
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Subtotal</span>
-            <span className="text-[#3d2a24] font-bold">Rs {cartTotal.toLocaleString()}</span>
+            <span className="text-[#3d2a24] font-bold">Rs {displayCartTotal.toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>

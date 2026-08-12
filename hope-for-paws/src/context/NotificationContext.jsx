@@ -22,112 +22,168 @@ export const NotificationProvider = ({ children }) => {
   const [socketConnected, setSocketConnected] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
+  const [userPreferences, setUserPreferences] = useState({
+    email: 'instant',
+    inApp: true,
+    push: false
+  });
+
+  const refreshUserPreferences = () => {
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user && user.notificationPreferences) {
+          setUserPreferences({
+            email: user.notificationPreferences.email || 'instant',
+            inApp: user.notificationPreferences.inApp !== false,
+            push: Boolean(user.notificationPreferences.push)
+          });
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  useEffect(() => {
+    refreshUserPreferences();
+  }, []);
   
   // Use refs to prevent multiple initializations
   const initializationRef = useRef(false);
   const pollingRef = useRef(null);
+  // Holds the function that removes the socket listeners registered below.
+  // This MUST be invoked by the effect's cleanup, or every re-run of the
+  // effect setup (StrictMode double-invoke, provider remount, hot reload,
+  // etc.) stacks a new 'notification' listener on top of the old one on the
+  // shared socket instance — causing every push notification to be handled
+  // (and added to state) once per stacked listener.
+  const socketCleanupRef = useRef(null);
 
   // Initialize socket connection (shared with chat) and register listeners
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
 
-    if (token && user && !initializationRef.current) {
-      initializationRef.current = true;
-      
-      // First check if backend is available
-      const checkBackendHealth = async () => {
-        try {
-          // Fix the health endpoint URL - remove /api from the base URL
-          const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
-          await axios.get(healthUrl, { timeout: 5000 });
-          console.log('Backend is available, starting notification system');
-          return true;
-        } catch (error) {
-          console.log('Backend not available:', error.message);
-          setError('Backend service not available');
-          return false;
-        }
-      };
+    if (!token || !user || initializationRef.current) {
+      return undefined;
+    }
 
-      const initializeNotificationSystem = async () => {
-        const backendAvailable = await checkBackendHealth();
-        if (!backendAvailable) {
+    initializationRef.current = true;
+
+    // Guards against attaching listeners after this effect has already
+    // been torn down (e.g. the async health check resolves post-unmount).
+    let cancelled = false;
+
+    // First check if backend is available
+    const checkBackendHealth = async () => {
+      try {
+        // Fix the health endpoint URL - remove /api from the base URL
+        const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+        await axios.get(healthUrl, { timeout: 5000 });
+        console.log('Backend is available, starting notification system');
+        return true;
+      } catch (error) {
+        console.log('Backend not available:', error.message);
+        setError('Backend service not available');
+        return false;
+      }
+    };
+
+    const connectSocket = () => {
+      try {
+        const existing = getSocket();
+        const userId = user?.id || user?._id;
+        const socketInstance = existing || initSocket(userId);
+
+        if (!socketInstance) {
+          console.error('Failed to initialize socket instance');
           setIsInitialized(true);
-          return;
+          return null;
         }
 
-        const connectSocket = () => {
-          try {
-            const existing = getSocket();
-            const userId = user?.id || user?._id;
-            const socketInstance = existing || initSocket(userId);
+        const handleConnect = () => {
+          console.log('NotificationContext: socket connected');
+          setSocketConnected(true);
+          setIsInitialized(true);
+        };
 
-            if (!socketInstance) {
-              console.error('Failed to initialize socket instance');
-              setIsInitialized(true);
-              return null;
-            }
+        const handleDisconnect = () => {
+          console.log('NotificationContext: socket disconnected');
+          setSocketConnected(false);
+        };
 
-            const handleConnect = () => {
-              console.log('NotificationContext: socket connected');
-              setSocketConnected(true);
-              setIsInitialized(true);
-            };
-
-            const handleDisconnect = () => {
-              console.log('NotificationContext: socket disconnected');
-              setSocketConnected(false);
-            };
-
-            const handleNotification = (notification) => {
-              console.log('New notification received:', notification);
-              setNotifications(prev => [{ ...notification, read: false }, ...prev]);
-              setUnreadCount(prev => prev + 1);
-              if (Notification.permission === 'granted') {
-                new Notification(notification.title, {
-                  body: notification.message,
-                  icon: '/hfplogo.png'
-                });
-              }
-            };
-
-            // Register listeners
-            socketInstance.on('connect', handleConnect);
-            socketInstance.on('disconnect', handleDisconnect);
-            socketInstance.on('notification', handleNotification);
-
-            // Reflect current status immediately
-            const status = getSocketStatus();
-            setSocketConnected(status === 'connected');
-            setIsInitialized(true);
-
-            // Cleanup
-            return () => {
-              socketInstance.off('connect', handleConnect);
-              socketInstance.off('disconnect', handleDisconnect);
-              socketInstance.off('notification', handleNotification);
-            };
-          } catch (error) {
-            console.error('Error establishing shared socket:', error);
-            setIsInitialized(true);
-            return null;
+        const handleNotification = (notification) => {
+          console.log('New notification received:', notification);
+          setNotifications(prev => [{ ...notification, read: false }, ...prev]);
+          setUnreadCount(prev => prev + 1);
+          if (Notification.permission === 'granted') {
+            new Notification(notification.title, {
+              body: notification.message,
+              icon: '/hfplogo.png'
+            });
           }
         };
 
-        const cleanup = connectSocket();
+        // Register listeners
+        socketInstance.on('connect', handleConnect);
+        socketInstance.on('disconnect', handleDisconnect);
+        socketInstance.on('notification', handleNotification);
 
+        // Reflect current status immediately
+        const status = getSocketStatus();
+        setSocketConnected(status === 'connected');
+        setIsInitialized(true);
+
+        // Cleanup
         return () => {
-          if (typeof cleanup === 'function') cleanup();
+          socketInstance.off('connect', handleConnect);
+          socketInstance.off('disconnect', handleDisconnect);
+          socketInstance.off('notification', handleNotification);
         };
-      };
+      } catch (error) {
+        console.error('Error establishing shared socket:', error);
+        setIsInitialized(true);
+        return null;
+      }
+    };
 
-      initializeNotificationSystem();
-    }
+    const initializeNotificationSystem = async () => {
+      const backendAvailable = await checkBackendHealth();
 
-    // Cleanup function
+      if (cancelled) return;
+
+      if (!backendAvailable) {
+        setIsInitialized(true);
+        return;
+      }
+
+      const cleanup = connectSocket();
+
+      if (cancelled) {
+        // The effect was already torn down while we were awaiting the
+        // health check — undo the listener registration immediately
+        // instead of leaking it onto the shared socket.
+        if (typeof cleanup === 'function') cleanup();
+        return;
+      }
+
+      socketCleanupRef.current = cleanup;
+    };
+
+    initializeNotificationSystem();
+
+    // Cleanup function — this is what actually runs when the effect tears
+    // down. It now removes the socket listeners (if they were attached)
+    // in addition to resetting the initialization ref.
     return () => {
+      cancelled = true;
       initializationRef.current = false;
+      if (typeof socketCleanupRef.current === 'function') {
+        socketCleanupRef.current();
+        socketCleanupRef.current = null;
+      }
     };
   }, []);
 
@@ -350,6 +406,9 @@ export const NotificationProvider = ({ children }) => {
     loading,
     error,
     socketConnected,
+    userPreferences,
+    inAppEnabled: userPreferences.inApp !== false,
+    refreshUserPreferences,
     fetchNotifications,
     fetchUnreadCount,
     markAsRead,
@@ -369,4 +428,4 @@ export const NotificationProvider = ({ children }) => {
 
 NotificationProvider.propTypes = {
   children: PropTypes.node.isRequired,
-}; 
+};
