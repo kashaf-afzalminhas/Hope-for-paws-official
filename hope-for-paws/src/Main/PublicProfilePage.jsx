@@ -115,6 +115,7 @@ const PublicProfilePage = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('popular');
 
   const [adoptionAds, setAdoptionAds] = useState([]);
   const [userPosts, setUserPosts] = useState([]);
@@ -368,9 +369,19 @@ const PublicProfilePage = () => {
       </div>
 
       <div className="mb-4">
-        <div className="flex items-center justify-center">
-          <h1 className="text-2xl font-heading font-bold text-[#2c1810]">{profile.storeName || profile.username}</h1>
-          {profile.sellerVerified && <VerifiedBadge isVerified={true} size="lg" className="ml-2" />}
+        <div className="flex flex-row items-center justify-center">
+          <h1 className="text-2xl font-heading font-bold text-[#2c1810]">
+            {profile.username}
+          </h1>
+          {profile.sellerId && (
+            profile.sellerVerified ? (
+              <VerifiedBadge isVerified={true} size="lg" className="ml-2" />
+            ) : (
+              <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full border border-gray-300 text-gray-500 bg-gray-50 flex items-center">
+                Unverified
+              </span>
+            )
+          )}
         </div>
         {profile.city && (
           <div className="flex items-center justify-center text-[#2c1810]/80 mt-2">
@@ -404,31 +415,31 @@ const PublicProfilePage = () => {
       <div className="flex justify-around">
         {profile?.sellerId && (
           <button
-            className={`px-4 py-3 font-bold relative transition-colors ${activeTab === 'products' ? 'text-[#a07855]' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
+            className={`px-4 py-3 font-medium relative transition-colors ${activeTab === 'products' ? 'text-[#a07855] font-semibold' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
             onClick={() => setActiveTab('products')}
           >
             Products
             {activeTab === 'products' && (
-              <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-1 bg-[#a07855] rounded-t-lg"></span>
+              <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-[#a07855] rounded-full"></span>
             )}
           </button>
         )}
         <button
-          className={`px-4 py-3 font-bold relative transition-colors ${activeTab === 'ads' ? 'text-[#a07855]' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
+          className={`px-4 py-3 font-medium relative transition-colors ${activeTab === 'ads' ? 'text-[#a07855] font-semibold' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
           onClick={() => setActiveTab('ads')}
         >
           Adoption Ads
           {activeTab === 'ads' && (
-            <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-1 bg-[#a07855] rounded-t-lg"></span>
+            <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-[#a07855] rounded-full"></span>
           )}
         </button>
         <button
-          className={`px-4 py-3 font-bold relative transition-colors ${activeTab === 'posts' ? 'text-[#a07855]' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
+          className={`px-4 py-3 font-medium relative transition-colors ${activeTab === 'posts' ? 'text-[#a07855] font-semibold' : 'text-[#2c1810]/60 hover:text-[#2c1810]'}`}
           onClick={() => setActiveTab('posts')}
         >
           Posts
           {activeTab === 'posts' && (
-            <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-1 bg-[#a07855] rounded-t-lg"></span>
+            <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-[#a07855] rounded-full"></span>
           )}
         </button>
       </div>
@@ -473,6 +484,19 @@ const PublicProfilePage = () => {
                 ))}
               </select>
             </div>
+            <div className="relative w-full sm:w-48">
+              <select 
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-[#e5d9c8] rounded-xl focus:outline-none focus:border-[#a07855] appearance-none text-[#2c1810]"
+              >
+                <option value="popular">Sort: Popular</option>
+                <option value="new">New Arrivals</option>
+                <option value="rating">Highest Rated</option>
+                <option value="priceAsc">Price: Low → High</option>
+                <option value="priceDesc">Price: High → Low</option>
+              </select>
+            </div>
           </div>
           
           {products.filter(p => 
@@ -493,6 +517,13 @@ const PublicProfilePage = () => {
                   (categoryFilter === 'All' || p.category === categoryFilter) &&
                   p.name.toLowerCase().includes(searchQuery.toLowerCase())
                 )
+                .sort((a, b) => {
+                  if (sortBy === 'priceAsc') return a.price - b.price;
+                  if (sortBy === 'priceDesc') return b.price - a.price;
+                  if (sortBy === 'rating') return b.rating - a.rating;
+                  if (sortBy === 'new') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+                  return (b.reviews || 0) - (a.reviews || 0);
+                })
                 .map(p => (
                   <ProductCard 
                     key={p.id} 
