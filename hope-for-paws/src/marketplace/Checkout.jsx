@@ -1,6 +1,6 @@
 import { SHIPPING_FEE } from '../utils/constants';
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
   Lock,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
+import { COUNTRY_CODES } from '../utils/constants';
 
 function ToastStack({ toasts, dismissToast }) {
   if (toasts.length === 0) return null;
@@ -25,7 +26,7 @@ function ToastStack({ toasts, dismissToast }) {
           boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
           animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1) both",
           pointerEvents: "auto", minWidth: 240, maxWidth: 360,
-        }}>
+        }}> 
           <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {t.type === "success" ? <ShoppingCart size={14} /> : <XCircle size={14} />}
           </div>
@@ -41,13 +42,30 @@ function ToastStack({ toasts, dismissToast }) {
   );
 }
 
+/** Strip common mojibake sequences and replace with correct Unicode */
+function sanitizeText(str) {
+  if (!str) return str;
+  return str
+    .replace(/\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a2/g, '\u2022')
+    .replace(/\u00e2\u20ac\u00a2/g, '\u2022')
+    .replace(/\u00e2\u20ac\u201c/g, '\u2013')
+    .replace(/\u00e2\u20ac\u2122/g, '\u2019');
+}
+
 export default function Checkout() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal, clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isReorder = location.state?.reorder === true;
+  const prev = location.state?.previousOrder;
   
-  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [paymentMethod, setPaymentMethod] = useState(
+    prev?.paymentMethod?.toLowerCase() || 'cod'
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [errors, setErrors] = useState({});
 
   const addToast = useCallback((type, message) => {
     const id = Date.now() + Math.random();
@@ -59,27 +77,69 @@ export default function Checkout() {
     setToasts(t => t.filter(x => x.id !== id));
   }, []);
   
-  const [contact, setContact] = useState({ email: '', phone: '' });
+  const [contact, setContact] = useState({
+    email: prev?.contact?.email || prev?.shippingAddress?.email || '',
+    phone: prev?.contact?.phone || prev?.shippingAddress?.phone || '',
+  });
   const [shippingAddress, setShippingAddress] = useState({
-    fullName: '',
-    street: '',
-    city: '',
-    province: '',
-    postalCode: ''
+    fullName: prev?.shippingAddress?.fullName || '',
+    street:   prev?.shippingAddress?.street   || '',
+    city:     prev?.shippingAddress?.city     || '',
+    province: prev?.shippingAddress?.province || '',
+    postalCode: prev?.shippingAddress?.postalCode || '',
   });
 
-const freeThreshold = 5000;
-const shippingFee = items.length > 0 && cartTotal < freeThreshold ? SHIPPING_FEE : 0;
-const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
+  const items = useMemo(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    if (isReorder && prev?.items?.length) {
+      return prev.items.map(it => ({
+        ...it,
+        quantity: it.quantity || it.qty || 1,
+        image: (it.image && typeof it.image === 'string') 
+          ? (it.image.startsWith('http') ? it.image : `${apiBase}${it.image}`)
+          : (it.productId?.image || it.productId?.images?.[0] || ''),
+      }));
+    }
+    return cartItems;
+  }, [isReorder, prev, cartItems]);
+
+  const displayCartTotal = isReorder
+    ? items.reduce((s, i) => s + i.price * (i.quantity || 1), 0)
+    : cartTotal;
+
+  const shippingFee = SHIPPING_FEE;
+  const finalTotal = items.length > 0 ? displayCartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0) {
+    if (items.length === 0 && !isReorder) {
       addToast('error', 'Your cart is empty');
       return;
     }
     
-    if (!contact.email || !shippingAddress.fullName || !shippingAddress.street) {
-      addToast('error', 'Please fill in all required contact and shipping fields.');
+    // Contact Validation
+    if (!contact.email.trim()) {
+      newErrors.email = 'Email address is required.';
+    }
+
+    // Phone Validation (10 digits)
+    const phoneErr = validatePhone(contact.phone.trim(), contact.phoneCode);
+    if (phoneErr) {
+      newErrors.phone = phoneErr;
+    }
+
+    // Shipping Validation
+    if (!shippingAddress.fullName.trim()) {
+      newErrors.fullName = 'Full name is required.';
+    }
+    if (!shippingAddress.street.trim()) {
+      newErrors.street = 'Street address is required.';
+    }
+    if (!shippingAddress.city.trim()) {
+      newErrors.city = 'City is required.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -87,6 +147,8 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
+      const fullPhoneNumber = `${contact.phoneCode}${contact.phone.trim()}`;
+
       const payload = {
         items: items.map(it => ({
           productId: it.productId,
@@ -95,10 +157,14 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
           quantity: it.quantity,
           price: it.price
         })),
-        shippingAddress: { ...contact, ...shippingAddress },
+        shippingAddress: { 
+          ...contact, 
+          phone: fullPhoneNumber,
+          ...shippingAddress 
+        },
         paymentMethod,
         totals: {
-          subtotal: cartTotal,
+          subtotal: displayCartTotal,
           shippingFee,
           finalTotal
         }
@@ -116,7 +182,7 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      await clearCart();
+      if (!isReorder) await clearCart();
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);
       
@@ -164,92 +230,164 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
       {/* Left Column: Forms */ }
       < div className = "space-y-6" >
+{/* Contact Section */}
+  <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]">
+    <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div>
+        <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">
+          Email Address <span className="text-red-500">*</span>
+        </label>
+        <input 
+          type="email" 
+          value={contact.email}
+          onChange={(e) => {
+            setContact({...contact, email: e.target.value});
+            if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+          }}
+          placeholder="you@example.com"
+          className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+            errors.email ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+          }`}
+        />
+        {errors.email && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.email}</p>}
+      </div>
 
-        {/* Contact Section */ }
-        < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
-            <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address</label>
-                <input 
-                  type="email" 
-                  value={contact.email}
-                  onChange={(e) => setContact({...contact, email: e.target.value})}
-                  placeholder="you@example.com"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number</label>
-                <input 
-                  type="tel" 
-                  value={contact.phone}
-                  onChange={(e) => setContact({...contact, phone: e.target.value})}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-            </div>
-          </section >
+      <div>
+        <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">
+          Phone Number <span className="text-red-500">*</span>
+        </label>
+        <div className="flex gap-2">
+          {/* Country Code Selector matching SignUp page styling */}
+          <select
+            value={contact.phoneCode}
+            onChange={(e) => {
+              const newCode = e.target.value;
+              let phoneVal = contact.phone;
+              if (newCode && phoneVal.startsWith('0')) {
+                phoneVal = phoneVal.substring(1);
+              }
+              setContact({ ...contact, phoneCode: newCode, phone: phoneVal });
+              if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+            }}
+            className="flex-shrink-0 bg-white text-[#3d2a24] border border-[#d4c5c1] rounded-xl px-3 py-3 focus:outline-none focus:border-[#6b493d] font-semibold text-[13px] cursor-pointer shadow-sm min-w-[110px]"
+          >
+            {COUNTRY_CODES.map((country, index) => (
+              <option key={index} value={country.code}>
+                {country.flag} {country.code}
+              </option>
+            ))}
+          </select>
 
-    {/* Delivery Address Section */ }
-    < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
-            <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Delivery Address</h2>
-            <div className="space-y-5">
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Full Name</label>
-                <input 
-                  type="text" 
-                  value={shippingAddress.fullName}
-                  onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
-                  placeholder="John Doe"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address</label>
-                <input 
-                  type="text" 
-                  value={shippingAddress.street}
-                  onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
-                  placeholder="123 Main St, Apt 4B"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City</label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.city}
-                    onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
-                    placeholder="New York"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.province}
-                    onChange={(e) => setShippingAddress({...shippingAddress, province: e.target.value})}
-                    placeholder="NY"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Postal Code</label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.postalCode}
-                    onChange={(e) => setShippingAddress({...shippingAddress, postalCode: e.target.value})}
-                    placeholder="10001"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-          </section >
+          {/* Number Input */}
+          <div className="flex-1">
+            <input 
+              type="tel" 
+              value={contact.phone}
+              onChange={(e) => {
+                let val = e.target.value;
+                if (contact.phoneCode && val.startsWith('0')) {
+                  val = val.substring(1);
+                }
+                setContact({ ...contact, phone: val });
+                if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+              }}
+              placeholder="XXXXXXXXXX"
+              className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                errors.phone ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+              }`}
+            />
+          </div>
+        </div>
+        {errors.phone && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.phone}</p>}
+      </div>
+    </div>
+  </section>
+
+    {/* Delivery Address Section */}
+    <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]">
+      <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Delivery Address</h2>
+      <div className="space-y-5">
+        <div>
+          <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">
+            Full Name <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            value={shippingAddress.fullName}
+            onChange={(e) => {
+              setShippingAddress({...shippingAddress, fullName: e.target.value});
+              if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
+            }}
+            placeholder="John Doe"
+            className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+              errors.fullName ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+            }`}
+          />
+          {errors.fullName && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.fullName}</p>}
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">
+            Street Address <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            value={shippingAddress.street}
+            onChange={(e) => {
+              setShippingAddress({...shippingAddress, street: e.target.value});
+              if (errors.street) setErrors(prev => ({ ...prev, street: '' }));
+            }}
+            placeholder="123 Main St, Apt 4B"
+            className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+              errors.street ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+            }`}
+          />
+          {errors.street && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.street}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div>
+            <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">
+              City <span className="text-red-500">*</span>
+            </label>
+            <input 
+              type="text" 
+              value={shippingAddress.city}
+              onChange={(e) => {
+                setShippingAddress({...shippingAddress, city: e.target.value});
+                if (errors.city) setErrors(prev => ({ ...prev, city: '' }));
+              }}
+              placeholder="Lahore"
+              className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                errors.city ? 'border-red-500 focus:border-red-600' : 'border-[#d4c5c1] focus:border-[#6b493d]'
+              }`}
+            />
+            {errors.city && <p className="mt-1.5 text-[12px] font-semibold text-red-600">{errors.city}</p>}
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>
+            <input 
+              type="text" 
+              value={shippingAddress.province}
+              onChange={(e) => setShippingAddress({...shippingAddress, province: e.target.value})}
+              placeholder="Punjab"
+              className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Postal Code</label>
+            <input 
+              type="text" 
+              value={shippingAddress.postalCode}
+              onChange={(e) => setShippingAddress({...shippingAddress, postalCode: e.target.value})}
+              placeholder="54000"
+              className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
 
     {/* Payment Section */ }
     < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
@@ -301,7 +439,7 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
             
             <button 
               onClick={handlePlaceOrder}
-              disabled={isSubmitting || items.length === 0}
+              disabled={isSubmitting || (items.length === 0 && !isReorder)}
               className="w-full mt-8 bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-[0_4px_16px_rgba(107,73,61,0.3)] hover:shadow-[0_6px_20px_rgba(107,73,61,0.4)] active:scale-[0.98] flex items-center justify-center gap-2 tracking-wide text-[14px]"
             >
               <Lock size={15} />
@@ -323,7 +461,7 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
             items.map((item) => (
               <div key={item.productId} className="flex gap-4 items-center">
                 <div className="relative w-16 h-16 rounded-xl border border-[#ede6e1] bg-[#f7f1ee] flex-shrink-0">
-                  <img src={item.image} alt={item.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
+                  <img src={item.image || "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"} alt={item.title || 'Product'} className="w-full h-full object-cover rounded-xl" />
                   <span className="absolute -top-2 -right-2 bg-[#6b493d] text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                     {item.quantity}
                   </span>
@@ -331,7 +469,7 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.title}</h3>
                   <p className="text-[12px] text-[#a07f77] truncate mt-1">
-                    {item.brand || 'Premium'} Ã¢â‚¬Â¢ {item.weight || 'Standard'}
+                    {sanitizeText(item.brand) || 'Premium'} • {sanitizeText(item.weight) || 'Standard'}
                   </p>
                 </div>
                 <div className="font-bold text-[#3d2a24] text-[14px]">
@@ -345,7 +483,7 @@ const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
         <div className="border-t border-[#ede6e1] pt-5 space-y-3 mb-5">
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Subtotal</span>
-            <span className="text-[#3d2a24] font-bold">Rs {cartTotal.toLocaleString()}</span>
+            <span className="text-[#3d2a24] font-bold">Rs {displayCartTotal.toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
