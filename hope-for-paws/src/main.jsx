@@ -87,7 +87,7 @@ const AdminDashboardRoutes = () => {
       navigate('/');
       return;
     }
-    
+
     // Use the new bulk API endpoint
     fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
       headers: {
@@ -126,13 +126,13 @@ const AdminDashboardRoutes = () => {
   const fetchUserStats = async (userId, preFetchedStats = null) => {
     // If stats are already loaded, don't fetch again
     if (userStats[userId] && !preFetchedStats) return;
-    
+
     // If pre-fetched stats are provided, use them
     if (preFetchedStats) {
       setUserStats(prev => ({ ...prev, [userId]: preFetchedStats }));
       return;
     }
-    
+
     // Fallback to individual API call if needed
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     try {
@@ -207,26 +207,26 @@ const AdminDashboardRoutes = () => {
     <AdminDashboardLayout admin={admin} onSignOut={handleSignOut}>
       <Routes>
         <Route path="" element={
-        <AdminDashboard 
-          vets={vets}
-          users={users}
-          sellers={sellers}
-          admin={admin}
-          onSignOut={handleSignOut}
-        />
+          <AdminDashboard
+            vets={vets}
+            users={users}
+            sellers={sellers}
+            admin={admin}
+            onSignOut={handleSignOut}
+          />
         } />
         <Route path="manage-users" element={
-        <AdminManageUsers
-          vets={vets}
-          users={users}
-          sellers={sellers}
-          userStats={userStats}
-          fetchUserStats={fetchUserStats}
-          handleDeleteUser={handleDeleteUser}
-          deleting={deleting}
-          search={search}
-          setSearch={setSearch}
-        />
+          <AdminManageUsers
+            vets={vets}
+            users={users}
+            sellers={sellers}
+            userStats={userStats}
+            fetchUserStats={fetchUserStats}
+            handleDeleteUser={handleDeleteUser}
+            deleting={deleting}
+            search={search}
+            setSearch={setSearch}
+          />
         } />
         <Route path="adoptions" element={<AdminAdoptions />} />
         <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
@@ -261,7 +261,7 @@ const router = createBrowserRouter(
       <Route path="/adoption" element={<AdoptionPage />} />
       <Route path="/my-adoptions" element={<MyAdoptions />} />
       <Route path="/create-adoption" element={<CreateAdoptionAdForm />} />
-      <Route path="/adoptionhistory" element={<AdoptionHistory/>} />
+      <Route path="/adoptionhistory" element={<AdoptionHistory />} />
       <Route path="/verify-code" element={<VerifyCode />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile" element={<Createprofile />} />
@@ -272,11 +272,11 @@ const router = createBrowserRouter(
       <Route path="/verify-registration" element={<VerifyRegistration />} />
       <Route path="chat/:recipientId?" element={<ChatPage />} />
       <Route path="/profile/public/:userId" element={<PublicProfilePage />} />
-      
+
       {/* âœ… Seller Routes (from bi branch) */}
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
       <Route path="/seller/dashboard" element={<ProtectedRoute allowedRoles={['seller']}><SellerDashboard /></ProtectedRoute>} />
-      <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
+      <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders /></ProtectedRoute>} />
       {/* Deprecated Seller Routes removed */}
 
       {/* âœ… Marketplace Routes â€” browse public, actions require auth */}
@@ -285,7 +285,7 @@ const router = createBrowserRouter(
       <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
       <Route path="/wishlist" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Wishlist /></ProtectedRoute>} />
       <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
-      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders/></ProtectedRoute>} />
+      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders /></ProtectedRoute>} />
     </Route>
   )
 );
@@ -295,15 +295,15 @@ const AppWithProviders = () => (
     <WishlistProvider>
       <CartProvider>
         <AdoptionProvider>
-        <NotificationProvider>
-          <MessageProvider>
-            <AuthGuardProvider>
-              <RouterProvider router={router} />
-            </AuthGuardProvider>
-          </MessageProvider>
-        </NotificationProvider>
-      </AdoptionProvider>
-    </CartProvider>
+          <NotificationProvider>
+            <MessageProvider>
+              <AuthGuardProvider>
+                <RouterProvider router={router} />
+              </AuthGuardProvider>
+            </MessageProvider>
+          </NotificationProvider>
+        </AdoptionProvider>
+      </CartProvider>
     </WishlistProvider>
   </AuthProvider>
 );

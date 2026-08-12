@@ -121,7 +121,7 @@ function SellerCard({ seller }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-stone-900 truncate">{seller.name}</p>
-              <VerifiedBadge isVerified={seller.verified} size="md"/>
+              <VerifiedBadge isVerified={seller.verified} size="md" />
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <StarRow rating={seller.rating} size={12} />
@@ -129,13 +129,15 @@ function SellerCard({ seller }) {
             </div>
           </div>
         </div>
-        <button
+        <Link
+          to={seller.userId ? `/profile/public/${seller.userId}` : '#'}
+          state={{ defaultTab: 'products' }}
           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors duration-150 hover:bg-white flex-shrink-0"
-          style={{ borderColor: BRAND.softBorder, color: BRAND.dark }}
+          style={{ borderColor: BRAND.softBorder, color: BRAND.dark, textDecoration: 'none' }}
         >
           <Store size={13} />
           View Store
-        </button>
+        </Link>
       </div>
 
       <div
@@ -144,7 +146,7 @@ function SellerCard({ seller }) {
       >
         {[
           { label: "Rating", value: `${seller.rating}/5` },
-          { label: "Sales",  value: seller.totalSales },
+          { label: "Sales", value: seller.totalSales },
           { label: "Dispatch", value: "Same Day" },
         ].map(({ label, value }) => (
           <div key={label} className="px-1 sm:px-2">
@@ -159,9 +161,9 @@ function SellerCard({ seller }) {
 
 function TrustStrip() {
   const items = [
-    { icon: Shield,       text: "Secure payments" },
+    { icon: Shield, text: "Secure payments" },
     { icon: CheckCircle2, text: "Quality guaranteed" },
-    { icon: Truck,        text: "Nationwide shipping" },
+    { icon: Truck, text: "Nationwide shipping" },
   ];
   return (
     <div className="flex items-center justify-between gap-1 py-4 border-y" style={{ borderColor: BRAND.softBorder }}>
@@ -201,7 +203,7 @@ function CustomerReviews({ productId }) {
   return (
     <div className="mt-12 sm:mt-16 pt-10 border-t" style={{ borderColor: BRAND.softBorder }}>
       <h2 className="text-xl sm:text-2xl font-bold text-stone-900 mb-6 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Customer Reviews</h2>
-      
+
       {reviews.length === 0 ? (
         <div className="bg-stone-50 rounded-2xl p-8 text-center border border-stone-100 transition-all hover:shadow-sm">
           <Star size={32} className="mx-auto mb-3 text-stone-300" />
@@ -252,8 +254,8 @@ export default function ProductDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  const [qty, setQty]           = useState(1);
-  const [cartAdded, setCartAdded]   = useState(false);
+  const [qty, setQty] = useState(1);
+  const [cartAdded, setCartAdded] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
 
   const isWishlisted = PRODUCT ? isInWishlist(PRODUCT._id) : false;
@@ -266,7 +268,7 @@ export default function ProductDetails() {
         const res = await fetch(`http://localhost:3000/api/products/${id}`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch product");
         const data = await res.json();
-        
+
         setPRODUCT({
           _id: data._id,
           title: data.title,
@@ -288,6 +290,8 @@ export default function ProductDetails() {
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {
+            id: data.sellerId?._id || null,
+            userId: data.sellerId?.userId?._id || data.sellerId?.userId || null,
             name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
             rating: 4.9,
             totalSales: "1.2k",
@@ -298,10 +302,10 @@ export default function ProductDetails() {
           ingredients: data.ingredients || "Not specified.",
           usage: data.usageInstructions || "Not specified.",
           delivery: [
-            { icon: Truck,    label: "Free delivery",     detail: "On orders over Rs. 2,000 — arrives in 2–4 business days." },
-            { icon: Package,  label: "Secure packaging",  detail: "Tamper-proof, moisture-sealed bag inside a branded outer box." },
-            { icon: RotateCcw,label: "Easy returns",      detail: "7-day return window on unopened items in original condition." },
-            { icon: Clock,    label: "Same-day dispatch", detail: "Order before 2 PM (Mon–Sat) for same-day processing." },
+            { icon: Truck, label: "Free delivery", detail: "On orders over Rs. 2,000 — arrives in 2–4 business days." },
+            { icon: Package, label: "Secure packaging", detail: "Tamper-proof, moisture-sealed bag inside a branded outer box." },
+            { icon: RotateCcw, label: "Easy returns", detail: "7-day return window on unopened items in original condition." },
+            { icon: Clock, label: "Same-day dispatch", detail: "Order before 2 PM (Mon–Sat) for same-day processing." },
           ],
         });
         setIsLoading(false);
@@ -371,11 +375,11 @@ export default function ProductDetails() {
                 boxShadow: i === active ? `0 0 0 2px ${BRAND.dark}22` : "none",
               }}
             >
-              <img 
-                src={imgErrors[i] ? fallbackSrc : src} 
-                alt="" 
+              <img
+                src={imgErrors[i] ? fallbackSrc : src}
+                alt=""
                 onError={() => handleImgError(i)}
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover"
               />
             </button>
           ))}
@@ -469,8 +473,8 @@ export default function ProductDetails() {
         {PRODUCT?.additionalInfo && PRODUCT.additionalInfo.length > 0 ? (
           <dl className="space-y-0">
             {PRODUCT.additionalInfo.map((item, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={`py-3 flex flex-col sm:flex-row gap-1 sm:gap-4 ${index !== PRODUCT.additionalInfo.length - 1 ? 'border-b border-gray-200' : ''}`}
               >
                 <dt className="text-sm font-medium text-gray-700 w-full sm:w-1/3 flex-shrink-0">{item.heading}</dt>
@@ -580,7 +584,7 @@ export default function ProductDetails() {
       />
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12">
-        
+
         {/* ── BACK BUTTON ── */}
         <div className="mb-6 sm:mb-8">
           <Link
@@ -731,7 +735,7 @@ export default function ProductDetails() {
         {/* Report listing */}
         {user && (
           <div className="mt-8 flex justify-center pb-4">
-            <button 
+            <button
               onClick={() => setIsReportModalOpen(true)}
               className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-red-500 transition-colors duration-150 group"
             >
@@ -745,10 +749,10 @@ export default function ProductDetails() {
 
       {/* Report Modal */}
       {PRODUCT && (
-        <ReportModal 
-          productId={PRODUCT._id} 
-          isOpen={isReportModalOpen} 
-          onClose={() => setIsReportModalOpen(false)} 
+        <ReportModal
+          productId={PRODUCT._id}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
         />
       )}
     </div>
