@@ -110,7 +110,13 @@ const chatEmailQueue = new Proxy({}, {
 });
 
 const REMINDER_DELAY_MINUTES = config.CHAT_EMAIL_REMINDER_DELAY_MINUTES;
-const ACTIVE_GRACE_MINUTES = config.CHAT_EMAIL_ACTIVE_GRACE_MINUTES;
+// Fixed: notificationConfig.js exports this as CHAT_EMAIL_ACTIVITY_GRACE_MINUTES
+// (not CHAT_EMAIL_ACTIVE_GRACE_MINUTES). The old key name resolved to
+// `undefined`, so toMs(ACTIVE_GRACE_MINUTES) was always NaN, and the
+// "skip the reminder if the user was recently active" check below could
+// never trigger — meaning someone actively chatting right now could still
+// receive the reminder email once the delay elapsed.
+const ACTIVE_GRACE_MINUTES = config.CHAT_EMAIL_ACTIVITY_GRACE_MINUTES;
 const EMAIL_COOLDOWN_HOURS = config.CHAT_EMAIL_EMAIL_COOLDOWN_HOURS;
 const MAX_PREVIEW_MESSAGES = config.CHAT_EMAIL_PREVIEW_MESSAGE_LIMIT;
 
@@ -321,4 +327,3 @@ module.exports = {
   cancelChatReminder,
   initChatReminderWorker
 };
-

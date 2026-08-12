@@ -2,6 +2,10 @@ const Message = require("../models/message");
 const Conversation = require("../models/Conversation");
 const mongoose = require("mongoose");
 const NotificationService = require("../services/notificationService");
+const Seller = require('../models/Seller');
+const User = require('../models/User');
+const { sendEmail } = require('../routes/mailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 exports.sendMessage = async (req, res) => {
   console.log('📨 sendMessage called with:', req.body);
@@ -117,6 +121,25 @@ exports.sendMessage = async (req, res) => {
                   text,
                   participantId
                 );
+
+                // If recipient is a seller, send an immediate email alert
+                try {
+                  const sellerProfile = await Seller.findOne({ userId: participantId });
+                  if (sellerProfile) {
+                    const recipientUser = await User.findById(participantId).select('email username');
+                    const senderUser = await User.findById(senderId).select('username');
+                    if (recipientUser && recipientUser.email) {
+                      const { subject, html } = emailTemplates.buildNotificationEmail({
+                        title: `New message from ${senderUser?.username || 'Customer'}`,
+                        message: text
+                      });
+                      await sendEmail(recipientUser.email, subject, `New message: ${text}`, html);
+                    }
+                  }
+                } catch (sellerMailErr) {
+                  console.error('Error sending immediate seller chat email:', sellerMailErr);
+                }
+
                 console.log('📧 Email notification sent to participant:', participantId);
               } catch (notificationError) {
                 console.error('❌ Error sending chat notification:', notificationError);

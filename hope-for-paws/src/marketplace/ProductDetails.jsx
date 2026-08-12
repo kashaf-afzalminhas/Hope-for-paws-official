@@ -107,7 +107,7 @@ function QuantitySelector({ qty, onChange, max }) {
   );
 }
 
-function SellerCard({ seller }) {
+function SellerCard({ seller, navigate }) {
   return (
     <div className="rounded-2xl p-4 sm:p-5 border" style={{ backgroundColor: BRAND.light, borderColor: BRAND.softBorder }}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -718,8 +718,8 @@ export default function ProductDetails() {
             {/* Trust strip */}
             <TrustStrip />
 
-            {/* Seller card */}
-            <SellerCard seller={PRODUCT.seller} />
+           {/* Seller card */}
+<SellerCard seller={PRODUCT.seller} navigate={navigate} />
 
           </div>
         </div>

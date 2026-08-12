@@ -100,6 +100,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart }) {
 
 const PublicProfilePage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

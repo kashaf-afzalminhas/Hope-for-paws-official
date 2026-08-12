@@ -501,7 +501,7 @@ const getUserProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { id, phone, city, about } = req.body;
+    const { id, phone, city, about, notificationPreferences } = req.body;
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -518,6 +518,29 @@ const updateProfile = async (req, res) => {
     }
     user.city = city || user.city;
     user.about = about || user.about;
+
+    if (notificationPreferences && typeof notificationPreferences === 'object') {
+      const emailPref = notificationPreferences.email;
+      if (emailPref && ['instant', 'daily_summary', 'disabled'].includes(emailPref)) {
+        user.notificationPreferences = {
+          ...user.notificationPreferences,
+          email: emailPref,
+        };
+      }
+      if (typeof notificationPreferences.inApp === 'boolean') {
+        user.notificationPreferences = {
+          ...user.notificationPreferences,
+          inApp: notificationPreferences.inApp,
+        };
+      }
+      if (typeof notificationPreferences.push === 'boolean') {
+        user.notificationPreferences = {
+          ...user.notificationPreferences,
+          push: notificationPreferences.push,
+        };
+      }
+    }
+
     await user.save();
 
     return res.status(200).json({ message: 'Updated', user });

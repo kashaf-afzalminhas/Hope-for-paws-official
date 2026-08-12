@@ -106,12 +106,14 @@ const AdoptionHistory = () => {
   }
 
   return (
-    <div className="w-full py-2 sm:py-4">
-      <h2 className="mb-2 text-2xl font-bold text-[#4E3B31] sm:text-3xl">My adoption history</h2>
-      <div className={adoptionGridClass}>
-        {history.map((item) => (
-          <AdoptionHistoryCard key={item.id || item._id} item={item} />
-        ))}
+    <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto w-full">
+        <h2 className="mb-4 text-2xl font-bold text-[#4E3B31] sm:text-3xl">My adoption history</h2>
+        <div className={adoptionGridClass}>
+          {history.map((item) => (
+            <AdoptionHistoryCard key={item.id || item._id} item={item} />
+          ))}
+        </div>
       </div>
     </div>
   );

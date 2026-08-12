@@ -770,23 +770,23 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           <div className="px-5 py-3 border-t border-stone-50 bg-stone-50/40 flex items-center justify-between gap-3 flex-wrap">
             {/* Left: support link */}
             <button
-              onClick={() => {
-                const sellerUserId = order.sellerId?.userId;
-                if (sellerUserId) {
-                  navigate(`/chat/${sellerUserId}`, {
-                    state: {
-                      fromOrder: true,
-                      orderId: order.orderId || order._id,
-                      sellerStoreName: order.sellerId?.storeName,
-                    }
-                  });
-                }
-              }}
-              className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
-            >
-              <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
-              {isCancelled ? "Contact support" : "Get help with this order"}
-            </button>
+  onClick={() => {
+    const sellerUserId = order.sellerId?.userId;
+    if (sellerUserId) {
+      navigate(`/chat/${sellerUserId}`, {
+        state: {
+          fromOrder: true,
+          orderId: order.orderId || order._id,
+          sellerStoreName: order.sellerId?.storeName,
+        }
+      });
+    }
+  }}
+  className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
+>
+  <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
+  Get help with this order
+</button>
 
             {/* Right: primary CTAs */}
             <div className="flex items-center gap-2">
@@ -848,7 +848,22 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
                 <button
                   onClick={() => {
                     if (isDelivered) {
-                      navigate('/marketplace');
+                      navigate('/checkout', {
+                        state: {
+                          reorder: true,
+                          previousOrder: {
+                            orderId: order.orderId || order._id || order.id,
+                            items: order.items,
+                            shippingAddress: order.shippingAddress,
+                            paymentMethod: order.paymentMethod,
+                            totals: order.totals,
+                            contact: order.contact || {
+                              email: order.shippingAddress?.email || '',
+                              phone: order.shippingAddress?.phone || '',
+                            },
+                          },
+                        },
+                      });
                     } else {
                       setShowDetails(v => !v);
                     }
@@ -1011,12 +1026,12 @@ const isRecentlyCancelled = (order) => {
 };
 
 function FilterTabs({ activeFilter, onFilter, orders }) {
-  const counts = {
-    all: orders.filter(o => o.status !== "Cancelled" || isRecentlyCancelled(o)).length,
-    active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
-    delivered: orders.filter(o => o.status === "Delivered").length,
-    cancelled: orders.filter(o => o.status === "Cancelled").length,
-  };
+ const counts = {
+  all: orders.length,
+  active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
+  delivered: orders.filter(o => o.status === "Delivered").length,
+  cancelled: orders.filter(o => o.status === "Cancelled").length,
+};
 
   return (
     <div
@@ -1206,17 +1221,18 @@ export default function MyOrdersPage() {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-    if (statusFilter && o.status !== statusFilter) return false;
-    if (activeFilter === "all") return o.status !== "Cancelled" || isRecentlyCancelled(o);
-    if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
-    if (activeFilter === "delivered") return o.status === "Delivered";
-    if (activeFilter === "cancelled") return o.status === "Cancelled";
-    return true;
-  });
+  if (statusFilter) return o.status === statusFilter;
+
+  if (activeFilter === "all")       return true;
+  if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
+  if (activeFilter === "delivered") return o.status === "Delivered";
+  if (activeFilter === "cancelled") return o.status === "Cancelled";
+  return true;
+});
 
   return (
     <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      <div className="max-w-xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Page header Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <header className="mb-6">
@@ -1240,12 +1256,12 @@ export default function MyOrdersPage() {
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Stats strip Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <PageStats orders={orders} />
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filter tabs Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        <FilterTabs
-          activeFilter={activeFilter}
-          onFilter={setFilter}
-          orders={orders}
-        />
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filter tabs Ã¢â€â‚¬Ã¢â€â‚¬ */}
+<FilterTabs
+  activeFilter={activeFilter}
+  onFilter={(tab) => { setStatusFilter(null); setFilter(tab); }}
+  orders={orders}
+/>
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order list Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <main>
