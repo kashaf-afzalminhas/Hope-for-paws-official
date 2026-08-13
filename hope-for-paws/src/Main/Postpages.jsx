@@ -111,15 +111,16 @@ const Postpages = () => {
   };
 
   return (
-    <div className="bg-[#F8F4ED] min-h-screen p-8">
-      <h1 className="text-center text-[#6b493d] text-4xl font-bold mb-8">Hope For Paws</h1>
+    <div className="min-h-screen bg-[#F8F4ED] py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto w-full">
+        <h1 className="text-center text-[#6b493d] text-3xl sm:text-4xl font-bold mb-6">Hope For Paws</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {animals.map((animal) => (
-          <div
-            key={animal._id}
-            className="relative border border-brown-700 rounded-lg p-4 m-4 shadow-md bg-beige-100 w-64 h-auto min-h-[320px]"
-          >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {animals.map((animal) => (
+            <div
+              key={animal._id}
+              className="relative border border-brown-700 rounded-lg p-4 shadow-md bg-beige-100 w-full h-auto min-h-[320px]"
+            >
             {animal.image && (
               <img
                 src={`${API_BASE_URL}${animal.image}`}
@@ -253,6 +254,7 @@ const Postpages = () => {
           onCloseForm={() => setIsFormVisible(false)}
         />
       )}
+      </div>
     </div>
   );
 };

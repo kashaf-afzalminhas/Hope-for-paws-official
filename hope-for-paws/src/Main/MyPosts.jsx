@@ -198,11 +198,11 @@ const MyPosts = () => {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4 text-[#6b493d]/80">
                           <div className="flex items-center space-x-1">
-                            <span>ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
+                            
                             <span>{post.likes.length}</span>
                           </div>
                           <div className="flex items-center space-x-1">
-                            <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬</span>
+                            
                             <span>{post.comments.length}</span>
                           </div>
                         </div>
