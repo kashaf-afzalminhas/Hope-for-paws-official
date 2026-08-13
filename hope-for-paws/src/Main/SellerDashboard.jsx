@@ -23,9 +23,10 @@ ChartJS.register(
 import {
   Package, ShoppingBag, TrendingUp, Wallet,
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
-  BadgeCheck, Clock, RefreshCw
+  BadgeCheck, Clock, RefreshCw, Star, MessageSquareText
 } from 'lucide-react';
 import AddProduct from './AddProduct';
+import StarDisplay from '../Components/StarDisplay';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -57,6 +58,13 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   const [products, setProducts] = useState([]);
   const [sellerProfile, setSellerProfile] = useState(null);
   
+  // Reviews States
+  const [reviews, setReviews] = useState([]);
+  const [reviewsStats, setReviewsStats] = useState({ averageRating: 0, totalReviews: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [reviewsFetched, setReviewsFetched] = useState(false);
+
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -97,6 +105,29 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Lazy-load reviews when Reviews tab is selected
+  const fetchSellerReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const res = await axios.get(`${API_URL}/reviews`, getAxiosConfig());
+      setReviews(res.data.reviews || []);
+      setReviewsStats(res.data.stats || { averageRating: 0, totalReviews: 0 });
+      setReviewsFetched(true);
+    } catch (err) {
+      console.error('Error fetching seller reviews:', err);
+      setReviewsError('Failed to load reviews. Please try again.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && !reviewsFetched) {
+      fetchSellerReviews();
+    }
+  }, [activeTab]);
 
   const handleOpenEditModal = (product) => {
     setEditingProductId(product._id);
@@ -229,7 +260,8 @@ const SellerDashboard = ({ onNavigateOrders }) => {
       <div className="mb-8 flex gap-2 overflow-x-auto rounded-[24px] border border-stone-200 bg-white/80 p-2 shadow-sm backdrop-blur-sm">
         {[
           { id: 'overview', label: 'Overview', icon: TrendingUp },
-          { id: 'products', label: 'Products', icon: Package }
+          { id: 'products', label: 'Products', icon: Package },
+          { id: 'reviews', label: 'Reviews', icon: Star }
         ].map(tab => (
           <button
             key={tab.id}
@@ -596,6 +628,185 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                   Create your first product
                 </button>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            {reviewsLoading ? (
+              /* Loading skeleton */
+              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-[#6b493d]/10 p-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#6b493d]" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-40 rounded-full bg-stone-200 animate-pulse" />
+                      <div className="h-3 w-56 rounded-full bg-stone-100 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div key={index} className="rounded-2xl border border-stone-200 p-4">
+                        <div className="h-3 w-24 rounded-full bg-stone-200 animate-pulse" />
+                        <div className="mt-3 h-8 w-20 rounded-full bg-stone-100 animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : reviewsError ? (
+              /* Error state */
+              <div className="rounded-[28px] border border-red-100 bg-[#fff8f7] p-6 shadow-sm">
+                <div className="flex flex-col items-center justify-center rounded-[24px] border border-red-100 bg-white px-6 py-16 text-center shadow-sm">
+                  <div className="mb-4 rounded-2xl bg-red-50 p-4">
+                    <AlertCircle className="h-8 w-8 text-red-500" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-stone-900">Could not load reviews</h2>
+                  <p className="mt-2 max-w-md text-sm text-stone-500">{reviewsError}</p>
+                  <button
+                    onClick={fetchSellerReviews}
+                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#5a3c32]"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Try again
+                  </button>
+                </div>
+              </div>
+            ) : reviews.length === 0 ? (
+              /* Empty state */
+              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="mb-4 rounded-2xl bg-amber-50 p-4">
+                    <MessageSquareText className="h-10 w-10 text-amber-400" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-stone-900">You have no reviews yet</h2>
+                  <p className="mt-2 max-w-md text-sm text-stone-500">
+                    When customers review your products after delivery, their feedback will appear here.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Reviews content */
+              <>
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-[24px] border border-stone-200 bg-white p-5 shadow-sm">
+                    <div className="inline-flex rounded-2xl bg-amber-50 p-3 text-amber-700">
+                      <Star className="h-5 w-5" />
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-stone-500">Average Rating</p>
+                      <div className="mt-1 flex items-center gap-3">
+                        <p className="text-2xl font-semibold text-stone-900">{reviewsStats.averageRating}</p>
+                        <StarDisplay rating={reviewsStats.averageRating} numReviews={reviewsStats.totalReviews} size={16} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-[24px] border border-stone-200 bg-white p-5 shadow-sm">
+                    <div className="inline-flex rounded-2xl bg-violet-50 p-3 text-violet-700">
+                      <MessageSquareText className="h-5 w-5" />
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-stone-500">Total Reviews</p>
+                      <p className="mt-1 text-2xl font-semibold text-stone-900">{reviewsStats.totalReviews}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reviews List */}
+                <div className="rounded-[28px] border border-stone-200 bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-stone-100 bg-[#fcfaf8] p-5">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Feedback</p>
+                      <h2 className="text-xl font-semibold text-stone-900">Customer Reviews</h2>
+                    </div>
+                    <button
+                      onClick={fetchSellerReviews}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm transition hover:bg-stone-50 hover:text-[#6b493d]"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-stone-100">
+                    {reviews.map((review) => (
+                      <div key={review._id} className="p-5 transition-colors hover:bg-stone-50/50">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          {/* Left: Product + Review */}
+                          <div className="flex-1 space-y-3">
+                            {/* Product info */}
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100">
+                                {review.product?.images && review.product.images.length > 0 ? (
+                                  <img
+                                    src={review.product.images[0].startsWith('http') ? review.product.images[0] : `http://localhost:3000${review.product.images[0]}`}
+                                    alt={review.product?.title}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <ImageIcon className="h-4 w-4 text-stone-400" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-stone-900">{review.product?.title || 'Unknown Product'}</p>
+                                <div className="mt-0.5">
+                                  <StarDisplay rating={review.rating} showText={false} size={13} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Review text */}
+                            <p className="text-sm leading-relaxed text-stone-600">{review.comment}</p>
+
+                            {/* Review images */}
+                            {review.images && review.images.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {review.images.map((img, idx) => (
+                                  <img
+                                    key={idx}
+                                    src={img.startsWith('http') ? img : `http://localhost:3000${img}`}
+                                    alt={`Review image ${idx + 1}`}
+                                    className="h-16 w-16 rounded-lg object-cover border border-stone-200"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Reviewer + Date */}
+                          <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end sm:text-right">
+                            <div className="flex items-center gap-2">
+                              {review.user?.profileImage ? (
+                                <img
+                                  src={review.user.profileImage.startsWith('http') ? review.user.profileImage : `http://localhost:3000${review.user.profileImage}`}
+                                  alt={review.user?.username}
+                                  className="h-7 w-7 rounded-full object-cover border border-stone-200"
+                                />
+                              ) : (
+                                <div className="h-7 w-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500">
+                                  {review.user?.username?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                              )}
+                              <span className="text-sm font-medium text-stone-700">{review.user?.username || 'Anonymous'}</span>
+                            </div>
+                            <span className="text-xs text-stone-400">
+                              {new Date(review.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}
