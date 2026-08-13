@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { getSocket, initSocket } from '../services/socket';
+import { useAuth } from './AuthContext';
 
 const MessageContext = createContext(undefined);
 
@@ -13,39 +14,59 @@ const useMessages = () => {
 };
 
 const MessageProvider = ({ children }) => {
+  const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
 
-  // Initialize socket globally when MessageProvider mounts
-  useEffect(() => {
-    const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    const currentUserId = user?.id || user?._id;
-    
-    if (currentUserId) {
-      console.log('MessageProvider: Initializing global socket for user:', currentUserId);
-      try {
-        const socket = initSocket(currentUserId);
-        console.log('MessageProvider: Global socket initialized:', !!socket);
-      } catch (e) {
-        console.warn('MessageProvider: Failed to initialize socket:', e.message);
-      }
-    } else {
-      console.log('MessageProvider: No user ID found, cannot initialize global socket');
+  const getStoredUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const storedUser = userStr ? JSON.parse(userStr) : null;
+      return storedUser?.id || storedUser?._id || null;
+    } catch (error) {
+      console.warn('MessageProvider: Failed to parse stored user from storage', error);
+      return null;
     }
-    
-    // Cleanup on unmount
+  };
+
+  const getCurrentUserId = () => user?.id || user?._id || getStoredUserId();
+
+  // Initialize socket whenever authenticated user becomes available
+  useEffect(() => {
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      console.log('MessageProvider: No authenticated user yet, waiting for login');
+      return;
+    }
+
+    console.log('MessageProvider: Initializing global socket for user:', currentUserId);
+    try {
+      const socket = initSocket(currentUserId);
+      console.log('MessageProvider: Global socket initialized:', !!socket);
+    } catch (e) {
+      console.warn('MessageProvider: Failed to initialize socket:', e.message);
+    }
+
     return () => {
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ MessageProvider: Cleaning up global socket');
+      console.log('MessageProvider: Cleaning up global socket for user:', currentUserId);
     };
-  }, []); // Run only once on mount
+  }, [user]);
 
   // Centralized socket event handler for new messages
   useEffect(() => {
     const socket = getSocket();
     if (!socket) {
+      const currentUserId = user?.id || user?._id;
+      if (currentUserId) {
+        console.log('MessageContext: Socket not ready yet, initializing socket for user:', currentUserId);
+        try {
+          initSocket(currentUserId);
+        } catch (e) {
+          console.warn('MessageContext: Failed to initialize socket inside listener effect:', e.message);
+        }
+      }
       return;
     }
 
@@ -71,15 +92,21 @@ const MessageProvider = ({ children }) => {
       const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);
+      const isChatRoute = typeof window !== 'undefined' && /^\/chat(\/|$)/.test(window.location.pathname);
+      const isActiveConversation = currentConversationId !== null && String(message.conversationId) === String(currentConversationId);
+      const isActiveVisibleConversation = isChatRoute && isActiveConversation && document.hasFocus();
       
-      // Only increment unread count if not in the current conversation and not user's own message
-      // When currentConversationId is null (outside chat), we should increment for all messages from others
-      if (message.senderId !== currentUserId && (currentConversationId === null || String(message.conversationId) !== String(currentConversationId))) {
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId, 'isChatRoute:', isChatRoute, 'isActiveVisibleConversation:', isActiveVisibleConversation);
+      
+      // Only skip unread increment when the user is actively viewing that exact conversation on the chat page and the tab is focused.
+      if (
+        message.senderId !== currentUserId &&
+        !isActiveVisibleConversation
+      ) {
         console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Incrementing unread count');
         setUnreadCount(prev => prev + 1);
       } else {
-        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Not incrementing unread count (own message or in current conversation)');
+        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Not incrementing unread count (own message or active conversation currently visible)');
       }
       
       // Update conversations list with the new message
@@ -153,7 +180,7 @@ const MessageProvider = ({ children }) => {
     return () => {
       socket.off('newMessage', handleNewMessage);
     };
-  }, [currentConversationId, socketConnected]);
+  }, [currentConversationId, socketConnected, user]);
 
   const refreshConversations = useCallback(async (userId) => {
     if (!userId) return;
@@ -182,6 +209,14 @@ const MessageProvider = ({ children }) => {
       console.error('Error refreshing conversations:', error);
     }
   }, []);
+
+  useEffect(() => {
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) return;
+
+    console.log('MessageContext: Refreshing conversations for authenticated user:', currentUserId);
+    refreshConversations(currentUserId);
+  }, [user, refreshConversations]);
 
   // Listen for refresh conversations event
   useEffect(() => {

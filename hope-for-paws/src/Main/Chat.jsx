@@ -623,6 +623,9 @@ const addUserToCache = useCallback((user) => {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (setCurrentConversationId) {
+        setCurrentConversationId(null);
+      }
     };
   }, [setCurrentConversationId]);
 
