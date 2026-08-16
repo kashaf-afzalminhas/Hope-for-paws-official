@@ -634,8 +634,28 @@ const removeProfileImage = async (req, res) => {
   res.json({ success: true, message: "Removed" });
 };
 const getUserPublicProfile = async (req, res) => {
-  const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian");
-  res.json({ success: true, data: user });
+  try {
+    const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian isSeller lastActive");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    const seller = await Seller.findOne({ userId: req.params.id }).select("isVerified status storeName _id");
+    
+    res.json({ 
+      success: true, 
+      data: {
+        ...user.toObject(),
+        sellerVerified: seller?.isVerified || false,
+        sellerStatus: seller?.status || null,
+        storeName: seller?.storeName || null,
+        sellerId: seller?._id || null
+      } 
+    });
+  } catch (err) {
+    console.error('Error fetching public profile:', err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 const changePassword = async (req, res) => {
   const { id, currentPassword, newPassword } = req.body;

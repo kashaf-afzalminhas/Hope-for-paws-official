@@ -20,10 +20,10 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-import {
-  Package, ShoppingBag, TrendingUp, Wallet,
+import { 
+  Package, ShoppingBag, TrendingUp, Wallet, 
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
-  BadgeCheck, Clock, RefreshCw, Star, MessageSquareText
+  BadgeCheck, Clock
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';
@@ -164,100 +164,67 @@ const SellerDashboard = ({ onNavigateOrders }) => {
 
   if (isLoading) {
     return (
-      <div className="w-full min-h-[70vh] rounded-[28px] border border-[#6b493d]/10 bg-[#fcfaf8] p-6 shadow-[0_20px_60px_-24px_rgba(107,73,61,0.28)]">
-        <div className="flex flex-col gap-4 rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-[#6b493d]/10 p-3">
-              <Loader2 className="h-5 w-5 animate-spin text-[#6b493d]" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-40 rounded-full bg-stone-200" />
-              <div className="h-3 w-56 rounded-full bg-stone-100" />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="rounded-2xl border border-stone-200 p-4">
-                <div className="h-3 w-24 rounded-full bg-stone-200" />
-                <div className="mt-3 h-8 w-20 rounded-full bg-stone-100" />
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 w-full">
+        <Loader2 className="w-10 h-10 text-[#6b493d] animate-spin mb-4" />
+        <p className="text-[#8c6b5d] font-medium animate-pulse">Loading dashboard data...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="w-full min-h-[70vh] rounded-[28px] border border-red-100 bg-[#fff8f7] p-6 shadow-[0_20px_60px_-24px_rgba(239,68,68,0.2)]">
-        <div className="flex flex-col items-center justify-center rounded-[24px] border border-red-100 bg-white px-6 py-16 text-center shadow-sm">
-          <div className="mb-4 rounded-2xl bg-red-50 p-4">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-          </div>
-          <h2 className="text-lg font-semibold text-stone-900">We could not refresh your seller dashboard</h2>
-          <p className="mt-2 max-w-md text-sm text-stone-500">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#5a3c32]"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Try again
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 w-full">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-red-600 font-medium">{error}</p>
+        <button 
+          onClick={fetchDashboardData}
+          className="mt-4 px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#8c6b5d] transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
   if (activeTab === 'add-product' || activeTab === 'edit-product') {
     return (
-      <AddProduct
+      <AddProduct 
         productId={activeTab === 'edit-product' ? editingProductId : null}
-        onCancel={() => { setActiveTab('products'); setEditingProductId(null); }}
-        onSuccess={() => { setActiveTab('products'); setEditingProductId(null); fetchDashboardData(); }}
+        onCancel={() => { setActiveTab('products'); setEditingProductId(null); }} 
+        onSuccess={() => { setActiveTab('products'); setEditingProductId(null); fetchDashboardData(); }} 
       />
     );
   }
 
   return (
-    <div className="w-full bg-transparent">
-      <div className="mb-6 rounded-[28px] border border-[#6b493d]/10 bg-[#fcfaf8] p-6 shadow-[0_20px_60px_-24px_rgba(107,73,61,0.28)] sm:p-7">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#6b493d]/15 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6b493d] shadow-sm">
-                <ShoppingBag className="h-3.5 w-3.5" />
-                Seller workspace
-              </div>
-              {sellerProfile && (
-                sellerProfile.isVerified ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    <BadgeCheck className="h-4 w-4" />
-                    Verified Seller
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                    <Clock className="h-3.5 w-3.5" />
-                    Pending Review
-                  </span>
-                )
-              )}
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
-              {sellerProfile?.storeName || 'Store Dashboard'}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
-              Keep your listings healthy, customer orders moving, and your store performance visible in one polished workspace.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[#6b493d]/10 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Live snapshot</p>
-            <p className="mt-1 text-sm font-semibold text-stone-700">{stats.totalOrders} orders • {stats.activeProducts} active products</p>
-          </div>
+    <div className="w-full">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <h1 className="text-4xl font-bold text-[#6b493d] tracking-wide">
+            {sellerProfile?.storeName || 'Store Dashboard'}
+          </h1>
+
+          {/* Verification Badge */}
+          {sellerProfile && (
+            sellerProfile.isVerified ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
+                <BadgeCheck className="w-4 h-4 text-green-600" />
+                Verified Seller
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
+                <Clock className="w-3.5 h-3.5 text-red-600" />
+                Pending Review
+              </span>
+            )
+          )}
         </div>
+        <p className="text-gray-500 mt-2">Manage your marketplace presence and track performance.</p>
       </div>
 
-      <div className="mb-8 flex gap-2 overflow-x-auto rounded-[24px] border border-stone-200 bg-white/80 p-2 shadow-sm backdrop-blur-sm">
+      {/* Navigation */}
+      <div className="flex space-x-1 border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
         {[
           { id: 'overview', label: 'Overview', icon: TrendingUp },
           { id: 'products', label: 'Products', icon: Package },
@@ -266,60 +233,54 @@ const SellerDashboard = ({ onNavigateOrders }) => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+            className={`flex items-center space-x-2 px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-all duration-300 ${
               activeTab === tab.id
-                ? 'bg-[#6b493d] text-white shadow-sm'
-                : 'text-stone-600 hover:bg-[#6b493d]/5 hover:text-[#6b493d]'
+                ? 'border-[#6b493d] text-[#6b493d] bg-[#6b493d]/5 rounded-t-lg'
+                : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
             }`}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className="w-5 h-5" />
             <span>{tab.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="min-h-[420px]">
+      {/* Content Area */}
+      <div className="min-h-[400px]">
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-emerald-50 text-emerald-700', accent: 'from-emerald-500 to-emerald-600' },
-                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-sky-50 text-sky-700', accent: 'from-sky-500 to-sky-600', onClick: goToOrders, clickable: true },
-                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-violet-50 text-violet-700', accent: 'from-violet-500 to-violet-600', onClick: () => setActiveTab('products'), clickable: true },
-                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-amber-50 text-amber-700', accent: 'from-amber-500 to-amber-600' }
+                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-green-50 text-green-600' },
+                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-600', onClick: goToOrders, clickable: true },
+                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-purple-50 text-purple-600', onClick: () => setActiveTab('products'), clickable: true },
+                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-orange-50 text-orange-600' }
               ].map((stat, i) => (
-                <div
-                  key={i}
+                <div 
+                  key={i} 
                   onClick={stat.onClick ? stat.onClick : undefined}
-                  className={`rounded-[24px] border border-stone-200 bg-white p-5 shadow-sm transition-all ${stat.clickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md' : 'hover:shadow-md'}`}
+                  className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all ${
+                    stat.clickable ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5' : 'hover:shadow-md'
+                  }`}
                 >
-                  <div className={`inline-flex rounded-2xl p-3 ${stat.color}`}>
-                    <stat.icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-stone-500">{stat.label}</p>
-                      <p className="mt-1 text-2xl font-semibold text-stone-900">{stat.value}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 rounded-xl ${stat.color}`}>
+                      <stat.icon className="w-6 h-6" />
                     </div>
-                    <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${stat.accent}`} />
                   </div>
+                  <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Performance</p>
-                  <h3 className="text-xl font-semibold text-stone-900">Revenue overview</h3>
-                </div>
-                <div className="rounded-full border border-[#6b493d]/10 bg-[#6b493d]/5 px-3 py-1 text-sm font-semibold text-[#6b493d]">
-                  {stats.revenueByMonth.length > 0 ? 'Updated daily' : 'Collecting data'}
-                </div>
-              </div>
+            {/* Chart */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-2xl font-bold text-[#6b493d] mb-6">Revenue Overview</h3>
               <div className="h-[300px] w-full">
                 {stats.revenueByMonth.length > 0 ? (
-                  <Bar
+                  <Bar 
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
@@ -354,7 +315,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           suggestedMax: 500000,
                           grid: { color: '#E5E7EB', tickLength: 0 },
                           border: { display: false, dash: [3, 3] },
-                          ticks: {
+                          ticks: { 
                             color: '#6B7280',
                             callback: function(value) {
                               if (value >= 1000) {
@@ -365,7 +326,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           }
                         }
                       }
-                    }}
+                    }} 
                     data={{
                       labels: stats.revenueByMonth.map(item => item.month),
                       datasets: [
@@ -380,78 +341,76 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                     }}
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-stone-50 text-sm text-stone-500">
-                    Not enough data for chart yet.
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    Not enough data for chart
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Best sellers</p>
-                    <h3 className="text-xl font-semibold text-stone-900">Top selling products</h3>
-                  </div>
-                  <button onClick={() => setActiveTab('products')} className="text-sm font-semibold text-[#6b493d] hover:underline">View all</button>
+            {/* Bottom Section: Top Products & Recent Orders */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Top Products */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-[#6b493d]">Top Selling Products</h3>
+                  <button onClick={() => setActiveTab('products')} className="text-[#6b493d] text-sm font-medium hover:underline">View All</button>
                 </div>
-
+                
                 {stats.topProducts && stats.topProducts.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {stats.topProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/60 p-4 transition-colors hover:bg-stone-100/70">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
+                      <div key={product.id} className="flex items-center justify-between p-4 border border-gray-50 rounded-xl hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                             {product.image ? (
-                              <img src={product.image.startsWith('http') ? product.image : `http://localhost:3000${product.image}`} alt={product.title} className="h-full w-full object-cover" />
+                              <img src={product.image.startsWith('http') ? product.image : `http://localhost:3000${product.image}`} alt={product.title} className="w-full h-full object-cover" />
                             ) : (
-                              <ImageIcon className="h-5 w-5 text-stone-400" />
+                              <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-5 h-5 text-gray-400" /></div>
                             )}
                           </div>
                           <div>
-                            <h4 className="font-semibold text-stone-900">{product.title}</h4>
-                            <p className="text-sm text-stone-500">{product.totalSold} sold • {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+                            <h4 className="font-medium text-gray-900">{product.title}</h4>
+                            <p className="text-sm text-gray-500">{product.totalSold} sold Ã¢â‚¬Â¢ {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-[#6b493d]">Rs. {product.revenue.toLocaleString()}</p>
+                          <p className="font-bold text-[#6b493d]">Rs. {product.revenue.toLocaleString()}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-4 py-10 text-center text-sm text-stone-500">
-                    <Package className="mx-auto mb-3 h-8 w-8 text-stone-300" />
-                    <p className="font-semibold text-stone-700">No products sold yet.</p>
-                    <p className="mt-1">Add products to start building your momentum.</p>
+                  <div className="py-10 text-center text-gray-500 border border-dashed border-gray-200 rounded-xl bg-gray-50">
+                    <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="font-medium">No products sold yet.</p>
+                    <p className="text-sm mt-1">Add products to see your top sellers here.</p>
                   </div>
                 )}
               </div>
 
-              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Orders</p>
-                    <h3 className="text-xl font-semibold text-stone-900">Recent orders</h3>
-                  </div>
-                  <button onClick={goToOrders} className="text-sm font-semibold text-[#6b493d] hover:underline">View all</button>
+              {/* Recent Orders */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-[#6b493d]">Recent Orders</h3>
+                  <button onClick={goToOrders} className="text-[#6b493d] text-sm font-medium hover:underline">View All</button>
                 </div>
-
+                
                 {stats.recentOrders && stats.recentOrders.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {stats.recentOrders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50/60 p-4 transition-colors hover:bg-stone-100/70">
+                      <div key={order.id} className="flex items-center justify-between p-4 border border-gray-50 rounded-xl hover:bg-gray-50 transition-colors">
                         <div>
-                          <p className="font-semibold text-stone-900">Order #{order.id.substring(0, 8)}</p>
-                          <p className="text-sm text-stone-500">{order.customer} • {order.items} item(s)</p>
+                          <p className="font-medium text-gray-900">Order #{order.id.substring(0, 8)}</p>
+                          <p className="text-sm text-gray-500">{order.customer} Ã¢â‚¬Â¢ {order.items} item(s)</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-stone-900">Rs. {order.amount.toLocaleString()}</p>
-                          <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                            order.status === 'Shipped' ? 'bg-emerald-100 text-emerald-700' :
-                            order.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                            'bg-rose-100 text-rose-700'
+                          <p className="font-bold text-gray-900">Rs. {order.amount.toLocaleString()}</p>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
+                            order.status === 'Shipped' ? 'bg-green-100 text-green-800' : 
+                            order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                           }`}>
                             {order.status}
                           </span>
@@ -460,357 +419,137 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-4 py-10 text-center text-sm text-stone-500">
-                    <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-stone-300" />
-                    <p className="font-semibold text-stone-700">No recent orders yet.</p>
-                    <p className="mt-1">Orders will appear here as soon as they come in.</p>
+                  <div className="py-10 text-center text-gray-500 border border-dashed border-gray-200 rounded-xl bg-gray-50">
+                    <ShoppingBag className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="font-medium">No recent orders yet.</p>
+                    <p className="text-sm mt-1">When customers buy from you, orders will appear here.</p>
                   </div>
                 )}
               </div>
             </div>
+
           </div>
         )}
 
         {activeTab === 'products' && (
-          <div className="overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-stone-100 bg-[#fcfaf8] p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Inventory</p>
-                <h2 className="text-xl font-semibold text-stone-900">Product catalog</h2>
-              </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#fcfaf8]">
+              <h2 className="text-2xl font-bold text-[#6b493d]">Product Catalog</h2>
               <button
                 onClick={() => setActiveTab('add-product')}
-                className="inline-flex items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#5a3c32]"
+                className="flex items-center space-x-2 bg-[#6b493d] hover:bg-[#8c6b5d] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
               >
-                <Plus className="h-4 w-4" />
-                <span>Add product</span>
+                <Plus className="w-4 h-4" />
+                <span>Add Product</span>
               </button>
             </div>
-
-            {products.length > 0 ? (
-              <>
-                <div className="hidden overflow-x-auto lg:block">
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-stone-50 text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-400">
-                        <th className="p-4">Product</th>
-                        <th className="p-4">Category</th>
-                        <th className="p-4">Discount</th>
-                        <th className="p-4">Price</th>
-                        <th className="p-4">Stock</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {products.map((product) => (
-                        <tr key={product._id} className="transition-colors hover:bg-stone-50/70">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-stone-100">
-                                {product.images && product.images.length > 0 ? (
-                                  <img src={product.images[0].startsWith('http') ? product.images[0] : `http://localhost:3000${product.images[0]}`} alt={product.title} className="h-full w-full object-cover" />
-                                ) : (
-                                  <ImageIcon className="h-5 w-5 text-stone-400" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-stone-900">{product.title}</p>
-                                <p className="text-sm text-stone-500">{product.category || 'Uncategorized'}</p>
-                              </div>
+            
+            <div className="overflow-x-auto">
+              {products.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-medium">Product</th>
+                      <th className="p-4 font-medium">Category</th>
+                      <th className="p-4 font-medium">Discount</th>
+                      <th className="p-4 font-medium">Price</th>
+                      <th className="p-4 font-medium">Stock</th>
+                      <th className="p-4 font-medium">Status</th>
+                      <th className="p-4 font-medium text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {products.map((product) => (
+                      <tr key={product._id} className={`transition-colors ${product.countInStock <= 0 ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50/50'}`}>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {product.images && product.images.length > 0 ? (
+                                <img src={product.images[0].startsWith('http') ? product.images[0] : `http://localhost:3000${product.images[0]}`} alt={product.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon className="w-5 h-5 text-gray-400" />
+                              )}
                             </div>
-                          </td>
-                          <td className="p-4 text-sm text-stone-500">{product.category || 'N/A'}</td>
-                          <td className="p-4 text-sm text-stone-500">{product.discountPercentage || 0}%</td>
-                          <td className="p-4">
-                            {product.discountPercentage > 0 ? (
-                              <div className="flex flex-col">
-                                <span className="text-sm text-stone-400 line-through">Rs. {product.price.toLocaleString()}</span>
-                                <span className="font-semibold text-stone-900">Rs. {(
+                            <span className="font-medium text-gray-900">{product.title}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-gray-500 text-sm">{product.category || 'N/A'}</td>
+                        <td className="p-4 text-gray-500 text-sm">{product.discountPercentage || 0}%</td>
+                        <td className="p-4">
+                          {product.discountPercentage > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-400 line-through">
+                                Rs. {product.price.toLocaleString()}
+                              </span>
+                              <span className="font-semibold text-gray-900">
+                                Rs. {(
                                   product.price -
                                   (product.price * product.discountPercentage) / 100
-                                ).toLocaleString()}</span>
-                              </div>
-                            ) : (
-                              <span className="font-semibold text-stone-900">Rs. {product.price.toLocaleString()}</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <span className={`text-sm font-semibold ${product.countInStock <= 5 ? 'text-rose-600' : 'text-stone-600'}`}>
-                              {product.countInStock}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              product.status === 'hidden' ? 'bg-stone-100 text-stone-700' :
-                              product.countInStock > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                            }`}>
-                              {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleToggleVisibility(product)}
-                                className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                                  product.status === 'hidden'
-                                    ? 'bg-[#6b493d]/10 text-[#6b493d] hover:bg-[#6b493d]/20'
-                                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                                }`}
-                              >
-                                {product.status === 'hidden' ? <><Play className="mr-1 h-3.5 w-3.5" /> Reactivate</> : <><Pause className="mr-1 h-3.5 w-3.5" /> Pause</>}
-                              </button>
-                              <button onClick={() => handleOpenEditModal(product)} className="rounded-full p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-[#6b493d]" title="Edit Product">
-                                <Edit2 className="h-4 w-4" />
-                              </button>
-                              <button onClick={() => handleDeleteClick(product)} className="rounded-full p-2 text-stone-400 transition-colors hover:bg-rose-50 hover:text-rose-600" title="Delete Product">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                                ).toLocaleString()}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="grid gap-3 p-4 lg:hidden">
-                  {products.map((product) => (
-                    <div key={product._id} className="rounded-[22px] border border-stone-200 bg-stone-50/70 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
-                            {product.images && product.images.length > 0 ? (
-                              <img src={product.images[0].startsWith('http') ? product.images[0] : `http://localhost:3000${product.images[0]}`} alt={product.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="font-medium text-gray-900">
+                              Rs. {product.price.toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className={`flex items-center gap-1.5 text-sm ${product.countInStock <= 0 ? 'text-red-600 font-bold' : product.countInStock <= 5 ? 'text-orange-500 font-medium' : 'text-gray-500'}`}>
+                            {product.countInStock <= 0 && <AlertCircle className="w-4 h-4 text-red-500" />}
+                            {product.countInStock}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            product.status === 'hidden' ? 'bg-gray-100 text-gray-800' :
+                            product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right flex items-center justify-end space-x-2">
+                          <button 
+                            onClick={() => handleToggleVisibility(product)} 
+                            className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              product.status === 'hidden' 
+                                ? 'bg-[#6b493d]/10 text-[#6b493d] hover:bg-[#6b493d]/20' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {product.status === 'hidden' ? (
+                              <><Play className="w-3.5 h-3.5 mr-1" /> Reactivate</>
                             ) : (
-                              <ImageIcon className="h-5 w-5 text-stone-400" />
+                              <><Pause className="w-3.5 h-3.5 mr-1" /> Pause</>
                             )}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-stone-900">{product.title}</p>
-                            <p className="text-sm text-stone-500">{product.category || 'Uncategorized'}</p>
-                          </div>
-                        </div>
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                          product.status === 'hidden' ? 'bg-stone-100 text-stone-700' :
-                          product.countInStock > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                        }`}>
-                          {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
-                        </span>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between text-sm text-stone-600">
-                        <span>Rs. {product.price.toLocaleString()}</span>
-                        <span className="font-semibold text-stone-700">Stock {product.countInStock}</span>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <button
-                          onClick={() => handleToggleVisibility(product)}
-                          className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${
-                            product.status === 'hidden' ? 'bg-[#6b493d]/10 text-[#6b493d]' : 'bg-stone-100 text-stone-700'
-                          }`}
-                        >
-                          {product.status === 'hidden' ? 'Reactivate' : 'Pause'}
-                        </button>
-                        <button onClick={() => handleOpenEditModal(product)} className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-sm">Edit</button>
-                        <button onClick={() => handleDeleteClick(product)} className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="px-6 py-16 text-center text-stone-500">
-                <Package className="mx-auto mb-3 h-12 w-12 text-stone-300" />
-                <p className="text-base font-semibold text-stone-700">No products yet</p>
-                <p className="mt-1 text-sm">Your catalog will appear here once you add your first listing.</p>
-                <button onClick={() => setActiveTab('add-product')} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#5a3c32]">
-                  <Plus className="h-4 w-4" />
-                  Create your first product
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'reviews' && (
-          <div className="space-y-6">
-            {reviewsLoading ? (
-              /* Loading skeleton */
-              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-2xl bg-[#6b493d]/10 p-3">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#6b493d]" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-40 rounded-full bg-stone-200 animate-pulse" />
-                      <div className="h-3 w-56 rounded-full bg-stone-100 animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="rounded-2xl border border-stone-200 p-4">
-                        <div className="h-3 w-24 rounded-full bg-stone-200 animate-pulse" />
-                        <div className="mt-3 h-8 w-20 rounded-full bg-stone-100 animate-pulse" />
-                      </div>
+                          </button>
+                          <button onClick={() => handleOpenEditModal(product)} className="text-gray-400 hover:text-[#6b493d] p-2 transition-colors" title="Edit Product">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteClick(product)} className="text-gray-400 hover:text-red-500 p-2 transition-colors ml-1" title="Delete Product">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                </div>
-              </div>
-            ) : reviewsError ? (
-              /* Error state */
-              <div className="rounded-[28px] border border-red-100 bg-[#fff8f7] p-6 shadow-sm">
-                <div className="flex flex-col items-center justify-center rounded-[24px] border border-red-100 bg-white px-6 py-16 text-center shadow-sm">
-                  <div className="mb-4 rounded-2xl bg-red-50 p-4">
-                    <AlertCircle className="h-8 w-8 text-red-500" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-stone-900">Could not load reviews</h2>
-                  <p className="mt-2 max-w-md text-sm text-stone-500">{reviewsError}</p>
-                  <button
-                    onClick={fetchSellerReviews}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#6b493d] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#5a3c32]"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Try again
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-12 text-center text-gray-500">
+                  <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p>You haven't added any products yet.</p>
+                  <button onClick={() => setActiveTab('add-product')} className="text-[#6b493d] font-medium mt-2 hover:underline">
+                    Add your first product
                   </button>
                 </div>
-              </div>
-            ) : reviews.length === 0 ? (
-              /* Empty state */
-              <div className="rounded-[28px] border border-stone-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                  <div className="mb-4 rounded-2xl bg-amber-50 p-4">
-                    <MessageSquareText className="h-10 w-10 text-amber-400" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-stone-900">You have no reviews yet</h2>
-                  <p className="mt-2 max-w-md text-sm text-stone-500">
-                    When customers review your products after delivery, their feedback will appear here.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* Reviews content */
-              <>
-                {/* Summary Stats */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-[24px] border border-stone-200 bg-white p-5 shadow-sm">
-                    <div className="inline-flex rounded-2xl bg-amber-50 p-3 text-amber-700">
-                      <Star className="h-5 w-5" />
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-stone-500">Average Rating</p>
-                      <div className="mt-1 flex items-center gap-3">
-                        <p className="text-2xl font-semibold text-stone-900">{reviewsStats.averageRating}</p>
-                        <StarDisplay rating={reviewsStats.averageRating} numReviews={reviewsStats.totalReviews} size={16} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-[24px] border border-stone-200 bg-white p-5 shadow-sm">
-                    <div className="inline-flex rounded-2xl bg-violet-50 p-3 text-violet-700">
-                      <MessageSquareText className="h-5 w-5" />
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-stone-500">Total Reviews</p>
-                      <p className="mt-1 text-2xl font-semibold text-stone-900">{reviewsStats.totalReviews}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reviews List */}
-                <div className="rounded-[28px] border border-stone-200 bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-stone-100 bg-[#fcfaf8] p-5">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-400">Feedback</p>
-                      <h2 className="text-xl font-semibold text-stone-900">Customer Reviews</h2>
-                    </div>
-                    <button
-                      onClick={fetchSellerReviews}
-                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm transition hover:bg-stone-50 hover:text-[#6b493d]"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Refresh
-                    </button>
-                  </div>
-
-                  <div className="divide-y divide-stone-100">
-                    {reviews.map((review) => (
-                      <div key={review._id} className="p-5 transition-colors hover:bg-stone-50/50">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          {/* Left: Product + Review */}
-                          <div className="flex-1 space-y-3">
-                            {/* Product info */}
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100">
-                                {review.product?.images && review.product.images.length > 0 ? (
-                                  <img
-                                    src={review.product.images[0].startsWith('http') ? review.product.images[0] : `http://localhost:3000${review.product.images[0]}`}
-                                    alt={review.product?.title}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-4 w-4 text-stone-400" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-stone-900">{review.product?.title || 'Unknown Product'}</p>
-                                <div className="mt-0.5">
-                                  <StarDisplay rating={review.rating} showText={false} size={13} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Review text */}
-                            <p className="text-sm leading-relaxed text-stone-600">{review.comment}</p>
-
-                            {/* Review images */}
-                            {review.images && review.images.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {review.images.map((img, idx) => (
-                                  <img
-                                    key={idx}
-                                    src={img.startsWith('http') ? img : `http://localhost:3000${img}`}
-                                    alt={`Review image ${idx + 1}`}
-                                    className="h-16 w-16 rounded-lg object-cover border border-stone-200"
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Right: Reviewer + Date */}
-                          <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end sm:text-right">
-                            <div className="flex items-center gap-2">
-                              {review.user?.profileImage ? (
-                                <img
-                                  src={review.user.profileImage.startsWith('http') ? review.user.profileImage : `http://localhost:3000${review.user.profileImage}`}
-                                  alt={review.user?.username}
-                                  className="h-7 w-7 rounded-full object-cover border border-stone-200"
-                                />
-                              ) : (
-                                <div className="h-7 w-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500">
-                                  {review.user?.username?.charAt(0)?.toUpperCase() || '?'}
-                                </div>
-                              )}
-                              <span className="text-sm font-medium text-stone-700">{review.user?.username || 'Anonymous'}</span>
-                            </div>
-                            <span className="text-xs text-stone-400">
-                              {new Date(review.createdAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         )}
+
       </div>
+
+
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (

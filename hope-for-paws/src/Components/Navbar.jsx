@@ -11,7 +11,7 @@ const Navbar = ({ handleSignOut }) => {
   const { user } = useAuth(); 
   const { unreadCount } = useMessages();
   const { cartQuantity } = useCart();
-  const { wishlist } = useWishlist();
+  const { wishlist, unviewedCount } = useWishlist();
   
   const isSeller = user && (user.role === 'seller' || user.isSeller);
 
@@ -68,9 +68,9 @@ const Navbar = ({ handleSignOut }) => {
                 <>
                   <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                     <FaHeart className="text-xl sm:text-2xl" />
-                    {wishlist?.length > 0 && (
+                    {unviewedCount > 0 && wishlist?.length > 0 && (
                       <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
-                        {wishlist.length > 9 ? '9+' : wishlist.length}
+                        {unviewedCount > 9 ? '9+' : unviewedCount}
                       </span>
                     )}
                   </NavLink>
@@ -119,9 +119,9 @@ const Navbar = ({ handleSignOut }) => {
             <>
               <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                 <FaHeart className="text-xl sm:text-2xl" />
-                {wishlist?.length > 0 && (
+                {unviewedCount > 0 && wishlist?.length > 0 && (
                   <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
-                    {wishlist.length > 9 ? '9+' : wishlist.length}
+                    {unviewedCount > 9 ? '9+' : unviewedCount}
                   </span>
                 )}
               </NavLink>
@@ -206,9 +206,9 @@ const Navbar = ({ handleSignOut }) => {
                   <>
                     <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                       <FaHeart className="text-2xl" />
-                      {wishlist?.length > 0 && (
+                      {unviewedCount > 0 && wishlist?.length > 0 && (
                         <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                          {wishlist.length > 9 ? '9+' : wishlist.length}
+                          {unviewedCount > 9 ? '9+' : unviewedCount}
                         </span>
                       )}
                     </NavLink>
@@ -257,9 +257,9 @@ const Navbar = ({ handleSignOut }) => {
               <>
                 <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
                   <FaHeart className="text-2xl" />
-                  {wishlist?.length > 0 && (
+                  {unviewedCount > 0 && wishlist?.length > 0 && (
                     <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                      {wishlist.length > 9 ? '9+' : wishlist.length}
+                      {unviewedCount > 9 ? '9+' : unviewedCount}
                     </span>
                   )}
                 </NavLink>

@@ -14,6 +14,13 @@ const wishlistSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product'
       }
+    ],
+    // Tracks specific unviewed product IDs instead of just a raw number
+    unviewedProducts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      }
     ]
   },
   { timestamps: true }
