@@ -30,7 +30,8 @@ const notificationSchema = new mongoose.Schema({
       'new_order',
       'payment_confirmed',
       'refund_request',
-      'order_status_update'
+      'order_status_update',
+      'system'
     ],
     required: true
   },
@@ -76,8 +77,8 @@ const notificationSchema = new mongoose.Schema({
   emailSentAt: {
     type: Date
   }
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true
 });
 
 // Index for efficient queries

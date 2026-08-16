@@ -26,7 +26,7 @@ import VerifiedBadge from "../components/VerifiedBadge";
 import StarDisplay from "../components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
-import { useRequireAuth } from "../components/AuthGuard";
+import { useRequireAuth } from "../Components/AuthGuard";
 import ReportModal from "./ReportModal";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
@@ -323,7 +323,7 @@ export default function ProductDetails() {
   }, [id]);
 
   const handleAddToCart = async () => {
-    if (addingToCart) return;
+    if (addingToCart || PRODUCT.stock <= 0) return;
     if (!requireAuth('add items to your cart')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
@@ -337,7 +337,7 @@ export default function ProductDetails() {
   };
 
   const handleBuyNow = async () => {
-    if (addingToCart) return;
+    if (addingToCart || PRODUCT.stock <= 0) return;
     if (!requireAuth('purchase products')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
@@ -681,13 +681,16 @@ export default function ProductDetails() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 active:scale-[0.98]"
+                  disabled={PRODUCT.stock <= 0}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: cartAdded ? "#4e8a5a" : BRAND.dark,
-                    boxShadow: `0 4px 18px ${cartAdded ? "#4e8a5a" : BRAND.dark}40`,
+                    backgroundColor: PRODUCT.stock <= 0 ? "#a8a29e" : (cartAdded ? "#4e8a5a" : BRAND.dark),
+                    boxShadow: PRODUCT.stock <= 0 ? "none" : `0 4px 18px ${cartAdded ? "#4e8a5a" : BRAND.dark}40`,
                   }}
                 >
-                  {cartAdded ? (
+                  {PRODUCT.stock <= 0 ? (
+                    "Out of Stock"
+                  ) : cartAdded ? (
                     <><CheckCircle2 size={17} />Added to Cart</>
                   ) : (
                     <><ShoppingCart size={17} />Add to Cart</>
@@ -696,10 +699,11 @@ export default function ProductDetails() {
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98]"
-                  style={{ borderColor: BRAND.dark, color: BRAND.dark, backgroundColor: "transparent" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND.light; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  disabled={PRODUCT.stock <= 0}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ borderColor: PRODUCT.stock <= 0 ? "#d6d3d1" : BRAND.dark, color: PRODUCT.stock <= 0 ? "#78716c" : BRAND.dark, backgroundColor: "transparent" }}
+                  onMouseEnter={(e) => { if (PRODUCT.stock > 0) e.currentTarget.style.backgroundColor = BRAND.light; }}
+                  onMouseLeave={(e) => { if (PRODUCT.stock > 0) e.currentTarget.style.backgroundColor = "transparent"; }}
                 >
                   <Zap size={17} />
                   Buy Now
