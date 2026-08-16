@@ -26,6 +26,7 @@ import {
   BadgeCheck, Clock
 } from 'lucide-react';
 import AddProduct from './AddProduct';
+import StarDisplay from '../Components/StarDisplay';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -57,6 +58,13 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   const [products, setProducts] = useState([]);
   const [sellerProfile, setSellerProfile] = useState(null);
   
+  // Reviews States
+  const [reviews, setReviews] = useState([]);
+  const [reviewsStats, setReviewsStats] = useState({ averageRating: 0, totalReviews: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [reviewsFetched, setReviewsFetched] = useState(false);
+
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -97,6 +105,29 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Lazy-load reviews when Reviews tab is selected
+  const fetchSellerReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const res = await axios.get(`${API_URL}/reviews`, getAxiosConfig());
+      setReviews(res.data.reviews || []);
+      setReviewsStats(res.data.stats || { averageRating: 0, totalReviews: 0 });
+      setReviewsFetched(true);
+    } catch (err) {
+      console.error('Error fetching seller reviews:', err);
+      setReviewsError('Failed to load reviews. Please try again.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && !reviewsFetched) {
+      fetchSellerReviews();
+    }
+  }, [activeTab]);
 
   const handleOpenEditModal = (product) => {
     setEditingProductId(product._id);
@@ -196,7 +227,8 @@ const SellerDashboard = ({ onNavigateOrders }) => {
       <div className="flex space-x-1 border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
         {[
           { id: 'overview', label: 'Overview', icon: TrendingUp },
-          { id: 'products', label: 'Products', icon: Package }
+          { id: 'products', label: 'Products', icon: Package },
+          { id: 'reviews', label: 'Reviews', icon: Star }
         ].map(tab => (
           <button
             key={tab.id}

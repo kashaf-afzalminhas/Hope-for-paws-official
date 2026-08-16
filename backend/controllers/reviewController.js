@@ -1,6 +1,7 @@
 const Review = require('../models/Review');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Seller = require('../models/Seller');
 
 /**
  * Recalculate and cache a product's average rating and total review count.
@@ -140,6 +141,60 @@ exports.checkOrderReviewed = async (req, res) => {
     return res.json({ reviewed: !!review });
   } catch (err) {
     console.error('checkOrderReviewed error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * GET /api/sellers/reviews
+ * Fetch all reviews for the authenticated seller's products.
+ *
+ * Security: Reviews are strictly scoped via the chain:
+ *   req.user.id → Seller (userId) → Product (sellerId) → Review (product)
+ *   Sellers can ONLY see reviews on their own products.
+ */
+exports.getSellerReviews = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+
+    // Step 1: Find the seller profile for the authenticated user
+    const seller = await Seller.findOne({ userId }).select('_id').lean();
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller profile not found' });
+    }
+
+    // Step 2: Find all product IDs belonging to this seller
+    const sellerProducts = await Product.find({ sellerId: seller._id })
+      .select('_id')
+      .lean();
+
+    const productIds = sellerProducts.map((p) => p._id);
+
+    if (productIds.length === 0) {
+      return res.json({ reviews: [], stats: { averageRating: 0, totalReviews: 0 } });
+    }
+
+    // Step 3: Fetch reviews scoped to this seller's products only
+    const reviews = await Review.find({ product: { $in: productIds } })
+      .populate('user', 'username profileImage')
+      .populate('product', 'title images')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Step 4: Calculate aggregate stats
+    let totalRating = 0;
+    reviews.forEach((r) => {
+      totalRating += r.rating;
+    });
+
+    const stats = {
+      averageRating: reviews.length > 0 ? Math.round((totalRating / reviews.length) * 10) / 10 : 0,
+      totalReviews: reviews.length
+    };
+
+    return res.json({ reviews, stats });
+  } catch (err) {
+    console.error('getSellerReviews error:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };

@@ -234,7 +234,7 @@ export default function ReviewModal({ isOpen, onClose, orderId, product, onSucce
               onChange={(e) => setComment(e.target.value)}
               rows={4}
               maxLength={1000}
-              placeholder="Share your experience with this productÃ¢â‚¬Â¦"
+              placeholder="Share your experience with this product..."
               className="
                 w-full px-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50
                 text-sm text-stone-800 placeholder:text-stone-300
