@@ -115,8 +115,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     
     // Strictly validate age as a positive Number
     const parsedAge = Number(age);
-    if (isNaN(parsedAge) || parsedAge < 0) {
-      return res.status(400).json({ message: 'Age must be a valid positive number' });
+    if (isNaN(parsedAge) || parsedAge <= 0) {
+      return res.status(400).json({ message: 'Age must be greater than 0' });
     }
 
     // Upload image to Cloudinary (restrict allowed formats)
@@ -364,8 +364,8 @@ router.put('/:id', auth, async (req, res) => {
     let parsedAge;
     if (age !== undefined) {
       parsedAge = Number(age);
-      if (isNaN(parsedAge) || parsedAge < 0) {
-        return res.status(400).json({ message: 'Age must be a valid positive number' });
+      if (isNaN(parsedAge) || parsedAge <= 0) {
+        return res.status(400).json({ message: 'Age must be greater than 0' });
       }
     }
 
