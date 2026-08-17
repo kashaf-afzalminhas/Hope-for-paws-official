@@ -57,7 +57,16 @@ const adoptionSchema = new mongoose.Schema({
   },
   imageUrl: {
     type: String,
-    required: true
+    default: null
+  },
+  imageUrls: {
+    type: [String],
+    validate: {
+      validator: function (value) {
+        return !value || value.length === 0 || value.every(url => typeof url === 'string' && url.length > 0);
+      },
+      message: 'imageUrls must be an array of non-empty strings'
+    }
   },
   status: {
     type: String,

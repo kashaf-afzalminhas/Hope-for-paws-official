@@ -33,6 +33,15 @@ const AdoptionDetailsModal = ({
     ? getHealthFieldChipStyle('neutered', post.neuteredSpayed, post.status)
     : null;
 
+  // Support both old (imageUrl) and new (imageUrls array) formats
+  const getDisplayImage = () => {
+    if (post?.imageUrls && post.imageUrls.length > 0) return post.imageUrls[0];
+    if (post?.imageUrl) return post.imageUrl;
+    return null;
+  };
+  
+  const displayImage = getDisplayImage();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
@@ -66,7 +75,7 @@ const AdoptionDetailsModal = ({
                   </div>
                 ) : (
                   <img
-                    src={post.imageUrl}
+                    src={displayImage}
                     alt={`${post.name} – ${post.petType || 'pet'}`}
                     className="max-h-[min(50vh,400px)] w-full object-contain"
                     onError={onImageError}
