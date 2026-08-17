@@ -22,7 +22,9 @@ const PAKISTAN_CITIES = [
 const MAX_FILE_SIZE_MB = 2; // 2MB per image
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_IMAGES = 100;
+const MAX_IMAGES = 10;
+const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
+const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
 const AdoptionForm = () => {
   const [name, setName] = useState('');
@@ -95,6 +97,18 @@ const AdoptionForm = () => {
     // Check if adding these files would exceed the max limit
     if (images.length + selectedFiles.length > MAX_IMAGES) {
       setError(`Cannot add more than ${MAX_IMAGES} images total. You currently have ${images.length} image(s).`);
+      return;
+    }
+
+    // Check if adding these files would exceed the total combined size limit
+    const currentTotalSize = images.reduce((sum, img) => sum + img.size, 0);
+    const newFilesTotalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+    if (currentTotalSize + newFilesTotalSize > MAX_TOTAL_SIZE_BYTES) {
+      const currentMB = (currentTotalSize / (1024 * 1024)).toFixed(1);
+      const wouldBeMB = ((currentTotalSize + newFilesTotalSize) / (1024 * 1024)).toFixed(1);
+      setError(
+        `Adding these images would bring your total to ${wouldBeMB}MB, exceeding the ${MAX_TOTAL_SIZE_MB}MB combined limit. You currently have ${currentMB}MB used. Try selecting fewer or smaller images.`
+      );
       return;
     }
 
@@ -205,6 +219,15 @@ const AdoptionForm = () => {
     // Guard: check for image validation errors
     if (imageErrors.length > 0) {
       setError(`Please fix image errors: ${imageErrors.join(' ')}`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Guard: re-check total combined image size before submitting
+    const totalImageSize = images.reduce((sum, img) => sum + img.size, 0);
+    if (totalImageSize > MAX_TOTAL_SIZE_BYTES) {
+      const totalMB = (totalImageSize / (1024 * 1024)).toFixed(1);
+      setError(`Total image size (${totalMB}MB) exceeds the ${MAX_TOTAL_SIZE_MB}MB limit. Please remove some images.`);
       setIsSubmitting(false);
       return;
     }
@@ -552,7 +575,7 @@ const AdoptionForm = () => {
                           e.stopPropagation();
                           handleRemoveImage(idx);
                         }}
-                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-all z-10 shadow-md"
                         title="Remove image"
                       >
                         ✕
@@ -581,7 +604,7 @@ const AdoptionForm = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
                 <p className="mb-2 text-sm text-[#6b493d]"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. {MAX_FILE_SIZE_MB}MB per image, multiple images supported)</p>
+                <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. {MAX_FILE_SIZE_MB}MB per image, up to {MAX_IMAGES} images, {MAX_TOTAL_SIZE_MB}MB total)</p>
               </div>
             )}
             <input 
