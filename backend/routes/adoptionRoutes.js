@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 // Constants for adoption post images
-const MAX_ADOPTION_IMAGES = 20;
+const MAX_ADOPTION_IMAGES = 100;
 const MAX_TOTAL_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB total for all images in one request
 
 /**
