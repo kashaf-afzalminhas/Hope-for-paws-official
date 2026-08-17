@@ -107,7 +107,6 @@ const PublicProfilePage = () => {
   const requireAuth = useRequireAuth();
 
   const location = useLocation();
-  const navigate = useNavigate();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToCart, isInCart } = useCart();
   const [activeTab, setActiveTab] = useState(location.state?.defaultTab || 'ads');
