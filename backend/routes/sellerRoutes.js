@@ -13,6 +13,7 @@ const {
 } = require('../controllers/sellerController');
 const { getSellerOrders, updateOrderStatus, getDashboardStats } = require('../controllers/orderController');
 const { listMyProducts, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
+const { getSellerReviews } = require('../controllers/reviewController');
 
 
 /**
@@ -59,5 +60,8 @@ router.patch('/orders/:id/status', auth, updateOrderStatus);
 
 // Dashboard Analytics
 router.get('/dashboard-stats', auth, getDashboardStats);
+
+// Reviews — Fetch all reviews for the seller's products
+router.get('/reviews', auth, getSellerReviews);
 
 module.exports = router;

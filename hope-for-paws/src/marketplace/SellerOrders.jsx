@@ -967,6 +967,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
             Analytics
             <ArrowUpRight size={14} />
           </button>
+          </div>
         </header>
 
         {/*  Stat cards */}

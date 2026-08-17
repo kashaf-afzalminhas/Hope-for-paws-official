@@ -35,8 +35,8 @@ exports.createOrder = async (req, res) => {
     const phone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
 
     if (!phone || !phoneRegex.test(phone)) {
-      return res.status(400).json({ 
-        message: 'Please enter a valid phone number.' 
+      return res.status(400).json({
+        message: 'Please enter a valid phone number.'
       });
     }
     // ──────────────────────────────────────────────────────────────────
@@ -46,10 +46,10 @@ exports.createOrder = async (req, res) => {
     for (const item of items) {
       const productId = item.productId || item.product?._id;
       if (!productId) continue;
-      
+
       const product = await Product.findById(productId);
       if (!product) continue;
-      
+
       const sellerId = product.sellerId.toString();
 
       if (!itemsBySeller[sellerId]) {
@@ -74,7 +74,7 @@ exports.createOrder = async (req, res) => {
     }
 
     const ordersToCreate = [];
-    
+
     // Reserved for future seller shipping fee logic.
     // Do not include in finalTotal calculation.
     const sellerShippingFee = 15;
@@ -85,9 +85,9 @@ exports.createOrder = async (req, res) => {
         0
       );
 
-     const FREE_SHIPPING_THRESHOLD = 5000;
-const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-const finalTotal = subtotal + shippingFee;
+      const FREE_SHIPPING_THRESHOLD = 5000;
+      const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+      const finalTotal = subtotal + shippingFee;
       ordersToCreate.push({
         buyerId,
         sellerId,
@@ -108,22 +108,67 @@ const finalTotal = subtotal + shippingFee;
       return res.status(400).json({ message: 'Invalid products in order' });
     }
 
-   const createdOrders = await Order.insertMany(ordersToCreate);
+    const createdOrders = await Order.insertMany(ordersToCreate);
 
-// Empty the user's cart
-await Cart.findOneAndUpdate(
-  { userId: buyerId },
-  { $set: { items: [] } }
-);
+    // === Inventory Synchronization Start ===
+    try {
+      for (const order of createdOrders) {
+        for (const item of order.items) {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            // 1. Deduct Stock Quantity
+            product.countInStock = Math.max(0, product.countInStock - Number(item.quantity));
 
-// Send order confirmation email (HTML styled, matching Hope for Paws branding)
-// Respects the buyer's notificationPreferences.email setting — a buyer who
-// has disabled email must not receive this regardless of any other logic.
-try {
-  const buyer = await User.findById(buyerId).select('email username notificationPreferences');
-  const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
-  if (buyer?.email && buyerEmailPref !== 'disabled') {
-   const orderItemsHtml = createdOrders.map(o => `
+            // 2. Handle Out of Stock Status
+            if (product.countInStock < 1) {
+              // The frontend derives "Out of Stock" from countInStock <= 0
+              // Notify seller about the out of stock event
+              try {
+                const notificationService = getNotificationService();
+                if (notificationService) {
+                  const sellerProfile = await Seller.findById(product.sellerId);
+                  const sellerUserId = sellerProfile && sellerProfile.userId ? sellerProfile.userId : product.sellerId;
+                  
+                  await notificationService.createNotification({
+                    recipient: sellerUserId,
+                    sender: buyerId,
+                    type: 'system',
+                    title: 'Product Out of Stock',
+                    message: `Your product "${product.title}" is out of stock.`,
+                    data: { productId: product._id },
+                    priority: 'routine',
+                    channels: { email: true, inApp: true, push: false }
+                  });
+                }
+              } catch (notifyErr) {
+                console.error('Failed to notify seller about out of stock:', notifyErr);
+              }
+            }
+
+            // 3. Database Save
+            await product.save();
+          }
+        }
+      }
+    } catch (inventoryError) {
+      console.error('Inventory synchronization failed:', inventoryError);
+    }
+    // === Inventory Synchronization End ===
+
+    // Empty the user's cart
+    await Cart.findOneAndUpdate(
+      { userId: buyerId },
+      { $set: { items: [] } }
+    );
+
+    // Send order confirmation email (HTML styled, matching Hope for Paws branding)
+    // Respects the buyer's notificationPreferences.email setting — a buyer who
+    // has disabled email must not receive this regardless of any other logic.
+    try {
+      const buyer = await User.findById(buyerId).select('email username notificationPreferences');
+      const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
+      if (buyer?.email && buyerEmailPref !== 'disabled') {
+        const orderItemsHtml = createdOrders.map(o => `
       <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 15px 20px; margin-bottom: 14px; background-color: #fff;">
         <p style="margin: 0 0 6px 0; color: #6b493d; font-weight: bold; font-size: 15px;">Order ID: ${o.orderId}</p>
         <p style="margin: 0 0 4px 0; color: #333;">Total: Rs. ${o.totals.finalTotal}</p>
@@ -131,7 +176,7 @@ try {
       </div>
     `).join('');
 
-    const html = `
+        const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
         <div style="background-color: #6b493d; padding: 20px; text-align: center;">
           <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
@@ -154,41 +199,41 @@ try {
       </div>
     `;
 
-    await sendEmail(
-      buyer.email,
-      'Order Confirmation - Hope For Paws',
-      `Hi ${buyer.username || 'there'}, thank you for your order! We'll notify you when your order status updates.`,
-      html
-    );
-  }
-} catch (emailError) {
-  console.error('Failed to send order confirmation email:', emailError);
-}
+        await sendEmail(
+          buyer.email,
+          'Order Confirmation - Hope For Paws',
+          `Hi ${buyer.username || 'there'}, thank you for your order! We'll notify you when your order status updates.`,
+          html
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order confirmation email:', emailError);
+    }
 
-// Notify each seller about their respective new order(s)
-try {
-  const notificationService = getNotificationService();
-  const ordersBySeller = createdOrders.reduce((acc, o) => {
-    const sid = o.sellerId.toString();
-    acc[sid] = acc[sid] || [];
-    acc[sid].push(o);
-    return acc;
-  }, {});
-
-  for (const [sellerId, orders] of Object.entries(ordersBySeller)) {
+    // Notify each seller about their respective new order(s)
     try {
-      const seller = await Seller.findById(sellerId).populate('userId', 'email username storeName notificationPreferences');
-      const sellerUser = seller && seller.userId ? seller.userId : null;
-      if (!sellerUser || !sellerUser.email) continue;
+      const notificationService = getNotificationService();
+      const ordersBySeller = createdOrders.reduce((acc, o) => {
+        const sid = o.sellerId.toString();
+        acc[sid] = acc[sid] || [];
+        acc[sid].push(o);
+        return acc;
+      }, {});
 
-      const orderHtmlBlocks = orders.map(o => `
+      for (const [sellerId, orders] of Object.entries(ordersBySeller)) {
+        try {
+          const seller = await Seller.findById(sellerId).populate('userId', 'email username storeName notificationPreferences');
+          const sellerUser = seller && seller.userId ? seller.userId : null;
+          if (!sellerUser || !sellerUser.email) continue;
+
+          const orderHtmlBlocks = orders.map(o => `
         <div style="text-align: center; border: 2px dashed #6b493d; border-radius: 8px; padding: 12px; margin-bottom: 12px; background-color: #fff;">
           <p style="margin:0 0 6px 0; color:#6b493d; font-weight:700;">Order ID: ${o.orderId}</p>
           <p style="margin:0; color:#333;">Items: ${o.items.length} — Total: Rs. ${o.totals.finalTotal}</p>
         </div>
       `).join('');
 
-      const sellerHtml = `
+          const sellerHtml = `
         <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto; border:1px solid #e0d8cc;">
           <div style="background-color:#6b493d; padding:16px; text-align:center;"><h2 style="margin:0;color:#fff">New Order Received</h2></div>
           <div style="padding:20px; background:#f5f0e8; text-align:left;">
@@ -201,66 +246,66 @@ try {
         </div>
       `;
 
+          if (notificationService) {
+            await notificationService.createNotification({
+              recipient: sellerUser._id,
+              sender: buyerId,
+              type: 'new_order',
+              title: 'New Order Received',
+              message: `You have ${orders.length} new order(s).`,
+              data: {
+                orderIds: orders.map(o => o._id),
+                orderCount: orders.length,
+                buyerName: createdOrders[0].shippingAddress?.fullName || 'Guest'
+              },
+              priority: 'high',
+              channels: { email: true, inApp: true, push: false }
+            });
+          } else if (sellerUser.notificationPreferences?.email !== 'disabled') {
+            // Last-resort fallback if the notification service genuinely isn't
+            // available. Still respects the seller's email preference.
+            await sendEmail(
+              sellerUser.email,
+              'New Order Received - Hope For Paws',
+              `You have ${orders.length} new order(s) on Hope for Paws.`,
+              sellerHtml
+            );
+          }
+        } catch (sErr) {
+          console.error('Failed to send new order email to seller:', sErr);
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Error while notifying sellers about new orders:', notifyErr);
+    }
+
+    // Notify buyer in-app that their order was placed
+    // NOTE: notificationPreferences on this schema only exposes an `email`
+    // setting (instant/disabled) — there's no separate inApp toggle to check,
+    // so this always fires when the notification service is available,
+    // mirroring how seller in-app notifications already work above.
+    try {
+      const notificationService = getNotificationService();
       if (notificationService) {
         await notificationService.createNotification({
-          recipient: sellerUser._id,
+          recipient: buyerId,
           sender: buyerId,
-          type: 'new_order',
-          title: 'New Order Received',
-          message: `You have ${orders.length} new order(s).`,
+          type: 'order_placed',
+          title: 'Order Placed',
+          message: `Your order${createdOrders.length > 1 ? 's have' : ' has'} been placed successfully.`,
           data: {
-            orderIds: orders.map(o => o._id),
-            orderCount: orders.length,
-            buyerName: createdOrders[0].shippingAddress?.fullName || 'Guest'
+            orderIds: createdOrders.map(o => o._id),
+            orderCount: createdOrders.length
           },
-          priority: 'high',
-          channels: { email: true, inApp: true, push: false }
+          priority: 'routine',
+          channels: { email: false, inApp: true, push: false }
         });
-      } else if (sellerUser.notificationPreferences?.email !== 'disabled') {
-        // Last-resort fallback if the notification service genuinely isn't
-        // available. Still respects the seller's email preference.
-        await sendEmail(
-          sellerUser.email,
-          'New Order Received - Hope For Paws',
-          `You have ${orders.length} new order(s) on Hope for Paws.`,
-          sellerHtml
-        );
       }
-    } catch (sErr) {
-      console.error('Failed to send new order email to seller:', sErr);
+    } catch (buyerNotifyErr) {
+      console.error('Failed to send in-app notification to buyer:', buyerNotifyErr);
     }
-  }
-} catch (notifyErr) {
-  console.error('Error while notifying sellers about new orders:', notifyErr);
-}
 
-// Notify buyer in-app that their order was placed
-// NOTE: notificationPreferences on this schema only exposes an `email`
-// setting (instant/disabled) — there's no separate inApp toggle to check,
-// so this always fires when the notification service is available,
-// mirroring how seller in-app notifications already work above.
-try {
-  const notificationService = getNotificationService();
-  if (notificationService) {
-    await notificationService.createNotification({
-      recipient: buyerId,
-      sender: buyerId,
-      type: 'order_placed',
-      title: 'Order Placed',
-      message: `Your order${createdOrders.length > 1 ? 's have' : ' has'} been placed successfully.`,
-      data: {
-        orderIds: createdOrders.map(o => o._id),
-        orderCount: createdOrders.length
-      },
-      priority: 'routine',
-      channels: { email: false, inApp: true, push: false }
-    });
-  }
-} catch (buyerNotifyErr) {
-  console.error('Failed to send in-app notification to buyer:', buyerNotifyErr);
-}
-
-res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
+    res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
   } catch (error) {
     console.error('createOrder error:', error);
     res.status(500).json({ message: 'Failed to place order', error: error.message });
@@ -284,29 +329,29 @@ exports.cancelOrder = async (req, res) => {
   try {
     const { id } = req.params;
     const buyerId = req.user?.id || req.user?.userId;
-    
+
     const order = await Order.findOne({ _id: id, buyerId });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    
+
     if (order.status !== 'Pending') {
       return res.status(400).json({ message: 'Only Pending orders can be cancelled' });
     }
-    
+
     order.status = 'Cancelled';
     order.statusHistory.push({
       status: 'Cancelled',
       note: 'Cancelled by buyer'
     });
-    
+
     await order.save();
 
-   // Send order cancellation email (HTML styled)
-   // Respects the buyer's notificationPreferences.email setting.
-try {
-  const buyer = await User.findById(buyerId).select('email username notificationPreferences');
-  const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
-  if (buyer?.email && buyerEmailPref !== 'disabled') {
-    const html = `
+    // Send order cancellation email (HTML styled)
+    // Respects the buyer's notificationPreferences.email setting.
+    try {
+      const buyer = await User.findById(buyerId).select('email username notificationPreferences');
+      const buyerEmailPref = buyer?.notificationPreferences?.email || 'instant';
+      if (buyer?.email && buyerEmailPref !== 'disabled') {
+        const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
         <div style="background-color: #6b493d; padding: 20px; text-align: center;">
           <h1 style="margin: 0; color: #fff; font-size: 22px;">Hope for Paws</h1>
@@ -332,39 +377,39 @@ try {
       </div>
     `;
 
-    await sendEmail(
-      buyer.email,
-      'Order Cancelled - Hope For Paws',
-      `Hi ${buyer.username || 'there'}, your order (${order.orderId}) has been cancelled successfully.`,
-      html
-    );
-  }
-} catch (emailError) {
-  console.error('Failed to send order cancellation email:', emailError);
-}
+        await sendEmail(
+          buyer.email,
+          'Order Cancelled - Hope For Paws',
+          `Hi ${buyer.username || 'there'}, your order (${order.orderId}) has been cancelled successfully.`,
+          html
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send order cancellation email:', emailError);
+    }
 
-// Notify seller about cancellation
-try {
-  const notificationService = getNotificationService();
-  const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName notificationPreferences');
-  const sellerUser = sellerProfile && sellerProfile.userId ? sellerProfile.userId : null;
-  if (sellerUser) {
-    if (notificationService) {
-      await notificationService.createNotification({
-        recipient: sellerUser._id,
-        sender: buyerId,
-        type: 'order_status_update',
-        title: 'Order Cancelled',
-        message: `Order ${order.orderId} has been cancelled by the buyer.`,
-        data: {
-          orderId: order._id,
-          orderStatus: 'Cancelled'
-        },
-        priority: 'routine',
-        channels: { email: true, inApp: true, push: false }
-      });
-    } else if (sellerUser.email && sellerUser.notificationPreferences?.email !== 'disabled') {
-      const sellerHtml = `
+    // Notify seller about cancellation
+    try {
+      const notificationService = getNotificationService();
+      const sellerProfile = await Seller.findById(order.sellerId).populate('userId', 'email username storeName notificationPreferences');
+      const sellerUser = sellerProfile && sellerProfile.userId ? sellerProfile.userId : null;
+      if (sellerUser) {
+        if (notificationService) {
+          await notificationService.createNotification({
+            recipient: sellerUser._id,
+            sender: buyerId,
+            type: 'order_status_update',
+            title: 'Order Cancelled',
+            message: `Order ${order.orderId} has been cancelled by the buyer.`,
+            data: {
+              orderId: order._id,
+              orderStatus: 'Cancelled'
+            },
+            priority: 'routine',
+            channels: { email: true, inApp: true, push: false }
+          });
+        } else if (sellerUser.email && sellerUser.notificationPreferences?.email !== 'disabled') {
+          const sellerHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0d8cc;">
           <div style="background-color: #6b493d; padding: 16px; text-align: center; color: #fff;"><h2 style="margin:0">Order Cancelled</h2></div>
           <div style="padding:20px; background:#f5f0e8;">
@@ -375,17 +420,17 @@ try {
         </div>
       `;
 
-      await sendEmail(
-        sellerUser.email,
-        'Order Cancelled - Hope For Paws',
-        `Order ${order.orderId} has been cancelled by the buyer.`,
-        sellerHtml
-      );
+          await sendEmail(
+            sellerUser.email,
+            'Order Cancelled - Hope For Paws',
+            `Order ${order.orderId} has been cancelled by the buyer.`,
+            sellerHtml
+          );
+        }
+      }
+    } catch (sellerEmailErr) {
+      console.error('Failed to send cancellation email to seller:', sellerEmailErr);
     }
-  }
-} catch (sellerEmailErr) {
-  console.error('Failed to send cancellation email to seller:', sellerEmailErr);
-}
 
     res.json({ success: true, order, message: 'Order cancelled successfully' });
   } catch (error) {
@@ -486,9 +531,9 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Security Check 1: Ensure ownership
     const seller = await Seller.findOne({ userId });
-    const isOwner = order.sellerId.toString() === userId || 
-                    (seller && order.sellerId.toString() === seller._id.toString());
-                    
+    const isOwner = order.sellerId.toString() === userId ||
+      (seller && order.sellerId.toString() === seller._id.toString());
+
     if (!isOwner) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
@@ -622,7 +667,7 @@ exports.updateOrderStatus = async (req, res) => {
     } catch (sellerStatusErr) {
       console.error('Failed to send order status notification to seller:', sellerStatusErr);
     }
-    
+
     res.json(order);
   } catch (error) {
     console.error('Error updating order:', error);
@@ -642,10 +687,10 @@ exports.getDashboardStats = async (req, res) => {
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= 5).length;
 
     const sellerId = seller._id;
-    
+
     const statsAgg = await Order.aggregate([
       { $match: { sellerId: sellerId } },
-      { 
+      {
         $group: {
           _id: null,
           totalOrders: { $sum: 1 },
