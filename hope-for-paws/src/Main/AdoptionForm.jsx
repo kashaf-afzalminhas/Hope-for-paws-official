@@ -397,17 +397,17 @@ const AdoptionForm = () => {
                     onClick={() => document.getElementById('adoption-image').click()}
                   />
                   <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setImage(null);
-                      setImagePreview(null);
-                    }}
-                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
-                  >
-                    Ãƒâ€”
-                  </button>
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImage(null);
+    setImagePreview(null);
+  }}
+  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
+>
+  ✕
+</button>
                 </div>
                 <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>
               </div>
