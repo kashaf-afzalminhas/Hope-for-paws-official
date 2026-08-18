@@ -67,18 +67,18 @@ const AdoptionForm = () => {
 
     // Check file type
     if (!ALLOWED_FORMATS.includes(file.type)) {
-      return { 
-        valid: false, 
-        error: `${file.name}: Invalid format. Only JPEG, PNG, and WebP are allowed.` 
+      return {
+        valid: false,
+        error: `${file.name}: Invalid format. Only JPEG, PNG, and WebP are allowed.`
       };
     }
 
     // Check file size
     if (file.size > MAX_FILE_SIZE_BYTES) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      return { 
-        valid: false, 
-        error: `${file.name}: File size ${sizeMB}MB exceeds maximum of ${MAX_FILE_SIZE_MB}MB.` 
+      return {
+        valid: false,
+        error: `${file.name}: File size ${sizeMB}MB exceeds maximum of ${MAX_FILE_SIZE_MB}MB.`
       };
     }
 
@@ -91,7 +91,7 @@ const AdoptionForm = () => {
    */
   const handleImageChange = useCallback((e) => {
     const selectedFiles = Array.from(e.target.files || []);
-    
+
     if (selectedFiles.length === 0) return;
 
     // Check if adding these files would exceed the max limit
@@ -113,7 +113,6 @@ const AdoptionForm = () => {
     }
 
     const newImages = [];
-    const newPreviews = [];
     const newErrors = [...imageErrors];
     let hasError = false;
 
@@ -196,8 +195,8 @@ const AdoptionForm = () => {
     setError('');
 
     // Guard: block submission if age is invalid
-    if (!age || parseFloat(age) < 0 || isNaN(parseFloat(age))) {
-      setAgeError('Age must be a valid positive number');
+    if (!age || parseFloat(age) <= 0 || isNaN(parseFloat(age))) {
+      setAgeError('Pet age must be greater than 0');
       setIsSubmitting(false);
       return;
     }
@@ -232,9 +231,9 @@ const AdoptionForm = () => {
       return;
     }
 
-    if (!requireAuth('create an adoption post')) { 
-      setIsSubmitting(false); 
-      return; 
+    if (!requireAuth('create an adoption post')) {
+      setIsSubmitting(false);
+      return;
     }
 
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -248,7 +247,7 @@ const AdoptionForm = () => {
     formData.append('neuteredSpayed', neuteredSpayed);
     formData.append('description', description);
     formData.append('location', location);
-    
+
     // Append all images
     for (const image of images) {
       formData.append('images', image);
@@ -285,10 +284,10 @@ const AdoptionForm = () => {
       console.log('Adoption post created:', data);
 
       // Auto-redirect to My Adoptions page after successful submission
-      navigate('/my-adoptions', { 
-        state: { 
+      navigate('/my-adoptions', {
+        state: {
           message: 'Adoption post created successfully!',
-          showSuccess: true 
+          showSuccess: true
         }
       });
     } catch (error) {
@@ -313,7 +312,7 @@ const AdoptionForm = () => {
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
         <p className="mb-2">You need to be logged in to create an adoption post.</p>
         <p className="text-sm mb-4">Please log in and try again.</p>
-        
+
         {/* Debug information */}
         <div className="text-xs text-gray-600 mt-4 p-2 bg-gray-100 rounded">
           <p><strong>Debug Info:</strong></p>
@@ -328,13 +327,13 @@ const AdoptionForm = () => {
 
   return (
     <div className="bg-white rounded-lg">
-      
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
           {error}
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
@@ -350,7 +349,7 @@ const AdoptionForm = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Age (years)
@@ -359,15 +358,15 @@ const AdoptionForm = () => {
               type="number"
               placeholder="e.g., 2"
               value={age}
-              min="0"
+              min="0.1"
               step="0.1"
               onChange={(e) => {
                 const val = e.target.value;
                 setAge(val);
                 if (val === '' || val === null) {
                   setAgeError('');
-                } else if (parseFloat(val) < 0) {
-                  setAgeError('Age cannot be negative');
+                } else if (parseFloat(val) <= 0) {
+                  setAgeError('Pet age must be greater than 0');
                 } else if (isNaN(parseFloat(val))) {
                   setAgeError('Please enter a valid number');
                 } else {
@@ -385,12 +384,12 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>✕</span> {ageError}
+                <span>⚠</span> {ageError}
               </p>
             )}
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
@@ -405,7 +404,7 @@ const AdoptionForm = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Pet Type
@@ -426,7 +425,7 @@ const AdoptionForm = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
@@ -443,7 +442,7 @@ const AdoptionForm = () => {
               <option value="No">No</option>
             </select>
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Neutered/Spayed
@@ -460,7 +459,7 @@ const AdoptionForm = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="space-y-2" ref={locationRef}>
           <label className="block text-sm font-medium text-[#4E3B31]">
             Location <span className="text-xs text-[#8d6e63] font-normal">(Pakistan only)</span>
@@ -517,7 +516,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>✕</span> {locationError}
+              <span>⚠</span> {locationError}
             </p>
           )}
         </div>
@@ -535,7 +534,7 @@ const AdoptionForm = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent resize-y"
           />
         </div>
-        
+
         {/* Image Upload Section - Multiple Images */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -562,8 +561,8 @@ const AdoptionForm = () => {
                   {imagePreviews.map((preview, idx) => (
                     <div key={idx} className="relative group">
                       <div className="relative overflow-hidden rounded-lg bg-gray-200 aspect-square">
-                        <img 
-                          src={preview} 
+                        <img
+                          src={preview}
                           alt={`Preview ${idx + 1}`}
                           className="w-full h-full object-cover"
                         />
@@ -607,9 +606,9 @@ const AdoptionForm = () => {
                 <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. {MAX_FILE_SIZE_MB}MB per image, up to {MAX_IMAGES} images, {MAX_TOTAL_SIZE_MB}MB total)</p>
               </div>
             )}
-            <input 
+            <input
               ref={fileInputRef}
-              type="file" 
+              type="file"
               id="adoption-images"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               onChange={handleImageChange}
@@ -634,9 +633,9 @@ const AdoptionForm = () => {
             </div>
           )}
         </div>
-        
+
         <div className="pt-4">
-          <button 
+          <button
             type="submit"
             disabled={isSubmitting || images.length === 0}
             className="w-full py-3 px-4 bg-[#8B5A2B] hover:bg-[#6F4C3E] text-white font-medium rounded-md shadow-sm transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B5A2B] disabled:opacity-50 disabled:cursor-not-allowed"
