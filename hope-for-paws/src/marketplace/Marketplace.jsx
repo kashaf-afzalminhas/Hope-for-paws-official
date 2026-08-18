@@ -1045,7 +1045,10 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
-    if (!requireAuth('use the wishlist')) return;
+    if (!requireAuth('use the wishlist')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await toggleWishlist(id);
     if (result.success && result.message.includes('added')) {
       addToast("fav", products.find(x => x.id === id)?.name);
@@ -1053,7 +1056,10 @@ export default function Marketplace() {
   }, [requireAuth, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
-    if (!requireAuth('add items to your cart')) return;
+    if (!requireAuth('add items to your cart')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await ctxAddToCart(id, 1);
     if (result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
