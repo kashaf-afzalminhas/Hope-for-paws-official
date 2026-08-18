@@ -409,6 +409,7 @@ function HeroBanner({ query, setQuery, isMobile }) {
                 fontSize: 14, color: "#6b493d", fontFamily: "'Inter', sans-serif",
                 background: "transparent",
               }}
+              className="focus:outline-none focus:ring-0"
             />
             <button className="btn-press" style={{
               padding: "12px 24px", margin: 4,

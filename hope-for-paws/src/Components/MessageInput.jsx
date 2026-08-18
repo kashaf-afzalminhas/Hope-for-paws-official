@@ -45,7 +45,7 @@ const MessageInput = ({ onSendMessage, placeholder = 'Type a message...', disabl
       <textarea
         ref={textareaRef}
         rows={1}
-        className="flex-1 bg-transparent border-none outline-none resize-none py-2 font-body text-[#2c1810] placeholder:text-[#2c1810]/40 text-[15px] w-full min-w-0 max-h-32 overflow-y-auto leading-relaxed"
+        className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 resize-none py-2 font-body text-[#2c1810] placeholder:text-[#2c1810]/40 text-[15px] w-full min-w-0 max-h-32 overflow-y-auto leading-relaxed"
         placeholder={placeholder}
         value={message}
         onChange={e => setMessage(e.target.value)}
