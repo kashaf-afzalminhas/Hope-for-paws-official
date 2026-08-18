@@ -136,7 +136,7 @@ exports.createOrder = async (req, res) => {
                 if (notificationService) {
                   const sellerProfile = await Seller.findById(product.sellerId);
                   const sellerUserId = sellerProfile && sellerProfile.userId ? sellerProfile.userId : product.sellerId;
-                  
+
                   await notificationService.createNotification({
                     recipient: sellerUserId,
                     sender: buyerId,
@@ -547,21 +547,24 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     // Security Check 2: State Machine Progression
-    const STATUS_ORDER = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
-    const currentIndex = STATUS_ORDER.indexOf(order.status);
-    const newIndex = STATUS_ORDER.indexOf(newStatus);
+    const VALID_TRANSITIONS = {
+      'Pending': ['Processing', 'Cancelled'],
+      'Confirmed': ['Processing', 'Cancelled'], // Legacy support
+      'Processing': ['Shipped'],
+      'Shipped': ['Delivered'],
+      'Delivered': [],
+      'Cancelled': []
+    };
 
-    if (newIndex === -1) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
-
+    const allowedNextStatuses = VALID_TRANSITIONS[order.status] || [];
+    
     if (newStatus === 'Cancelled') {
-      if (order.status !== 'Pending' && order.status !== 'Confirmed') {
+      if (!allowedNextStatuses.includes('Cancelled')) {
         return res.status(400).json({ message: 'Cannot cancel order after processing has started' });
       }
     } else {
-      if (newIndex <= currentIndex) {
-        return res.status(400).json({ message: 'Invalid status progression' });
+      if (!allowedNextStatuses.includes(newStatus)) {
+        return res.status(400).json({ message: `Invalid status transition from ${order.status} to ${newStatus}` });
       }
     }
 
