@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageSquare, PawPrint } from 'lucide-react';
-import { useRequireAuth } from '../AuthGuard';
+import { useRequireAuth } from '../AuthGuard.jsx';
 import {
   adoptionCardShellClass,
   adoptionContentClass,
@@ -13,7 +13,7 @@ import {
   getPostStatusBadge,
   getHealthFieldChipStyle,
   formatAdoptionDate,
-} from './adoptionTheme';
+} from './adoptionTheme.js';
 
 const HealthChip = ({ label, className }) => (
   <span

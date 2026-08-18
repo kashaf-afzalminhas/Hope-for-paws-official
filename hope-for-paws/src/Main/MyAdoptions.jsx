@@ -10,8 +10,8 @@ import { API_BASE_URL } from '../config';
 const EMPTY_ADOPTION_REQUESTS = [];
 import AdoptionRequestsModal from './AdoptionRequestsModal';
 import { getCurrentUserId } from '../lib/utils';
-import AdoptionCard from '../components/adoption/AdoptionCard';
-import { adoptionGridClass, adoptionCardShellClass } from '../components/adoption/adoptionTheme';
+import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
+import { adoptionGridClass, adoptionCardShellClass } from '../Components/adoption/adoptionTheme.js';
 
 const MyAdoptions = ({ embedded = false }) => {
   const [adoptions, setAdoptions] = useState([]);

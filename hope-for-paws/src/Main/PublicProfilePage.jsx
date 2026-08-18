@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { Store, Star, ShoppingCart, Heart as HeartIcon, Package, Plus, Check, Loader2 } from 'lucide-react';
-import VerifiedBadge from '../components/VerifiedBadge';
-import StarDisplay from '../components/StarDisplay';
+import VerifiedBadge from '../Components/VerifiedBadge';
+import StarDisplay from '../Components/StarDisplay';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { FaSearch, FaFilter } from 'react-icons/fa';
@@ -11,9 +11,9 @@ import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAl
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
-import { useRequireAuth } from '../Components/AuthGuard';
-import AdoptionCard from '../components/adoption/AdoptionCard';
-import { adoptionGridClass } from '../components/adoption/adoptionTheme';
+import { useRequireAuth } from '../Components/AuthGuard.jsx';
+import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
+import { adoptionGridClass } from '../Components/adoption/adoptionTheme.js';
 
 
 const C = {

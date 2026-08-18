@@ -8,10 +8,10 @@ import {
   Truck, RotateCcw, Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
-import VerifiedBadge from "../components/VerifiedBadge";
-import StarDisplay from "../components/StarDisplay";
+import VerifiedBadge from "../Components/VerifiedBadge";
+import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
-import { useRequireAuth } from "../components/AuthGuard";
+import { useRequireAuth } from "../Components/AuthGuard";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS

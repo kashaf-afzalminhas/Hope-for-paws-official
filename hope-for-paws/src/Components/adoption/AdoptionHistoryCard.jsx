@@ -5,7 +5,7 @@ import { Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config';
 import { getCurrentUserId } from '../../lib/utils';
-import AdoptionCard from './AdoptionCard';
+import AdoptionCard from './AdoptionCard.jsx';
 import { formatAdoptionDate, getRequestStatusBadge } from './adoptionTheme';
 
 const AdoptionHistoryCard = ({ item }) => {
