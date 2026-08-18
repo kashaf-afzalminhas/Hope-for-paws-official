@@ -304,7 +304,7 @@ const AdoptionList = ({ filter = 'all' }) => {
               )}
               {hasPendingRequest && !isOwner && listingStatus === 'available' && (
                 <div className={adoptionAlertInfo('warning')}>
-                  Request sent Ã¢â‚¬â€ awaiting owner review. You can message the owner from the card above.
+                  Request sent — awaiting owner review. You can message the owner from the card above.
                 </div>
               )}
               {hasAcceptedRequest && !isOwner && listingStatus !== 'available' && (
