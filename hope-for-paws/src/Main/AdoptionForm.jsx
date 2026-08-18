@@ -384,7 +384,7 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>⚠</span> {ageError}
+                <span>⚠️</span> {ageError}
               </p>
             )}
           </div>
@@ -516,7 +516,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>⚠</span> {locationError}
+              <span>⚠️</span> {locationError}
             </p>
           )}
         </div>
