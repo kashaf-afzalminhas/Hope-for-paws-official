@@ -196,8 +196,8 @@ const AdoptionForm = () => {
     setError('');
 
     // Guard: block submission if age is invalid
-    if (!age || parseFloat(age) < 0 || isNaN(parseFloat(age))) {
-      setAgeError('Age must be a valid positive number');
+    if (!age || parseFloat(age) <= 0 || isNaN(parseFloat(age))) {
+      setAgeError('Pet age must be greater than 0');
       setIsSubmitting(false);
       return;
     }
@@ -359,15 +359,15 @@ const AdoptionForm = () => {
               type="number"
               placeholder="e.g., 2"
               value={age}
-              min="0"
+              min="0.1"
               step="0.1"
               onChange={(e) => {
                 const val = e.target.value;
                 setAge(val);
                 if (val === '' || val === null) {
                   setAgeError('');
-                } else if (parseFloat(val) < 0) {
-                  setAgeError('Age cannot be negative');
+                } else if (parseFloat(val) <= 0) {
+                  setAgeError('Pet age must be greater than 0');
                 } else if (isNaN(parseFloat(val))) {
                   setAgeError('Please enter a valid number');
                 } else {
@@ -385,7 +385,7 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>✕</span> {ageError}
+                <span>⚠️</span> {ageError}
               </p>
             )}
           </div>
@@ -517,7 +517,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>✕</span> {locationError}
+              <span>⚠️</span> {locationError}
             </p>
           )}
         </div>

@@ -16,7 +16,7 @@ const adoptionSchema = new mongoose.Schema({
   age: {
     type: Number,
     required: true,
-    min: [0, 'Age must be a positive number']
+    min: [0.1, 'Age must be greater than 0']
   },
   petType: {
     type: String,
