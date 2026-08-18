@@ -236,7 +236,7 @@ const addUserToCache = useCallback((user) => {
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
-          console.log('ðŸ“± Notification permission:', permission);
+          console.log('🔔 Notification permission:', permission);
         });
       }
       
@@ -245,9 +245,9 @@ const addUserToCache = useCallback((user) => {
         try {
           const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
           const data = await response.json();
-          console.log('ðŸ¥ Backend health check:', data);
+          console.log('📩 Backend health check:', data);
         } catch (error) {
-          console.error('âŒ Backend connectivity test failed:', error);
+          console.error('⚠️ Backend connectivity test failed:', error);
           setError('Cannot connect to chat server');
         }
       };
@@ -258,14 +258,14 @@ const addUserToCache = useCallback((user) => {
         // Check if socket is already connected (now handled globally by MessageProvider)
         const existingSocket = getSocket();
         if (existingSocket && existingSocket.connected) {
-          console.log('âœ… Socket already connected, reusing existing connection');
+          console.log('✅ Socket already connected, reusing existing connection');
         } else {
-          console.log('âš ï¸ Socket not connected yet, MessageProvider should handle initialization');
+          console.log('ℹ️ Socket not connected yet, MessageProvider should handle initialization');
         }
         
         // Set up notification callback for real-time notifications
         setNotificationCallback((notification) => {
-          console.log('ðŸ“¢ Received notification:', notification);
+          console.log('🔔 Received notification:', notification);
           
           // Show toast notification
           addToast({
@@ -283,14 +283,14 @@ const addUserToCache = useCallback((user) => {
           }
         });
       } catch (error) {
-        console.error('âŒ Error initializing socket:', error);
+        console.error('⚠️ Error initializing socket:', error);
         setError('Failed to initialize chat connection');
       }
     }
 
     // No cleanup needed - socket is managed globally by MessageProvider
     return () => {
-      console.log('ðŸ§¹ Chat component unmounting...');
+      console.log('👋 Chat component unmounting...');
     };
   }, [currentUserId, isAuthenticated, addToast]);
 

@@ -13,18 +13,18 @@ let reconnectTimeout = null;
 export const initSocket = (userId) => {
   // Prevent multiple socket initializations
   if (socket && socket.connected) {
-    console.log('Ã¢Å“â€¦ Socket already connected, reusing existing connection');
+    console.log('✅ Socket already connected, reusing existing connection');
     return socket;
   }
   
   if (isConnecting) {
-    console.log('Ã¢ÂÂ³ Socket connection already in progress, waiting...');
+    console.log('⏳ Socket connection already in progress, waiting...');
     return socket;
   }
 
   // Clean up any existing socket
   if (socket) {
-    console.log('Ã°Å¸Â§Â¹ Cleaning up existing socket connection');
+    console.log('🧹 Cleaning up existing socket connection');
     socket.disconnect();
     socket = null;
   }
@@ -40,19 +40,19 @@ export const initSocket = (userId) => {
     reconnectTimeout = null;
   }
 
-  console.log('Ã°Å¸Å¡â‚¬ Initializing socket connection for user:', userId);
+  console.log('🔌 Initializing socket connection for user:', userId);
   isConnecting = true;
   
   // Get the base URL from the same config as the API
   const baseURL = AUTH_BASE_URL.replace('/auth', '');
-  console.log('Ã°Å¸Å’Â Socket connecting to:', baseURL);
+  console.log('🌐 Socket connecting to:', baseURL);
   
   // Get the authentication token
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-  console.log('Ã°Å¸â€â€˜ Socket token found:', !!token);
+  console.log('🔑 Socket token found:', !!token);
   
   if (!token) {
-    console.error('Ã¢ÂÅ’ No authentication token found for socket connection');
+    console.error('⚠️ No authentication token found for socket connection');
     isConnecting = false;
     throw new Error('Authentication token required for socket connection');
   }
@@ -76,7 +76,7 @@ export const initSocket = (userId) => {
   // Set connection timeout
   connectionTimeout = setTimeout(() => {
     if (socket && !socket.connected) {
-      console.error('Ã¢ÂÂ° Socket connection timeout');
+      console.error('⏱️ Socket connection timeout');
       isConnecting = false;
       socket.disconnect();
       socket = null;
@@ -85,7 +85,7 @@ export const initSocket = (userId) => {
 
   // Connection event handlers
   socket.on('connect', () => {
-    console.log('Ã¢Å“â€¦ Socket connected successfully');
+    console.log('✅ Socket connected successfully');
     isConnecting = false;
     connectionAttempts = 0;
     
@@ -97,12 +97,12 @@ export const initSocket = (userId) => {
     
     if (userId) {
       socket.emit('join', userId);
-      console.log('Ã°Å¸â€œÂ¤ Emitted join event for user:', userId);
+      console.log('📡 Emitted join event for user:', userId);
     }
   });
 
   socket.on('connect_error', (error) => {
-    console.error('Ã¢ÂÅ’ Socket connection error:', error);
+    console.error('⚠️ Socket connection error:', error);
     isConnecting = false;
     
     // Clear connection timeout
@@ -113,13 +113,13 @@ export const initSocket = (userId) => {
     
     // Try to reconnect with polling if websocket fails
     if (socket.io.opts.transports[0] === 'websocket') {
-      console.log('Ã°Å¸â€â€ž Falling back to polling transport');
+      console.log('🔁 Falling back to polling transport');
       socket.io.opts.transports = ['polling', 'websocket'];
     }
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('Ã°Å¸â€Â´ Socket disconnected:', reason);
+    console.log('🔌 Socket disconnected:', reason);
     isConnecting = false;
     
     // Clear connection timeout
@@ -130,13 +130,13 @@ export const initSocket = (userId) => {
     
     if (reason === 'io server disconnect') {
       // Server initiated disconnect, don't auto-reconnect
-      console.log('Ã°Å¸â€â€ž Server disconnected, not attempting to reconnect');
+      console.log('🔒 Server disconnected, not attempting to reconnect');
       socket = null;
     }
   });
 
   socket.on('error', (error) => {
-    console.error('Ã¢ÂÅ’ Socket error:', error);
+    console.error('⚠️ Socket error:', error);
     isConnecting = false;
     
     // Clear connection timeout
@@ -148,7 +148,7 @@ export const initSocket = (userId) => {
 
   // Add notification event handler
   socket.on('notification', (notification) => {
-    console.log('Ã°Å¸â€œÂ¢ Received notification:', notification);
+    console.log('🔔 Received notification:', notification);
     if (notificationCallback) {
       notificationCallback(notification);
     }
@@ -156,25 +156,25 @@ export const initSocket = (userId) => {
 
   // Enhanced message notification handlers
   socket.on('newMessage', (message) => {
-    console.log('Ã°Å¸â€™Â¬ Received new message via socket:', message);
-    console.log('Ã°Å¸â€™Â¬ Message details:', {
+    console.log('💬 Received new message via socket:', message);
+    console.log('💬 Message details:', {
       conversationId: message.conversationId,
       senderId: message.senderId,
       text: message.text,
       timestamp: message.createdAt
     });
     // Note: socket.rooms is server-side only, not available on client
-    console.log('Ã°Å¸â€™Â¬ Socket rooms: [Not available on client side]');
+    console.log('💬 Socket rooms: [Not available on client side]');
     // This will be handled by MessageContext component and ChatWindow
   });
 
   socket.on('messageSent', (data) => {
-    console.log('Ã¢Å“â€¦ Message sent confirmation:', data);
+    console.log('✅ Message sent confirmation:', data);
   });
 
   // Add reconnection event handlers with limits
   socket.on('reconnect', (attemptNumber) => {
-    console.log('Ã°Å¸â€â€ž Socket reconnected after', attemptNumber, 'attempts');
+    console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
     isConnecting = false;
     connectionAttempts = 0;
     
@@ -184,11 +184,11 @@ export const initSocket = (userId) => {
   });
 
   socket.on('reconnect_attempt', (attemptNumber) => {
-    console.log('Ã°Å¸â€â€ž Socket reconnection attempt:', attemptNumber);
+    console.log('🔄 Socket reconnection attempt:', attemptNumber);
     connectionAttempts = attemptNumber;
     
     if (attemptNumber >= MAX_RECONNECTION_ATTEMPTS) {
-      console.error('Ã¢ÂÅ’ Max reconnection attempts reached, stopping reconnection');
+      console.error('⚠️ Max reconnection attempts reached, stopping reconnection');
       socket.disconnect();
       socket = null;
       isConnecting = false;
@@ -196,12 +196,12 @@ export const initSocket = (userId) => {
   });
 
   socket.on('reconnect_error', (error) => {
-    console.error('Ã¢ÂÅ’ Socket reconnection error:', error);
+    console.error('⚠️ Socket reconnection error:', error);
     isConnecting = false;
   });
 
   socket.on('reconnect_failed', () => {
-    console.error('Ã¢ÂÅ’ Socket reconnection failed');
+    console.error('⚠️ Socket reconnection failed');
     isConnecting = false;
     socket = null;
   });
@@ -211,16 +211,16 @@ export const initSocket = (userId) => {
 
 export const getSocket = () => {
   if (!socket) {
-    console.warn('Ã¢Å¡Â Ã¯Â¸Â Socket not initialized. Call initSocket first.');
+    console.warn('⚠️ Socket not initialized. Call initSocket first.');
     return null;
   }
-  console.log('Ã°Å¸â€Â getSocket called - socket exists:', !!socket, 'connected:', socket.connected);
+  console.log('🔎 getSocket called - socket exists:', !!socket, 'connected:', socket.connected);
   return socket;
 };
 
 export const disconnectSocket = () => {
   if (socket) {
-    console.log('Ã°Å¸â€Å’ Disconnecting socket...');
+    console.log('🔌 Disconnecting socket...');
     socket.disconnect();
     socket = null;
     isConnecting = false;
@@ -240,7 +240,7 @@ export const disconnectSocket = () => {
 };
 
 export const reinitializeSocket = (userId) => {
-  console.log('Ã°Å¸â€â€ž Reinitializing socket for user:', userId);
+  console.log('🔄 Reinitializing socket for user:', userId);
   disconnectSocket();
   
   // Add delay to prevent rapid reconnections
@@ -258,12 +258,12 @@ export const setNotificationCallback = (callback) => {
 export const sendSocketMessage = (message) => {
   const currentSocket = getSocket();
   if (!currentSocket) {
-    console.warn('Ã¢Å¡Â Ã¯Â¸Â Socket not available - no authentication token');
+    console.warn('⚠️ Socket not available - no authentication token');
     return;
   }
   
   if (!currentSocket.connected) {
-    console.warn('Ã¢Å¡Â Ã¯Â¸Â Socket not connected. Attempting to reconnect...');
+    console.warn('⚠️ Socket not connected. Attempting to reconnect...');
     currentSocket.connect();
   }
   
@@ -280,7 +280,7 @@ export const sendSocketMessage = (message) => {
 export const sendSocketMessageLegacy = (senderId, receiverId, text, conversationId) => {
   const currentSocket = getSocket();
   if (!currentSocket) {
-    console.warn('Ã¢Å¡Â Ã¯Â¸Â Socket not available');
+    console.warn('⚠️ Socket not available');
     return;
   }
   

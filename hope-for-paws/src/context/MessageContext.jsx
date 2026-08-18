@@ -85,8 +85,8 @@ const MessageProvider = ({ children }) => {
     }
 
     const handleNewMessage = (message) => {
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Received newMessage:', message);
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentConversationId:', currentConversationId);
+      console.log('MessageContext: Received newMessage:', message);
+      console.log('MessageContext: currentConversationId:', currentConversationId);
       
       // Get current user ID from localStorage/sessionStorage
       const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
@@ -96,17 +96,17 @@ const MessageProvider = ({ children }) => {
       const isActiveConversation = currentConversationId !== null && String(message.conversationId) === String(currentConversationId);
       const isActiveVisibleConversation = isChatRoute && isActiveConversation && document.hasFocus();
       
-      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId, 'isChatRoute:', isChatRoute, 'isActiveVisibleConversation:', isActiveVisibleConversation);
+      console.log('MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId, 'isChatRoute:', isChatRoute, 'isActiveVisibleConversation:', isActiveVisibleConversation);
       
       // Only skip unread increment when the user is actively viewing that exact conversation on the chat page and the tab is focused.
       if (
         message.senderId !== currentUserId &&
         !isActiveVisibleConversation
       ) {
-        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Incrementing unread count');
+        console.log('MessageContext: Incrementing unread count');
         setUnreadCount(prev => prev + 1);
       } else {
-        console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¨ MessageContext: Not incrementing unread count (own message or active conversation currently visible)');
+        console.log('MessageContext: Not incrementing unread count (own message or active conversation currently visible)');
       }
       
       // Update conversations list with the new message

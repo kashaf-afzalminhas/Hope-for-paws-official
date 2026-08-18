@@ -3,7 +3,7 @@ import { API_BASE_URL } from '../config';
 
 const CartContext = createContext(null);
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helper: get auth header Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Helper: get auth header
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   return token
@@ -11,7 +11,7 @@ const getAuthHeaders = () => {
     : null;
 };
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helper: normalize cart response Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Helper: normalize cart response
 const normalizeCart = (cart) => {
   if (!cart || !cart.items) return [];
   return cart.items
@@ -45,18 +45,18 @@ const normalizeCart = (cart) => {
     });
 };
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Provider Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const updateTimeouts = useRef({});
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Derived values Ã¢â€â‚¬Ã¢â€â‚¬
+  // Derived values
   const cartTotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
   const cartQuantity = items.reduce((sum, it) => sum + it.quantity, 0);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Fetch cart from backend Ã¢â€â‚¬Ã¢â€â‚¬
+  // Fetch cart from backend
   const fetchCart = useCallback(async () => {
     const headers = getAuthHeaders();
     if (!headers) {
@@ -79,7 +79,7 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Add to cart Ã¢â€â‚¬Ã¢â€â‚¬
+  // Add to cart
   const addToCart = useCallback(async (productId, quantity = 1) => {
     const headers = getAuthHeaders();
     if (!headers) return { success: false, message: 'Please sign in to add items to cart' };
@@ -102,7 +102,7 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Update quantity Ã¢â€â‚¬Ã¢â€â‚¬
+  // Update quantity
   const updateQuantity = useCallback((productId, quantity) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -133,7 +133,7 @@ export const CartProvider = ({ children }) => {
     }, 500);
   }, []);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Remove from cart Ã¢â€â‚¬Ã¢â€â‚¬
+  // Remove from cart
   const removeFromCart = useCallback(async (productId) => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -160,7 +160,7 @@ export const CartProvider = ({ children }) => {
     }
   }, [fetchCart]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Clear entire cart Ã¢â€â‚¬Ã¢â€â‚¬
+  // Clear entire cart
   const clearCart = useCallback(async () => {
     const headers = getAuthHeaders();
     if (!headers) return;
@@ -182,13 +182,13 @@ export const CartProvider = ({ children }) => {
     }
   }, [fetchCart]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Check if a product is in cart Ã¢â€â‚¬Ã¢â€â‚¬
+  // Check if a product is in cart
   const isInCart = useCallback(
     (productId) => items.some((it) => it.productId === productId),
     [items]
   );
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Auto-fetch cart on mount if logged in Ã¢â€â‚¬Ã¢â€â‚¬
+  // Auto-fetch cart on mount if logged in
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {

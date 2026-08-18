@@ -359,7 +359,7 @@ export default function Checkout() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.title}</h3>
                   <p className="text-[12px] text-[#a07f77] truncate mt-1">
-                    {item.brand || 'Premium'} Ã¢â‚¬Â¢ {item.weight || 'Standard'}
+                    {item.brand || 'Premium'} • {item.weight || 'Standard'}
                   </p>
                 </div>
                 <div className="font-bold text-[#3d2a24] text-[14px]">
