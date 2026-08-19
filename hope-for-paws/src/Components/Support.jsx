@@ -83,15 +83,30 @@
 // };
 
 // export default Support;
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { formatMetric } from '../lib/utils';
+import { API_BASE_URL } from '../config';
 
 const Support = () => {
+  const [totalAdoptions, setTotalAdoptions] = useState(0);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/adoptions/public-count`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.totalAdoptions !== undefined) {
+          setTotalAdoptions(data.totalAdoptions);
+        }
+      })
+      .catch((err) => console.error('Error fetching adoption count:', err));
+  }, []);
+
   return (
     <section className="bg-white text-center mb-10">
       {/* Stats Section */}
       <div className="grid grid-cols-4 md:grid-cols-4 mb-10">
         <div className="bg-[#6b493d] py-10 text-white">
-          <h3 className="text-2xl font-bold">0k</h3>
+          <h3 className="text-2xl font-bold">{formatMetric(totalAdoptions)}</h3>
           <p className="text-sm">ADOPTION</p>
         </div>
         <div className="bg-[#000000] py-10 text-white">
