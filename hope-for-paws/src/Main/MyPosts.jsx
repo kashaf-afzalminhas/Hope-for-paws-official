@@ -22,33 +22,33 @@ const MyPosts = () => {
 
   useEffect(() => {
     if (!userId) return;
-  
+
     setLoading(true);
     fetchUserPosts();
   }, []); // Run only once when the component mounts
-  
+
   const fetchUserPosts = async () => {
     if (!userId) {
       console.log("User ID is missing");
       return; // Prevent unnecessary calls
     }
-  
+
     try {
       setLoading(true);
       setError(""); // Reset error before making a request
-  
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
         throw new Error("Token is missing. Please log in again.");
       }
-  
+
       const response = await axios.get(
         `${API_BASE_URL}/posts/user/${userId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-  
+
       setPosts(response.data);
-  
+
     } catch (error) {
       console.error("Error fetching posts:", error);
       setError("Failed to load posts. Please try again later.");
@@ -57,7 +57,7 @@ const MyPosts = () => {
     }
   };
 
- 
+
 
   const handleEdit = (post) => {
     setEditingPost(post._id);
@@ -68,20 +68,20 @@ const MyPosts = () => {
     try {
       // Set saving state for this specific post
       setSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.put(
         `${API_BASE_URL}/posts/${postId}`,
         { caption: editCaption },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       setEditingPost(null);
-      
+
       // Show immediate success feedback
       setSuccessMessage('Post updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       fetchUserPosts();
     } catch (error) {
       console.error("Error updating post:", error);
@@ -117,7 +117,7 @@ const MyPosts = () => {
   return (
     <section className="min-h-screen bg-[#f5f3ed] py-12">
       <div className="max-w-6xl mx-auto px-4">
-       
+
 
         {/* Posts Section */}
         <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
@@ -143,15 +143,15 @@ const MyPosts = () => {
             {posts.map((post) => (
               <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <div className="relative group">
-                  <img 
-                    src={post.imageUrl} 
-                    alt="Pet" 
-                    className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                  <img
+                    src={post.imageUrl}
+                    alt="Pet"
+                    className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105"
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
                 </div>
-                
+
                 <div className="p-6">
                   {editingPost === post._id ? (
                     <div className="space-y-4">
@@ -163,7 +163,7 @@ const MyPosts = () => {
                         style={{ fontFamily: '"Poppins", sans-serif' }}
                       />
                       <div className="flex justify-end space-x-3">
-                        <button 
+                        <button
                           onClick={() => setEditingPost(null)}
                           className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                           disabled={savingStates[post._id]}
@@ -189,7 +189,7 @@ const MyPosts = () => {
                     </div>
                   ) : (
                     <div>
-                      <p 
+                      <p
                         className="text-[#6b493d] mb-4 italic text-lg leading-relaxed"
                         style={{ fontFamily: '"Poppins", sans-serif', whiteSpace: 'pre-wrap' }}
                       >
@@ -198,11 +198,11 @@ const MyPosts = () => {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4 text-[#6b493d]/80">
                           <div className="flex items-center space-x-1">
-                            
+
                             <span>{post.likes.length}</span>
                           </div>
                           <div className="flex items-center space-x-1">
-                            
+
                             <span>{post.comments.length}</span>
                           </div>
                         </div>
@@ -260,7 +260,7 @@ const MyPosts = () => {
       </div>
     </section>
   );
-  
+
 };
 
 export default MyPosts;

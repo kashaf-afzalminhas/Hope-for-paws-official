@@ -246,9 +246,8 @@ export default function ReviewModal({ isOpen, onClose, orderId, product, onSucce
             <div className="flex items-center justify-between mt-1">
               <p className="text-[10px] text-stone-300">Min 10 characters</p>
               <p
-                className={`text-[10px] font-medium ${
-                  comment.length > 900 ? "text-amber-500" : "text-stone-300"
-                }`}
+                className={`text-[10px] font-medium ${comment.length > 900 ? "text-amber-500" : "text-stone-300"
+                  }`}
               >
                 {comment.length}/1000
               </p>

@@ -60,7 +60,7 @@ const ProfilePage = () => {
   // Phone validation states
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  
+
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
     phone: '',
@@ -69,7 +69,7 @@ const ProfilePage = () => {
     countryCode: '+92',
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
-  
+
   // Track original profile data to detect changes
   const [originalProfile, setOriginalProfile] = useState({
     phone: '',
@@ -132,11 +132,11 @@ const ProfilePage = () => {
     }
 
     if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
-    
+
     const fullPhone = code + phoneNumber;
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-    
+
     return '';
   };
 
@@ -167,7 +167,7 @@ const ProfilePage = () => {
       // Parse existing phone number to extract country code and phone number
       let phoneNumber = '';
       let phoneCountryCode = '+92';
-      
+
       if (userData.phone) {
         // Find matching country code
         const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
@@ -213,7 +213,7 @@ const ProfilePage = () => {
       if (!userData.phone || !userData.phoneVerified) {
         setCurrentView('edit');
       }
-      
+
       // Test token transmission
       testToken();
     } else {
@@ -272,12 +272,12 @@ const ProfilePage = () => {
 
   const handlePhoneChange = (e) => {
     let phoneValue = e.target.value;
-    
+
     // Remove leading zero if country code is selected
     if (formData.countryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
     }
-    
+
     setFormData({ ...formData, phone: phoneValue });
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, formData.countryCode));
@@ -286,7 +286,7 @@ const ProfilePage = () => {
   const handleCountryCodeChange = (e) => {
     const newCountryCode = e.target.value;
     let phoneValue = formData.phone;
-    
+
     // Remove leading zero when country code changes
     if (newCountryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
@@ -294,7 +294,7 @@ const ProfilePage = () => {
     } else {
       setFormData({ ...formData, countryCode: newCountryCode });
     }
-    
+
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
@@ -379,17 +379,17 @@ const ProfilePage = () => {
       formData.append('image', file);
 
       const response = await uploadProfileImage(formData);
-      
+
       if (response.data && response.data.success) {
         const newImagePath = response.data.data.profileImage;
         setProfile(prev => ({ ...prev, profileImage: newImagePath }));
-        
+
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = newImagePath;
           localStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image uploaded successfully!');
       } else {
         setError('Failed to upload image. Please try again.');
@@ -413,16 +413,16 @@ const ProfilePage = () => {
 
     try {
       const response = await removeProfileImage();
-      
+
       if (response.data && response.data.success) {
         setProfile(prev => ({ ...prev, profileImage: '' }));
-        
+
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = '';
           localStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image removed successfully!');
       } else {
         setError('Failed to remove image. Please try again.');
@@ -481,10 +481,10 @@ const ProfilePage = () => {
 
       if (response.ok) {
         const updatedUser = data.user;
-        
+
         // Update AuthContext with the new user data
         updateUser(updatedUser);
-        
+
         // Convert isVeterinarian to userType for display
         const getUserType = (user) => {
           if (user.userType) return user.userType;
@@ -496,7 +496,7 @@ const ProfilePage = () => {
         // Parse the updated phone number
         let phoneNumber = '';
         let phoneCountryCode = '+92';
-        
+
         if (updatedUser.phone) {
           const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
           if (matchingCountry) {
@@ -521,7 +521,7 @@ const ProfilePage = () => {
           profileImage: profile.profileImage, // Keep the current profile image
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update form data to match the saved profile
         setFormData({
           phone: phoneNumber,
@@ -530,7 +530,7 @@ const ProfilePage = () => {
           countryCode: phoneCountryCode,
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update original profile data to reflect the saved state
         setOriginalProfile({
           phone: phoneNumber,
@@ -539,11 +539,11 @@ const ProfilePage = () => {
           countryCode: phoneCountryCode,
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Clear phone validation errors
         setPhoneError('');
         setPhoneTouched(false);
-        
+
         addToast('Profile updated successfully!');
         setCurrentView('profile');
       } else {
@@ -762,15 +762,15 @@ const ProfilePage = () => {
   // MyAdoptions state
   const [adoptions, setAdoptions] = useState([]);
   const [editingAdoptionPost, setEditingAdoptionPost] = useState(null);
-  const [editAdoptionData, setEditAdoptionData] = useState({ 
-    name: '', 
-    age: '', 
-    petType: '', 
-    breed: '', 
-    vaccinated: '', 
-    neuteredSpayed: '', 
-    description: '', 
-    location: '' 
+  const [editAdoptionData, setEditAdoptionData] = useState({
+    name: '',
+    age: '',
+    petType: '',
+    breed: '',
+    vaccinated: '',
+    neuteredSpayed: '',
+    description: '',
+    location: ''
   });
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
@@ -779,7 +779,7 @@ const ProfilePage = () => {
   const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
-  
+
   // MyPosts state
   const [editingPost, setEditingPost] = useState(null);
   const [editCaption, setEditCaption] = useState("");
@@ -832,7 +832,7 @@ const ProfilePage = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {/* ignore error parsing error response */}
+        } catch {/* ignore error parsing error response */ }
         throw new Error(errorMessage);
       }
       const data = await response.json();
@@ -902,15 +902,15 @@ const ProfilePage = () => {
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
-    const postData = { 
-      name: post.name, 
-      age: post.age, 
-      petType: post.petType, 
-      breed: post.breed || '', 
-      vaccinated: post.vaccinated || '', 
-      neuteredSpayed: post.neuteredSpayed || '', 
-      description: post.description, 
-      location: post.location || '' 
+    const postData = {
+      name: post.name,
+      age: post.age,
+      petType: post.petType,
+      breed: post.breed || '',
+      vaccinated: post.vaccinated || '',
+      neuteredSpayed: post.neuteredSpayed || '',
+      description: post.description,
+      location: post.location || ''
     };
     setEditAdoptionData(postData);
     setOriginalAdoptionData(postData);
@@ -922,7 +922,7 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific adoption post
       setAdoptionSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       // If there's a new image, upload first
       if (newAdoptionImages[postId]) {
@@ -937,40 +937,40 @@ const ProfilePage = () => {
           const errData = await imgRes.json().catch(() => ({}));
           throw new Error(errData.message || 'Failed to update image');
         }
-        
+
         // Get the updated image URL from the response
         const imgData = await imgRes.json();
         if (imgData.imageUrl) {
           // Update local state with new image URL
-          setAdoptions(prev => prev.map(post => 
+          setAdoptions(prev => prev.map(post =>
             post._id === postId ? { ...post, imageUrl: imgData.imageUrl } : post
           ));
         }
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(editAdoptionData)
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update adoption post');
       }
-      
+
       // Update local state immediately for better UX
-      setAdoptions(prev => prev.map(post => 
+      setAdoptions(prev => prev.map(post =>
         post._id === postId ? { ...post, ...editAdoptionData } : post
       ));
-      
+
       setEditingAdoptionPost(null);
       // Clear image data for this post
       setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
       setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
-      
+
       // Show immediate success feedback
       addToast('Adoption post updated successfully!');
-      
+
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to update post');
       addToast(err.message || 'Failed to update post', 'error');
@@ -1105,28 +1105,28 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific post
       setPostSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ caption: editCaption })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update post');
       }
-      
+
       // Update local state immediately for better UX
-      setPosts(prev => prev.map(post => 
+      setPosts(prev => prev.map(post =>
         post._id === postId ? { ...post, caption: editCaption } : post
       ));
-      
+
       setEditingPost(null);
-      
+
       // Show immediate success feedback
       addToast('Post updated successfully!');
-      
+
     } catch (err) {
       setPostsError("Failed to update post. Please try again.");
       addToast("Failed to update post. Please try again.", 'error');
@@ -1149,29 +1149,29 @@ const ProfilePage = () => {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
-const handleDeleteComment = async (commentId, postId) => {// change here.
-  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = async (commentId, postId) => {// change here.
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
 
-  try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    setPosts(prev => prev.map(post => {
-      if (post._id === postId) {
-        return {
-          ...post,
-          comments: post.comments.filter((c) => c._id !== commentId),
-        };
-      }
-      return post;
-    }));
-  } catch (err) {
-    addToast('Failed to delete comment.', 'error');
-  }
-}; // till here. 
+      setPosts(prev => prev.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            comments: post.comments.filter((c) => c._id !== commentId),
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      addToast('Failed to delete comment.', 'error');
+    }
+  }; // till here. 
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1184,7 +1184,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
     // Block access to other pages if user doesn't have phone number OR if there's a phone validation error
     const hasPhoneError = phoneTouched && phoneError;
     const needsPhone = !profile.phone || !user?.phoneVerified;
-    
+
     if ((needsPhone || hasPhoneError) && view !== 'edit' && view !== 'profile') {
       if (hasPhoneError) {
         addToast('Please fix the phone number error first', 'error');
@@ -1193,7 +1193,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
       }
       return;
     }
-    
+
     setCurrentView(view);
     setMobileMenuOpen(false);
   };
@@ -1214,8 +1214,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
             {/* Back Button */}
             <div className="mb-4">
-              <NavLink 
-                to="/" 
+              <NavLink
+                to="/"
                 className="inline-flex items-center gap-2 rounded-full border border-[#e8dcc8] bg-white px-4 py-2 text-sm font-semibold text-[#6b493d] shadow-sm transition hover:bg-[#f8f4ed] hover:text-[#57392f]"
               >
                 <FaChevronLeft className="text-xs" />
@@ -1226,7 +1226,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             <div className="rounded-[24px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-4 text-center shadow-sm">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
-                  <img 
+                  <img
                     src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
@@ -1239,7 +1239,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 <div className={`w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold ${profile.profileImage ? 'hidden' : ''}`}>
                   {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
                 </div>
-                
+
                 {/* Image upload button */}
                 <label className="absolute bottom-0 right-0 bg-[#6b493d] text-white rounded-full p-2 cursor-pointer hover:bg-[#57392f] transition-colors">
                   <FaCamera size={12} />
@@ -1251,7 +1251,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     disabled={imageLoading}
                   />
                 </label>
-                
+
                 {/* Remove image button */}
                 {profile.profileImage && (
                   <button
@@ -1264,13 +1264,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                   </button>
                 )}
               </div>
-              
+
               {imageLoading && (
                 <div className="text-sm text-[#a07855] mb-2">
                   {profile.profileImage ? 'Updating...' : 'Uploading...'}
                 </div>
               )}
-              
+
               <div className="flex items-center justify-center gap-1.5">
                 <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
                 {profile.userType === 'Seller' && (
@@ -1304,11 +1304,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           key={i}
                           onClick={() => handleViewChange(link.view)}
                           disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${
-                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
-                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                            'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
-                          }`}
+                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                              ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                                'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
+                            }`}
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
                         </button>
@@ -1338,11 +1337,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     key={i}
                     onClick={() => handleViewChange(link.view)}
                     disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${
-                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
-                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                      'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
-                    }`}
+                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                        ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                          'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
+                      }`}
                   >
                     {link.icon}<span className="ml-2">{link.name}</span>
                   </button>
@@ -1501,7 +1499,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 </div>
 
                 {error && !(phoneTouched && phoneError) && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-                
+
                 {(!profile.phone || !user?.phoneVerified) && !(phoneTouched && phoneError) && (
                   <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
                     <div className="flex items-start gap-3">
@@ -1517,7 +1515,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     </div>
                   </div>
                 )}
-                
+
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                   <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
                     <div className="mb-5">
@@ -1527,26 +1525,26 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           disabled
                           value={profile.name}
                           className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
                         />
                         <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-                        <input 
-                          type="email" 
+                        <input
+                          type="email"
                           disabled
                           value={profile.email}
                           className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
                         />
                         <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
                         <div className="flex gap-2">
@@ -1561,8 +1559,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                               </option>
                             ))}
                           </select>
-                          <input 
-                            type="tel" 
+                          <input
+                            type="tel"
                             name="phone"
                             value={formData.phone}
                             onChange={handlePhoneChange}
@@ -1575,11 +1573,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           <p className="mt-1 text-xs text-red-600">{phoneError}</p>
                         )}
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           name="city"
                           value={formData.city}
                           onChange={handleProfileChange}
@@ -1588,13 +1586,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
                     <div className="mb-5">
                       <h3 className="text-lg font-semibold text-[#6b493d]">About you</h3>
                       <p className="mt-1 text-sm text-[#7a6554]">A short introduction makes your profile feel warmer and more personal.</p>
                     </div>
-                    <textarea 
+                    <textarea
                       name="about"
                       value={formData.about}
                       onChange={handleProfileChange}
@@ -1663,23 +1661,22 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <button 
+                    <button
                       type="button"
                       onClick={handleCancelEdit}
                       className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
-                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${
-                        loading || !hasChanges() || (phoneTouched && phoneError)
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${loading || !hasChanges() || (phoneTouched && phoneError)
                           ? 'cursor-not-allowed bg-gray-400 text-gray-200'
                           : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
-                      }`}
+                        }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -1692,7 +1689,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Security Settings</h2>
                 {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
+
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-4 text-[#6b493d]">
                     {shouldShowSetPassword ? 'Set Password' : 'Change Password'}
@@ -1707,7 +1704,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                           <div className="relative">
-                            <input 
+                            <input
                               type={showPasswords.currentPassword ? 'text' : 'password'}
                               name="currentPassword"
                               value={passwords.currentPassword}
@@ -1728,11 +1725,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         </>
                       )}
                     </div>
-                    
+
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.newPassword ? 'text' : 'password'}
                           name="newPassword"
                           value={passwords.newPassword}
@@ -1747,9 +1744,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                             setPasswordError(validatePasswordStrength(passwords.newPassword));
                           }}
                           required
-                          className={`w-full px-3 py-2 pr-10 border rounded-md ${
-                            passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
-                          }`}
+                          className={`w-full px-3 py-2 pr-10 border rounded-md ${passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
+                            }`}
                         />
                         <button
                           type="button"
@@ -1770,11 +1766,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <p className="text-xs text-red-600 mt-1">Password must have: {passwordError}</p>
                       )}
                     </div>
-                    
+
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.confirmPassword ? 'text' : 'password'}
                           name="confirmPassword"
                           value={passwords.confirmPassword}
@@ -1796,9 +1792,9 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
                       )}
                     </div>
-                    
+
                     <div className="flex justify-end">
-                      <button 
+                      <button
                         type="submit"
                         disabled={
                           loading ||
@@ -1817,7 +1813,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
             {currentView === 'myadoptions' && <MyAdoptions embedded />}
             {currentView === 'myorders' && (
-                <MyOrdersPage embedded />
+              <MyOrdersPage embedded />
             )}
             {currentView === 'myposts' && (
               <section className="min-h-screen py-4">
@@ -1830,18 +1826,34 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
                     </div>
                   ) : posts.length === 0 ? (
-                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
+                    <div className="flex flex-col items-center justify-center gap-4 py-10 bg-[#c9a280]/20 rounded-xl p-8 border-2 border-dashed border-[#6b493d]/30">
                       <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
+                      <div className="flex gap-4 mt-2">
+                        <NavLink
+                          to="/createpost"
+                          className="px-6 py-2.5 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors shadow-md font-medium"
+                          style={{ fontFamily: '"Poppins", sans-serif' }}
+                        >
+                          Create Post
+                        </NavLink>
+                        <NavLink
+                          to="/posts"
+                          className="px-6 py-2.5 border-2 border-[#6b493d] text-[#6b493d] rounded-lg hover:bg-[#6b493d]/10 transition-colors font-medium"
+                          style={{ fontFamily: '"Poppins", sans-serif' }}
+                        >
+                          Go Back
+                        </NavLink>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
                       {posts.map((post) => (
                         <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col w-full max-w-full">
                           <div className="relative group">
-                            <img 
-                              src={post.imageUrl} 
-                              alt="Pet" 
-                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
+                            <img
+                              src={post.imageUrl}
+                              alt="Pet"
+                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105"
                               loading="lazy"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
@@ -1860,7 +1872,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                   style={{ fontFamily: '"Poppins", sans-serif' }}
                                 />
                                 <div className="flex justify-end space-x-3">
-                                  <button 
+                                  <button
                                     onClick={() => setEditingPost(null)}
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     disabled={postSavingStates[post._id]}
@@ -1887,7 +1899,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                             ) : (
                               <div className="flex flex-col justify-between">
                                 <div>
-                                  <p 
+                                  <p
                                     className="text-[#6b493d] mb-4 italic text-lg leading-relaxed break-words"
                                     style={{ fontFamily: '"Poppins", sans-serif' }}
                                   >
@@ -1897,12 +1909,12 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                 <div className="flex items-center justify-between mt-4 flex-wrap gap-y-2">
                                   <div className="flex items-center space-x-4 text-[#6b493d]/80">
                                     <div className="flex items-center space-x-1">
-                                      <span>ÃƒÂ¢Ã‚ÂÃ‚Â¤ÃƒÂ¯Ã‚Â¸Ã‚Â</span>
-                                      <span>{post.likes.length}</span>
+                                      <FaHeart className="text-sm" />
+                                      <span>{post.likes?.length || 0}</span>
                                     </div>
                                     <div className="flex items-center space-x-1">
-                                      <span>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬</span>
-                                      <span>{post.comments.length}</span>
+                                      <FaComment className="text-sm" />
+                                      <span>{post.comments?.length || 0}</span>
                                     </div>
                                   </div>
                                   <div className="flex space-x-3">
@@ -1910,13 +1922,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                       onClick={() => handleEditPost(post)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     >
-                                      <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ¢Ã…â€œÃ…Â½</span>
+                                      <FaPen className="h-4 w-4 text-[#6b493d]" />
                                     </button>
                                     <button
                                       onClick={() => handleDeletePost(post._id)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     >
-                                      <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â</span>
+                                      <FaTrash className="h-4 w-4 text-[#6b493d]" />
                                     </button>
                                   </div>
                                   <button
@@ -1929,31 +1941,31 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                 {expandedComments[post._id] && (
                                   <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
                                     {post.comments.length > 0 ? (
-  post.comments.map((comment) => (  // change here.
-    <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
-      <div>
-        <p className="text-[#6b493d] font-medium break-words">
-          {comment.userId?.username || "Unknown User"}
-        </p>
-        <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-      </div>
-      {user && (
-        comment.userId?._id === user._id || comment.userId?._id === user.id ||
-        post.userId?._id === user._id || post.userId?._id === user.id
-      ) && (
-        <button
-          onClick={() => handleDeleteComment(comment._id, post._id)}
-          className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-          title="Delete comment"
-        >
-          ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â
-        </button>
-      )}
-    </div>
-  ))
-) : (
-  <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-)} // till here.
+                                      post.comments.map((comment) => (
+                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
+                                          <div>
+                                            <p className="text-[#6b493d] font-medium break-words">
+                                              {comment.userId?.username || "Unknown User"}
+                                            </p>
+                                            <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
+                                          </div>
+                                          {user && (
+                                            comment.userId?._id === user._id || comment.userId?._id === user.id ||
+                                            post.userId?._id === user._id || post.userId?._id === user.id
+                                          ) && (
+                                              <button
+                                                onClick={() => handleDeleteComment(comment._id, post._id)}
+                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                                                title="Delete comment"
+                                              >
+                                                <FaTrash className="h-3 w-3" />
+                                              </button>
+                                            )}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
+                                    )} // till here.
                                   </div>
                                 )}
                               </div>
@@ -1971,7 +1983,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 </div>
               </section>
             )}
-            
+
             {currentView === 'sellerdashboard' && (
               <SellerDashboard onNavigateOrders={() => handleViewChange('ordermanagement')} />
             )}
