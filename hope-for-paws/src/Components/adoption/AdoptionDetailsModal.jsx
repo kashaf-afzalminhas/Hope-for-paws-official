@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, MessageSquare, PawPrint, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, MessageSquare, PawPrint, X } from 'lucide-react';
 import { useRequireAuth } from '../AuthGuard';
 import {
   adoptionTagClass,
@@ -33,6 +33,31 @@ const AdoptionDetailsModal = ({
     ? getHealthFieldChipStyle('neutered', post.neuteredSpayed, post.status)
     : null;
 
+  const imageList = post?.imageUrls && post.imageUrls.length > 0
+    ? post.imageUrls.filter(Boolean)
+    : post?.imageUrl
+      ? [post.imageUrl]
+      : [];
+
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [post?._id, post?.imageUrl, post?.imageUrls]);
+
+  const currentImage = imageList[currentImageIndex] || null;
+  const hasMultipleImages = imageList.length > 1;
+
+  const goToPreviousImage = () => {
+    if (imageList.length <= 1) return;
+    setCurrentImageIndex((prev) => (prev - 1 + imageList.length) % imageList.length);
+  };
+
+  const goToNextImage = () => {
+    if (imageList.length <= 1) return;
+    setCurrentImageIndex((prev) => (prev + 1) % imageList.length);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
@@ -59,20 +84,47 @@ const AdoptionDetailsModal = ({
           <div className="border-b border-[#efe4d8] bg-[#faf6f0] px-6 py-4">
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#faf6f0] to-[#efe4d8]">
               <div className="flex min-h-[200px] items-center justify-center">
-                {imageFailed ? (
+                {imageFailed || !currentImage ? (
                   <div className="flex flex-col items-center py-16 text-[#6F4C3E]">
                     <PawPrint className="mb-3 h-12 w-12 text-[#a07855]/60" />
                     <p className="text-sm font-medium">Photo unavailable</p>
                   </div>
                 ) : (
                   <img
-                    src={post.imageUrl}
-                    alt={`${post.name} – ${post.petType || 'pet'}`}
+                    src={currentImage}
+                    alt={`${post.name} – ${post.petType || 'pet'} (${currentImageIndex + 1}/${imageList.length})`}
                     className="max-h-[min(50vh,400px)] w-full object-contain"
                     onError={onImageError}
                   />
                 )}
               </div>
+
+              {hasMultipleImages && (
+                <>
+                  <button
+                    type="button"
+                    onClick={goToPreviousImage}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={goToNextImage}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white">
+                    {currentImageIndex + 1} / {imageList.length}
+                  </div>
+                </>
+              )}
+
               <div className="pointer-events-none absolute right-3 top-3">
                 <span
                   className={`inline-flex rounded-full px-3 py-1 text-xs font-bold shadow-md ${statusBadge.className}`}
