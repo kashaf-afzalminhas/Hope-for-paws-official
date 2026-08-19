@@ -16,7 +16,7 @@ exports.createProduct = async (req, res) => {
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
     if (seller.status === 'suspended') return res.status(403).json({ message: 'Seller account is suspended' });
 
-    const { 
+    const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo
     } = req.body;
@@ -49,7 +49,7 @@ exports.createProduct = async (req, res) => {
 
     let images = req.body.images || [];
     if (typeof images === 'string') images = [images];
-    
+
     if (req.files && req.files.length > 0) {
       const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
       images = [...images, ...uploadedImages];
@@ -85,9 +85,13 @@ exports.createProduct = async (req, res) => {
 // 2. Public List (Updated for Frontend Filtering & Verified Badge)
 exports.listProducts = async (req, res) => {
   try {
-    const { category, search, sort } = req.query;
+    const { category, search, sort, sellerId } = req.query;
     // Strictly filter out hidden items (from automated moderation)
     let query = { isVisible: true, isHidden: { $ne: true } };
+
+    if (sellerId) {
+      query.sellerId = sellerId;
+    }
 
     if (category && category !== 'All') {
       query.category = category;
@@ -136,7 +140,7 @@ exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
-      .populate('sellerId', 'userId name status isVerified storeName'); 
+      .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);

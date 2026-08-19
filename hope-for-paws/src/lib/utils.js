@@ -25,3 +25,15 @@ export function getCurrentUserId(user) {
   if (user.id) return String(user.id);
   return null;
 }
+
+export const formatMetric = (num) => {
+  const parsed = Number(num);
+  if (isNaN(parsed) || parsed < 0) return '0';
+  if (parsed >= 1000000) {
+    return (parsed / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (parsed >= 1000) {
+    return (parsed / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return String(parsed);
+};

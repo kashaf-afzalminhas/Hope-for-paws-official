@@ -36,70 +36,70 @@ import {
 
 const STATUS_CONFIG = {
   Pending: {
-    label:     "Pending",
-    accent:    "#f59e0b",
-    badgeBg:   "bg-amber-50",
+    label: "Pending",
+    accent: "#f59e0b",
+    badgeBg: "bg-amber-50",
     badgeText: "text-amber-700",
     badgeRing: "ring-amber-200",
-    icon:      Clock,
-    pulse:     true,
-    optionBg:  "hover:bg-amber-50",
-    optionText:"text-amber-700",
+    icon: Clock,
+    pulse: true,
+    optionBg: "hover:bg-amber-50",
+    optionText: "text-amber-700",
   },
   Confirmed: {
-    label:     "Confirmed",
-    accent:    "#8b5cf6",
-    badgeBg:   "bg-violet-50",
+    label: "Confirmed",
+    accent: "#8b5cf6",
+    badgeBg: "bg-violet-50",
     badgeText: "text-violet-700",
     badgeRing: "ring-violet-200",
-    icon:      CheckCircle2,
-    pulse:     false,
-    optionBg:  "hover:bg-violet-50",
-    optionText:"text-violet-700",
+    icon: CheckCircle2,
+    pulse: false,
+    optionBg: "hover:bg-violet-50",
+    optionText: "text-violet-700",
   },
   Processing: {
-    label:     "Processing",
-    accent:    "#0ea5e9",
-    badgeBg:   "bg-sky-50",
+    label: "Processing",
+    accent: "#0ea5e9",
+    badgeBg: "bg-sky-50",
     badgeText: "text-sky-700",
     badgeRing: "ring-sky-200",
-    icon:      Package,
-    pulse:     false,
-    optionBg:  "hover:bg-sky-50",
-    optionText:"text-sky-700",
+    icon: Package,
+    pulse: false,
+    optionBg: "hover:bg-sky-50",
+    optionText: "text-sky-700",
   },
   Shipped: {
-    label:     "Shipped",
-    accent:    "#3b82f6",
-    badgeBg:   "bg-blue-50",
+    label: "Shipped",
+    accent: "#3b82f6",
+    badgeBg: "bg-blue-50",
     badgeText: "text-blue-700",
     badgeRing: "ring-blue-200",
-    icon:      Truck,
-    pulse:     false,
-    optionBg:  "hover:bg-blue-50",
-    optionText:"text-blue-700",
+    icon: Truck,
+    pulse: false,
+    optionBg: "hover:bg-blue-50",
+    optionText: "text-blue-700",
   },
   Delivered: {
-    label:     "Delivered",
-    accent:    "#10b981",
-    badgeBg:   "bg-emerald-50",
+    label: "Delivered",
+    accent: "#10b981",
+    badgeBg: "bg-emerald-50",
     badgeText: "text-emerald-700",
     badgeRing: "ring-emerald-200",
-    icon:      CheckCircle2,
-    pulse:     false,
-    optionBg:  "hover:bg-emerald-50",
-    optionText:"text-emerald-700",
+    icon: CheckCircle2,
+    pulse: false,
+    optionBg: "hover:bg-emerald-50",
+    optionText: "text-emerald-700",
   },
   Cancelled: {
-    label:     "Cancelled",
-    accent:    "#ef4444",
-    badgeBg:   "bg-red-50",
+    label: "Cancelled",
+    accent: "#ef4444",
+    badgeBg: "bg-red-50",
     badgeText: "text-red-600",
     badgeRing: "ring-red-200",
-    icon:      XCircle,
-    pulse:     false,
-    optionBg:  "hover:bg-red-50",
-    optionText:"text-red-600",
+    icon: XCircle,
+    pulse: false,
+    optionBg: "hover:bg-red-50",
+    optionText: "text-red-600",
   },
 };
 
@@ -218,7 +218,7 @@ function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
   const handleSelect = async (newStatus) => {
     setIsOpen(false);
     if (!newStatus || newStatus === currentStatus) return;
-    
+
     setSaving(true);
     await new Promise(r => setTimeout(r, 420));
     setSaving(false);
@@ -246,14 +246,14 @@ function StatusDropdown({ orderId, currentStatus, onStatusChange }) {
           transition-all duration-200 outline-none shadow-sm
           ${saving
             ? "bg-stone-50 text-stone-400 border-stone-200 cursor-wait"
-            : isOpen 
-              ? "bg-[#6b493d] border-[#6b493d] text-white ring-2 ring-[#6b493d]/20" 
+            : isOpen
+              ? "bg-[#6b493d] border-[#6b493d] text-white ring-2 ring-[#6b493d]/20"
               : "bg-white border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-stone-50"
           }
         `}
       >
         <span>{saving ? "Saving…" : "Update status"}</span>
-        {saving 
+        {saving
           ? <RefreshCw size={12} className="animate-spin text-stone-400 flex-shrink-0" />
           : <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180 text-white" : "text-stone-400"}`} />
         }
@@ -302,20 +302,20 @@ function OrderDetailPanel({ order }) {
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between gap-3 bg-white rounded-xl px-4 py-3 border border-stone-100 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
-                 <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
-  {item.image ? (
-     <img 
-       src={item.image.startsWith('http') ? item.image : `http://localhost:3000${item.image}`} 
-       alt={item.title} 
-       className="w-full h-full object-cover rounded-lg" 
-     />
-  ) : (
-     <Package size={14} className="text-[#6b493d]" />
-  )}
-</div>
+                  <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
+                    {item.image ? (
+                      <img
+                        src={item.image.startsWith('http') ? item.image : `http://localhost:3000${item.image}`}
+                        alt={item.title}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <Package size={14} className="text-[#6b493d]" />
+                    )}
+                  </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-stone-800 truncate">{item.title}</p>
-                    <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0,8) || "N/A"} · Qty: {item.quantity}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">SKU: {item.productId?.toString().substring(0, 8) || "N/A"} · Qty: {item.quantity}</p>
                   </div>
                 </div>
                 <span className="text-sm font-bold text-stone-700 flex-shrink-0">
@@ -391,21 +391,21 @@ function OrderRow({ order, onStatusChange, addToast }) {
   const [expanded, setExpanded] = useState(false);
   const total = order.totals?.finalTotal || 0;
   const itemCount = order.items.reduce((s, i) => s + (i.quantity || 1), 0);
-  
+
   const customerName = order.shippingAddress?.fullName || 'Guest';
   const color = avatarColor(customerName);
   const initials = customerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-const handlePrint = useCallback(() => {
-  const subtotal = order.totals?.subtotal ?? order.items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shippingFee = order.totals?.shippingFee ?? 0;
-  const finalTotal = order.totals?.finalTotal ?? (subtotal + shippingFee);
+  const handlePrint = useCallback(() => {
+    const subtotal = order.totals?.subtotal ?? order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const shippingFee = order.totals?.shippingFee ?? 0;
+    const finalTotal = order.totals?.finalTotal ?? (subtotal + shippingFee);
 
-  const itemsHtml = order.items.map(item => `
+    const itemsHtml = order.items.map(item => `
     <tr>
       <td style="padding:10px 0; border-bottom:1px solid #eee;">
         <div style="font-weight:600; color:#292524;">${item.title}</div>
         <div style="font-size:12px; color:#78716c; margin-top:2px;">
-          SKU: ${item.productId?.toString().substring(0,8) || "N/A"} · Qty: ${item.quantity}
+          SKU: ${item.productId?.toString().substring(0, 8) || "N/A"} · Qty: ${item.quantity}
         </div>
       </td>
       <td style="padding:10px 0; border-bottom:1px solid #eee; text-align:right; font-weight:600; color:#292524;">
@@ -414,7 +414,7 @@ const handlePrint = useCallback(() => {
     </tr>
   `).join('');
 
-  const receiptHtml = `
+    const receiptHtml = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -507,14 +507,14 @@ const handlePrint = useCallback(() => {
     </html>
   `;
 
-  const printWindow = window.open('', '_blank', 'width=700,height=900');
-  if (printWindow) {
-    printWindow.document.write(receiptHtml);
-    printWindow.document.close();
-  } else {
-    addToast("Please allow pop-ups to print receipts.", "error");
-  }
-}, [order, addToast]);
+    const printWindow = window.open('', '_blank', 'width=700,height=900');
+    if (printWindow) {
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
+    } else {
+      addToast("Please allow pop-ups to print receipts.", "error");
+    }
+  }, [order, addToast]);
 
   const d = new Date(order.createdAt || Date.now());
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -523,12 +523,12 @@ const handlePrint = useCallback(() => {
   return (
     <Fragment>
       <tr className="border-b border-stone-100 hover:bg-stone-50 transition-colors group">
-        
+
         {/* ORDER */}
         <td className="px-6 py-4 align-top">
           <div className="flex items-center gap-1.5 text-sm font-bold text-stone-800">
             <Hash size={13} className="text-stone-400" />
-            {order.orderId || order._id.toString().substring(0,8)}
+            {order.orderId || order._id.toString().substring(0, 8)}
           </div>
           <div className="flex items-center gap-1 text-xs text-stone-500 mt-1">
             <CalendarDays size={11} />
@@ -592,10 +592,10 @@ const handlePrint = useCallback(() => {
             ) : order.status === "Pending" ? (
               <>
                 <button
-                  onClick={() => onStatusChange(order._id, "Confirmed")}
+                  onClick={() => onStatusChange(order._id, "Processing")}
                   className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-[#6b493d] text-white text-xs font-semibold hover:bg-[#5a3c32] transition-colors shadow-sm active:scale-95"
                 >
-                  Confirm
+                  Mark as Processing
                 </button>
                 <button
                   onClick={() => onStatusChange(order._id, "Cancelled")}
@@ -604,13 +604,21 @@ const handlePrint = useCallback(() => {
                   Reject
                 </button>
               </>
-            ) : (
-              <StatusDropdown
-                orderId={order._id}
-                currentStatus={order.status}
-                onStatusChange={onStatusChange}
-              />
-            )}
+            ) : order.status === "Confirmed" || order.status === "Processing" ? (
+              <button
+                onClick={() => onStatusChange(order._id, "Shipped")}
+                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-[#0ea5e9] text-white text-xs font-semibold hover:bg-[#0284c7] transition-colors shadow-sm active:scale-95"
+              >
+                Mark as Shipped
+              </button>
+            ) : order.status === "Shipped" ? (
+              <button
+                onClick={() => onStatusChange(order._id, "Delivered")}
+                className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-[#10b981] text-white text-xs font-semibold hover:bg-[#059669] transition-colors shadow-sm active:scale-95"
+              >
+                Mark as Delivered
+              </button>
+            ) : null}
 
             <button
               onClick={handlePrint}
@@ -765,8 +773,8 @@ function FilterTabs({ active, onSelect, orders }) {
     >
       {FILTER_TABS.map(tab => {
         const isActive = active === tab;
-        const count    = counts[tab] || 0;
-        const cfg      = tab !== "All" ? STATUS_CONFIG[tab] : null;
+        const count = counts[tab] || 0;
+        const cfg = tab !== "All" ? STATUS_CONFIG[tab] : null;
 
         const inactiveStyle = cfg
           ? { backgroundColor: cfg.accent + "12", borderColor: cfg.accent + "35" }
@@ -844,11 +852,11 @@ export default function SellerOrderDashboard({ embedded = false }) {
   useGlobalStyles();
 
   const navigate = useNavigate();
-  
-  const [orders, setOrders]       = useState([]);
-  const [loading, setLoading]     = useState(true);
+
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setFilter] = useState("All");
-  const [searchQuery, setSearch]  = useState("");
+  const [searchQuery, setSearch] = useState("");
   const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -859,7 +867,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
         const res = await fetch(`${apiBase}/api/orders/seller`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         // Handle 404 cleanly by setting an empty state, not throwing an error
         if (res.status === 404) {
           setOrders([]);
@@ -867,7 +875,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
         }
 
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        
+
         const data = await res.json();
 
         // Backward-compatible: API may return an array (old) or an object { orders, counts } (new)
@@ -904,11 +912,14 @@ export default function SellerOrderDashboard({ embedded = false }) {
         },
         body: JSON.stringify({ status: newStatus })
       });
-      if (!res.ok) throw new Error('Failed to update status');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update status');
+      }
       addToast(`Order updated to ${newStatus}`, "success");
     } catch (err) {
       console.error(err);
-      addToast("Failed to update status. Reverting.", "error");
+      addToast(err.message || "Failed to update status. Reverting.", "error");
       setOrders(originalOrders);
     }
   }, [orders, addToast]);
@@ -926,10 +937,10 @@ export default function SellerOrderDashboard({ embedded = false }) {
   }, [orders, activeFilter, searchQuery]);
 
   // Quick stats
-  const newCount       = orders.filter(o => o.status === "Pending").length;
-  const toShipCount    = orders.filter(o => ["Confirmed", "Processing"].includes(o.status)).length;
+  const newCount = orders.filter(o => o.status === "Pending").length;
+  const toShipCount = orders.filter(o => ["Confirmed", "Processing"].includes(o.status)).length;
   const completedCount = orders.filter(o => o.status === "Delivered").length;
-  const totalRevenue   = orders
+  const totalRevenue = orders
     .filter(o => o.status !== "Cancelled")
     .reduce((s, o) => s + (o.totals?.finalTotal || 0), 0);
 
@@ -967,7 +978,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
             Analytics
             <ArrowUpRight size={14} />
           </button>
-          </div>
+        </div>
         </header>
 
         {/*  Stat cards */}
@@ -998,7 +1009,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
 
         {/* UNIFIED DATA TABLE CONTAINER */}
         <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(107,73,61,0.04),0_12px_32px_-16px_rgba(107,73,61,0.18)] border border-[#e7dfd6] overflow-hidden">
-          
+
           {/* Top Toolbar */}
           <div className="p-6 border-b border-[#ece4da] flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">
             <SearchBar value={searchQuery} onChange={setSearch} />
@@ -1020,24 +1031,24 @@ export default function SellerOrderDashboard({ embedded = false }) {
               <tbody>
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                     <tr key={i} className="border-b border-stone-100 animate-pulse bg-white">
-                       <td className="px-6 py-6"><div className="h-4 bg-stone-200 rounded w-16 mb-2"></div><div className="h-3 bg-stone-100 rounded w-24"></div></td>
-                       <td className="px-6 py-6"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-stone-200"></div><div><div className="h-4 bg-stone-200 rounded w-24 mb-2"></div><div className="h-3 bg-stone-100 rounded w-16"></div></div></div></td>
-                       <td className="px-6 py-6"><div className="h-4 bg-stone-200 rounded w-32 mb-2"></div><div className="h-3 bg-stone-100 rounded w-20"></div></td>
-                       <td className="px-6 py-6"><div className="h-6 bg-stone-200 rounded-full w-20"></div></td>
-                       <td className="px-6 py-6"><div className="h-8 bg-stone-200 rounded-xl w-24"></div></td>
-                     </tr>
+                    <tr key={i} className="border-b border-stone-100 animate-pulse bg-white">
+                      <td className="px-6 py-6"><div className="h-4 bg-stone-200 rounded w-16 mb-2"></div><div className="h-3 bg-stone-100 rounded w-24"></div></td>
+                      <td className="px-6 py-6"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-stone-200"></div><div><div className="h-4 bg-stone-200 rounded w-24 mb-2"></div><div className="h-3 bg-stone-100 rounded w-16"></div></div></div></td>
+                      <td className="px-6 py-6"><div className="h-4 bg-stone-200 rounded w-32 mb-2"></div><div className="h-3 bg-stone-100 rounded w-20"></div></td>
+                      <td className="px-6 py-6"><div className="h-6 bg-stone-200 rounded-full w-20"></div></td>
+                      <td className="px-6 py-6"><div className="h-8 bg-stone-200 rounded-xl w-24"></div></td>
+                    </tr>
                   ))
                 ) : filteredOrders.length === 0
                   ? <EmptyState filter={activeFilter} query={searchQuery} />
                   : filteredOrders.map(order => (
-                      <OrderRow
-                        key={order._id}
-                        order={order}
-                        onStatusChange={handleStatusChange}
-                        addToast={addToast}
-                      />
-                    ))
+                    <OrderRow
+                      key={order._id}
+                      order={order}
+                      onStatusChange={handleStatusChange}
+                      addToast={addToast}
+                    />
+                  ))
                 }
               </tbody>
             </table>

@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { Pencil, Trash2, X, Eye, Camera } from "lucide-react";
+import { Pencil, Trash2, X, Eye, Camera, FileText, CheckCircle2, Clock } from "lucide-react";
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useAdoption } from '../context/AdoptionContext';
 
 /** Stable empty array so the requests modal does not receive a new `[]` every render. */
 const EMPTY_ADOPTION_REQUESTS = [];
 import AdoptionRequestsModal from './AdoptionRequestsModal';
 import { getCurrentUserId } from '../lib/utils';
-import AdoptionCard from '../components/adoption/AdoptionCard';
-import { adoptionGridClass, adoptionCardShellClass } from '../components/adoption/adoptionTheme';
+import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
+import { adoptionGridClass, adoptionCardShellClass } from '../Components/adoption/adoptionTheme.js';
 
 const MyAdoptions = ({ embedded = false }) => {
   const [adoptions, setAdoptions] = useState([]);
@@ -35,6 +36,7 @@ const MyAdoptions = ({ embedded = false }) => {
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
   const [savingStates, setSavingStates] = useState({}); // Track saving state per post
   const { user } = useAuth();
+  const { userStats, fetchUserStats } = useAdoption();
   const [storedUser, setStoredUser] = useState(null);
   const location = useLocation();
 
@@ -60,7 +62,7 @@ const MyAdoptions = ({ embedded = false }) => {
     }
   }, [location.state]);
 
-  // Fetch adoptions when user is available
+  // Fetch adoptions and user stats when user is available
   useEffect(() => {
     const effectiveUser = user || storedUser;
     const uid = getCurrentUserId(effectiveUser);
@@ -69,8 +71,7 @@ const MyAdoptions = ({ embedded = false }) => {
       return;
     }
     fetchUserAdoptions(uid);
-
-
+    fetchUserStats();
   }, [user, storedUser]);
 
   const fetchUserAdoptions = async (userId) => {
@@ -113,10 +114,12 @@ const MyAdoptions = ({ embedded = false }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Refresh the list after deletion
+      // Refresh the list and stats cards after deletion
       const effectiveUser = user || storedUser;
-      if (effectiveUser?.id) {
-
+      const uid = getCurrentUserId(effectiveUser);
+      if (uid) {
+        fetchUserAdoptions(uid);
+        fetchUserStats();
       }
     } catch (err) {
       console.error('Error deleting adoption post:', err);
@@ -183,8 +186,9 @@ const MyAdoptions = ({ embedded = false }) => {
       
       // Refresh the list after update
       const effectiveUser = user || storedUser;
-      if (effectiveUser?.id) {
-
+      const uid = getCurrentUserId(effectiveUser);
+      if (uid) {
+        fetchUserAdoptions(uid);
       }
     } catch (err) {
       console.error('Error updating adoption post:', err);
@@ -215,16 +219,13 @@ const MyAdoptions = ({ embedded = false }) => {
     }
   };
 
-  // Remove new image for a specific post
-  const removeNewImage = (postId) => {
-    setNewImages(prev => ({ ...prev, [postId]: null }));
-    setImagePreviews(prev => ({ ...prev, [postId]: null }));
-  };
-
   const handleRequestAction = async () => {
     const effectiveUser = user || storedUser;
     const uid = getCurrentUserId(effectiveUser);
-    if (uid) fetchUserAdoptions(uid);
+    if (uid) {
+      fetchUserAdoptions(uid);
+      fetchUserStats();
+    }
   };
 
   const handleStatusChange = async (postId, newStatus) => {
@@ -264,6 +265,7 @@ const MyAdoptions = ({ embedded = false }) => {
       const uid = getCurrentUserId(effectiveUser);
       if (uid) {
         await fetchUserAdoptions(uid);
+        fetchUserStats();
       }
 
       let message = `Status updated to ${newStatus} successfully!`;
@@ -312,52 +314,63 @@ const MyAdoptions = ({ embedded = false }) => {
     );
   }
 
-  const activeListings = adoptions.filter((post) => post.status !== 'adopted').length;
-  const adoptedListings = adoptions.filter((post) => post.status === 'adopted').length;
-  const pendingRequests = adoptions.reduce((total, post) => {
-    const requests = Array.isArray(post.requests) ? post.requests : [];
-    return total + requests.filter((request) => request.status === 'pending').length;
-  }, 0);
-
-  if (adoptions.length === 0) {
-    return (
-      <div className="rounded-[28px] border border-dashed border-[#d8c0a7] bg-[#fcf7f1] p-8 text-center shadow-sm">
-        <p className="text-xl font-semibold text-[#6b493d]">No adoption posts yet</p>
-        <p className="mt-2 text-sm text-[#7a6554]">Create your first adoption listing to start helping pets find loving homes.</p>
-      </div>
-    );
-  }
-
   return (
     <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}>
       <div className={embedded ? 'w-full' : 'mx-auto max-w-6xl w-full'}>
-        {!embedded && (
-          <div className="mb-8 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm sm:p-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Adoption management</p>
-                <h3 className="mt-2 text-3xl font-bold text-[#6b493d]" style={{ fontFamily: '"Playfair Display", serif' }}>
-                  My Adoption Posts
+        
+        {/* Modern Polished Stat Cards */}
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {/* Total Posts */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#8B5A2B]">My Total Posts</p>
+                <h3 className="text-3xl font-extrabold text-[#4E3B31]">
+                  {userStats?.totalPosts ?? 0}
                 </h3>
-                <p className="mt-2 max-w-2xl text-sm text-[#715645]">Keep your listings polished, update their status easily, and stay on top of incoming requests.</p>
+                <p className="text-xs text-[#6F4C3E]/70">All created listings</p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Active</p>
-                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{activeListings}</p>
-                </div>
-                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Adopted</p>
-                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{adoptedListings}</p>
-                </div>
-                <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 px-3 py-3 text-center">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#a07855]">Pending</p>
-                  <p className="mt-1 text-lg font-semibold text-[#4E3B31]">{pendingRequests}</p>
-                </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#faf6f0] text-[#6b493d] border border-[#e8dcc8]">
+                <FileText className="h-6 w-6" />
               </div>
             </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#6b493d]/20" />
           </div>
-        )}
+
+          {/* Pets Adopted */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Pets Adopted</p>
+                <h3 className="text-3xl font-extrabold text-[#4E3B31]">
+                  {userStats?.adoptedCount ?? 0}
+                </h3>
+                <p className="text-xs text-emerald-600/80">Found forever homes</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
+          </div>
+
+          {/* Left for Adoption */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Left for Adoption</p>
+                <h3 className="text-3xl font-extrabold text-[#4E3B31]">
+                  {userStats?.pendingCount ?? 0}
+                </h3>
+                <p className="text-xs text-amber-600/80">Active & available</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100">
+                <Clock className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500" />
+          </div>
+        </div>
 
         {successMessage && (
           <div className="mb-8 rounded-2xl border border-green-200 bg-green-50 p-3 text-center text-sm font-medium text-green-700">
@@ -365,128 +378,135 @@ const MyAdoptions = ({ embedded = false }) => {
           </div>
         )}
 
-        <div className={adoptionGridClass}>
-          {adoptions.map((post) =>
-            editingPost === post._id ? (
-              <article key={post._id} className={adoptionCardShellClass}>
-                <div className="relative">
-                  <img
-                    src={imagePreviews[post._id] || post.imageUrl}
-                    alt={post.name}
-                    className="aspect-[4/3] w-full object-contain bg-gradient-to-br from-[#faf6f0] to-[#efe4d8]"
-                    loading="lazy"
-                  />
-                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center rounded-t-2xl bg-black/50 opacity-0 transition hover:opacity-100">
-                    <Camera className="h-8 w-8 text-white" />
-                    <span className="mt-2 text-xs font-medium text-white">Change photo</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, post._id)} className="hidden" />
-                  </label>
-                </div>
-                <div className="space-y-3 p-5 sm:p-6">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet name</label>
-                    <input type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2 text-[#4E3B31] focus:border-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#a07855]" />
+        {adoptions.length === 0 ? (
+          <div className="rounded-[28px] border border-dashed border-[#d8c0a7] bg-[#fcf7f1] p-8 text-center shadow-sm">
+            <p className="text-xl font-semibold text-[#6b493d]">No adoption posts yet</p>
+            <p className="mt-2 text-sm text-[#7a6554]">Create your first adoption listing to start helping pets find loving homes.</p>
+          </div>
+        ) : (
+          <div className={adoptionGridClass}>
+            {adoptions.map((post) =>
+              editingPost === post._id ? (
+                <article key={post._id} className={adoptionCardShellClass}>
+                  <div className="relative">
+                    <img
+                      src={imagePreviews[post._id] || post.imageUrl}
+                      alt={post.name}
+                      className="aspect-[4/3] w-full object-contain bg-gradient-to-br from-[#faf6f0] to-[#efe4d8]"
+                      loading="lazy"
+                    />
+                    <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center rounded-t-2xl bg-black/50 opacity-0 transition hover:opacity-100">
+                      <Camera className="h-8 w-8 text-white" />
+                      <span className="mt-2 text-xs font-medium text-white">Change photo</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, post._id)} className="hidden" />
+                    </label>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3 p-5 sm:p-6">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Age</label>
-                      <input type="text" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet name</label>
+                      <input type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2 text-[#4E3B31] focus:border-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#a07855]" />
                     </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet type</label>
-                      <input type="text" value={editData.petType} onChange={(e) => setEditData({ ...editData, petType: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Breed</label>
-                    <input type="text" value={editData.breed} onChange={(e) => setEditData({ ...editData, breed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Vaccinated</label>
-                      <select value={editData.vaccinated} onChange={(e) => setEditData({ ...editData, vaccinated: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Neutered / spayed</label>
-                      <select value={editData.neuteredSpayed} onChange={(e) => setEditData({ ...editData, neuteredSpayed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Description</label>
-                    <textarea value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={3} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Location</label>
-                    <input type="text" value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button type="button" onClick={() => setEditingPost(null)} className="rounded-full p-2 hover:bg-[#6b493d]/10" disabled={savingStates[post._id]}>
-                      <X className="h-5 w-5 text-[#6b493d]" />
-                    </button>
-                    <button type="button" onClick={() => handleSaveEdit(post._id)} disabled={!hasChanges(post._id) || savingStates[post._id]} className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3d32] disabled:opacity-50">
-                      {savingStates[post._id] ? 'Saving...' : 'Save changes'}
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ) : (
-              <AdoptionCard
-                key={`${post._id}-${post.status}`}
-                post={post}
-                imageUrl={imagePreviews[post._id] || post.imageUrl}
-                poster={{ show: false }}
-                meta={
-                  <>
-                    <div className="mb-3">
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6F4C3E]/60">Listing status</label>
-                      <select
-                        value={post.status}
-                        onChange={(e) => handleStatusChange(post._id, e.target.value)}
-                        className="w-full rounded-xl border border-[#e8dcc8] bg-white px-3 py-2 text-sm font-medium text-[#4E3B31] focus:border-[#a07855] focus:outline-none"
-                      >
-                        <option value="available">Available</option>
-                        <option value="adopted">Adopted</option>
-                      </select>
-                    </div>
-                    {post.status === 'adopted' && (
-                      <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
-                        This pet has been adopted
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Age</label>
+                        <input type="text" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
                       </div>
-                    )}
-                    {post.requests && post.requests.length > 0 && (
-                      <div className="mb-3 flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
-                        <span className="flex items-center gap-2 text-sm font-medium text-sky-900">
-                          <Eye className="h-4 w-4" />
-                          {post.requests.length} request{post.requests.length !== 1 ? 's' : ''}
-                        </span>
-                        <button type="button" onClick={() => handleViewRequests(post)} className="text-sm font-semibold text-sky-700 hover:underline">
-                          View all
-                        </button>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet type</label>
+                        <input type="text" value={editData.petType} onChange={(e) => setEditData({ ...editData, petType: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
                       </div>
-                    )}
-                  </>
-                }
-              >
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => handleEdit(post)} className="rounded-full p-2.5 hover:bg-[#6b493d]/10" aria-label="Edit">
-                    <Pencil className="h-5 w-5 text-[#6b493d]" />
-                  </button>
-                  <button type="button" onClick={() => handleDelete(post._id)} className="rounded-full p-2.5 hover:bg-rose-50" aria-label="Delete">
-                    <Trash2 className="h-5 w-5 text-rose-700" />
-                  </button>
-                </div>
-              </AdoptionCard>
-            )
-          )}
-        </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Breed</label>
+                      <input type="text" value={editData.breed} onChange={(e) => setEditData({ ...editData, breed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Vaccinated</label>
+                        <select value={editData.vaccinated} onChange={(e) => setEditData({ ...editData, vaccinated: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
+                          <option value="">Select</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Neutered / spayed</label>
+                        <select value={editData.neuteredSpayed} onChange={(e) => setEditData({ ...editData, neuteredSpayed: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2">
+                          <option value="">Select</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Description</label>
+                      <textarea value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={3} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Location</label>
+                      <input type="text" value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button type="button" onClick={() => setEditingPost(null)} className="rounded-full p-2 hover:bg-[#6b493d]/10" disabled={savingStates[post._id]}>
+                        <X className="h-5 w-5 text-[#6b493d]" />
+                      </button>
+                      <button type="button" onClick={() => handleSaveEdit(post._id)} disabled={!hasChanges(post._id) || savingStates[post._id]} className="rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3d32] disabled:opacity-50">
+                        {savingStates[post._id] ? 'Saving...' : 'Save changes'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ) : (
+                <AdoptionCard
+                  key={`${post._id}-${post.status}`}
+                  post={post}
+                  imageUrl={imagePreviews[post._id] || post.imageUrl}
+                  poster={{ show: false }}
+                  meta={
+                    <>
+                      <div className="mb-3">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6F4C3E]/60">Listing status</label>
+                        <select
+                          value={post.status}
+                          onChange={(e) => handleStatusChange(post._id, e.target.value)}
+                          className="w-full rounded-xl border border-[#e8dcc8] bg-white px-3 py-2 text-sm font-medium text-[#4E3B31] focus:border-[#a07855] focus:outline-none"
+                        >
+                          <option value="available">Available</option>
+                          <option value="adopted">Adopted</option>
+                        </select>
+                      </div>
+                      {post.status === 'adopted' && (
+                        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                          This pet has been adopted
+                        </div>
+                      )}
+                      {post.requests && post.requests.length > 0 && (
+                        <div className="mb-3 flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5">
+                          <span className="flex items-center gap-2 text-sm font-medium text-sky-900">
+                            <Eye className="h-4 w-4" />
+                            {post.requests.length} request{post.requests.length !== 1 ? 's' : ''}
+                          </span>
+                          <button type="button" onClick={() => handleViewRequests(post)} className="text-sm font-semibold text-sky-700 hover:underline">
+                            View all
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  }
+                >
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => handleEdit(post)} className="rounded-full p-2.5 hover:bg-[#6b493d]/10" aria-label="Edit">
+                      <Pencil className="h-5 w-5 text-[#6b493d]" />
+                    </button>
+                    <button type="button" onClick={() => handleDelete(post._id)} className="rounded-full p-2.5 hover:bg-rose-50" aria-label="Delete">
+                      <Trash2 className="h-5 w-5 text-rose-700" />
+                    </button>
+                  </div>
+                </AdoptionCard>
+              )
+            )}
+          </div>
+        )}
       </div>
 
       {/* Requests Modal */}

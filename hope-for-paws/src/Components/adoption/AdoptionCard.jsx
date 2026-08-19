@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageSquare, PawPrint } from 'lucide-react';
-import { useRequireAuth } from '../AuthGuard';
+import { useRequireAuth } from '../AuthGuard.jsx';
 import {
   adoptionCardShellClass,
   adoptionContentClass,
@@ -13,7 +13,7 @@ import {
   getPostStatusBadge,
   getHealthFieldChipStyle,
   formatAdoptionDate,
-} from './adoptionTheme';
+} from './adoptionTheme.js';
 
 const HealthChip = ({ label, className }) => (
   <span
@@ -48,7 +48,16 @@ const AdoptionCard = ({
   const statusBadge = getPostStatusBadge(post?.status);
   const lineClamp =
     descriptionLines === 2 ? 'line-clamp-2' : descriptionLines === 4 ? 'line-clamp-4' : 'line-clamp-3';
-  const displayImage = imageUrl || post?.imageUrl;
+  
+  // Support both old (imageUrl) and new (imageUrls array) formats
+  const getDisplayImage = () => {
+    if (imageUrl) return imageUrl;
+    if (post?.imageUrls && post.imageUrls.length > 0) return post.imageUrls[0];
+    if (post?.imageUrl) return post.imageUrl;
+    return null;
+  };
+  
+  const displayImage = getDisplayImage();
   const listed = listedDate || (post?.createdAt ? formatAdoptionDate(post.createdAt) : '');
 
   return (
@@ -196,6 +205,7 @@ AdoptionCard.propTypes = {
     location: PropTypes.string,
     status: PropTypes.string,
     imageUrl: PropTypes.string,
+    imageUrls: PropTypes.arrayOf(PropTypes.string),
     createdAt: PropTypes.string,
     userId: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
   }).isRequired,

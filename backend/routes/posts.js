@@ -10,10 +10,10 @@ const dotenv = require('dotenv')
 dotenv.config();
 
 const router = express.Router();
-cloudinary.config({ 
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
-  api_key: process.env.CLOUDINARY_API_KEY, 
-  api_secret: process.env.CLOUDINARY_API_SECRET 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 console.log('Cloudinary Config Present:', {
@@ -322,15 +322,15 @@ router.post('/:id/like', auth, async (req, res) => {
     // Use atomic operators to prevent race conditions
     const updatedPost = alreadyLiked
       ? await Post.findByIdAndUpdate(
-          postId,
-          { $pull: { likes: userId } },
-          { new: true }
-        ).populate('userId', 'username isVeterinarian')
+        postId,
+        { $pull: { likes: userId } },
+        { new: true }
+      ).populate('userId', 'username isVeterinarian')
       : await Post.findByIdAndUpdate(
-          postId,
-          { $addToSet: { likes: userId } },
-          { new: true }
-        ).populate('userId', 'username isVeterinarian');
+        postId,
+        { $addToSet: { likes: userId } },
+        { new: true }
+      ).populate('userId', 'username isVeterinarian');
 
     // Send notification for new like (not for unlike)
     if (!alreadyLiked && global.notificationService) {
