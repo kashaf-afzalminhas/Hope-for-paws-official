@@ -968,17 +968,17 @@ export default function SellerOrderDashboard({ embedded = false }) {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/seller/analytics')}
-              aria-label="View revenue analytics"
-              className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#5a3c32] active:scale-95 transition-all shadow-md hover:shadow-lg"
-            >
-              <TrendingUp size={16} />
-              Analytics
-              <ArrowUpRight size={14} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/seller/analytics')}
+            aria-label="View revenue analytics"
+            className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#5a3c32] active:scale-95 transition-all shadow-md hover:shadow-lg"
+          >
+            <TrendingUp size={16} />
+            Analytics
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
         </header>
 
         {/*  Stat cards */}
