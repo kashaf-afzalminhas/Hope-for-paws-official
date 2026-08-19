@@ -196,8 +196,8 @@ const AdoptionForm = () => {
     setError('');
 
     // Guard: block submission if age is invalid
-    if (!age || parseFloat(age) < 0 || isNaN(parseFloat(age))) {
-      setAgeError('Age must be a valid positive number');
+    if (!age || parseFloat(age) <= 0 || isNaN(parseFloat(age))) {
+      setAgeError('Pet age must be greater than 0');
       setIsSubmitting(false);
       return;
     }
@@ -359,15 +359,15 @@ const AdoptionForm = () => {
               type="number"
               placeholder="e.g., 2"
               value={age}
-              min="0"
+              min="0.1"
               step="0.1"
               onChange={(e) => {
                 const val = e.target.value;
                 setAge(val);
                 if (val === '' || val === null) {
                   setAgeError('');
-                } else if (parseFloat(val) < 0) {
-                  setAgeError('Age cannot be negative');
+                } else if (parseFloat(val) <= 0) {
+                  setAgeError('Pet age must be greater than 0');
                 } else if (isNaN(parseFloat(val))) {
                   setAgeError('Please enter a valid number');
                 } else {
@@ -385,6 +385,7 @@ const AdoptionForm = () => {
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {ageError}
                 <span>✕</span> {ageError}
               </p>
             )}
@@ -517,6 +518,7 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+              <span>⚠️</span> {locationError}
               <span>✕</span> {locationError}
             </p>
           )}
@@ -555,6 +557,26 @@ const AdoptionForm = () => {
 
           {/* Image Upload Area */}
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px]">
+            {imagePreview ? (
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="relative mb-2 group">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="max-w-full max-h-48 object-contain rounded-lg border border-[#bca18a] cursor-pointer"
+                    onClick={() => document.getElementById('adoption-image').click()}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setImage(null);
+                      setImagePreview(null);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
+                  >
+                    ×
             {imagePreviews.length > 0 ? (
               <div className="w-full">
                 {/* Image previews grid */}

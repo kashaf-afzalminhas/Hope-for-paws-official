@@ -23,7 +23,7 @@ ChartJS.register(
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
-  BadgeCheck, Clock
+  BadgeCheck, Clock, Star
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';

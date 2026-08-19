@@ -8,8 +8,8 @@ import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
 import { getConversationBetweenUsers } from './api';
 import PropTypes from 'prop-types';
-import AdoptionCard from '../components/adoption/AdoptionCard';
-import AdoptionDetailsModal from '../components/adoption/AdoptionDetailsModal';
+import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
+import AdoptionDetailsModal from '../Components/adoption/AdoptionDetailsModal';
 import {
   adoptionGridClass,
   adoptionBtnPrimary,
@@ -17,7 +17,7 @@ import {
   adoptionBtnDanger,
   adoptionAlertInfo,
   getPosterProfileId,
-} from '../components/adoption/adoptionTheme';
+} from '../Components/adoption/adoptionTheme.js';
 import { useRequireAuth } from '../Components/AuthGuard';
 
 const AdoptionList = ({ filter = 'all' }) => {
