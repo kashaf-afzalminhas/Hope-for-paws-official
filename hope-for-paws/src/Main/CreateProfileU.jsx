@@ -1865,7 +1865,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     disabled={postSavingStates[post._id]}
                                   >
-                                    <span className="h-5 w-5 text-[#6b493d]">ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¢</span>
+                                    <span className="h-5 w-5 text-[#6b493d]">✏️</span>
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditPost(post._id)}

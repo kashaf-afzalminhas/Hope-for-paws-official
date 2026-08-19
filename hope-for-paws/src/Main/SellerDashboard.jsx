@@ -372,7 +372,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           </div>
                           <div>
                             <h4 className="font-medium text-gray-900">{product.title}</h4>
-                            <p className="text-sm text-gray-500">{product.totalSold} sold Ã¢â‚¬Â¢ {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+                            <p className="text-sm text-gray-500">{product.totalSold} sold • {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -403,7 +403,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                       <div key={order.id} className="flex items-center justify-between p-4 border border-gray-50 rounded-xl hover:bg-gray-50 transition-colors">
                         <div>
                           <p className="font-medium text-gray-900">Order #{order.id.substring(0, 8)}</p>
-                          <p className="text-sm text-gray-500">{order.customer} Ã¢â‚¬Â¢ {order.items} item(s)</p>
+                          <p className="text-sm text-gray-500">{order.customer} • {order.items} item(s)</p>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-gray-900">Rs. {order.amount.toLocaleString()}</p>

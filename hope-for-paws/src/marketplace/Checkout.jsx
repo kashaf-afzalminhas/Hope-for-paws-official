@@ -1,6 +1,6 @@
 import { SHIPPING_FEE } from '../utils/constants';
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
   Lock,
@@ -42,9 +42,28 @@ function ToastStack({ toasts, dismissToast }) {
 }
 
 export default function Checkout() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal: cartSubtotal, clearCart } = useCart();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
+  // ── Buy Now: use single item from route state; otherwise fall back to cart ──
+  const buyNowItem = location.state?.buyNowItem;
+  const isBuyNow = Boolean(buyNowItem);
+
+  const items = useMemo(() => {
+    if (isBuyNow) {
+      return [buyNowItem];
+    }
+    return cartItems;
+  }, [isBuyNow, buyNowItem, cartItems]);
+
+  const cartTotal = useMemo(() => {
+    if (isBuyNow) {
+      return buyNowItem.price * buyNowItem.quantity;
+    }
+    return cartSubtotal;
+  }, [isBuyNow, buyNowItem, cartSubtotal]);
+
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -149,7 +168,7 @@ export default function Checkout() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      await clearCart();
+      if (!isBuyNow) await clearCart();
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);
       
@@ -369,7 +388,7 @@ export default function Checkout() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-[#3d2a24] truncate text-[14px] leading-tight">{item.title}</h3>
                   <p className="text-[12px] text-[#a07f77] truncate mt-1">
-                    {item.brand || 'Premium'} Ã¢â‚¬Â¢ {item.weight || 'Standard'}
+                    {item.brand || 'Premium'} • {item.weight || 'Standard'}
                   </p>
                 </div>
                 <div className="font-bold text-[#3d2a24] text-[14px]">
