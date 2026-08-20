@@ -78,13 +78,22 @@ export default function Checkout() {
       return;
     }
 
-    // Strict validation for phone and delivery address
+    // Validation for contact and delivery address
     const errors = {};
+    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
+    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
+
     if (!contact.phone || !contact.phone.trim()) {
       errors.phone = 'Phone number is required to complete your order.';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      errors.phone = 'Please enter a valid phone number.';
     }
+
     if (!shippingAddress.street || !shippingAddress.street.trim()) {
       errors.street = 'Delivery address is required to complete your order.';
+    }
+    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+      errors.city = 'City is required.';
     }
     if (!contact.email || !contact.email.trim()) {
       errors.email = 'Email address is required.';
@@ -95,13 +104,13 @@ export default function Checkout() {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      // Build a specific toast message listing missing fields
       const missing = [];
       if (errors.phone) missing.push('Phone Number');
       if (errors.street) missing.push('Delivery Address');
+      if (errors.city) missing.push('City');
       if (errors.email) missing.push('Email');
       if (errors.fullName) missing.push('Full Name');
-      addToast('error', `Please fill in: ${missing.join(', ')}`);
+      addToast('error', `Please check: ${missing.join(', ')}`);
       return;
     }
 
@@ -210,7 +219,7 @@ export default function Checkout() {
                   type="tel" 
                   value={contact.phone}
                   onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="0300 1234567 or +923001234567"
                   className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
                 {fieldErrors.phone && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.phone}</p>}
@@ -246,14 +255,15 @@ export default function Checkout() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City</label>
+                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City <span className="text-red-400">*</span></label>
                   <input 
                     type="text" 
                     value={shippingAddress.city}
-                    onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
-                    placeholder="New York"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                    onChange={(e) => { setShippingAddress({...shippingAddress, city: e.target.value}); setFieldErrors(prev => ({ ...prev, city: undefined })); }}
+                    placeholder="Lahore"
+                    className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.city ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                   />
+                  {fieldErrors.city && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.city}</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>

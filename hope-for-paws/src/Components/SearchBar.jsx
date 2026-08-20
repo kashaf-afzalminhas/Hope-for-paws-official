@@ -42,7 +42,7 @@ const SearchBar = ({
           type="text"
           disabled={disabled}
           className={cn(
-            "w-full bg-transparent border-none rounded-2xl py-3 pl-10 pr-10 outline-none",
+            "w-full bg-transparent border-none rounded-2xl py-3 pl-10 pr-10 outline-none focus:outline-none focus:ring-0",
             "font-medium text-sm tracking-wide",
             dark ? "text-white placeholder:text-white/50" : "text-[#2c1810] placeholder:text-[#a07855]/55"
           )}
