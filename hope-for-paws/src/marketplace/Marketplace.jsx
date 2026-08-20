@@ -297,7 +297,7 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingBottom:24 }}>
                 {[
-                  { Icon:Truck,     text:"Free shipping over Rs 50" },
+                  { Icon:Truck,     text:"Free shipping over Rs 5000" },
                   { Icon:RotateCcw, text:"30-day easy returns" },
                   { Icon:Shield,    text:"Vet-approved quality" },
                   { Icon:Award,     text:"Premium certified brand" },
