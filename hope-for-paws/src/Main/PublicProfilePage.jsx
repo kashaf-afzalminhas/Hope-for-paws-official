@@ -135,12 +135,20 @@ const PublicProfilePage = () => {
   const currentUserId = currentUser?._id || currentUser?.id;
 
   useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // If not authenticated, redirect to sign-in and replace history
+    if (!token) {
+      navigate('/signin', { replace: true, state: { from: location.pathname } });
+      return;
+    }
+
     if (userId) {
       fetchPublicProfile(userId);
       fetchUserAdoptionAds(userId);
       fetchUserPosts(userId);
     }
-  }, [userId]);
+  }, [userId, navigate, location.pathname]);
 
   useEffect(() => {
     const fetchConversations = async () => {
