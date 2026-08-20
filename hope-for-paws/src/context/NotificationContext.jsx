@@ -17,6 +17,7 @@ export const useNotifications = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
@@ -114,16 +115,24 @@ export const NotificationProvider = ({ children }) => {
           setSocketConnected(false);
         };
 
-        const handleNotification = (notification) => {
+                const handleNotification = (notification) => {
           console.log('New notification received:', notification);
-          setNotifications(prev => [{ ...notification, read: false }, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          if (Notification.permission === 'granted') {
-            new Notification(notification.title, {
-              body: notification.message,
-              icon: '/hfplogo.png'
-            });
-          }
+          setNotifications(prev => {
+            const exists = prev.some(n => (n._id || n.id) === (notification._id || notification.id));
+            if (exists) return prev;
+
+            fetchUnreadCount();
+            setTotalCount(c => c + 1);
+
+            if (Notification.permission === 'granted') {
+              new Notification(notification.title, {
+                body: notification.message,
+                icon: '/hfplogo.png'
+              });
+            }
+
+            return [{ ...notification, read: false }, ...prev];
+          });
         };
 
         // Register listeners
@@ -225,7 +234,14 @@ export const NotificationProvider = ({ children }) => {
       } else {
         setNotifications(prev => [...prev, ...response.data.notifications]);
       }
-      
+
+      // Total count ko backend se set karo, list length se nahi
+      if (response.data.pagination && typeof response.data.pagination.total === 'number') {
+        setTotalCount(response.data.pagination.total);
+      } else if (typeof response.data.total === 'number') {
+        setTotalCount(response.data.total);
+      }
+
       setError(null);
       return response.data;
     } catch (err) {
@@ -309,7 +325,7 @@ export const NotificationProvider = ({ children }) => {
         )
       );
       
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      fetchUnreadCount();
       
       return response.data;
     } catch (err) {
@@ -336,7 +352,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       );
-      setUnreadCount(0);
+      fetchUnreadCount();
     } catch (err) {
       console.error('Error marking all notifications as read:', err);
       throw err;
@@ -359,6 +375,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => 
         prev.filter(notification => notification._id !== notificationId && notification.id !== notificationId)
       );
+      setTotalCount(prev => Math.max(0, prev - 1));
       
       // Update unread count if notification was unread
       const notification = notifications.find(n => n._id === notificationId || n.id === notificationId);
@@ -386,6 +403,7 @@ export const NotificationProvider = ({ children }) => {
       
       setNotifications([]);
       setUnreadCount(0);
+      setTotalCount(0);
     } catch (err) {
       console.error('Error deleting all notifications:', err);
       throw err;
@@ -403,6 +421,7 @@ export const NotificationProvider = ({ children }) => {
   const value = {
     notifications,
     unreadCount,
+    totalCount,
     loading,
     error,
     socketConnected,

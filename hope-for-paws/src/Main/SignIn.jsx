@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
 import UserTypeModal from '../Components/UserTypeModal';
@@ -19,6 +21,42 @@ const Login = () => {
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+  const { addToCart } = useCart();
+  const { toggleWishlist } = useWishlist();
+
+  const handlePostLoginNavigation = async (user) => {
+    const pendingActionStr = localStorage.getItem('pendingAction');
+    let redirected = false;
+    if (pendingActionStr) {
+      try {
+        const pendingAction = JSON.parse(pendingActionStr);
+        localStorage.removeItem('pendingAction');
+        if (pendingAction.action === 'cart') {
+          await addToCart(pendingAction.productId, 1);
+          navigate('/cart');
+        } else if (pendingAction.action === 'wishlist') {
+          await toggleWishlist(pendingAction.productId);
+          navigate('/wishlist');
+        } else {
+          navigate(pendingAction.redirectUrl || '/marketplace');
+        }
+        redirected = true;
+      } catch (e) {
+        console.error("Failed to process pending action", e);
+      }
+    }
+
+    if (!redirected) {
+      if (user.isSeller && user.sellerStatus === 'incomplete') {
+        navigate('/seller/onboard');
+      } else if (!user.phone || !user.phoneVerified) {
+        navigate('/profile');
+      } else {
+        navigate("/");
+      }
+    }
+    window.location.reload();
+  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -89,14 +127,7 @@ const Login = () => {
           }
           
           // Navigate directly to the correct destination
-          if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-            navigate('/seller/onboard');
-          } else if (!data.user.phone || !data.user.phoneVerified) {
-            navigate('/profile');
-          } else {
-            navigate("/");
-          }
-          window.location.reload();
+          await handlePostLoginNavigation(data.user);
         } else {
           setLoading(false);
           setError('Login failed: No token received.');
@@ -175,14 +206,7 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+        await handlePostLoginNavigation(data.user);
       } else {
         setError(data.message || "Google login failed");
       }
@@ -241,14 +265,7 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+        await handlePostLoginNavigation(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }

@@ -7,6 +7,8 @@ const transporter = require('../config/emailTransporter');
 const { buildVerificationEmail } = require('../utils/emailTemplates');
 const crypto = require('crypto');
 const dotenv = require('dotenv');
+const fs = require('fs/promises');
+const path = require('path');
 const { OAuth2Client } = require("google-auth-library");
 
 dotenv.config();
@@ -624,14 +626,58 @@ const searchUsers = async (req, res) => {
   }).select("-password");
   res.json({ data: users });
 };
+const deleteLocalProfileImage = async (imagePath) => {
+  if (!imagePath || typeof imagePath !== 'string') return;
+  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+  const fullPath = path.join(process.cwd(), cleanPath);
+
+  try {
+    await fs.unlink(fullPath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error('Error deleting profile image from disk:', err);
+    }
+  }
+};
 const uploadProfileImage = async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "No file" });
-  const user = await User.findByIdAndUpdate(req.user.id, { profileImage: `/uploads/profile-images/${req.file.filename}` }, { new: true });
-  res.json({ success: true, data: { profileImage: user.profileImage } });
+
+  try {
+    const existingUser = await User.findById(req.user.id);
+    if (existingUser?.profileImage) {
+      await deleteLocalProfileImage(existingUser.profileImage);
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profileImage: `/uploads/profile-images/${req.file.filename}` },
+      { new: true }
+    );
+
+    res.json({ success: true, data: { profileImage: user.profileImage } });
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
+
 const removeProfileImage = async (req, res) => {
-  await User.findByIdAndUpdate(req.user.id, { profileImage: "" });
-  res.json({ success: true, message: "Removed" });
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    if (user.profileImage) {
+      await deleteLocalProfileImage(user.profileImage);
+    }
+
+    user.profileImage = "";
+    await user.save();
+
+    res.json({ success: true, message: "Removed" });
+  } catch (error) {
+    console.error('Error removing profile image:', error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 const getUserPublicProfile = async (req, res) => {
   try {
