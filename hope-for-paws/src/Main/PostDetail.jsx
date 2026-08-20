@@ -103,6 +103,12 @@ const PostDetail = () => {
     }
   };
 
+  const handleUserProfileClick = (userIdToVisit) => {
+    if (!userIdToVisit) return;
+    if (!requireAuth('view user profiles')) return;
+    navigate(`/profile/public/${userIdToVisit}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f3ed] flex justify-center items-center">
@@ -159,12 +165,18 @@ const PostDetail = () => {
         <div className="bg-white rounded-xl shadow-md border border-[#c9a280]/10 overflow-hidden">
           {/* Post Header */}
           <div className="p-4 flex items-center gap-3 border-b border-[#f5f3ed]">
-            <div className="h-12 w-12 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0">
+            <div 
+              onClick={() => handleUserProfileClick(post.userId?._id || post.userId?.id || post.userId)}
+              className="h-12 w-12 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            >
               <UserCircle className="h-8 w-8 text-[#6b493d]" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-bold text-[#4E3B31] font-playfair text-lg truncate">
+                <h3 
+                  onClick={() => handleUserProfileClick(post.userId?._id || post.userId?.id || post.userId)}
+                  className="font-bold text-[#4E3B31] font-playfair text-lg truncate cursor-pointer hover:underline"
+                >
                   {post.userId?.username || "Unknown User"}
                 </h3>
                 {post.userId?.isVeterinarian && (
