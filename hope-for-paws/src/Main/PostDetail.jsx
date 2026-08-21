@@ -22,9 +22,11 @@ const PostDetail = () => {
     fetchPost();
   }, [id]);
 
-  const fetchPost = async () => {
+  // `silent` lets us refresh the post data after like/comment/delete
+  // actions without flashing the full-page spinner every time.
+  const fetchPost = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/posts/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -33,9 +35,9 @@ const PostDetail = () => {
       setError('');
     } catch (error) {
       console.error('Error fetching post:', error);
-      setError('Failed to load post. Please try again later.');
+      if (!silent) setError('Failed to load post. Please try again later.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -53,7 +55,7 @@ const PostDetail = () => {
       );
       
       // After liking/unliking, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
     } catch (error) {
       console.error('Error liking post:', error);
     }
@@ -75,7 +77,7 @@ const PostDetail = () => {
       );
       
       // After adding comment, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -97,7 +99,7 @@ const PostDetail = () => {
       );
       
       // After deleting comment, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
     } catch (error) {
       console.error('Error deleting comment:', error);
     }
@@ -316,5 +318,4 @@ const PostDetail = () => {
     </div>
   );
 };
-
-export default PostDetail; 
+export default PostDetail;
