@@ -136,7 +136,7 @@ const PublicProfilePage = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    
+
     // If not authenticated, redirect to sign-in and replace history
     if (!token) {
       navigate('/signin', { replace: true, state: { from: location.pathname } });
@@ -286,6 +286,11 @@ const PublicProfilePage = () => {
       console.error('Error checking conversation:', error);
       navigate(`/chat/${profileUserId}`);
     }
+  };
+
+  const handleOpenPost = (postId) => {
+    if (!postId) return;
+    navigate(`/posts/${postId}`);
   };
 
   const formatLastActive = (timestamp) => {
@@ -622,23 +627,34 @@ const PublicProfilePage = () => {
               {userPosts.map(post => (
                 <div
                   key={post._id}
-                  className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all border border-[#e5d9c8]"
+                  onClick={() => handleOpenPost(post._id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenPost(post._id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="View full post"
+                  className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all border border-[#e5d9c8] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#a07855] focus:ring-offset-2"
                 >
                   {post.imageUrl && (
-                    <div className="w-full h-64 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center overflow-hidden">
+                    <div className="w-full aspect-square sm:aspect-video bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center overflow-hidden">
                       <img
                         src={post.imageUrl}
-                        alt={post.caption}
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        alt={post.caption || 'Post image'}
+                        className="w-full h-full object-contain"
+                        loading="lazy"
                       />
                     </div>
                   )}
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-heading font-bold text-[#2c1810]">
+                      <h3 className="text-lg font-heading font-bold text-[#2c1810] break-words">
                         {post.caption || 'Pet Story'}
                       </h3>
-                      <span className="text-sm text-[#2c1810]/70">
+                      <span className="text-sm text-[#2c1810]/70 flex-shrink-0 ml-3">
                         {new Date(post.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric'
@@ -646,22 +662,24 @@ const PublicProfilePage = () => {
                       </span>
                     </div>
 
-                    <p className="text-[#2c1810]/80 mb-5 font-body">{post.text}</p>
+                    {post.text && (
+                      <p className="text-[#2c1810]/80 mb-5 font-body break-words">{post.text}</p>
+                    )}
 
                     <div className="flex items-center justify-between border-t border-[#e5d9c8] pt-4">
-                      <div className="flex items-center gap-4">
-                        <button className="flex items-center text-sm text-[#2c1810]/80 hover:text-[#a07855]">
+                      <div className="flex items-center gap-4 text-[#2c1810]/70">
+                        <span className="flex items-center text-sm">
                           <FaHeart className="mr-1.5" />
                           {post.likes?.length || 0}
-                        </button>
-                        <button className="flex items-center text-sm text-[#2c1810]/80 hover:text-[#a07855]">
+                        </span>
+                        <span className="flex items-center text-sm">
                           <FaComment className="mr-1.5" />
                           {post.comments?.length || 0}
-                        </button>
+                        </span>
                       </div>
-                      {/* <button className="text-sm text-[#a07855] font-medium hover:text-[#8a6a4d]">
-                    Read more
-                  </button> */}
+                      <span className="text-sm text-[#a07855] font-medium">
+                        View Post →
+                      </span>
                     </div>
                   </div>
                 </div>
