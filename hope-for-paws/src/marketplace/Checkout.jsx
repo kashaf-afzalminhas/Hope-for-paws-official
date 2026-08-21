@@ -219,6 +219,15 @@ export default function Checkout() {
                   type="tel" 
                   value={contact.phone}
                   onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
+                  onBlur={() => {
+                    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
+                    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
+                    if (!contact.phone || !contact.phone.trim()) {
+                      setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required to complete your order.' }));
+                    } else if (!phoneRegex.test(cleanPhone)) {
+                      setFieldErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number (e.g. 03001234567).' }));
+                    }
+                  }}
                   placeholder="0300 1234567 or +923001234567"
                   className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
