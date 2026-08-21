@@ -413,7 +413,15 @@ const MyAdoptions = ({ embedded = false }) => {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet type</label>
-                        <input type="text" value={editData.petType} onChange={(e) => setEditData({ ...editData, petType: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2" />
+                        <select value={editData.petType} onChange={(e) => setEditData({ ...editData, petType: e.target.value })} className="w-full rounded-xl border border-[#e8dcc8] px-3 py-2 bg-white">
+                          <option value="">Select</option>
+                          <option value="Dog">Dog</option>
+                          <option value="Cat">Cat</option>
+                          <option value="Bird">Bird</option>
+                          <option value="Rabbit">Rabbit</option>
+                          <option value="Hamster">Hamster</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </div>
                     </div>
                     <div>
