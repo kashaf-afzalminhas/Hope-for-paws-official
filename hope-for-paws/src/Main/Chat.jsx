@@ -155,6 +155,10 @@ const addUserToCache = useCallback((user) => {
     setLastHandledRecipientId(recipientId);
 
     const handleRecipientNavigation = async () => {
+      if (!recipientId || recipientId === 'undefined' || recipientId === 'null') {
+        return;
+      }
+
       setIsTransitioning(true);
       try {
         const response = await getConversationBetweenUsers(currentUserId, recipientId);
@@ -167,14 +171,16 @@ const addUserToCache = useCallback((user) => {
             setTimeout(() => setShowChatMobile(true), 100);
           }
         } else {
-          // Create new conversation
-          const createResponse = await createConversation(currentUserId, recipientId);
-          if (createResponse.data?.data) {
-            setSelectedConversation(createResponse.data.data);
-            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
-            setSelectedUser(fullUserObj);
-            if (isMobile) {
-              setTimeout(() => setShowChatMobile(true), 100);
+          // Only create a conversation if recipientId is a valid user and not self
+          if (recipientId !== currentUserId) {
+            const createResponse = await createConversation(currentUserId, recipientId);
+            if (createResponse.data?.data) {
+              setSelectedConversation(createResponse.data.data);
+              const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+              setSelectedUser(fullUserObj);
+              if (isMobile) {
+                setTimeout(() => setShowChatMobile(true), 100);
+              }
             }
           }
         }
