@@ -26,7 +26,18 @@ const ConversationSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: new Map(),
-  }
+  },
+  deletedBy: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    deletedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, { 
   timestamps: true,
   optimisticConcurrency: true // Prevent concurrent saves
