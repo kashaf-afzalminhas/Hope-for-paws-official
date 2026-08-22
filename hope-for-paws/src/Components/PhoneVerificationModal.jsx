@@ -110,7 +110,7 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl"
             >
-              Ãƒâ€”
+              ×
             </button>
           )}
         </div>

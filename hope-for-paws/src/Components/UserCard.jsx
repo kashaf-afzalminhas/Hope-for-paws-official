@@ -1,9 +1,19 @@
 import React from 'react';
 import { cn } from '../lib/utils';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
+import { useRequireAuth } from '../Components/AuthGuard';
 
 const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unreadCount = 0, className }) => {
+  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
+
+  const handleAvatarClick = (e) => {
+    e.stopPropagation();
+    if (!requireAuth('view user profiles')) return;
+    navigate(`/profile/public/${user._id}`);
+  };
+
   return (
     <div
       className={cn(
@@ -16,7 +26,7 @@ const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unr
       )}
       onClick={onClick}
     >
-      <Link to={`/profile/public/${user._id}`} className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+      <div className="relative shrink-0 cursor-pointer" onClick={handleAvatarClick}>
         {user.profileImage ? (
           <img
             src={`${AUTH_BASE_URL.replace('/auth', '')}${user.profileImage}`}
@@ -34,7 +44,7 @@ const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unr
         {user.status === 'online' && (
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#2c1810]"></div>
         )}
-      </Link>
+      </div>
 
       <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex justify-between items-center gap-2">

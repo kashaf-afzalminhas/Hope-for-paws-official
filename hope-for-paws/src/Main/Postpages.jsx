@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PostUploadForm from './PostUploadForm';
 import { FaHeart, FaComment, FaEdit, FaTrash } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
@@ -15,7 +16,14 @@ const Postpages = () => {
   const [editedName, setEditedName] = useState('');
   const [editedAge, setEditedAge] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
+  const navigate = useNavigate();
   const requireAuth = useRequireAuth();
+
+  const handleUserProfileClick = (userIdToVisit) => {
+    if (!userIdToVisit) return;
+    if (!requireAuth('view user profiles')) return;
+    navigate(`/profile/public/${userIdToVisit}`);
+  };
 
   useEffect(() => {
     const fetchAnimals = async () => {
@@ -146,7 +154,12 @@ const Postpages = () => {
               <h2 className="text-md font-bold text-brown-800">{animal.name}</h2>
               {animal.user && <UserBadge userType={animal.user.userType} />}
             </div>
-            <p className="text-brown-600 text-sm">Posted by: {animal.user?.username || 'Anonymous'}</p>
+            <p 
+              className={`text-brown-600 text-sm ${animal.user?._id ? 'cursor-pointer hover:underline' : ''}`}
+              onClick={() => animal.user?._id && handleUserProfileClick(animal.user._id)}
+            >
+              Posted by: {animal.user?.username || 'Anonymous'}
+            </p>
             <p className="text-brown-600 text-sm">Age: {animal.age}</p>
             <p className="text-brown-600 text-sm">Color: {animal.color}</p>
             <p className="text-brown-600 text-sm">{animal.description}</p>

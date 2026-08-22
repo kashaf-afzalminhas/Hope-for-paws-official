@@ -693,8 +693,8 @@ exports.getDashboardStats = async (req, res) => {
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
 
-    const products = await Product.find({ sellerId: seller._id }).select('countInStock').lean();
-    const activeProducts = products.filter(p => p.countInStock > 0).length;
+    const products = await Product.find({ sellerId: seller._id }).select('countInStock status').lean();
+    const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= 5).length;
 
     const sellerId = seller._id;
