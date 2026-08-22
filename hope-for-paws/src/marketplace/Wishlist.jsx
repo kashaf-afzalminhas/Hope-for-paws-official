@@ -124,7 +124,7 @@ const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
 };
 
 export default function Wishlist() {
-  const { wishlist, isLoading, toggleWishlist, markAsViewed } = useWishlist();
+  const { wishlist, isLoading, toggleWishlist, clearWishlist, markAsViewed } = useWishlist();
 
   useEffect(() => {
     markAsViewed();
@@ -166,6 +166,15 @@ export default function Wishlist() {
               Curated items you love. {populatedWishlist.length > 0 ? `You have ${populatedWishlist.length} saved product${populatedWishlist.length === 1 ? '' : 's'}.` : ''}
             </p>
           </div>
+          {populatedWishlist.length > 0 && (
+            <button
+              onClick={clearWishlist}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#e8d5c0] hover:text-red-300 hover:bg-white/10 transition-all duration-200"
+            >
+              <Trash2 size={14} />
+              Clear Wishlist
+            </button>
+          )}
         </div>
       </div>
 
