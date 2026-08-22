@@ -29,11 +29,11 @@ export const getNotificationLink = (notification) => {
     case 'adoption_request_rejected':
       return '/adoptionhistory';
 
-    case 'chat_message':
-      if (data.conversationId) return `/chat/${data.conversationId}`;
-      if (data.senderId) return `/chat/${data.senderId}`;
-      if (data.recipientId) return `/chat/${data.recipientId}`;
+    case 'chat_message': {
+      const senderId = notification.sender?._id || notification.sender || data.senderId;
+      if (senderId) return `/chat/${senderId}`;
       return '/chat';
+    }
 
     case 'new_order':
       if (data.orderId) return `/seller/orders`;

@@ -62,7 +62,7 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
 
       showToast(
         action === 'accept'
-          ? 'Request accepted. Use Ã¢â‚¬Å“MessageÃ¢â‚¬Â below to chat with the adopter on the site.'
+          ? 'Request accepted. Use “Message” below to chat with the adopter on the site.'
           : 'Adoption request rejected.',
         'success'
       );

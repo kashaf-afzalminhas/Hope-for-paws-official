@@ -125,3 +125,28 @@ exports.toggleWishlistItem = async (req, res) => {
     return res.status(500).json({ message: 'Internal server error while toggling wishlist item' });
   }
 };
+
+/**
+ * DELETE /api/wishlist/clear
+ * Removes all products from the user's wishlist.
+ */
+exports.clearWishlist = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+
+    const wishlist = await Wishlist.findOne({ user: userId });
+
+    if (!wishlist) {
+      return res.status(200).json({ message: 'Wishlist is already empty', products: [] });
+    }
+
+    wishlist.products = [];
+    wishlist.unviewedProducts = [];
+    await wishlist.save();
+
+    return res.status(200).json({ message: 'Wishlist cleared successfully', products: [] });
+  } catch (error) {
+    console.error('clearWishlist error:', error);
+    return res.status(500).json({ message: 'Internal server error while clearing wishlist' });
+  }
+};

@@ -37,3 +37,4 @@ backend/dist/
 *.sln
 *.sw?
 node_modules
+backend/uploads/

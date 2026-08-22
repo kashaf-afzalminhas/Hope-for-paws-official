@@ -143,6 +143,15 @@ const SellerDashboard = ({ onNavigateOrders }) => {
     if (!productToDelete) return;
     try {
       await axios.delete(`${API_URL}/products/${productToDelete._id}`, getAxiosConfig());
+      
+      // Decrement count if the deleted item was active
+      if (productToDelete.status === 'active' && productToDelete.countInStock > 0) {
+        setStats(prev => ({
+          ...prev,
+          activeProducts: Math.max(0, prev.activeProducts - 1)
+        }));
+      }
+
       setProducts(products.filter(p => p._id !== productToDelete._id));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -155,7 +164,18 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   const handleToggleVisibility = async (product) => {
     try {
       const res = await axios.patch(`${API_URL}/products/${product._id}/toggle-visibility`, {}, getAxiosConfig());
-      setProducts(products.map(p => p._id === product._id ? { ...p, status: res.data.product.status } : p));
+      const updatedStatus = res.data.product.status;
+      setProducts(products.map(p => p._id === product._id ? { ...p, status: updatedStatus } : p));
+      
+      // Update active products count in stats immediately if item is in stock
+      if (product.countInStock > 0) {
+        setStats(prev => ({
+          ...prev,
+          activeProducts: updatedStatus === 'active'
+            ? prev.activeProducts + 1
+            : Math.max(0, prev.activeProducts - 1)
+        }));
+      }
     } catch (err) {
       console.error('Error toggling visibility:', err);
       alert('Failed to toggle product visibility');

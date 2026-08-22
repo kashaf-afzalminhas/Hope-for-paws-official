@@ -1,13 +1,28 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import AdoptionList from './AdoptionList';
 import CreateAdoptionAdForm from './AdoptionForm';
 const AdoptionPage = () => {
-  const [isCreating, setIsCreating] = useState(false);
+  const location = useLocation();
+  const [isCreating, setIsCreating] = useState(() => {
+    const fromState = location.state?.openCreate;
+    const fromStorage = sessionStorage.getItem('openAdoptionCreate') === 'true';
+    if (fromStorage) {
+      sessionStorage.removeItem('openAdoptionCreate');
+    }
+    return Boolean(fromState || fromStorage);
+  });
   const [petFilter, setPetFilter] = useState('all');
   const user =
     JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) ||
     null;
+
+  useEffect(() => {
+    if (location.state?.openCreate || sessionStorage.getItem('openAdoptionCreate') === 'true') {
+      setIsCreating(true);
+      sessionStorage.removeItem('openAdoptionCreate');
+    }
+  }, [location.state]);
 
   return (
     <div className="min-h-screen bg-[#e2d6cb]/10 pb-12">
@@ -27,9 +42,13 @@ const AdoptionPage = () => {
             ) : (
               <Link
                 to="/signin"
+                state={{ from: '/adoption', openCreate: true }}
+                onClick={() => {
+                  sessionStorage.setItem('redirectAfterAuth', JSON.stringify({ from: '/adoption', openCreate: true }));
+                }}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
               >
-                Sign in to Post
+                Sign in to create adoption ad
               </Link>
             )}
           </div>

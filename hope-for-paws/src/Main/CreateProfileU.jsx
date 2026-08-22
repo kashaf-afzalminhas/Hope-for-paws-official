@@ -2,6 +2,7 @@ import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
+import { Heart, MessageCircle, Pencil, Trash2, X } from 'lucide-react';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -545,6 +546,26 @@ const ProfilePage = () => {
         setPhoneTouched(false);
 
         addToast('Profile updated successfully!');
+
+        const savedRedirect = (() => {
+          try {
+            const item = sessionStorage.getItem('redirectAfterAuth');
+            return item ? JSON.parse(item) : null;
+          } catch { return null; }
+        })();
+        const openStorage = sessionStorage.getItem('openAdoptionCreate') === 'true';
+
+        if (savedRedirect?.from || openStorage) {
+          const targetPath = savedRedirect?.from || '/adoption';
+          const openCreate = savedRedirect?.openCreate || openStorage || false;
+          sessionStorage.removeItem('redirectAfterAuth');
+          if (openCreate) {
+            sessionStorage.setItem('openAdoptionCreate', 'true');
+          }
+          navigate(targetPath, { state: { openCreate } });
+          return;
+        }
+
         setCurrentView('profile');
       } else {
         // Handle specific phone number errors
@@ -721,7 +742,7 @@ const ProfilePage = () => {
     { name: 'My Posts', view: 'myposts', icon: <FaListAlt /> },
   ];
 
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Order Management below My Posts for Sellers
+  // Conditionally add Order Management below My Posts for Sellers
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Order Management',
@@ -744,7 +765,7 @@ const ProfilePage = () => {
     { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> }
   );
 
-  // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ADDED: Conditionally add Store Dashboard
+  // Conditionally add Store Dashboard
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Store Dashboard',
@@ -1171,7 +1192,7 @@ const ProfilePage = () => {
     } catch (err) {
       addToast('Failed to delete comment.', 'error');
     }
-  }; // till here. 
+  }; // till here.
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1304,10 +1325,11 @@ const ProfilePage = () => {
                           key={i}
                           onClick={() => handleViewChange(link.view)}
                           disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
-                              ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
-                                'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
-                            }`}
+                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${
+                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                            'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
+                          }`}
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
                         </button>
@@ -1337,10 +1359,11 @@ const ProfilePage = () => {
                     key={i}
                     onClick={() => handleViewChange(link.view)}
                     disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
-                        ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
-                          'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
-                      }`}
+                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${
+                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                      'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
+                    }`}
                   >
                     {link.icon}<span className="ml-2">{link.name}</span>
                   </button>
@@ -1758,7 +1781,7 @@ const ProfilePage = () => {
                       </div>
                       {passwords.newPassword && unmetRequirements.length === 0 && (
                         <div className="mt-2 flex items-center text-green-700 text-xs">
-                          <span className="mr-1">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“</span>
+                          <span className="mr-1">✓</span>
                           Password meets all requirements
                         </div>
                       )}
@@ -1821,6 +1844,7 @@ const ProfilePage = () => {
                   <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
                     My Shared Posts
                   </h3>
+
                   {postsLoading ? (
                     <div className="flex justify-center items-center h-64">
                       <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
@@ -1848,41 +1872,43 @@ const ProfilePage = () => {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
                       {posts.map((post) => (
-                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col w-full max-w-full">
-                          <div className="relative group">
+                        <article key={post._id} className="bg-white rounded-2xl shadow-[0_12px_30px_rgba(107,73,61,0.08)] border border-[#f1e7df] overflow-hidden">
+                          <div className="relative">
                             <img
                               src={post.imageUrl}
                               alt="Pet"
-                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105"
+                              className="w-full h-64 object-cover"
                               loading="lazy"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/25 via-transparent to-transparent" />
                           </div>
-                          <div className="p-4 md:p-6 flex flex-col justify-between w-full max-w-full">
+
+                          <div className="p-5 md:p-6">
                             {editingPost === post._id ? (
                               <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-[#6b493d] mb-4 border-b border-[#6b493d]/20 pb-2">
+                                <h4 className="text-lg font-semibold text-[#6b493d] border-b border-[#6b493d]/20 pb-2">
                                   Edit Post Caption
-                                </h3>
+                                </h4>
                                 <textarea
                                   value={editCaption}
                                   onChange={(e) => setEditCaption(e.target.value)}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                                  rows={3}
+                                  className="w-full rounded-lg border border-[#c9a280] bg-[#fdfaf7] text-[#4E3B31] focus:border-[#6b493d] focus:ring-2 focus:ring-[#6b493d]/20 resize-none"
+                                  rows={4}
                                   style={{ fontFamily: '"Poppins", sans-serif' }}
                                 />
-                                <div className="flex justify-end space-x-3">
+                                <div className="flex justify-end gap-3">
                                   <button
                                     onClick={() => setEditingPost(null)}
                                     className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
                                     disabled={postSavingStates[post._id]}
+                                    aria-label="Cancel edit"
                                   >
-                                    <span className="h-5 w-5 text-[#6b493d]">✏️</span>
+                                    <X className="h-5 w-5 text-[#6b493d]" />
                                   </button>
                                   <button
                                     onClick={() => handleSaveEditPost(post._id)}
                                     disabled={postSavingStates[post._id]}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     style={{ fontFamily: '"Poppins", sans-serif' }}
                                   >
                                     {postSavingStates[post._id] ? (
@@ -1897,49 +1923,53 @@ const ProfilePage = () => {
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex flex-col justify-between">
-                                <div>
-                                  <p
-                                    className="text-[#6b493d] mb-4 italic text-lg leading-relaxed break-words"
-                                    style={{ fontFamily: '"Poppins", sans-serif' }}
-                                  >
-                                    &quot;{post.caption}&quot;
-                                  </p>
-                                </div>
-                                <div className="flex items-center justify-between mt-4 flex-wrap gap-y-2">
+                              <div>
+                                <p
+                                  className="text-[#4E3B31] mb-4 italic text-base md:text-lg leading-relaxed break-words"
+                                  style={{ fontFamily: '"Poppins", sans-serif', whiteSpace: 'pre-wrap' }}
+                                >
+                                  &quot;{post.caption}&quot;
+                                </p>
+
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
                                   <div className="flex items-center space-x-4 text-[#6b493d]/80">
-                                    <div className="flex items-center space-x-1">
-                                      <FaHeart className="text-sm" />
-                                      <span>{post.likes?.length || 0}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <FaComment className="text-sm" />
-                                      <span>{post.comments?.length || 0}</span>
-                                    </div>
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Heart className="h-4 w-4 fill-current" />
+                                      <span>{post.likes.length}</span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <MessageCircle className="h-4 w-4" />
+                                      <span>{post.comments.length}</span>
+                                    </span>
                                   </div>
-                                  <div className="flex space-x-3">
+
+                                  <div className="flex items-center space-x-2">
                                     <button
                                       onClick={() => handleEditPost(post)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                      aria-label="Edit post"
                                     >
-                                      <FaPen className="h-4 w-4 text-[#6b493d]" />
+                                      <Pencil className="h-5 w-5 text-[#6b493d]" />
                                     </button>
                                     <button
                                       onClick={() => handleDeletePost(post._id)}
                                       className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
+                                      aria-label="Delete post"
                                     >
-                                      <FaTrash className="h-4 w-4 text-[#6b493d]" />
+                                      <Trash2 className="h-5 w-5 text-[#6b493d]" />
                                     </button>
                                   </div>
-                                  <button
-                                    onClick={() => toggleComments(post._id)}
-                                    className="text-[#6b493d] hover:underline ml-4 whitespace-nowrap"
-                                  >
-                                    {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
-                                  </button>
                                 </div>
+
+                                <button
+                                  onClick={() => toggleComments(post._id)}
+                                  className="mt-4 text-sm font-medium text-[#6b493d] hover:text-[#5a3d32] transition-colors"
+                                >
+                                  {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
+                                </button>
+
                                 {expandedComments[post._id] && (
-                                  <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
+                                  <div className="mt-4 space-y-3">
                                     {post.comments.length > 0 ? (
                                       post.comments.map((comment) => (
                                         <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
@@ -1953,28 +1983,30 @@ const ProfilePage = () => {
                                             comment.userId?._id === user._id || comment.userId?._id === user.id ||
                                             post.userId?._id === user._id || post.userId?._id === user.id
                                           ) && (
-                                              <button
-                                                onClick={() => handleDeleteComment(comment._id, post._id)}
-                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                                                title="Delete comment"
-                                              >
-                                                <FaTrash className="h-3 w-3" />
-                                              </button>
-                                            )}
+                                            <button
+                                              onClick={() => handleDeleteComment(comment._id, post._id)}
+                                              className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                                              title="Delete comment"
+                                              aria-label="Delete comment"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </button>
+                                          )}
                                         </div>
                                       ))
                                     ) : (
                                       <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                                    )} // till here.
+                                    )}
                                   </div>
                                 )}
                               </div>
                             )}
                           </div>
-                        </div>
+                        </article>
                       ))}
                     </div>
                   )}
+
                   {postsError && (
                     <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
                       {postsError}

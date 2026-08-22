@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthGuardContext = createContext(null);
 
@@ -32,13 +32,19 @@ export function AuthGuardProvider({ children }) {
 export function useRequireAuth() {
   const { showToast } = useContext(AuthGuardContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   return useCallback((action) => {
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (user) return true;
 
+    const redirectData = {
+      from: location.pathname,
+      openCreate: location.pathname === '/adoption'
+    };
+    sessionStorage.setItem('redirectAfterAuth', JSON.stringify(redirectData));
     showToast(`Please sign in to ${action}.`);
-    setTimeout(() => navigate('/signin'), 2800);
+    setTimeout(() => navigate('/signin', { state: redirectData }), 2800);
     return false;
-  }, [showToast, navigate]);
+  }, [showToast, navigate, location]);
 }

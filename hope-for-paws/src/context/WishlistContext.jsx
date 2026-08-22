@@ -100,6 +100,35 @@ export const WishlistProvider = ({ children }) => {
 
   const isInWishlist = (productId) => wishlist.some(p => (p._id || p.id || p) === productId);
 
+  const clearWishlist = async () => {
+    if (!user) return { success: false, message: 'Not logged in' };
+
+    const previousWishlist = [...wishlist];
+    const previousUnviewedCount = unviewedCount;
+
+    // Optimistic update
+    setWishlist([]);
+    setUnviewedCount(0);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/wishlist/clear`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) throw new Error('Failed to clear wishlist');
+      return { success: true, message: 'Wishlist cleared' };
+    } catch (err) {
+      console.error(err);
+      setWishlist(previousWishlist);
+      setUnviewedCount(previousUnviewedCount);
+      return { success: false, message: err.message };
+    }
+  };
+
   const markAsViewed = useCallback(async () => {
     if (!user) return;
     setUnviewedCount(0); // Instantly reset count to 0 in UI
@@ -123,6 +152,7 @@ export const WishlistProvider = ({ children }) => {
       error,
       toggleWishlist,
       isInWishlist,
+      clearWishlist,
       fetchWishlist,
       markAsViewed
     }}>

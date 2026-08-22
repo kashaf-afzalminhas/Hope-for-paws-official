@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import Paws from '/Hopeforpaws.jpg';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { motion } from "framer-motion";
@@ -26,17 +26,44 @@ const SignUp = () => {
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Country codes data
   const countryCodes = COUNTRY_CODES;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { type: "spring", stiffness: 120 }
     }
+  };
+
+  const performPostLoginRedirect = (userObj) => {
+    const savedRedirect = (() => {
+      try {
+        const item = sessionStorage.getItem('redirectAfterAuth');
+        return item ? JSON.parse(item) : null;
+      } catch { return null; }
+    })();
+
+    const targetPath = location.state?.from || savedRedirect?.from || "/";
+    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+    if (openCreate) {
+      sessionStorage.setItem('openAdoptionCreate', 'true');
+    }
+
+    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+      navigate('/seller/onboard');
+    } else if (!userObj.phone || !userObj.phoneVerified) {
+      navigate('/profile');
+    } else {
+      sessionStorage.removeItem('redirectAfterAuth');
+      navigate(targetPath, { state: { openCreate } });
+    }
+    window.location.reload();
   };
 
   // Email validation
@@ -100,12 +127,12 @@ const SignUp = () => {
 
   const handlePhoneChange = (e) => {
     let phoneValue = e.target.value;
-    
+
     // Remove leading zero if country code is selected
     if (countryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
     }
-    
+
     setPhone(phoneValue);
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, countryCode));
@@ -114,13 +141,13 @@ const SignUp = () => {
   const handleCountryCodeChange = (e) => {
     const newCountryCode = e.target.value;
     let phoneValue = phone;
-    
+
     // Remove leading zero when country code changes
     if (newCountryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
       setPhone(phoneValue);
     }
-    
+
     setCountryCode(newCountryCode);
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
@@ -137,7 +164,7 @@ const SignUp = () => {
     setEmailError(validateEmail(email));
     setPasswordError(validatePassword(password));
     setPhoneError(validatePhone(phone, countryCode));
-    
+
     if (validateEmail(email) || validatePassword(password) || validatePhone(phone, countryCode)) {
       setLoading(false);
       return;
@@ -148,10 +175,10 @@ const SignUp = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          username, 
-          email, 
-          password, 
+        body: JSON.stringify({
+          username,
+          email,
+          password,
           isVeterinarian: userType === 'veterinarian',
           userType: userType === 'seller' ? 'seller' : 'user',
           phone: countryCode + phone
@@ -160,7 +187,13 @@ const SignUp = () => {
       const data = await response.json();
       setLoading(false);
       if (response.ok) {
-        navigate('/verify-registration', { state: { email: data.email || email } });
+        navigate('/verify-registration', {
+          state: {
+            email: data.email || email,
+            from: location.state?.from,
+            openCreate: location.state?.openCreate
+          }
+        });
       } else {
         setError(data.message || 'Registration failed');
       }
@@ -223,16 +256,8 @@ const SignUp = () => {
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        
-        // Navigate directly to the correct destination
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -241,7 +266,7 @@ const SignUp = () => {
       setError("An error occurred during Google registration");
     }
   };
-  
+
   const handleUserTypeSelect = async (userTypeSelected) => {
     if (!pendingGoogleUser) return;
     setLoading(true);
@@ -265,16 +290,8 @@ const SignUp = () => {
       if (response.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        
-        // Navigate directly to the correct destination
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -289,17 +306,17 @@ const SignUp = () => {
       <div className="w-full max-w-md bg-white rounded-lg shadow-md overflow-hidden">
         {/* Logo Section with full-width beige background */}
         <div className="w-full h-72 bg-[#F8F4ED] py-6 mb-2 flex flex-col items-center">
-          <img 
-            className="w-full h-72 max-w-sm:max-w-md object-cover" 
-            src={Paws} 
-            alt="Hope For Paws Logo" 
+          <img
+            className="w-full h-72 max-w-sm:max-w-md object-cover"
+            src={Paws}
+            alt="Hope For Paws Logo"
           />
         </div>
-        
+
         {/* Form Section */}
         <div className="p-6">
           <h2 className="text-xl font-extrabold text-black mb-6 mt-6 text-center">Create Your Account</h2>
-          
+
           <form onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -320,7 +337,7 @@ const SignUp = () => {
                 placeholder="Enter your username"
               />
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium text-[#4E3B31] mb-1">Email Address</label>
               <input
@@ -339,7 +356,7 @@ const SignUp = () => {
                 <p className="text-xs text-red-600 mt-1">{emailError}</p>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="phone" className="block text-sm font-medium text-[#4E3B31] mb-1">Phone Number</label>
               <div className="flex gap-2">
@@ -370,7 +387,7 @@ const SignUp = () => {
                 <p className="text-xs text-red-600 mt-1">{phoneError}</p>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="password" className="block text-sm font-medium text-[#4E3B31] mb-1">Password</label>
               <div className="relative">
@@ -416,7 +433,7 @@ const SignUp = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="userType" className="block text-sm font-medium text-[#4E3B31] mb-1">I am registering as:</label>
               <select
@@ -452,10 +469,10 @@ const SignUp = () => {
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
-          
+
           <motion.div variants={itemVariants} className="flex justify-center mt-4">
               <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                  <GoogleLogin 
+                  <GoogleLogin
                     onSuccess={(response) => googleLoginHandler(response)}
                     onError={(error) => console.log(error)}
                     theme="filled_blue"
@@ -478,7 +495,7 @@ const SignUp = () => {
 
           <p className="text-sm text-[#4E3B31] text-center mt-4">
             Already have an account?{' '}
-            <NavLink to="/signin" className="font-medium text-[#6b493d] hover:text-[#a07855]">
+            <NavLink to="/signin" state={location.state} className="font-medium text-[#6b493d] hover:text-[#a07855]">
               Sign in
             </NavLink>
           </p>
