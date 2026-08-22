@@ -61,7 +61,7 @@ const ProfilePage = () => {
   // Phone validation states
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  
+
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
     phone: '',
@@ -70,7 +70,7 @@ const ProfilePage = () => {
     countryCode: '+92',
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
-  
+
   // Track original profile data to detect changes
   const [originalProfile, setOriginalProfile] = useState({
     phone: '',
@@ -133,11 +133,11 @@ const ProfilePage = () => {
     }
 
     if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
-    
+
     const fullPhone = code + phoneNumber;
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-    
+
     return '';
   };
 
@@ -168,7 +168,7 @@ const ProfilePage = () => {
       // Parse existing phone number to extract country code and phone number
       let phoneNumber = '';
       let phoneCountryCode = '+92';
-      
+
       if (userData.phone) {
         // Find matching country code
         const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
@@ -214,7 +214,7 @@ const ProfilePage = () => {
       if (!userData.phone || !userData.phoneVerified) {
         setCurrentView('edit');
       }
-      
+
       // Test token transmission
       testToken();
     } else {
@@ -273,12 +273,12 @@ const ProfilePage = () => {
 
   const handlePhoneChange = (e) => {
     let phoneValue = e.target.value;
-    
+
     // Remove leading zero if country code is selected
     if (formData.countryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
     }
-    
+
     setFormData({ ...formData, phone: phoneValue });
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, formData.countryCode));
@@ -287,7 +287,7 @@ const ProfilePage = () => {
   const handleCountryCodeChange = (e) => {
     const newCountryCode = e.target.value;
     let phoneValue = formData.phone;
-    
+
     // Remove leading zero when country code changes
     if (newCountryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
@@ -295,7 +295,7 @@ const ProfilePage = () => {
     } else {
       setFormData({ ...formData, countryCode: newCountryCode });
     }
-    
+
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
@@ -380,17 +380,17 @@ const ProfilePage = () => {
       formData.append('image', file);
 
       const response = await uploadProfileImage(formData);
-      
+
       if (response.data && response.data.success) {
         const newImagePath = response.data.data.profileImage;
         setProfile(prev => ({ ...prev, profileImage: newImagePath }));
-        
+
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = newImagePath;
           localStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image uploaded successfully!');
       } else {
         setError('Failed to upload image. Please try again.');
@@ -414,16 +414,16 @@ const ProfilePage = () => {
 
     try {
       const response = await removeProfileImage();
-      
+
       if (response.data && response.data.success) {
         setProfile(prev => ({ ...prev, profileImage: '' }));
-        
+
         const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = '';
           localStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image removed successfully!');
       } else {
         setError('Failed to remove image. Please try again.');
@@ -482,10 +482,10 @@ const ProfilePage = () => {
 
       if (response.ok) {
         const updatedUser = data.user;
-        
+
         // Update AuthContext with the new user data
         updateUser(updatedUser);
-        
+
         // Convert isVeterinarian to userType for display
         const getUserType = (user) => {
           if (user.userType) return user.userType;
@@ -497,7 +497,7 @@ const ProfilePage = () => {
         // Parse the updated phone number
         let phoneNumber = '';
         let phoneCountryCode = '+92';
-        
+
         if (updatedUser.phone) {
           const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
           if (matchingCountry) {
@@ -522,7 +522,7 @@ const ProfilePage = () => {
           profileImage: profile.profileImage, // Keep the current profile image
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update form data to match the saved profile
         setFormData({
           phone: phoneNumber,
@@ -531,7 +531,7 @@ const ProfilePage = () => {
           countryCode: phoneCountryCode,
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update original profile data to reflect the saved state
         setOriginalProfile({
           phone: phoneNumber,
@@ -540,12 +540,32 @@ const ProfilePage = () => {
           countryCode: phoneCountryCode,
           notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Clear phone validation errors
         setPhoneError('');
         setPhoneTouched(false);
-        
+
         addToast('Profile updated successfully!');
+
+        const savedRedirect = (() => {
+          try {
+            const item = sessionStorage.getItem('redirectAfterAuth');
+            return item ? JSON.parse(item) : null;
+          } catch { return null; }
+        })();
+        const openStorage = sessionStorage.getItem('openAdoptionCreate') === 'true';
+
+        if (savedRedirect?.from || openStorage) {
+          const targetPath = savedRedirect?.from || '/adoption';
+          const openCreate = savedRedirect?.openCreate || openStorage || false;
+          sessionStorage.removeItem('redirectAfterAuth');
+          if (openCreate) {
+            sessionStorage.setItem('openAdoptionCreate', 'true');
+          }
+          navigate(targetPath, { state: { openCreate } });
+          return;
+        }
+
         setCurrentView('profile');
       } else {
         // Handle specific phone number errors
@@ -763,15 +783,15 @@ const ProfilePage = () => {
   // MyAdoptions state
   const [adoptions, setAdoptions] = useState([]);
   const [editingAdoptionPost, setEditingAdoptionPost] = useState(null);
-  const [editAdoptionData, setEditAdoptionData] = useState({ 
-    name: '', 
-    age: '', 
-    petType: '', 
-    breed: '', 
-    vaccinated: '', 
-    neuteredSpayed: '', 
-    description: '', 
-    location: '' 
+  const [editAdoptionData, setEditAdoptionData] = useState({
+    name: '',
+    age: '',
+    petType: '',
+    breed: '',
+    vaccinated: '',
+    neuteredSpayed: '',
+    description: '',
+    location: ''
   });
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
@@ -780,7 +800,7 @@ const ProfilePage = () => {
   const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
-  
+
   // MyPosts state
   const [editingPost, setEditingPost] = useState(null);
   const [editCaption, setEditCaption] = useState("");
@@ -903,15 +923,15 @@ const ProfilePage = () => {
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
-    const postData = { 
-      name: post.name, 
-      age: post.age, 
-      petType: post.petType, 
-      breed: post.breed || '', 
-      vaccinated: post.vaccinated || '', 
-      neuteredSpayed: post.neuteredSpayed || '', 
-      description: post.description, 
-      location: post.location || '' 
+    const postData = {
+      name: post.name,
+      age: post.age,
+      petType: post.petType,
+      breed: post.breed || '',
+      vaccinated: post.vaccinated || '',
+      neuteredSpayed: post.neuteredSpayed || '',
+      description: post.description,
+      location: post.location || ''
     };
     setEditAdoptionData(postData);
     setOriginalAdoptionData(postData);
@@ -923,7 +943,7 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific adoption post
       setAdoptionSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       // If there's a new image, upload first
       if (newAdoptionImages[postId]) {
@@ -938,40 +958,40 @@ const ProfilePage = () => {
           const errData = await imgRes.json().catch(() => ({}));
           throw new Error(errData.message || 'Failed to update image');
         }
-        
+
         // Get the updated image URL from the response
         const imgData = await imgRes.json();
         if (imgData.imageUrl) {
           // Update local state with new image URL
-          setAdoptions(prev => prev.map(post => 
+          setAdoptions(prev => prev.map(post =>
             post._id === postId ? { ...post, imageUrl: imgData.imageUrl } : post
           ));
         }
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(editAdoptionData)
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update adoption post');
       }
-      
+
       // Update local state immediately for better UX
-      setAdoptions(prev => prev.map(post => 
+      setAdoptions(prev => prev.map(post =>
         post._id === postId ? { ...post, ...editAdoptionData } : post
       ));
-      
+
       setEditingAdoptionPost(null);
       // Clear image data for this post
       setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
       setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
-      
+
       // Show immediate success feedback
       addToast('Adoption post updated successfully!');
-      
+
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to update post');
       addToast(err.message || 'Failed to update post', 'error');
@@ -1106,28 +1126,28 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific post
       setPostSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ caption: editCaption })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update post');
       }
-      
+
       // Update local state immediately for better UX
-      setPosts(prev => prev.map(post => 
+      setPosts(prev => prev.map(post =>
         post._id === postId ? { ...post, caption: editCaption } : post
       ));
-      
+
       setEditingPost(null);
-      
+
       // Show immediate success feedback
       addToast('Post updated successfully!');
-      
+
     } catch (err) {
       setPostsError("Failed to update post. Please try again.");
       addToast("Failed to update post. Please try again.", 'error');
@@ -1172,7 +1192,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
   } catch (err) {
     addToast('Failed to delete comment.', 'error');
   }
-}; // till here. 
+}; // till here.
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1185,7 +1205,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
     // Block access to other pages if user doesn't have phone number OR if there's a phone validation error
     const hasPhoneError = phoneTouched && phoneError;
     const needsPhone = !profile.phone || !user?.phoneVerified;
-    
+
     if ((needsPhone || hasPhoneError) && view !== 'edit' && view !== 'profile') {
       if (hasPhoneError) {
         addToast('Please fix the phone number error first', 'error');
@@ -1194,7 +1214,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
       }
       return;
     }
-    
+
     setCurrentView(view);
     setMobileMenuOpen(false);
   };
@@ -1215,8 +1235,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
             {/* Back Button */}
             <div className="mb-4">
-              <NavLink 
-                to="/" 
+              <NavLink
+                to="/"
                 className="inline-flex items-center gap-2 rounded-full border border-[#e8dcc8] bg-white px-4 py-2 text-sm font-semibold text-[#6b493d] shadow-sm transition hover:bg-[#f8f4ed] hover:text-[#57392f]"
               >
                 <FaChevronLeft className="text-xs" />
@@ -1227,7 +1247,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             <div className="rounded-[24px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-4 text-center shadow-sm">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
-                  <img 
+                  <img
                     src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
@@ -1240,7 +1260,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 <div className={`w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold ${profile.profileImage ? 'hidden' : ''}`}>
                   {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
                 </div>
-                
+
                 {/* Image upload button */}
                 <label className="absolute bottom-0 right-0 bg-[#6b493d] text-white rounded-full p-2 cursor-pointer hover:bg-[#57392f] transition-colors">
                   <FaCamera size={12} />
@@ -1252,7 +1272,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     disabled={imageLoading}
                   />
                 </label>
-                
+
                 {/* Remove image button */}
                 {profile.profileImage && (
                   <button
@@ -1265,13 +1285,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                   </button>
                 )}
               </div>
-              
+
               {imageLoading && (
                 <div className="text-sm text-[#a07855] mb-2">
                   {profile.profileImage ? 'Updating...' : 'Uploading...'}
                 </div>
               )}
-              
+
               <div className="flex items-center justify-center gap-1.5">
                 <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
                 {profile.userType === 'Seller' && (
@@ -1306,8 +1326,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           onClick={() => handleViewChange(link.view)}
                           disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
                           className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${
-                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
-                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
+                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
                             'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                           }`}
                         >
@@ -1340,8 +1360,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     onClick={() => handleViewChange(link.view)}
                     disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
                     className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${
-                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' : 
-                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
+                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
                       'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                     }`}
                   >
@@ -1502,7 +1522,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 </div>
 
                 {error && !(phoneTouched && phoneError) && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-                
+
                 {(!profile.phone || !user?.phoneVerified) && !(phoneTouched && phoneError) && (
                   <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
                     <div className="flex items-start gap-3">
@@ -1518,7 +1538,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     </div>
                   </div>
                 )}
-                
+
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                   <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
                     <div className="mb-5">
@@ -1528,26 +1548,26 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           disabled
                           value={profile.name}
                           className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
                         />
                         <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-                        <input 
-                          type="email" 
+                        <input
+                          type="email"
                           disabled
                           value={profile.email}
                           className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
                         />
                         <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
                         <div className="flex gap-2">
@@ -1562,8 +1582,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                               </option>
                             ))}
                           </select>
-                          <input 
-                            type="tel" 
+                          <input
+                            type="tel"
                             name="phone"
                             value={formData.phone}
                             onChange={handlePhoneChange}
@@ -1576,11 +1596,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                           <p className="mt-1 text-xs text-red-600">{phoneError}</p>
                         )}
                       </div>
-                      
+
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           name="city"
                           value={formData.city}
                           onChange={handleProfileChange}
@@ -1589,13 +1609,13 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
                     <div className="mb-5">
                       <h3 className="text-lg font-semibold text-[#6b493d]">About you</h3>
                       <p className="mt-1 text-sm text-[#7a6554]">A short introduction makes your profile feel warmer and more personal.</p>
                     </div>
-                    <textarea 
+                    <textarea
                       name="about"
                       value={formData.about}
                       onChange={handleProfileChange}
@@ -1664,16 +1684,16 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <button 
+                    <button
                       type="button"
                       onClick={handleCancelEdit}
                       className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
                       className={`rounded-full px-5 py-2.5 text-sm font-semibold ${
@@ -1693,7 +1713,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Security Settings</h2>
                 {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
+
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-4 text-[#6b493d]">
                     {shouldShowSetPassword ? 'Set Password' : 'Change Password'}
@@ -1708,7 +1728,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                           <div className="relative">
-                            <input 
+                            <input
                               type={showPasswords.currentPassword ? 'text' : 'password'}
                               name="currentPassword"
                               value={passwords.currentPassword}
@@ -1729,11 +1749,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         </>
                       )}
                     </div>
-                    
+
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.newPassword ? 'text' : 'password'}
                           name="newPassword"
                           value={passwords.newPassword}
@@ -1771,11 +1791,11 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <p className="text-xs text-red-600 mt-1">Password must have: {passwordError}</p>
                       )}
                     </div>
-                    
+
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.confirmPassword ? 'text' : 'password'}
                           name="confirmPassword"
                           value={passwords.confirmPassword}
@@ -1797,9 +1817,9 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                         <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
                       )}
                     </div>
-                    
+
                     <div className="flex justify-end">
-                      <button 
+                      <button
                         type="submit"
                         disabled={
                           loading ||
@@ -1981,7 +2001,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                 </div>
               </section>
             )}
-            
+
             {currentView === 'sellerdashboard' && (
               <SellerDashboard onNavigateOrders={() => handleViewChange('ordermanagement')} />
             )}

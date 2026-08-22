@@ -108,7 +108,13 @@ const VerifyRegistration = () => {
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
         setMessage('Email verified successfully! Redirecting to sign in...');
-        setTimeout(() => navigate('/signin'), 2000);
+        setTimeout(() => navigate('/signin', {
+          state: {
+            email,
+            from: location.state?.from,
+            openCreate: location.state?.openCreate
+          }
+        }), 2000);
       } else {
         setError(data.error || 'Verification failed');
       }
@@ -124,9 +130,9 @@ const VerifyRegistration = () => {
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
         {/* Image Section - Visible on both mobile and desktop */}
         <div className="w-full md:w-1/2 h-48 md:h-auto bg-[#F8F4ED] relative">
-          <img 
-            src={Paws} 
-            alt="Hope For Paws" 
+          <img
+            src={Paws}
+            alt="Hope For Paws"
             className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
@@ -187,8 +193,8 @@ const VerifyRegistration = () => {
                     />
                     {/* Small Countdown Timer */}
                     <div className={`px-2 py-1 rounded text-xs font-mono ${
-                      isExpired 
-                        ? 'bg-red-100 text-red-700 border border-red-200' 
+                      isExpired
+                        ? 'bg-red-100 text-red-700 border border-red-200'
                         : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'
                     }`}>
                       {isExpired ? 'Expired' : formatTime(timeLeft)}
