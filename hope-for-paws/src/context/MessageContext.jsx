@@ -86,9 +86,7 @@ const MessageProvider = ({ children }) => {
 
     const handleNewMessage = (message) => {
       console.log('MessageContext: Received newMessage:', message);
-      console.log('MessageContext: currentConversationId:', currentConversationId);
       
-      // Get current user ID from localStorage/sessionStorage
       const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
@@ -96,82 +94,16 @@ const MessageProvider = ({ children }) => {
       const isActiveConversation = currentConversationId !== null && String(message.conversationId) === String(currentConversationId);
       const isActiveVisibleConversation = isChatRoute && isActiveConversation && document.hasFocus();
       
-      console.log('MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId, 'isChatRoute:', isChatRoute, 'isActiveVisibleConversation:', isActiveVisibleConversation);
-      
-      // Only skip unread increment when the user is actively viewing that exact conversation on the chat page and the tab is focused.
       if (
         message.senderId !== currentUserId &&
         !isActiveVisibleConversation
       ) {
-        console.log('MessageContext: Incrementing unread count');
         setUnreadCount(prev => prev + 1);
-      } else {
-        console.log('MessageContext: Not incrementing unread count (own message or active conversation currently visible)');
       }
       
-      // Update conversations list with the new message
-      setConversations(prev => {
-        const existingConvIndex = prev.findIndex(conv => String(conv._id) === String(message.conversationId));
-        
-        if (existingConvIndex !== -1) {
-          // Update existing conversation
-          const updatedConversations = [...prev];
-          updatedConversations[existingConvIndex] = {
-            ...updatedConversations[existingConvIndex],
-            lastMessage: {
-              text: message.text,
-              createdAt: message.createdAt,
-              senderId: message.senderId
-            },
-            updatedAt: message.createdAt,
-            unreadCount: (() => {
-              // Don't increment unread count if it's the current user's own message
-              if (message.senderId === currentUserId) {
-                return updatedConversations[existingConvIndex].unreadCount || 0;
-              }
-              
-              // Only mark as read if user is:
-              // 1. Actually viewing this EXACT conversation
-              // 2. The current window/tab has focus (user is actively using this window)
-              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
-                return 0;
-              }
-              
-              // Otherwise increment unread count for messages from other users in other conversations
-              return (updatedConversations[existingConvIndex].unreadCount || 0) + 1;
-            })()
-          };
-          
-          // Sort by updatedAt descending (most recent first)
-          return updatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        } else {
-          // Create new conversation if it doesn't exist
-          const newConv = {
-            _id: message.conversationId,
-            participants: [message.senderId], // This will be updated when conversation is loaded
-            lastMessage: {
-              text: message.text,
-              createdAt: message.createdAt,
-              senderId: message.senderId
-            },
-            updatedAt: message.createdAt,
-            unreadCount: (() => {
-              // Don't increment unread count if it's the current user's own message
-              if (message.senderId === currentUserId) {
-                return 0;
-              }
-              // Only mark as read if user is actually viewing this conversation AND window has focus
-              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
-                return 0;
-              }
-              // Otherwise set unread count to 1 for new conversation
-              return 1;
-            })()
-          };
-          
-          return [newConv, ...prev].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        }
-      });
+      if (currentUserId) {
+        refreshConversations(currentUserId);
+      }
     };
 
     // Listen only for newMessage event (backend emits this consistently)
@@ -331,6 +263,19 @@ const MessageProvider = ({ children }) => {
     });
   }, []);
 
+  const removeConversation = useCallback((conversationId) => {
+    setConversations(prev => {
+      if (!Array.isArray(prev)) return [];
+      const updated = prev.filter(c => String(c._id) !== String(conversationId));
+      const totalUnread = updated.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
+      setUnreadCount(totalUnread);
+      return updated;
+    });
+    if (currentConversationId && String(currentConversationId) === String(conversationId)) {
+      setCurrentConversationId(null);
+    }
+  }, [currentConversationId]);
+
   const getTotalUnreadCount = useCallback(() => {
     if (!Array.isArray(conversations)) {
       console.error('MessageContext: conversations is not an array in getTotalUnreadCount:', conversations);
@@ -347,6 +292,7 @@ const MessageProvider = ({ children }) => {
     markAsRead,
     updateConversations,
     addConversation,
+    removeConversation,
     updateConversationUnreadCount,
     getTotalUnreadCount,
     refreshConversations
@@ -358,6 +304,7 @@ const MessageProvider = ({ children }) => {
     markAsRead,
     updateConversations,
     addConversation,
+    removeConversation,
     updateConversationUnreadCount,
     getTotalUnreadCount,
     refreshConversations
