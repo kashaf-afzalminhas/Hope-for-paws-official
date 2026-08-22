@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { NavLink } from 'react-router-dom';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { motion } from "framer-motion";
@@ -19,6 +18,7 @@ const Login = () => {
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -30,16 +30,46 @@ const Login = () => {
   };
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem('savedEmail');
-    const savedPassword = localStorage.getItem('savedPassword');
-    const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    } else {
+      const savedEmail = localStorage.getItem('savedEmail');
+      const savedPassword = localStorage.getItem('savedPassword');
+      const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
 
-    if (savedRememberMe) {
-      setEmail(savedEmail || '');
-      setPassword(savedPassword || '');
-      setRememberMe(true);
+      if (savedRememberMe) {
+        setEmail(savedEmail || '');
+        setPassword(savedPassword || '');
+        setRememberMe(true);
+      }
     }
-  }, []);
+  }, [location.state]);
+
+  const performPostLoginRedirect = (userObj) => {
+    const savedRedirect = (() => {
+      try {
+        const item = sessionStorage.getItem('redirectAfterAuth');
+        return item ? JSON.parse(item) : null;
+      } catch { return null; }
+    })();
+
+    const targetPath = location.state?.from || savedRedirect?.from || "/";
+    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+    if (openCreate) {
+      sessionStorage.setItem('openAdoptionCreate', 'true');
+    }
+
+    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+      navigate('/seller/onboard');
+    } else if (!userObj.phone || !userObj.phoneVerified) {
+      navigate('/profile');
+    } else {
+      sessionStorage.removeItem('redirectAfterAuth');
+      navigate(targetPath, { state: { openCreate } });
+    }
+    window.location.reload();
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -88,15 +118,7 @@ const Login = () => {
             localStorage.removeItem('user');
           }
           
-          // Navigate directly to the correct destination
-          if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-            navigate('/seller/onboard');
-          } else if (!data.user.phone || !data.user.phoneVerified) {
-            navigate('/profile');
-          } else {
-            navigate("/");
-          }
-          window.location.reload();
+          performPostLoginRedirect(data.user);
         } else {
           setLoading(false);
           setError('Login failed: No token received.');
@@ -175,14 +197,7 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
       }
@@ -241,14 +256,7 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        if (data.user.isSeller && data.user.sellerStatus === 'incomplete') {
-          navigate('/seller/onboard');
-        } else if (!data.user.phone || !data.user.phoneVerified) {
-          navigate('/profile');
-        } else {
-          navigate("/");
-        }
-        window.location.reload();
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -426,7 +434,7 @@ const Login = () => {
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
               Don&apos;t have an account?{' '}
-              <NavLink to="/signup" className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
+              <NavLink to="/signup" state={location.state} className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
                 Sign up
               </NavLink>
             </p>
