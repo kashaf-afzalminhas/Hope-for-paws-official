@@ -30,15 +30,23 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
 
-    // Validates international phone numbers (+ followed by 7 to 15 digits) or local 10-digit format
-    const phoneRegex = /^(\+[1-9]\d{6,14}|0?\d{10})$/;
-    const phone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
+    // Strip spaces, dashes, parentheses, and dots while keeping leading '+'
+    const rawPhone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
+    const sanitizedPhone = rawPhone.startsWith('+')
+      ? '+' + rawPhone.slice(1).replace(/[\s\-().]/g, '')
+      : rawPhone.replace(/[\s\-().]/g, '');
 
-    if (!phone || !phoneRegex.test(phone)) {
+    // Supports local 10–11 digit numbers (e.g., 03001234567) and international numbers (+ followed by 7–15 digits)
+    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
+
+    if (!sanitizedPhone || !phoneRegex.test(sanitizedPhone)) {
       return res.status(400).json({
         message: 'Please enter a valid phone number.'
       });
     }
+
+    // Save sanitized number to prevent downstream formatting issues
+    shippingAddress.phone = sanitizedPhone;
     // ──────────────────────────────────────────────────────────────────
 
     // Group items by sellerId
@@ -685,8 +693,8 @@ exports.getDashboardStats = async (req, res) => {
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
 
-    const products = await Product.find({ sellerId: seller._id }).select('countInStock').lean();
-    const activeProducts = products.filter(p => p.countInStock > 0).length;
+    const products = await Product.find({ sellerId: seller._id }).select('countInStock status').lean();
+    const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= 5).length;
 
     const sellerId = seller._id;

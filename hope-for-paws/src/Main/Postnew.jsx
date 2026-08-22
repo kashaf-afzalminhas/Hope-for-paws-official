@@ -22,7 +22,7 @@ const Postnew = () => {
   const [conversations, setConversations] = useState([]); // Add this if not already present
   const [showPostForm, setShowPostForm] = useState(false);
   const [replyInput, setReplyInput] = useState({}); // Add this line
-  const [replyingTo, setReplyingTo] = useState(null); // commentId being replied to
+  const [replyingTo, setReplyingTo] = useState(null); // stores root commentId being replied to
   const intervalRef = useRef(null); // Ref to track the interval
   const [isRefreshing, setIsRefreshing] = useState(false); // For subtle background refresh indicator
   const requireAuth = useRequireAuth();
@@ -146,8 +146,7 @@ const Postnew = () => {
     fetchConversations();
   }, [currentUserId]);
 
-
-
+  
   const handleLike = async (postId) => {
     if (!requireAuth('like posts')) return;
 
@@ -231,13 +230,29 @@ const Postnew = () => {
     }
   };
 
+  // Helper to open reply input with root comment ID and optional @username mention (Instagram model)
+  const initiateReply = (rootCommentId, replyToUsername = null) => {
+    setReplyingTo(rootCommentId);
+    if (replyToUsername) {
+      setReplyInput(prev => ({
+        ...prev,
+        [rootCommentId]: `@${replyToUsername} `
+      }));
+    } else {
+      setReplyInput(prev => ({
+        ...prev,
+        [rootCommentId]: ""
+      }));
+    }
+  };
+
   const handleReply = async (postId, parentCommentId) => {
     if (!replyInput[parentCommentId] || !requireAuth('reply to comments')) return;
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.post(
         `${API_BASE_URL}/comments/${postId}/comments`,
-        { content: replyInput[parentCommentId], parentCommentId },
+        { content: replyInput[parentCommentId].trim(), parentCommentId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // Update comments in posts state
@@ -302,101 +317,178 @@ const Postnew = () => {
     navigate('/my-posts');
   };
 
-  const renderComments = (comments, postId, parent = null, depth = 0) => {
-    // Depth guard: prevent infinite recursion from cyclic references
-    if (depth > 2) return null;
+  // 2-Level Flat Instagram-style comment thread rendering
+  const renderComments = (comments, postId) => {
+    // 1. Filter out all top-level root comments
+    const rootComments = comments.filter(comment => !comment.parentCommentId);
 
-    return comments
-      .filter(comment => comment.parentCommentId === parent)
-      .map(comment => (
-        <div key={comment._id} className="flex flex-col">
+    return rootComments.map(rootComment => {
+      // 2. Find all replies linked to this root comment
+      const replies = comments.filter(
+        c => String(c.parentCommentId) === String(rootComment._id)
+      );
+
+      return (
+        <div key={rootComment._id} className="flex flex-col mb-2">
+          {/* Main Top-Level Comment */}
           <div className="flex gap-2 sm:gap-3 bg-[#f5f3ed] rounded-lg p-2 sm:p-3">
             {/* Avatar and main comment content */}
             <div className="h-7 w-7 bg-[#6b493d] rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-medium text-xs">
-                {comment.userId?.username?.[0]?.toUpperCase() || "?"}
+                {rootComment.userId?.username?.[0]?.toUpperCase() || "?"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                 <Link
-                  to={comment.userId?._id ? `/profile/public/${comment.userId._id}` : '#'}
+                  to={rootComment.userId?._id ? `/profile/public/${rootComment.userId._id}` : '#'}
                   className="font-bold text-[#4E3B31] font-playfair text-xs sm:text-sm truncate hover:underline"
                 >
-                  {comment.userId?.username || "Unknown User"}
+                  {rootComment.userId?.username || "Unknown User"}
                 </Link>
-                {comment.userId?.isVeterinarian && (
+                {rootComment.userId?.isVeterinarian && (
                   <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
                     Veterinarian
                   </span>
                 )}
               </div>
               <p className="text-[#4E3B31] font-poppins text-xs sm:text-sm break-words">
-                {comment.content}
+                {rootComment.content}
               </p>
-              <p className="text-xs text-[#a07855] mt-1 font-poppins">
-                {new Date(comment.createdAt).toLocaleDateString(
-                  "en-US",
-                  {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  }
-                )}
-              </p>
-              {/* Reply button */}
-              {user && (
-                <button
-                  className="text-xs text-[#a07855] hover:underline mt-1"
-                  onClick={() => setReplyingTo(comment._id)}
-                >
-                  Reply
-                </button>
-              )}
-              {/* Reply input */}
-              {replyingTo === comment._id && (
-                <div className="flex gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={replyInput[comment._id] || ""}
-                    onChange={e =>
-                      setReplyInput({ ...replyInput, [comment._id]: e.target.value })
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs text-[#a07855] font-poppins">
+                  {new Date(rootComment.createdAt).toLocaleDateString(
+                    "en-US",
+                    {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
                     }
-                    placeholder="Write a reply..."
-                    className="flex-1 bg-[#f5f3ed] rounded-full px-3 py-1 text-xs text-[#4E3B31] placeholder-[#a07855] focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
-                    onKeyPress={e =>
-                      e.key === "Enter" && handleReply(postId, comment._id)
-                    }
-                  />
+                  )}
+                </span>
+                {/* Reply button */}
+                {user && (
                   <button
-                    onClick={() => handleReply(postId, comment._id)}
-                    className="px-2 py-1 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins text-xs"
+                    className="text-xs text-[#6b493d] font-semibold hover:underline"
+                    onClick={() => initiateReply(rootComment._id)}
                   >
                     Reply
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
             {user && (
-  comment.userId?._id === user.id || comment.userId?._id === user._id ||
-  posts.find(p => p._id === postId)?.userId?._id === user.id ||
-  posts.find(p => p._id === postId)?.userId?._id === user._id
-) && (
-  <button
-    onClick={() => handleDeleteComment(comment._id, postId)}
-    className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
-  >
-    <Trash2 className="h-4 w-4 text-[#6b493d]" />
-  </button>
-)}
+              rootComment.userId?._id === user.id || rootComment.userId?._id === user._id ||
+              posts.find(p => p._id === postId)?.userId?._id === user.id ||
+              posts.find(p => p._id === postId)?.userId?._id === user._id
+            ) && (
+              <button
+                onClick={() => handleDeleteComment(rootComment._id, postId)}
+                className="p-1.5 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
+              >
+                <Trash2 className="h-4 w-4 text-[#6b493d]" />
+              </button>
+            )}
           </div>
-          {/* Render replies with incremented depth */}
-          <div className="ml-8 mt-2">
-            {renderComments(comments, postId, comment._id, depth + 1)}
-          </div>
+
+          {/* All replies flatly indented under root comment */}
+          {replies.length > 0 && (
+            <div className="ml-6 sm:ml-8 mt-2 space-y-2 border-l-2 border-[#c9a280]/40 pl-3">
+              {replies.map((reply) => (
+                <div key={reply._id} className="flex gap-2 bg-[#f5f3ed]/80 rounded-lg p-2">
+                  <div className="h-6 w-6 bg-[#a07855] rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-medium text-[10px]">
+                      {reply.userId?.username?.[0]?.toUpperCase() || "?"}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <Link
+                        to={reply.userId?._id ? `/profile/public/${reply.userId._id}` : '#'}
+                        className="font-bold text-[#4E3B31] font-playfair text-xs truncate hover:underline"
+                      >
+                        {reply.userId?.username || "Unknown User"}
+                      </Link>
+                      {reply.userId?.isVeterinarian && (
+                        <span className="px-1 py-0.2 bg-[#6b493d]/10 text-[#6b493d] text-[10px] rounded-full font-poppins">
+                          Vet
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[#4E3B31] font-poppins text-xs break-words">
+                      {reply.content}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[10px] text-[#a07855] font-poppins">
+                        {new Date(reply.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      {/* Reply button on child reply prepends @username */}
+                      {user && (
+                        <button
+                          className="text-[11px] text-[#6b493d] font-semibold hover:underline"
+                          onClick={() => initiateReply(rootComment._id, reply.userId?.username)}
+                        >
+                          Reply
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {user && (
+                    reply.userId?._id === user.id || reply.userId?._id === user._id ||
+                    posts.find(p => p._id === postId)?.userId?._id === user.id ||
+                    posts.find(p => p._id === postId)?.userId?._id === user._id
+                  ) && (
+                    <button
+                      onClick={() => handleDeleteComment(reply._id, postId)}
+                      className="p-1 hover:bg-[#6b493d]/10 rounded-full transition-colors flex-shrink-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-[#6b493d]" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Reply input form */}
+          {replyingTo === rootComment._id && (
+            <div className="ml-6 sm:ml-8 mt-2 flex gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={replyInput[rootComment._id] || ""}
+                onChange={e =>
+                  setReplyInput({ ...replyInput, [rootComment._id]: e.target.value })
+                }
+                placeholder="Write a reply..."
+                className="flex-1 bg-[#f5f3ed] rounded-full px-3 py-1.5 text-xs text-[#4E3B31] placeholder-[#a07855] border border-[#c9a280]/40 focus:outline-none focus:ring-1 focus:ring-[#6b493d] font-poppins"
+                onKeyPress={e =>
+                  e.key === "Enter" && handleReply(postId, rootComment._id)
+                }
+              />
+              <button
+                onClick={() => handleReply(postId, rootComment._id)}
+                className="px-3 py-1 bg-[#6b493d] text-white rounded-full hover:bg-[#5a3c32] transition-all font-poppins text-xs"
+              >
+                Reply
+              </button>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
-      ));
+      );
+    });
   };
 
   if (loading) {
@@ -627,8 +719,7 @@ const Postnew = () => {
                     <div className="space-y-2 sm:space-y-3">
                       {renderComments(
                         expandedComments[post._id] ? post.comments : post.comments.slice(0, 2),
-                        post._id,
-                        null
+                        post._id
                       )}
                       {post.comments.length > 2 && (
                         <button

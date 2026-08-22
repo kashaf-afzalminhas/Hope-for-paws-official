@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
 import UserTypeModal from '../Components/UserTypeModal';
@@ -19,6 +21,42 @@ const Login = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { addToCart } = useCart();
+  const { toggleWishlist } = useWishlist();
+
+  const handlePostLoginNavigation = async (user) => {
+    const pendingActionStr = localStorage.getItem('pendingAction');
+    let redirected = false;
+    if (pendingActionStr) {
+      try {
+        const pendingAction = JSON.parse(pendingActionStr);
+        localStorage.removeItem('pendingAction');
+        if (pendingAction.action === 'cart') {
+          await addToCart(pendingAction.productId, 1);
+          navigate('/cart');
+        } else if (pendingAction.action === 'wishlist') {
+          await toggleWishlist(pendingAction.productId);
+          navigate('/wishlist');
+        } else {
+          navigate(pendingAction.redirectUrl || '/marketplace');
+        }
+        redirected = true;
+      } catch (e) {
+        console.error("Failed to process pending action", e);
+      }
+    }
+
+    if (!redirected) {
+      if (user.isSeller && user.sellerStatus === 'incomplete') {
+        navigate('/seller/onboard');
+      } else if (!user.phone || !user.phoneVerified) {
+        navigate('/profile');
+      } else {
+        navigate("/");
+      }
+    }
+    window.location.reload();
+  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },

@@ -358,6 +358,45 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
+// ==========================================
+// NEW: Adoption Stat Endpoints
+// ==========================================
+
+// 1. Get logged-in user's adoption counts
+router.get('/user-stats', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const [totalPosts, adoptedCount, pendingCount] = await Promise.all([
+      Adoption.countDocuments({ userId }),
+      Adoption.countDocuments({ userId, status: 'adopted' }),
+      Adoption.countDocuments({ userId, status: 'available' }),
+    ]);
+
+    res.json({
+      success: true,
+      data: { totalPosts, adoptedCount, pendingCount },
+    });
+  } catch (error) {
+    console.error('Error fetching user adoption stats:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// 2. Get global total adoption count for Homepage (Public, no auth)
+router.get('/public-count', async (req, res) => {
+  try {
+    // Counts every single adoption post created by all users
+    const totalAdoptions = await Adoption.countDocuments();
+    res.json({
+      success: true,
+      totalAdoptions,
+    });
+  } catch (error) {
+    console.error('Error fetching public adoption count:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 // Get a single adoption post
 router.get('/:id', async (req, res) => {
   try {

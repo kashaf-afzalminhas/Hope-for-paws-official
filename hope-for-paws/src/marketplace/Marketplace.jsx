@@ -297,7 +297,7 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingBottom:24 }}>
                 {[
-                  { Icon:Truck,     text:"Free shipping over Rs 50" },
+                  { Icon:Truck,     text:"Free shipping over Rs 5000" },
                   { Icon:RotateCcw, text:"30-day easy returns" },
                   { Icon:Shield,    text:"Vet-approved quality" },
                   { Icon:Award,     text:"Premium certified brand" },
@@ -409,6 +409,7 @@ function HeroBanner({ query, setQuery, isMobile }) {
                 fontSize: 14, color: "#6b493d", fontFamily: "'Inter', sans-serif",
                 background: "transparent",
               }}
+              className="focus:outline-none focus:ring-0"
             />
             <button className="btn-press" style={{
               padding: "12px 24px", margin: 4,
@@ -1045,7 +1046,10 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
-    if (!requireAuth('use the wishlist')) return;
+    if (!requireAuth('use the wishlist')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await toggleWishlist(id);
     if (result.success && result.message.includes('added')) {
       addToast("fav", products.find(x => x.id === id)?.name);
@@ -1053,7 +1057,10 @@ export default function Marketplace() {
   }, [requireAuth, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
-    if (!requireAuth('add items to your cart')) return;
+    if (!requireAuth('add items to your cart')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await ctxAddToCart(id, 1);
     if (result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);

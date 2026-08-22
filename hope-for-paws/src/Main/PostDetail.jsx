@@ -22,9 +22,11 @@ const PostDetail = () => {
     fetchPost();
   }, [id]);
 
-  const fetchPost = async () => {
+  // `silent` lets us refresh the post data after like/comment/delete
+  // actions without flashing the full-page spinner every time.
+  const fetchPost = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/posts/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -33,9 +35,9 @@ const PostDetail = () => {
       setError('');
     } catch (error) {
       console.error('Error fetching post:', error);
-      setError('Failed to load post. Please try again later.');
+      if (!silent) setError('Failed to load post. Please try again later.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -53,7 +55,7 @@ const PostDetail = () => {
       );
       
       // After liking/unliking, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
     } catch (error) {
       console.error('Error liking post:', error);
     }
@@ -75,7 +77,7 @@ const PostDetail = () => {
       );
       
       // After adding comment, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -97,10 +99,16 @@ const PostDetail = () => {
       );
       
       // After deleting comment, refresh the post data
-      await fetchPost();
+      await fetchPost(true);
     } catch (error) {
       console.error('Error deleting comment:', error);
     }
+  };
+
+  const handleUserProfileClick = (userIdToVisit) => {
+    if (!userIdToVisit) return;
+    if (!requireAuth('view user profiles')) return;
+    navigate(`/profile/public/${userIdToVisit}`);
   };
 
   if (loading) {
@@ -159,12 +167,18 @@ const PostDetail = () => {
         <div className="bg-white rounded-xl shadow-md border border-[#c9a280]/10 overflow-hidden">
           {/* Post Header */}
           <div className="p-4 flex items-center gap-3 border-b border-[#f5f3ed]">
-            <div className="h-12 w-12 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0">
+            <div 
+              onClick={() => handleUserProfileClick(post.userId?._id || post.userId?.id || post.userId)}
+              className="h-12 w-12 bg-[#f5f3ed] rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            >
               <UserCircle className="h-8 w-8 text-[#6b493d]" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-bold text-[#4E3B31] font-playfair text-lg truncate">
+                <h3 
+                  onClick={() => handleUserProfileClick(post.userId?._id || post.userId?.id || post.userId)}
+                  className="font-bold text-[#4E3B31] font-playfair text-lg truncate cursor-pointer hover:underline"
+                >
                   {post.userId?.username || "Unknown User"}
                 </h3>
                 {post.userId?.isVeterinarian && (
@@ -304,5 +318,4 @@ const PostDetail = () => {
     </div>
   );
 };
-
-export default PostDetail; 
+export default PostDetail;
