@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import TypingIndicator from './TypingIndicator';
-import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead, deleteConversation } from '../Main/api';
+import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead } from '../Main/api';
 import { useMessages } from '../context/MessageContext';
 import { getSocket } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
-import { FaPaw, FaTrashAlt } from 'react-icons/fa';
+import { FaPaw } from 'react-icons/fa';
 
 const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast, setCurrentConversationId }) => {
   const [messages, setMessages] = useState([]);
@@ -14,27 +14,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [userDetails, setUserDetails] = useState(otherUser);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const { removeConversation } = useMessages();
   const messagesEndRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-
-  const handleDeleteChat = async () => {
-    try {
-      setIsDeleting(true);
-      await deleteConversation(conversationId);
-      if (removeConversation) removeConversation(conversationId);
-      window.dispatchEvent(new CustomEvent('refreshConversations'));
-      if (addToast) addToast({ title: 'Success', description: 'Chat deleted' });
-      setShowDeleteModal(false);
-      if (onBack) onBack();
-    } catch (err) {
-      if (addToast) addToast({ title: 'Error', description: 'Failed to delete chat', variant: 'destructive' });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -82,13 +63,11 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     const handleNewMessage = (message) => {
       if (String(message.conversationId) === String(conversationId)) {
         setMessages(prev => {
-          // Check if message already exists by ID or by matching text/sender (to catch optimistic messages)
           const alreadyExists = prev.some(
             m => m._id === message._id || 
             (m.text === message.text && String(m.senderId) === String(message.senderId) && Math.abs(new Date(m.createdAt) - new Date(message.createdAt || Date.now())) < 5000)
           );
           if (alreadyExists) {
-            // Replace the temp optimistic message with the real server message
             return prev.map(m => 
               (m.text === message.text && String(m.senderId) === String(message.senderId)) ? message : m
             );
@@ -139,7 +118,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       const savedMsg = response?.data?.data || response?.data;
       if (savedMsg && savedMsg._id) {
         setMessages(prev => {
-          // If the socket already added the saved message, remove the temp message to avoid a duplicate
           const alreadyAddedBySocket = prev.some(m => m._id === savedMsg._id);
           if (alreadyAddedBySocket) {
             return prev.filter(m => m._id !== tempId);
@@ -155,7 +133,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
 
   return (
     <div className="flex flex-col h-full bg-[#FAECD8] min-h-0 relative">
-      {/* Top Header matching Inspiration */}
+      {/* Top Header */}
       <div className="flex-shrink-0 bg-[#301B12] px-5 py-3.5 flex items-center justify-between shadow-xs z-10">
         <div className="flex items-center gap-3">
           {isMobile && onBack && (
@@ -165,7 +143,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
           )}
 
           <Link to={`/profile/public/${otherUser._id}`} className="relative shrink-0 flex items-center">
-            {userDetails.profileImage ? (
+            {userDetails?.profileImage ? (
               <img
                 src={`${AUTH_BASE_URL.replace('/auth', '')}${userDetails.profileImage}`}
                 alt={userDetails.username || 'User'}
@@ -176,30 +154,21 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
                 }}
               />
             ) : null}
-            <div className={`w-10 h-10 rounded-full bg-[#FDF6EE] border border-[#BA8B60] flex items-center justify-center text-lg ${userDetails.profileImage ? 'hidden' : ''}`}>
+            <div className={`w-10 h-10 rounded-full bg-[#FDF6EE] border border-[#BA8B60] flex items-center justify-center text-lg ${userDetails?.profileImage ? 'hidden' : ''}`}>
               🐶
             </div>
           </Link>
 
           <div className="flex flex-col justify-center">
             <Link to={`/profile/public/${otherUser._id}`} className="text-white font-semibold text-base leading-tight hover:text-[#E2BD9E] transition-colors">
-              {userDetails.username || 'User'}
+              {userDetails?.username || 'User'}
             </Link>
             <span className="text-xs text-[#D8BCA4] flex items-center gap-1.5 mt-0.5 font-normal">
-              <span className={`w-2 h-2 rounded-full ${userDetails.status === 'online' ? 'bg-[#9CD373]' : 'bg-[#A88876]'}`} />
-              {userDetails.status === 'online' ? 'Online' : 'Offline'}
+              <span className={`w-2 h-2 rounded-full ${userDetails?.status === 'online' ? 'bg-[#9CD373]' : 'bg-[#A88876]'}`} />
+              {userDetails?.status === 'online' ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
-
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="text-white/50 hover:text-red-400 p-2 rounded-lg transition"
-          title="Delete Chat"
-          aria-label="Delete Chat"
-        >
-          <FaTrashAlt className="text-sm" />
-        </button>
       </div>
 
       {/* Messages Stream */}
@@ -260,35 +229,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
           </button>
         </form>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-[#FFF8F2] border border-[#E8D7C8] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="font-bold text-base text-[#301B12] mb-1.5">Delete Conversation?</h3>
-            <p className="text-xs text-[#6E5041] mb-5">
-              This conversation will be permanently removed from your inbox.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="px-3.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteChat}
-                disabled={isDeleting}
-                className="px-3.5 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
