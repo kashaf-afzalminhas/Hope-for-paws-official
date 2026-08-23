@@ -333,9 +333,8 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
                 </span>
                 typing...
               </span>
-            ) : userDetails.status === 'online' ? (
+                        ) : userDetails.status === 'online' ? (
               <span className="flex items-center">
-                <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-1.5 shadow-sm"></span>
                 <span className="text-white/60">Online now</span>
               </span>
             ) : (

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
-import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
+import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations, getUserById } from '../Main/api';
 //import { getSocket, initSocket } from '../services/socket';
 import { getSocket, initSocket, setNotificationCallback, disconnectSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
@@ -85,7 +85,7 @@ const ChatPage = () => {
     };
   }
   
-  const { markAsRead, setCurrentConversationId, updateConversations, conversations, refreshConversations } = messageContext;
+  const { markAsRead, setCurrentConversationId, updateConversations, conversations, refreshConversations, addConversation } = messageContext;
   
   // Safety check for setCurrentConversationId
   const safeSetCurrentConversationId = setCurrentConversationId || (() => {
@@ -157,13 +157,27 @@ const addUserToCache = useCallback((user) => {
     const handleRecipientNavigation = async () => {
       setIsTransitioning(true);
       try {
+        // Get the other user's full info — from the already-loaded users
+        // list if possible, otherwise fetch their profile directly so we
+        // never end up showing "Unknown" while the users list is still loading.
+        const getFullUser = async () => {
+          const cached = users.find(u => u._id === recipientId);
+          if (cached) return cached;
+          try {
+            const profileRes = await getUserById(recipientId);
+            return profileRes.data?.data || profileRes.data || { _id: recipientId };
+          } catch {
+            return { _id: recipientId };
+          }
+        };
+
         const response = await getConversationBetweenUsers(currentUserId, recipientId);
         if (response.data?.data) {
           setSelectedConversation(response.data.data);
-          const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+          const fullUserObj = await getFullUser();
           setSelectedUser(fullUserObj);
+          addUserToCache(fullUserObj);
           if (isMobile) {
-            // Smooth transition to chat view
             setTimeout(() => setShowChatMobile(true), 100);
           }
         } else {
@@ -171,8 +185,17 @@ const addUserToCache = useCallback((user) => {
           const createResponse = await createConversation(currentUserId, recipientId);
           if (createResponse.data?.data) {
             setSelectedConversation(createResponse.data.data);
-            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+            const fullUserObj = await getFullUser();
             setSelectedUser(fullUserObj);
+            addUserToCache(fullUserObj);
+
+            if (addConversation) {
+              addConversation({
+                ...createResponse.data.data,
+                participants: [currentUserId, recipientId],
+              });
+            }
+
             if (isMobile) {
               setTimeout(() => setShowChatMobile(true), 100);
             }
@@ -570,11 +593,20 @@ const addUserToCache = useCallback((user) => {
             setIsTransitioning(false);
           }, 150);
         }
-        
-        // Update conversations list with the new conversation
-        // Note: This is now handled by the MessageContext via socket events
-        // No need to manually update here as it will be handled automatically
-        console.log('Chat: New conversation created, will be handled by MessageContext');
+
+              // Make sure the other user's info is cached so the sidebar can
+        // display their name/avatar immediately, instead of "Unknown".
+        addUserToCache(userObj);
+
+        // Add the new conversation to the sidebar list immediately,
+        // instead of waiting for a socket event or a page refresh.
+        if (addConversation) {
+          const convData = createResponse.data?.data || createResponse.data;
+          addConversation({
+            ...convData,
+            participants: [currentUserIdRef.current, otherUserId],
+          });
+        }
       }
     } catch (error) {
       console.error('Conversation error:', error);
@@ -768,6 +800,7 @@ const addUserToCache = useCallback((user) => {
 
     const dedupeByParticipants = (arr) => {
       const map = new Map();
+      const passthrough = [];
       arr.forEach(item => {
         if (item?.participants?.length === 2) {
           const key = item.participants
@@ -782,9 +815,14 @@ const addUserToCache = useCallback((user) => {
               map.set(key, item);
             }
           }
+        } else {
+          // Don't silently drop conversations that don't have exactly
+          // 2 participants recorded yet (e.g. a just-created conversation) —
+          // keep them as-is instead of wiping them from the list.
+          passthrough.push(item);
         }
       });
-      return Array.from(map.values());
+      return [...Array.from(map.values()), ...passthrough];
     };
 
     const dedupedById = dedupeById(conversations);
@@ -1016,6 +1054,13 @@ return (
               onBackToSidebar={handleBackToList}
               addToast={addToast}
               getUserFromCache={getUserFromCache}
+              onConversationDeleted={(deletedId) => {
+                if (selectedConversation?._id === deletedId) {
+                  setSelectedConversation(null);
+                  setSelectedUser(null);
+                  if (setCurrentConversationId) setCurrentConversationId(null);
+                }
+              }}
             />
           </div>
         </div>

@@ -190,13 +190,9 @@ const MessageProvider = ({ children }) => {
       const response = await getUserConversations(userId);
       const conversationsData = Array.isArray(response?.data?.data) ? response.data.data : [];
       
-      // Filter out conversations with "Start a conversation..." as last message
-      const filteredConversations = conversationsData.filter(conv => {
-        if (!conv.lastMessage) return false;
-        if (typeof conv.lastMessage === 'string') return false;
-        if (conv.lastMessage.text === "Start a conversation...") return false;
-        return true;
-      });
+      // Keep all conversations, including new ones that don't have a
+      // real message yet — they should still show up in the sidebar.
+      const filteredConversations = conversationsData.filter(conv => conv != null);
       
       setConversations(filteredConversations);
       
@@ -268,14 +264,9 @@ const MessageProvider = ({ children }) => {
       return;
     }
     
-    // Filter out conversations with "Start a conversation..." as last message
-    const filteredConversations = newConversations.filter(conv => {
-      if (!conv || typeof conv !== 'object') return false;
-      if (!conv.lastMessage) return false;
-      if (typeof conv.lastMessage === 'string') return false;
-      if (conv.lastMessage.text === "Start a conversation...") return false;
-      return true;
-    });
+    // Keep all conversations, including new ones that don't have a
+    // real message yet — they should still show up in the sidebar.
+    const filteredConversations = newConversations.filter(conv => conv && typeof conv === 'object');
     
     console.log('MessageContext: Filtered conversations from', newConversations.length, 'to', filteredConversations.length);
     

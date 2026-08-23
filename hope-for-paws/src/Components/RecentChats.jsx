@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaChevronLeft } from 'react-icons/fa';
-import { getUserConversations, markConversationAsRead, debugToken } from '../Main/api';
+import { getUserConversations, markConversationAsRead, debugToken, deleteConversation } from '../Main/api';
 import UserCard from './UserCard';
 import SearchBar from './SearchBar';
 import { format } from 'date-fns';
@@ -20,6 +20,7 @@ const RecentChats = ({
   onBackToSidebar,
   addToast,
   getUserFromCache,
+  onConversationDeleted,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +38,24 @@ const RecentChats = ({
       }
     } catch (error) {
       console.error("Error marking conversation as read:", error);
+    }
+  };
+
+  
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      await deleteConversation(conversationId);
+      const updated = (conversations || []).filter(conv => conv._id !== conversationId);
+      setConversations(updated);
+      if (onConversationDeleted) onConversationDeleted(conversationId);
+      if (addToast) {
+        addToast({ title: 'Deleted', description: 'Conversation deleted successfully', variant: 'default' });
+      }
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      if (addToast) {
+        addToast({ title: 'Error', description: 'Failed to delete conversation', variant: 'destructive' });
+      }
     }
   };
 
@@ -66,15 +85,8 @@ const RecentChats = ({
           return otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase());
         })
       : conversations;
-
-    return filtered.filter(conv => {
-      if (!conv || !conv.lastMessage) return false;
-      if (conv.lastMessage.text === "Start a conversation..." && conv.participants[0] !== currentUserId) {
-        return false;
-      }
-      return true;
-    });
-  }, [conversations, users, currentUserId, searchQuery, getUserById]);
+    return filtered.filter(conv => conv != null);
+  }, [conversations, users, currentUserId, searchQuery, getUserById, selectedConversationId]);
 
   useEffect(() => {
     if (!conversations) setIsLoading(true);
@@ -179,7 +191,7 @@ const RecentChats = ({
               const unreadCount = conversation.unreadCount || 0;
 
               return (
-                <UserCard
+                                <UserCard
                   key={conversation._id}
                   user={otherUser}
                   selected={selectedConversationId === conversation._id}
@@ -191,6 +203,7 @@ const RecentChats = ({
                     markAsRead(conversation._id);
                     onSelectConversation({ ...conversation, user: otherUser });
                   }}
+                  onDelete={() => handleDeleteConversation(conversation._id)}
                 />
               );
             })}

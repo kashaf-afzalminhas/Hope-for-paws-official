@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const conversationController = require("../controllers/ConversationController");
 const mongoose = require("mongoose");
+const auth = require("../middleware/auth");
 
 // Middleware to validate ObjectId
 const validateObjectId = (req, res, next) => {
@@ -36,5 +37,8 @@ router.get("/find/:firstUserId/:secondUserId", validateUserIds, conversationCont
 
 // Get a conversation by its ID
 router.get("/conversation/:id", validateObjectId, conversationController.getConversationById);
+
+// Delete a conversation (only a participant can delete it)
+router.delete("/:id", auth, validateObjectId, conversationController.deleteConversation);
 
 module.exports = router;

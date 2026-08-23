@@ -63,7 +63,7 @@ socket.on('join', async (userId) => {
       console.log(`✅ User successfully joined conversation room: ${conversationId}`);
       
       // Log all rooms this socket is in
-      const  sorooms = Array.from(socket.rooms);
+      const rooms = Array.from(socket.rooms);
       console.log(`📋 Socket ${socket.id} is now in rooms:`, rooms);
       
       // Verify the room was created and socket is in it

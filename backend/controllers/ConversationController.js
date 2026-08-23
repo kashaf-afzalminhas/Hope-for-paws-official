@@ -206,7 +206,10 @@ exports.getUserConversations = async (req, res) => {
       { $project: { messages: 0 } }
     ]);
 
-    // Enhance conversations with proper lastMessage structure and filter out empty ones
+    // Enhance conversations with proper lastMessage structure.
+    // We no longer filter out conversations with no real messages yet —
+    // a newly created conversation should show up in the sidebar
+    // immediately, before either side has sent a message.
     const Message = require('../models/message');
     const enhancedConversations = await Promise.all(conversations.map(async conv => {
       if (!conv.lastMessage || typeof conv.lastMessage === 'string') {
@@ -214,8 +217,8 @@ exports.getUserConversations = async (req, res) => {
         const lastMsg = await Message.findOne({ conversationId: conv._id })
           .sort({ createdAt: -1 })
           .lean();
-        
-        if (lastMsg && lastMsg.text && lastMsg.text !== "Start a conversation...") {
+
+        if (lastMsg && lastMsg.text) {
           return {
             ...conv,
             lastMessage: {
@@ -224,25 +227,18 @@ exports.getUserConversations = async (req, res) => {
               senderId: lastMsg.senderId
             }
           };
-        } else {
-          // Filter out conversations with no real messages
-          return null;
         }
+
+        // No real message yet — keep the conversation with its placeholder
+        // lastMessage instead of dropping it from the list.
+        return conv;
       }
-      
-      // Filter out conversations with "Start a conversation..." as last message
-      if (conv.lastMessage && conv.lastMessage.text === "Start a conversation...") {
-        return null;
-      }
-      
+
       return conv;
     }));
 
-    // Filter out null conversations and return only valid ones
-    const validConversations = enhancedConversations.filter(conv => conv !== null);
-    
-    console.log(`Returning ${validConversations.length} valid conversations for user ${userId}`);
-    res.json({ data: validConversations });
+    console.log(`Returning ${enhancedConversations.length} conversations for user ${userId}`);
+    res.json({ data: enhancedConversations });
   } catch (err) {
     console.error("Error fetching user conversations:", err);
     res.status(500).json({ message: "Failed to fetch user conversations", error: err.message });
@@ -284,6 +280,40 @@ exports.getConversationBetweenUsers = async (req, res) => {
       error: err.message,
       code: "INTERNAL_ERROR"
     });
+  }
+};
+
+
+exports.deleteConversation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid conversation ID" });
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Only a participant of the conversation can delete it
+    const isParticipant = conversation.participants.some(
+      p => p.toString() === userId.toString()
+    );
+    if (!isParticipant) {
+      return res.status(403).json({ message: "Not authorized to delete this conversation" });
+    }
+
+    const Message = require('../models/message');
+    await Message.deleteMany({ conversationId: id });
+    await Conversation.findByIdAndDelete(id);
+
+    res.json({ success: true, message: "Conversation deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting conversation:", err);
+    res.status(500).json({ message: "Failed to delete conversation", error: err.message });
   }
 };
 

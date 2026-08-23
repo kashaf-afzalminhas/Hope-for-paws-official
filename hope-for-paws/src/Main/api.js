@@ -118,6 +118,17 @@ export const createConversation = async (senderId, receiverId) => {
   }
 };
 
+export const deleteConversation = async (conversationId) => {
+  try {
+    const response = await apiRoutes.delete(`/conversations/${conversationId}`);
+    return response;
+  } catch (error) {
+    console.error('deleteConversation error:', error);
+    console.error('Error response:', error.response);
+    throw error;
+  }
+};
+
 // Messages
 export const getMessagesByConversation = async (conversationId) => {
   try {

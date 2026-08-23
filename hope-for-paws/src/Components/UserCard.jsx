@@ -1,9 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
+import { Trash2 } from 'lucide-react';
 
-const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unreadCount = 0, className }) => {
+const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unreadCount = 0, className, onDelete }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setShowConfirm(true);
+  };
+
+  const handleConfirmDelete = (e) => {
+    e.stopPropagation();
+    setShowConfirm(false);
+    if (onDelete) onDelete();
+  };
+
+  const handleCancelDelete = (e) => {
+    e.stopPropagation();
+    setShowConfirm(false);
+  };
+
   return (
     <div
       className={cn(
@@ -59,6 +78,40 @@ const UserCard = ({ user, selected = false, onClick, lastMessage, timestamp, unr
           )}
         </div>
       </div>
+
+      {onDelete && (
+        <button
+          onClick={handleDeleteClick}
+          className="shrink-0 p-2 text-white/30 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-lg hover:bg-white/5"
+          title="Delete conversation"
+          aria-label="Delete conversation"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
+
+      {showConfirm && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-between gap-2 px-4 rounded-xl bg-[#2c1810] border border-red-400/40"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-[13px] text-white/90 font-body">Delete this chat?</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleConfirmDelete}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+            >
+              Delete
+            </button>
+            <button
+              onClick={handleCancelDelete}
+              className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
