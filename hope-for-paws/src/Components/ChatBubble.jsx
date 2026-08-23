@@ -7,21 +7,28 @@ function formatMessageTime(ts) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const ChatBubble = ({ message, timestamp, isCurrentUser, className }) => (
-  <div className={cn("flex mb-1", isCurrentUser ? "justify-end" : "justify-start", className)}>
+const ChatBubble = ({ message, timestamp, isCurrentUser, senderName, className }) => (
+  <div className={cn("flex mb-3.5", isCurrentUser ? "justify-end" : "justify-start", className)}>
     <div
       className={cn(
-        "relative px-5 py-3 rounded-full shadow-sm max-w-[78%] sm:max-w-[60%]",
-        "break-words whitespace-pre-line text-[15px] leading-relaxed",
+        "relative px-4 py-2.5 rounded-2xl max-w-[85%] sm:max-w-[62%] shadow-xs",
+        "break-words whitespace-pre-line text-[14.5px] leading-relaxed transition-all",
         isCurrentUser
-          ? "bg-[#a07855] text-white rounded-br-md shadow-md"
-          : "bg-white text-[#2c1810] rounded-bl-md ring-1 ring-[#e5d9c8]"
+          ? "bg-[#D9A676] text-[#2C1810] rounded-br-sm border border-[#C89565]"
+          : "bg-[#8E7060] text-white rounded-bl-sm border border-[#7D5F50]"
       )}
     >
-      <p className="font-body">{message}</p>
-      <div className={cn("text-[10.5px] mt-1", isCurrentUser ? "text-white/70 text-right" : "text-[#2c1810]/45 text-left")}>
-        {formatMessageTime(timestamp)}
+      {/* Header with Sender Name and Timestamp like screenshot */}
+      <div className={cn(
+        "flex items-center gap-1.5 text-[11.5px] mb-1 font-medium select-none",
+        isCurrentUser ? "text-[#3D1E0C] justify-start" : "text-[#F5EBE1] justify-start"
+      )}>
+        <span className="font-semibold">{senderName || (isCurrentUser ? 'Sahab' : 'User')}</span>
+        <span>:</span>
+        <span className="opacity-80 text-[10.5px]">{formatMessageTime(timestamp)}</span>
       </div>
+
+      <p className="font-body font-normal text-[14px] leading-snug">{message}</p>
     </div>
   </div>
 );
