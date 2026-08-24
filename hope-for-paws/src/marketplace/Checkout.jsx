@@ -1,6 +1,6 @@
 import { SHIPPING_FEE } from '../utils/constants';
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
   Lock,
@@ -42,9 +42,28 @@ function ToastStack({ toasts, dismissToast }) {
 }
 
 export default function Checkout() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal: cartSubtotal, clearCart } = useCart();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
+  // ── Buy Now: use single item from route state; otherwise fall back to cart ──
+  const buyNowItem = location.state?.buyNowItem;
+  const isBuyNow = Boolean(buyNowItem);
+
+  const items = useMemo(() => {
+    if (isBuyNow) {
+      return [buyNowItem];
+    }
+    return cartItems;
+  }, [isBuyNow, buyNowItem, cartItems]);
+
+  const cartTotal = useMemo(() => {
+    if (isBuyNow) {
+      return buyNowItem.price * buyNowItem.quantity;
+    }
+    return cartSubtotal;
+  }, [isBuyNow, buyNowItem, cartSubtotal]);
+
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -149,7 +168,7 @@ export default function Checkout() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      await clearCart();
+      if (!isBuyNow) await clearCart();
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);
       

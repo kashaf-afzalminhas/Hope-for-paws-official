@@ -333,17 +333,22 @@ export default function ProductDetails() {
     }
   };
 
-  const handleBuyNow = async () => {
-    if (addingToCart || PRODUCT.stock <= 0) return;
+  const handleBuyNow = () => {
+    if (PRODUCT.stock <= 0) return;
     if (!requireAuth('purchase products')) return;
-    setAddingToCart(true);
-    const result = await addToCart(PRODUCT._id, qty);
-    setAddingToCart(false);
-    if (result.success) {
-      navigate('/checkout');
-    } else if (!result.message?.includes('sign in')) {
-      alert(result.message || 'Failed to add to cart');
-    }
+    navigate('/checkout', {
+      state: {
+        buyNowItem: {
+          productId: PRODUCT._id,
+          title: PRODUCT.title,
+          image: PRODUCT.images?.[0] || '',
+          price: PRODUCT.price,
+          quantity: qty,
+          brand: PRODUCT.brand,
+          weight: PRODUCT.weight,
+        }
+      }
+    });
   };
 
   function ImageGallery({ images }) {

@@ -853,7 +853,7 @@ const ProfilePage = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {/* ignore error parsing error response */}
+        } catch {/* ignore error parsing error response */ }
         throw new Error(errorMessage);
       }
       const data = await response.json();
@@ -1170,29 +1170,29 @@ const ProfilePage = () => {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
-const handleDeleteComment = async (commentId, postId) => {// change here.
-  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = async (commentId, postId) => {// change here.
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
 
-  try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    setPosts(prev => prev.map(post => {
-      if (post._id === postId) {
-        return {
-          ...post,
-          comments: post.comments.filter((c) => c._id !== commentId),
-        };
-      }
-      return post;
-    }));
-  } catch (err) {
-    addToast('Failed to delete comment.', 'error');
-  }
-}; // till here.
+      setPosts(prev => prev.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            comments: post.comments.filter((c) => c._id !== commentId),
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      addToast('Failed to delete comment.', 'error');
+    }
+  }; // till here.
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1696,11 +1696,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     <button
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
-                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${
-                        loading || !hasChanges() || (phoneTouched && phoneError)
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${loading || !hasChanges() || (phoneTouched && phoneError)
                           ? 'cursor-not-allowed bg-gray-400 text-gray-200'
                           : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
-                      }`}
+                        }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -1768,9 +1767,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                             setPasswordError(validatePasswordStrength(passwords.newPassword));
                           }}
                           required
-                          className={`w-full px-3 py-2 pr-10 border rounded-md ${
-                            passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
-                          }`}
+                          className={`w-full px-3 py-2 pr-10 border rounded-md ${passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
+                            }`}
                         />
                         <button
                           type="button"
@@ -1838,7 +1836,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
             {currentView === 'myadoptions' && <MyAdoptions embedded />}
             {currentView === 'myorders' && (
-                <MyOrdersPage embedded />
+              <MyOrdersPage embedded />
             )}
             {currentView === 'myposts' && (
               <section className="min-h-screen py-4">
@@ -1852,8 +1850,24 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                       <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
                     </div>
                   ) : posts.length === 0 ? (
-                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
+                    <div className="flex flex-col items-center justify-center gap-4 py-10 bg-[#c9a280]/20 rounded-xl p-8 border-2 border-dashed border-[#6b493d]/30">
                       <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
+                      <div className="flex gap-4 mt-2">
+                        <NavLink
+                          to="/createpost"
+                          className="px-6 py-2.5 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors shadow-md font-medium"
+                          style={{ fontFamily: '"Poppins", sans-serif' }}
+                        >
+                          Create Post
+                        </NavLink>
+                        <NavLink
+                          to="/posts"
+                          className="px-6 py-2.5 border-2 border-[#6b493d] text-[#6b493d] rounded-lg hover:bg-[#6b493d]/10 transition-colors font-medium"
+                          style={{ fontFamily: '"Poppins", sans-serif' }}
+                        >
+                          Go Back
+                        </NavLink>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
@@ -1958,7 +1972,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                                   <div className="mt-4 space-y-3">
                                     {post.comments.length > 0 ? (
                                       post.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 rounded-lg flex justify-between items-start gap-2">
+                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words flex justify-between items-start gap-2">
                                           <div>
                                             <p className="text-[#6b493d] font-medium break-words">
                                               {comment.userId?.username || "Unknown User"}

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ChatBubble from './ChatBubble';
 import TypingIndicator from './TypingIndicator';
-import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead } from '../Main/api';
+import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead, deleteConversation, debugToken } from '../Main/api';
 import { useMessages } from '../context/MessageContext';
-import { getSocket } from '../services/socket';
+import { getSocket, sendSocketMessage } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { FaPaw } from 'react-icons/fa';
@@ -14,8 +14,46 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [userDetails, setUserDetails] = useState(otherUser);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { removeConversation } = useMessages();
   const messagesEndRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  const handleDeleteChat = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteConversation(conversationId);
+      if (removeConversation) {
+        removeConversation(conversationId);
+      }
+
+      // Triggers immediate sync across MessageContext and background tabs
+      window.dispatchEvent(new CustomEvent('refreshConversations'));
+
+      if (addToast) {
+        addToast({
+          title: 'Success',
+          description: 'Chat deleted successfully'
+        });
+      }
+      setShowDeleteModal(false);
+      if (onBack) {
+        onBack();
+      }
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      if (addToast) {
+        addToast({
+          title: 'Error',
+          description: 'Failed to delete chat',
+          variant: 'destructive'
+        });
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -102,7 +140,23 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     const text = inputText.trim();
     setInputText('');
 
-    const tempId = `temp-${Date.now()}`;
+    // Safely extract the sender's user ID from props or storage
+    const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const senderId = currentUser?._id || currentUser?.id || storedUser?._id || storedUser?.id;
+
+    if (!senderId) {
+      console.error('No valid sender ID found to send message');
+      if (addToast) {
+        addToast({
+          title: 'Error',
+          description: 'Authentication session expired. Please re-login.',
+          variant: 'destructive'
+        });
+      }
+      return;
+    }
+
+    const tempId = Date.now().toString();
     const tempMessage = {
       _id: tempId,
       conversationId,
@@ -169,6 +223,18 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
             </span>
           </div>
         </div>
+
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="p-2 text-white/70 hover:text-red-400 hover:bg-white/10 rounded-full transition-colors active:scale-95 ml-auto"
+          title="Delete Chat"
+          aria-label="Delete Chat"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+        
       </div>
 
       {/* Messages Stream */}
@@ -229,6 +295,34 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
           </button>
         </form>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-heading font-bold text-[#2c1810] mb-2">Delete Conversation?</h3>
+            <p className="font-body text-sm text-gray-600 mb-6">
+              This chat will be removed from your inbox. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteChat}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
