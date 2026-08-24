@@ -854,7 +854,7 @@ const ProfilePage = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {/* ignore error parsing error response */}
+        } catch {/* ignore error parsing error response */ }
         throw new Error(errorMessage);
       }
       const data = await response.json();
@@ -1171,29 +1171,29 @@ const ProfilePage = () => {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
-const handleDeleteComment = async (commentId, postId) => {// change here.
-  if (!window.confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = async (commentId, postId) => {// change here.
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
 
-  try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    setPosts(prev => prev.map(post => {
-      if (post._id === postId) {
-        return {
-          ...post,
-          comments: post.comments.filter((c) => c._id !== commentId),
-        };
-      }
-      return post;
-    }));
-  } catch (err) {
-    addToast('Failed to delete comment.', 'error');
-  }
-}; // till here.
+      setPosts(prev => prev.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            comments: post.comments.filter((c) => c._id !== commentId),
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      addToast('Failed to delete comment.', 'error');
+    }
+  }; // till here.
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1703,11 +1703,10 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                     <button
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
-                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${
-                        loading || !hasChanges() || (phoneTouched && phoneError)
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${loading || !hasChanges() || (phoneTouched && phoneError)
                           ? 'cursor-not-allowed bg-gray-400 text-gray-200'
                           : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
-                      }`}
+                        }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -1775,9 +1774,8 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                             setPasswordError(validatePasswordStrength(passwords.newPassword));
                           }}
                           required
-                          className={`w-full px-3 py-2 pr-10 border rounded-md ${
-                            passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
-                          }`}
+                          className={`w-full px-3 py-2 pr-10 border rounded-md ${passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
+                            }`}
                         />
                         <button
                           type="button"

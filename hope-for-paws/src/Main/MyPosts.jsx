@@ -24,7 +24,7 @@ const MyPosts = ({ embedded = false }) => {
 
     setLoading(true);
     fetchUserPosts();
-  }, []);
+  }, []); // Run only once when the component mounts
 
   const fetchUserPosts = async () => {
     if (!userId) {
@@ -34,7 +34,7 @@ const MyPosts = ({ embedded = false }) => {
 
     try {
       setLoading(true);
-      setError("");
+      setError(""); // Reset error before making a request
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {

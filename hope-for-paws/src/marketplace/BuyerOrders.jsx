@@ -544,13 +544,13 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           {/* ── Order Details Panel ── */}
           {showDetails && !isCancelled && (
             <div className="mx-5 mb-4 mt-3 rounded-2xl border border-stone-100 bg-stone-50/60 overflow-hidden"
-                 style={{ animation: "slideUp 0.2s ease-out" }}>
+              style={{ animation: "slideUp 0.2s ease-out" }}>
               {/* Panel header */}
               <div className="px-4 pt-4 pb-3 border-b border-stone-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                         style={{ backgroundColor: cfg.accent + '18' }}>
+                      style={{ backgroundColor: cfg.accent + '18' }}>
                       <Receipt size={13} style={{ color: cfg.accent }} />
                     </div>
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
@@ -729,13 +729,13 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           )}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cancel confirm (inline) Ã¢â€â‚¬Ã¢â€â‚¬ */}
-         {showCancelConfirm && (
-  <CancelConfirm
-    onConfirm={handleCancelConfirm}
-    onDismiss={() => setShowCancelConfirm(false)}
-    isCOD={order.paymentMethod?.toLowerCase() === 'cod'}
-  />
-)}
+          {showCancelConfirm && (
+            <CancelConfirm
+              onConfirm={handleCancelConfirm}
+              onDismiss={() => setShowCancelConfirm(false)}
+              isCOD={order.paymentMethod?.toLowerCase() === 'cod'}
+            />
+          )}
 
           {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order meta (shipping, payment) Ã¢â‚¬â€ subtle row Ã¢â€â‚¬Ã¢â€â‚¬ */}
           <div className="px-5 pb-3 flex items-center gap-4 flex-wrap">
@@ -755,23 +755,23 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           <div className="px-5 py-3 border-t border-stone-50 bg-stone-50/40 flex items-center justify-between gap-3 flex-wrap">
             {/* Left: support link */}
             <button
-  onClick={() => {
-    const sellerUserId = order.sellerId?.userId;
-    if (sellerUserId) {
-      navigate(`/chat/${sellerUserId}`, {
-        state: {
-          fromOrder: true,
-          orderId: order.orderId || order._id,
-          sellerStoreName: order.sellerId?.storeName,
-        }
-      });
-    }
-  }}
-  className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
->
-  <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
-  Get help with this order
-</button>
+              onClick={() => {
+                const sellerUserId = order.sellerId?.userId;
+                if (sellerUserId) {
+                  navigate(`/chat/${sellerUserId}`, {
+                    state: {
+                      fromOrder: true,
+                      orderId: order.orderId || order._id,
+                      sellerStoreName: order.sellerId?.storeName,
+                    }
+                  });
+                }
+              }}
+              className="flex items-center gap-1.5 text-[11px] text-stone-400 hover:text-[#6b493d] transition-colors group"
+            >
+              <MessageCircle size={12} className="group-hover:text-[#6b493d]" />
+              Get help with this order
+            </button>
 
             {/* Right: primary CTAs */}
             <div className="flex items-center gap-2">
@@ -1007,12 +1007,12 @@ const isRecentlyCancelled = (order) => {
 };
 
 function FilterTabs({ activeFilter, onFilter, orders }) {
- const counts = {
-  all: orders.length,
-  active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
-  delivered: orders.filter(o => o.status === "Delivered").length,
-  cancelled: orders.filter(o => o.status === "Cancelled").length,
-};
+  const counts = {
+    all: orders.length,
+    active: orders.filter(o => !["Delivered", "Cancelled"].includes(o.status)).length,
+    delivered: orders.filter(o => o.status === "Delivered").length,
+    cancelled: orders.filter(o => o.status === "Cancelled").length,
+  };
 
   return (
     <div
@@ -1199,14 +1199,14 @@ export default function MyOrdersPage({ embedded = false }) {
   }, [showToast]);
 
   const filteredOrders = orders.filter(o => {
-  if (statusFilter) return o.status === statusFilter;
+    if (statusFilter) return o.status === statusFilter;
 
-  if (activeFilter === "all")       return true;
-  if (activeFilter === "active")    return !["Delivered", "Cancelled"].includes(o.status);
-  if (activeFilter === "delivered") return o.status === "Delivered";
-  if (activeFilter === "cancelled") return o.status === "Cancelled";
-  return true;
-});
+    if (activeFilter === "all") return true;
+    if (activeFilter === "active") return !["Delivered", "Cancelled"].includes(o.status);
+    if (activeFilter === "delivered") return o.status === "Delivered";
+    if (activeFilter === "cancelled") return o.status === "Cancelled";
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-[#f8f6f4]" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -1231,10 +1231,10 @@ export default function MyOrdersPage({ embedded = false }) {
               </p>
             </div>
             <StatusFilterDropdown
-  selectedStatus={statusFilter}
-  onSelect={setStatusFilter}
-  orders={orders}
-/>
+              selectedStatus={statusFilter}
+              onSelect={setStatusFilter}
+              orders={orders}
+            />
           </div>
         </header>
 
@@ -1242,11 +1242,11 @@ export default function MyOrdersPage({ embedded = false }) {
         <PageStats orders={orders} />
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filter tabs Ã¢â€â‚¬Ã¢â€â‚¬ */}
-<FilterTabs
-  activeFilter={activeFilter}
-  onFilter={(tab) => { setStatusFilter(null); setFilter(tab); }}
-  orders={orders}
-/>
+        <FilterTabs
+          activeFilter={activeFilter}
+          onFilter={(tab) => { setStatusFilter(null); setFilter(tab); }}
+          orders={orders}
+        />
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Order list Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <main>

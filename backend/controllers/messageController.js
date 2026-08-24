@@ -49,14 +49,21 @@ exports.sendMessage = async (req, res) => {
 
     const savedMessage = await message.save();
 
-    // Update conversation's last message
-    conversation.lastMessage = {
-      text,
-      createdAt: savedMessage.createdAt,
-      senderId
-    };
-    conversation.updatedAt = Date.now();
-    await conversation.save();
+    // Update conversation atomically to prevent VersionError (optimisticConcurrency)
+    const updatedConversation = await Conversation.findByIdAndUpdate(
+      conversationId,
+      {
+        $set: {
+          lastMessage: {
+            text,
+            createdAt: savedMessage.createdAt,
+            senderId
+          },
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
 
     // Enhanced socket event emission for real-time notifications
     const io = req.app.get("socketio");
@@ -172,16 +179,37 @@ exports.sendMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
 
   try {
-    // Validate conversation ID
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({ message: "Invalid conversation ID" });
     }
 
-    const messages = await Message.find({ conversationId })
-      .sort({ createdAt: 1 })
-      .populate("readBy", "username email"); // Populate readBy with user details
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const query = { conversationId };
+
+    // Filter out messages prior to the user's deletion date
+    if (userId && Array.isArray(conversation.deletedBy)) {
+      const userDeleteRecord = conversation.deletedBy.find(
+        d => d.userId?.toString() === userId.toString()
+      );
+      if (userDeleteRecord && userDeleteRecord.deletedAt) {
+        const deleteDate = new Date(userDeleteRecord.deletedAt);
+        query.$or = [
+          { createdAt: { $gt: deleteDate } },
+          { timestamp: { $gt: deleteDate } }
+        ];
+      }
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: 1, timestamp: 1 })
+      .populate("readBy", "username email");
 
     res.json(messages);
   } catch (err) {
