@@ -25,7 +25,7 @@ const MyPosts = () => {
 
     setLoading(true);
     fetchUserPosts();
-  }, []);
+  }, []); // Run only once when the component mounts
 
   const fetchUserPosts = async () => {
     if (!userId) {
@@ -35,7 +35,7 @@ const MyPosts = () => {
 
     try {
       setLoading(true);
-      setError("");
+      setError(""); // Reset error before making a request
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
@@ -63,7 +63,8 @@ const MyPosts = () => {
 
   const handleSaveEdit = async (postId) => {
     try {
-      setSavingStates((prev) => ({ ...prev, [postId]: true }));
+      // Set saving state for this specific post
+      setSavingStates(prev => ({ ...prev, [postId]: true }));
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.put(
@@ -73,8 +74,11 @@ const MyPosts = () => {
       );
 
       setEditingPost(null);
+
+      // Show immediate success feedback
       setSuccessMessage('Post updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
       fetchUserPosts();
     } catch (error) {
       console.error("Error updating post:", error);
