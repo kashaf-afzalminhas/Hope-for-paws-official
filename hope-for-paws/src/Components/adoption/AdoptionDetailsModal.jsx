@@ -55,7 +55,7 @@ const AdoptionDetailsModal = ({
 
   const goToNextImage = () => {
     if (imageList.length <= 1) return;
-    setCurrentImageIndex((prev) => (prev + 1) % imageList.length);
+    setCurrentImageIndex((prev) => Math.min(prev + 1, imageList.length - 1));
   };
 
   return (
@@ -113,8 +113,9 @@ const AdoptionDetailsModal = ({
                   <button
                     type="button"
                     onClick={goToNextImage}
+                    disabled={currentImageIndex === imageList.length - 1}
                     aria-label="Next image"
-                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white"
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>

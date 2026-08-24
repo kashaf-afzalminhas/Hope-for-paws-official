@@ -16,7 +16,7 @@ import { TrendingUp, PieChart, ArrowLeft } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
-export default function SellerAnalyticsDashboard() {
+export default function SellerAnalyticsDashboard({ embedded = false }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -211,9 +211,9 @@ export default function SellerAnalyticsDashboard() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-white py-6 md:py-8 text-stone-700 antialiased font-sans">
+    <div className={embedded ? "w-full bg-transparent text-stone-700 antialiased font-sans" : "min-h-screen bg-white py-6 md:py-8 text-stone-700 antialiased font-sans"}>
       {/* Container with balanced side margin */}
-      <div className="mx-auto max-w-[1360px] px-4 sm:px-6 md:px-8 space-y-6">
+      <div className={embedded ? "w-full space-y-6" : "mx-auto max-w-[1360px] px-4 sm:px-6 md:px-8 space-y-6"}>
         
         {/* TOP HERO CARD (Matches the Profile Overview style) */}
         <div className="bg-[#f7f2eb] rounded-3xl p-6 md:p-8 border border-[#e8dfd3] shadow-sm space-y-6">

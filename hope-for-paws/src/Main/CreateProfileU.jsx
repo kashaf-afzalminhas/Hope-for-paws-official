@@ -16,6 +16,7 @@ import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
 import SellerOrders from '../marketplace/SellerOrders';
 import MyOrdersPage from '../marketplace/BuyerOrders';
+import MyPosts from './MyPosts';
 import { COUNTRY_CODES } from '../utils/constants';
 
 // Simple Toast component
@@ -1225,12 +1226,12 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#f8f4ea]">
       <Toast toasts={toasts} />
 
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+      <main className="mx-auto min-w-0 w-full max-w-[1440px] flex-1 overflow-x-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           {/* Sidebar */}
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
             {/* Back Button */}
@@ -1380,7 +1381,7 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
           </div>
 
           {/* Content Area */}
-          <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
+          <div className={`min-w-0 flex-1 ${currentView === 'myposts' ? 'rounded-xl border border-[#b88b68]/70 bg-[#d8b89d] p-3 shadow-sm sm:p-5 lg:p-6' : currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
               <div className="space-y-6">
                 <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
@@ -1643,10 +1644,16 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
                             <button
                               type="button"
                               key={option.value}
-                              onClick={() => handleNotificationPreferenceChange('email', option.value)}
-                              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${formData.notificationPreferences.email === option.value ? 'border-[#6b493d] bg-[#6b493d]/10 text-[#1f2a3d]' : 'border-gray-200 bg-white text-gray-700 hover:border-[#6b493d]/70 hover:bg-[#f8f6f4]'}`}
+                              disabled={option.value === 'daily_summary'}
+                              onClick={option.value === 'daily_summary' ? undefined : () => handleNotificationPreferenceChange('email', option.value)}
+                              className={`relative w-full rounded-2xl border px-4 py-3 text-left transition ${option.value === 'daily_summary' ? 'cursor-not-allowed border-[#d8c5b6] bg-[#f3e7dc] text-[#7a6554]' : formData.notificationPreferences.email === option.value ? 'border-[#6b493d] bg-[#6b493d]/10 text-[#1f2a3d]' : 'border-gray-200 bg-white text-gray-700 hover:border-[#6b493d]/70 hover:bg-[#f8f6f4]'}`}
                             >
-                              <p className="font-semibold">{option.label}</p>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-semibold">{option.label}</p>
+                                {option.value === 'daily_summary' && (
+                                  <span className="shrink-0 rounded-full border border-[#c9a280]/70 bg-white/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">Coming soon</span>
+                                )}
+                              </div>
                               <p className="mt-1 text-xs text-gray-500">
                                 {option.value === 'instant' ? 'Send urgent updates immediately.' : option.value === 'daily_summary' ? 'Bundle routine alerts into one daily digest.' : 'Disable email alerts.'}
                               </p>
@@ -1836,174 +1843,34 @@ const handleDeleteComment = async (commentId, postId) => {// change here.
               </div>
             )}
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
-            {currentView === 'myadoptions' && <MyAdoptions embedded />}
+            {currentView === 'myadoptions' && (
+              <div>
+                <div className="mb-5 flex justify-end">
+                  <button type="button" onClick={() => navigate('/my-adoptions')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                    Open full page
+                    <FaChevronLeft className="rotate-180" />
+                  </button>
+                </div>
+                <MyAdoptions embedded />
+              </div>
+            )}
             {currentView === 'myorders' && (
-                <MyOrdersPage embedded />
+                <div>
+                  <div className="mb-5 flex justify-end">
+                    <button type="button" onClick={() => navigate('/my-orders')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                      Open full page
+                      <FaChevronLeft className="rotate-180" />
+                    </button>
+                  </div>
+                  <MyOrdersPage embedded />
+                </div>
             )}
             {currentView === 'myposts' && (
-              <section className="min-h-screen py-4">
-                <div className="w-full">
-                  <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-                    My Shared Posts
-                  </h3>
-
-                  {postsLoading ? (
-                    <div className="flex justify-center items-center h-64">
-                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
-                    </div>
-                  ) : posts.length === 0 ? (
-                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
-                      <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-                      {posts.map((post) => (
-                        <article key={post._id} className="bg-white rounded-2xl shadow-[0_12px_30px_rgba(107,73,61,0.08)] border border-[#f1e7df] overflow-hidden">
-                          <div className="relative">
-                            <img
-                              src={post.imageUrl}
-                              alt="Pet"
-                              className="w-full h-64 object-cover"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/25 via-transparent to-transparent" />
-                          </div>
-
-                          <div className="p-5 md:p-6">
-                            {editingPost === post._id ? (
-                              <div className="space-y-4">
-                                <h4 className="text-lg font-semibold text-[#6b493d] border-b border-[#6b493d]/20 pb-2">
-                                  Edit Post Caption
-                                </h4>
-                                <textarea
-                                  value={editCaption}
-                                  onChange={(e) => setEditCaption(e.target.value)}
-                                  className="w-full rounded-lg border border-[#c9a280] bg-[#fdfaf7] text-[#4E3B31] focus:border-[#6b493d] focus:ring-2 focus:ring-[#6b493d]/20 resize-none"
-                                  rows={4}
-                                  style={{ fontFamily: '"Poppins", sans-serif' }}
-                                />
-                                <div className="flex justify-end gap-3">
-                                  <button
-                                    onClick={() => setEditingPost(null)}
-                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                    disabled={postSavingStates[post._id]}
-                                    aria-label="Cancel edit"
-                                  >
-                                    <X className="h-5 w-5 text-[#6b493d]" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveEditPost(post._id)}
-                                    disabled={postSavingStates[post._id]}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    style={{ fontFamily: '"Poppins", sans-serif' }}
-                                  >
-                                    {postSavingStates[post._id] ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                        <span>Saving...</span>
-                                      </>
-                                    ) : (
-                                      <span>Save Changes</span>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <p
-                                  className="text-[#4E3B31] mb-4 italic text-base md:text-lg leading-relaxed break-words"
-                                  style={{ fontFamily: '"Poppins", sans-serif', whiteSpace: 'pre-wrap' }}
-                                >
-                                  &quot;{post.caption}&quot;
-                                </p>
-
-                                <div className="flex items-center justify-between gap-3 flex-wrap">
-                                  <div className="flex items-center space-x-4 text-[#6b493d]/80">
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <Heart className="h-4 w-4 fill-current" />
-                                      <span>{post.likes.length}</span>
-                                    </span>
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <MessageCircle className="h-4 w-4" />
-                                      <span>{post.comments.length}</span>
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => handleEditPost(post)}
-                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                      aria-label="Edit post"
-                                    >
-                                      <Pencil className="h-5 w-5 text-[#6b493d]" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeletePost(post._id)}
-                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                      aria-label="Delete post"
-                                    >
-                                      <Trash2 className="h-5 w-5 text-[#6b493d]" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                <button
-                                  onClick={() => toggleComments(post._id)}
-                                  className="mt-4 text-sm font-medium text-[#6b493d] hover:text-[#5a3d32] transition-colors"
-                                >
-                                  {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
-                                </button>
-
-                                {expandedComments[post._id] && (
-                                  <div className="mt-4 space-y-3">
-                                    {post.comments.length > 0 ? (
-                                      post.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 rounded-lg flex justify-between items-start gap-2">
-                                          <div>
-                                            <p className="text-[#6b493d] font-medium break-words">
-                                              {comment.userId?.username || "Unknown User"}
-                                            </p>
-                                            <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-                                          </div>
-                                          {user && (
-                                            comment.userId?._id === user._id || comment.userId?._id === user.id ||
-                                            post.userId?._id === user._id || post.userId?._id === user.id
-                                          ) && (
-                                            <button
-                                              onClick={() => handleDeleteComment(comment._id, post._id)}
-                                              className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                                              title="Delete comment"
-                                              aria-label="Delete comment"
-                                            >
-                                              <Trash2 className="h-4 w-4" />
-                                            </button>
-                                          )}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-
-                  {postsError && (
-                    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
-                      {postsError}
-                    </div>
-                  )}
-                </div>
-              </section>
+              <MyPosts embedded  />
             )}
 
             {currentView === 'sellerdashboard' && (
-              <SellerDashboard onNavigateOrders={() => handleViewChange('ordermanagement')} />
+              <SellerDashboard embedded onNavigateOrders={() => handleViewChange('ordermanagement')} />
             )}
 
             {currentView === 'ordermanagement' && (

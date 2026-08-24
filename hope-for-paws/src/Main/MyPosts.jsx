@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import DOMPurify from "dompurify";
 import { useAuth } from "../context/AuthContext";
-import { Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { Heart, PawPrint } from "lucide-react";
 import { API_BASE_URL } from '../config';
 import { getCurrentUserId } from '../lib/utils';
+import PostCard from "../Components/posts/PostCard"; // adjust to actual path
+import PostViewToggle from "../Components/posts/PostViewToggle";
 
-const MyPosts = () => {
+
+const MyPosts = ({ embedded = false }) => {
   const [posts, setPosts] = useState([]);
-  const [editingPost, setEditingPost] = useState(null);
-  const [editCaption, setEditCaption] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [savingStates, setSavingStates] = useState({});
+  const [viewMode, setViewMode] = useState("grid"); // "grid" | "slide"
   const { user } = useAuth();
-  const [expandedComments, setExpandedComments] = useState({});
 
   const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const userId = getCurrentUserId(userr);
@@ -56,32 +55,38 @@ const MyPosts = () => {
     }
   };
 
-  const handleEdit = (post) => {
-    setEditingPost(post._id);
-    setEditCaption(post.caption);
-  };
-
-  const handleSaveEdit = async (postId) => {
+  // A selected image set replaces the post's current photos.
+  const handleSaveEdit = async (postId, caption, imageFiles) => {
     try {
-      setSavingStates((prev) => ({ ...prev, [postId]: true }));
-
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await axios.put(
+
+      const formData = new FormData();
+      formData.append('caption', caption);
+      imageFiles.forEach((imageFile) => formData.append('images', imageFile));
+
+      const response = await axios.put(
         `${API_BASE_URL}/posts/${postId}`,
-        { caption: editCaption },
-        { headers: { Authorization: `Bearer ${token}` } }
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            // Do NOT set Content-Type manually for FormData — axios/browser needs to
+            // generate the multipart boundary itself, or the backend parser can fail
+            // to read the file (and sometimes the text fields too).
+          },
+        }
       );
 
-      setEditingPost(null);
       setSuccessMessage('Post updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
-      fetchUserPosts();
+      setPosts((previousPosts) => previousPosts.map((post) => (
+        post._id === postId ? { ...post, ...(response.data || {}), caption } : post
+      )));
     } catch (error) {
       console.error("Error updating post:", error);
       setError("Failed to update post. Please try again.");
       setTimeout(() => setError(''), 5000);
-    } finally {
-      setSavingStates((prev) => ({ ...prev, [postId]: false }));
+      throw error; // let PostCard know the save failed so it keeps the form open
     }
   };
 
@@ -99,159 +104,84 @@ const MyPosts = () => {
     }
   };
 
-  const toggleComments = (postId) => {
-    setExpandedComments((prev) => ({
-      ...prev,
-      [postId]: !prev[postId],
-    }));
-  };
-
   return (
-    <section className="min-h-screen bg-[#f5f3ed] py-6 md:py-10">
-      <div className="max-w-6xl mx-auto px-4">
-        <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-          My Shared Posts
-        </h3>
+    <section className={embedded ? "relative overflow-hidden rounded-[28px] border border-[#b88b68] bg-[radial-gradient(circle_at_top_right,_rgba(155,107,69,0.16),_transparent_38%),linear-gradient(135deg,_#fbf8f3_0%,_#f5e8dc_52%,_#dfc3aa_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-6" : "relative min-h-screen overflow-hidden bg-cream py-10 md:py-14"}>
+      {!embedded && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,_rgba(160,120,85,0.16),_transparent_70%)]" />
+      )}
+      {embedded && <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.42)_48%,transparent_100%)]" />}
+      <div className={embedded ? "relative w-full" : "relative max-w-6xl mx-auto px-4"}>
+
+        {/* Header */}
+        <div className={embedded ? "text-left mb-8" : "text-center mb-10"}>
+          <span className="inline-flex items-center gap-2 text-xs md:text-sm font-semibold tracking-[0.2em] uppercase text-[#6b493d] font-body">
+            <PawPrint className="h-3.5 w-3.5" />
+            Your Gallery
+          </span>
+          <h3 className="text-2xl md:text-3xl font-bold text-[#4E3B31] mt-2 font-heading">
+            My Shared Posts
+          </h3>
+          {!embedded && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <span className="h-px w-10 bg-[#9b6b45]" />
+              <Heart className="h-3.5 w-3.5 text-[#6b493d] fill-current" />
+              <span className="h-px w-10 bg-[#9b6b45]" />
+            </div>
+          )}
+        </div>
+
+        {!loading && posts.length > 0 && (
+          <div className="flex items-center justify-end mb-4">
+            <PostViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        )}
 
         {successMessage && (
-          <div className="mb-8 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center">
+          <div className="mb-8 max-w-md mx-auto p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-center shadow-warm-sm font-body">
             <p>{successMessage}</p>
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
+          <div className="flex flex-col justify-center items-center h-64 gap-3">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-clay border-t-transparent"></div>
+            <p className="text-sm text-ink/60 font-body">
+              Loading your posts...
+            </p>
           </div>
         ) : posts.length === 0 ? (
-          <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
-            <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
+          <div className="bg-white rounded-2xl p-12 text-center border-2 border-dashed border-sand max-w-xl mx-auto shadow-warm-md">
+            <PawPrint className="h-8 w-8 text-clay mx-auto mb-3" />
+            <p className="text-xl text-ink/80 italic font-heading">
+              No posts yet. Share your first pet moment!
+            </p>
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
             {posts.map((post) => (
-              <article key={post._id} className="bg-white rounded-2xl shadow-[0_12px_30px_rgba(107,73,61,0.08)] border border-[#f1e7df] overflow-hidden">
-                <div className="relative">
-                  <img
-                    src={post.imageUrl}
-                    alt="Pet"
-                    className="w-full h-64 object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/25 via-transparent to-transparent" />
-                </div>
-
-                <div className="p-5 md:p-6">
-                  {editingPost === post._id ? (
-                    <div className="space-y-4">
-                      <h4 className="text-lg font-semibold text-[#6b493d] border-b border-[#6b493d]/20 pb-2">
-                        Edit Post Caption
-                      </h4>
-                      <textarea
-                        value={editCaption}
-                        onChange={(e) => setEditCaption(e.target.value)}
-                        className="w-full rounded-lg border border-[#c9a280] bg-[#fdfaf7] text-[#4E3B31] focus:border-[#6b493d] focus:ring-2 focus:ring-[#6b493d]/20 resize-none"
-                        rows={4}
-                        style={{ fontFamily: '"Poppins", sans-serif' }}
-                      />
-                      <div className="flex justify-end space-x-3">
-                        <button
-                          onClick={() => setEditingPost(null)}
-                          className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                          disabled={savingStates[post._id]}
-                          aria-label="Cancel edit"
-                        >
-                          <X className="h-5 w-5 text-[#6b493d]" />
-                        </button>
-                        <button
-                          onClick={() => handleSaveEdit(post._id)}
-                          disabled={savingStates[post._id]}
-                          className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                          style={{ fontFamily: '"Poppins", sans-serif' }}
-                        >
-                          {savingStates[post._id] ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                              <span>Saving...</span>
-                            </>
-                          ) : (
-                            <span>Save Changes</span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <p
-                        className="text-[#4E3B31] mb-4 italic text-base md:text-lg leading-relaxed break-words"
-                        style={{ fontFamily: '"Poppins", sans-serif', whiteSpace: 'pre-wrap' }}
-                      >
-                        {DOMPurify.sanitize(post.caption, { ALLOWED_TAGS: [] })}
-                      </p>
-
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="flex items-center space-x-4 text-[#6b493d]/80">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Heart className="h-4 w-4 fill-current" />
-                            <span>{post.likes.length}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <MessageCircle className="h-4 w-4" />
-                            <span>{post.comments.length}</span>
-                          </span>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEdit(post)}
-                            className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                            aria-label="Edit post"
-                          >
-                            <Pencil className="h-5 w-5 text-[#6b493d]" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(post._id)}
-                            className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                            aria-label="Delete post"
-                          >
-                            <Trash2 className="h-5 w-5 text-[#6b493d]" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => toggleComments(post._id)}
-                        className="mt-4 text-sm font-medium text-[#6b493d] hover:text-[#5a3d32] transition-colors"
-                      >
-                        {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
-                      </button>
-
-                      {expandedComments[post._id] && (
-                        <div className="mt-4 space-y-3">
-                          {post.comments.length > 0 ? (
-                            post.comments.map((comment) => (
-                              <div key={comment._id} className="bg-[#f5f3ed] p-3 rounded-lg">
-                                <p className="text-[#6b493d] font-medium break-words">
-                                  {comment.userId?.username || "Unknown User"}
-                                </p>
-                                <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </article>
+              <PostCard
+                key={post._id}
+                post={post}
+                isOwner={true}
+                likeCount={post.likes?.length || 0}
+                comments={post.comments || []}
+                onEditSave={handleSaveEdit}
+                onDeletePost={handleDelete}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
+            {posts.map((post) => (
+              <div key={post._id}>
+                <PostCard post={post} isOwner={true} likeCount={post.likes?.length || 0} comments={post.comments || []} onEditSave={handleSaveEdit} onDeletePost={handleDelete} />
+              </div>
             ))}
           </div>
         )}
 
         {error && (
-          <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
+          <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center max-w-md mx-auto shadow-sm font-body">
             {error}
           </div>
         )}

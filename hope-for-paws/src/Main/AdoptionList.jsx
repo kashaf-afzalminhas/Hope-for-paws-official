@@ -19,6 +19,7 @@ import {
   getPosterProfileId,
 } from '../Components/adoption/adoptionTheme.js';
 import { useRequireAuth } from '../Components/AuthGuard';
+import PostViewToggle from '../Components/posts/PostViewToggle';
 
 const AdoptionList = ({ filter = 'all' }) => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts, checkUserRequest } = useAdoption();
@@ -31,6 +32,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add conversations state
   const [userRequests, setUserRequests] = useState({}); // Track user requests for each post
+  const [viewMode, setViewMode] = useState('grid');
   const navigate = useNavigate();
 
   // Check for user in localStorage/sessionStorage if not in context
@@ -241,7 +243,11 @@ const AdoptionList = ({ filter = 'all' }) => {
       <h1 className="text-3xl font-bold text-[#4E3B31] mb-8 text-center">Pets Looking for Forever Homes</h1>
       
       
-      <div className={adoptionGridClass}>
+      <div className="mb-5 flex justify-end">
+        <PostViewToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
+      <div className={viewMode === 'grid' ? adoptionGridClass : 'mx-auto flex max-w-2xl flex-col gap-6'}>
         {posts.map((post) => {
           const currentUserId = getCurrentUserId(effectiveUser);
           const postOwnerId = getPosterProfileId(post);

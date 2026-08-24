@@ -140,7 +140,7 @@ exports.createOrder = async (req, res) => {
                   await notificationService.createNotification({
                     recipient: sellerUserId,
                     sender: buyerId,
-                    type: 'system',
+                    type: 'out_of_stock',
                     title: 'Product Out of Stock',
                     message: `Your product "${product.title}" is out of stock.`,
                     data: { productId: product._id },

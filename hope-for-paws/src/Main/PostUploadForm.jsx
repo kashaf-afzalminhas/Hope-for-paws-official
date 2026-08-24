@@ -1,28 +1,31 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { API_BASE_URL } from '../config';
 import PropTypes from 'prop-types';
 import { useRequireAuth } from '../Components/AuthGuard';
+import { ImagePlus, Trash2, Upload, X } from 'lucide-react';
 
 function PostUploadForm({ onAddPost, onCancel }) {
   const requireAuth = useRequireAuth();
   const [caption, setCaption] = useState('');
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!requireAuth('create a post')) { setSubmitting(false); return; }
+    if (images.length === 0) {
+      setError('Please select at least one image');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const formData = new FormData();
       formData.append('caption', caption);
-      if (image) {
-        formData.append('image', image);
-      }
+      images.forEach((image) => formData.append('images', image));
       const response = await fetch(`${API_BASE_URL}/posts`, {
         method: 'POST',
         headers: {
@@ -46,29 +49,39 @@ function PostUploadForm({ onAddPost, onCancel }) {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Only image files (PNG, JPG, GIF) are allowed.');
-        e.target.value = ''; // Reset the input
-        return;
-      }
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image size must be under 5MB.');
-        e.target.value = '';
-        return;
-      }
-      setError('');
-      setImage(file);
-      // Create a preview URL for the image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
+    const selectedFiles = Array.from(e.target.files || []);
+    const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
+    const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
+    const duplicateCount = validFiles.length - newFiles.length;
+    if (images.length + newFiles.length > 20) {
+      setError(`You can upload up to 20 photos. You have ${images.length} selected.`);
+      e.target.value = '';
+      return;
     }
+    if (validFiles.length !== selectedFiles.length) {
+      setError('Some files were skipped. Choose image files under 5MB.');
+    } else if (duplicateCount > 0) {
+      setError('Duplicate photos were skipped.');
+    } else {
+      setError('');
+    }
+    setImages((previous) => [...previous, ...newFiles]);
+    setImagePreviews((previous) => [...previous, ...newFiles.map((file) => URL.createObjectURL(file))]);
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = (index) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImages((previous) => previous.filter((_, itemIndex) => itemIndex !== index));
+    setImagePreviews((previous) => previous.filter((_, itemIndex) => itemIndex !== index));
+    setError('');
+  };
+
+  const handleRemoveAllImages = () => {
+    imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    setImages([]);
+    setImagePreviews([]);
+    setError('');
   };
 
 
@@ -97,56 +110,55 @@ function PostUploadForm({ onAddPost, onCancel }) {
             rows={4}
           />
         </div>
-        <div className="mb-8">
+          <div className="mb-8">
           <label className="block text-[#6b493d] text-sm font-semibold mb-2" htmlFor="post-image">
-            Image
+            Photos (up to 20)
           </label>
-                     <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px]">
+            <div className="space-y-3">
+              {images.length > 0 && (
+                <div className="grid w-full grid-cols-2 gap-3 rounded-lg border border-[#bca18a] bg-white p-3 sm:grid-cols-3">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={preview} className="group relative aspect-square overflow-hidden rounded-lg border border-[#bca18a] bg-[#f7f4f0]">
+                      <img src={preview} alt={`Preview ${index + 1}`} className="h-full w-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#4E3B31]/85 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                        aria-label={`Remove photo ${index + 1}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label className="flex min-h-24 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#bca18a] bg-[#f7f4f0] px-4 py-4 text-sm font-semibold text-[#6b493d] transition-colors hover:bg-[#f3ede7]">
             <input
               type="file"
               id="post-image"
               onChange={handleImageUpload}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="sr-only"
               accept="image/png,image/jpeg,image/jpg,image/gif"
-              name="image"
-              required
+              name="images"
+              multiple
             />
-                                      {imagePreview ? (
-                <div className="w-full h-full flex flex-col items-center justify-center">
-                  <div className="relative mb-2 group">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="max-w-full max-h-48 object-contain rounded-lg border border-[#bca18a] cursor-pointer"
-                      onClick={() => document.getElementById('post-image').click()}
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setImage(null);
-                        setImagePreview(null);
-                      }}
-                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>
-                </div>
-            ) : (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#6b493d] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                <span className="text-[#6b493d] font-semibold">Upload a file</span>
-                <span className="text-xs text-[#bca18a] mt-1">PNG, JPG, GIF up to 5MB</span>
-              </>
-            )}
-          </div>
+                <Upload className="h-5 w-5" />
+                <span>{images.length > 0 ? 'Add more photos' : 'Choose photos'}</span>
+              </label>
+              <div className="flex items-center justify-between gap-3 text-xs text-[#6b493d]">
+                <span>{images.length}/20 photos selected</span>
+                {images.length > 0 && (
+                  <button type="button" onClick={handleRemoveAllImages} className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
+                    <Trash2 className="h-3.5 w-3.5" /> Remove all
+                  </button>
+                )}
+              </div>
+              <p className="flex items-center gap-1 text-xs text-[#bca18a]"><ImagePlus className="h-3.5 w-3.5" /> Add photos one at a time or select several together. Up to 5MB each.</p>
+            </div>
         </div>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || images.length === 0}
           className="w-full bg-[#6b493d] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#573a2f] transition-colors mb-3 disabled:opacity-60"
         >
           {submitting ? 'Posting...' : 'Create Post'}

@@ -14,6 +14,9 @@ import { MessageSquare, User } from 'lucide-react';
 import { useRequireAuth } from '../Components/AuthGuard.jsx';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
 import { adoptionGridClass } from '../Components/adoption/adoptionTheme.js';
+import PostCard from "../Components/posts/PostCard"; // adjust to actual path
+import { ChevronLeft } from 'lucide-react';
+import PostViewToggle from '../Components/posts/PostViewToggle';
 
 
 const C = {
@@ -129,6 +132,7 @@ const PublicProfilePage = () => {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [imageFailed, setImageFailed] = useState(false);
+  const [postViewMode, setPostViewMode] = useState('grid'); // "grid" | "slide"
 
   // Get current user
   const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
@@ -601,92 +605,60 @@ const PublicProfilePage = () => {
         )}
 
         {/* Posts */}
-        {activeTab === 'posts' && (
-          loadingPosts ? (
-            <div className="flex flex-col items-center py-12">
-              <div className="relative mb-6">
-                <div className="animate-spin rounded-full h-14 w-14 border-[3px] border-[#a07855] border-t-transparent"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
-                </div>
-              </div>
-              <p className="text-[#2c1810]/80">Loading posts...</p>
-            </div>
-          ) : userPosts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-24 h-24 mx-auto rounded-xl bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center shadow-inner mb-5">
-                <FaNewspaper className="h-12 w-12 text-[#a07855]" />
-              </div>
-              <h3 className="text-xl font-heading font-semibold text-[#2c1810] mb-2">No Posts Yet</h3>
-              <p className="text-[#2c1810]/80 max-w-md mx-auto">
-                {profile.username} hasn't shared any posts yet
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5 pb-8">
-              {userPosts.map(post => (
-                <div
-                  key={post._id}
-                  onClick={() => handleOpenPost(post._id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleOpenPost(post._id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="View full post"
-                  className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all border border-[#e5d9c8] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#a07855] focus:ring-offset-2"
-                >
-                  {post.imageUrl && (
-                    <div className="w-full aspect-square sm:aspect-video bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center overflow-hidden">
-                      <img
-                        src={post.imageUrl}
-                        alt={post.caption || 'Post image'}
-                        className="w-full h-full object-contain"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  <div className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-heading font-bold text-[#2c1810] break-words">
-                        {post.caption || 'Pet Story'}
-                      </h3>
-                      <span className="text-sm text-[#2c1810]/70 flex-shrink-0 ml-3">
-                        {new Date(post.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </span>
-                    </div>
+{activeTab === 'posts' && (
+  loadingPosts ? (
+    <div className="flex flex-col items-center py-12">
+      <div className="relative mb-6">
+        <div className="animate-spin rounded-full h-14 w-14 border-[3px] border-[#a07855] border-t-transparent"></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
+        </div>
+      </div>
+      <p className="text-[#2c1810]/80">Loading posts...</p>
+    </div>
+  ) : userPosts.length === 0 ? (
+    <div className="text-center py-12">
+      <div className="w-24 h-24 mx-auto rounded-xl bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] flex items-center justify-center shadow-inner mb-5">
+        <FaNewspaper className="h-12 w-12 text-[#a07855]" />
+      </div>
+      <h3 className="text-xl font-heading font-semibold text-[#2c1810] mb-2">No Posts Yet</h3>
+      <p className="text-[#2c1810]/80 max-w-md mx-auto">
+        {profile.username} hasn't shared any posts yet
+      </p>
+    </div>
+  ) : (
+    <div className="pb-8">
+      {/* Grid / Slideshow toggle */}
+      <div className="flex items-center justify-end mb-4">
+        <PostViewToggle value={postViewMode} onChange={setPostViewMode} />
+      </div>
 
-                    {post.text && (
-                      <p className="text-[#2c1810]/80 mb-5 font-body break-words">{post.text}</p>
-                    )}
-
-                    <div className="flex items-center justify-between border-t border-[#e5d9c8] pt-4">
-                      <div className="flex items-center gap-4 text-[#2c1810]/70">
-                        <span className="flex items-center text-sm">
-                          <FaHeart className="mr-1.5" />
-                          {post.likes?.length || 0}
-                        </span>
-                        <span className="flex items-center text-sm">
-                          <FaComment className="mr-1.5" />
-                          {post.comments?.length || 0}
-                        </span>
-                      </div>
-                      <span className="text-sm text-[#a07855] font-medium">
-                        View Post →
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+      {postViewMode === 'grid' ? (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {userPosts.map(post => (
+            <PostCard
+              key={post._id}
+              post={post}
+              isOwner={false}
+              showAuthor={true}
+              likeCount={post.likes?.length || 0}
+              comments={post.comments || []}
+              onCardClick={() => handleOpenPost(post._id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
+          {userPosts.map((post) => (
+            <div key={post._id}>
+              <PostCard post={post} isOwner={false} showAuthor likeCount={post.likes?.length || 0} comments={post.comments || []} onCardClick={() => handleOpenPost(post._id)} />
             </div>
-          )
-        )}
+          ))}
+        </div>
+      )}
+    </div>
+  )
+)}
       </div>
     </div>
   );

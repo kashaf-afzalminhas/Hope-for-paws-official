@@ -151,7 +151,7 @@ const Navbar = ({ handleSignOut }) => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex flex-1 items-center justify-between ml-4 lg:ml-8 xl:ml-12">
-          <ul className="flex flex-grow justify-center space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12 mx-4">
+          <ul className="min-w-0 flex flex-grow justify-center space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12 mx-4">
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : ''}>Home</NavLink>
             </li>
@@ -199,7 +199,7 @@ const Navbar = ({ handleSignOut }) => {
           <div className="flex space-x-4 lg:space-x-6 items-center relative min-w-max">
             {user ? (
               <>
-                <span className="text-[#a07855] font-medium hidden lg:inline-block">
+                <span className="hidden">
                   Welcome {user.username}
                 </span>
                 {!isSeller && (

@@ -75,13 +75,12 @@ class NotificationService {
 
   // Send real-time notification
   async sendRealTimeNotification(userId, notificationData) {
-  const socketId = this.getUserSocket(userId);
-  console.log(`[RT push] looking up userId=${userId} → socketId=${socketId || 'NOT FOUND'}`);
-  console.log('[RT push] current userSockets map:', Array.from(this.userSockets.entries()));
-  if (socketId) {
-    this.io.to(socketId).emit('notification', notificationData);
+    const socketId = this.getUserSocket(userId);
+    if (socketId) {
+      this.io.to(socketId).emit('notification', notificationData);
+    }
   }
-}
+
   // ---------------------------------------------------------------------
   // Centralized email-preference gate.
   //
