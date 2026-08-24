@@ -6,6 +6,7 @@ exports.getConversations = async (req, res) => {
     const userId = req.user.id;
     const conversations = await Conversation.find({
       participants: userId,
+      "deletedBy.userId": { $ne: new mongoose.Types.ObjectId(userId) }
     }).sort({ updatedAt: -1 });
 
     res.json(conversations);
@@ -172,9 +173,15 @@ exports.getUserConversations = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
-    
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
     const conversations = await Conversation.aggregate([
-      { $match: { participants: new mongoose.Types.ObjectId(userId) } },
+      { 
+        $match: { 
+          participants: userObjectId
+        } 
+      },
       {
         $lookup: {
           from: "messages",
@@ -238,8 +245,22 @@ exports.getUserConversations = async (req, res) => {
       return conv;
     }));
 
-    // Filter out null conversations and return only valid ones
-    const validConversations = enhancedConversations.filter(conv => conv !== null);
+    // Filter out null conversations and conversations deleted before the last message
+    const validConversations = enhancedConversations.filter(conv => {
+      if (!conv) return false;
+
+      if (Array.isArray(conv.deletedBy)) {
+        const userDelete = conv.deletedBy.find(
+          d => d.userId?.toString() === userId.toString()
+        );
+        if (userDelete && conv.lastMessage?.createdAt) {
+          if (new Date(conv.lastMessage.createdAt) <= new Date(userDelete.deletedAt)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
     
     console.log(`Returning ${validConversations.length} valid conversations for user ${userId}`);
     res.json({ data: validConversations });

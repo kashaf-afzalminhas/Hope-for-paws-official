@@ -156,6 +156,9 @@ export const markConversationAsRead = async (conversationId) => {
 export const getRecentChats = () => 
   apiRoutes.get('/chats/recent');
 
+export const deleteConversation = (conversationId) =>
+  apiRoutes.delete(`/chats/${conversationId}`);
+
 // Get user by ID (matches your backend POST /auth/getUserById)
 export const getUserById = (id) =>
   authApi.post('/getUserById', { id });
