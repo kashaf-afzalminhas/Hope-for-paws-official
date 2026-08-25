@@ -153,7 +153,10 @@ router.get('/user/:userId', auth, async (req, res) => {
 });
 
 // Create post
-router.post('/', auth, upload.single('image'), async (req, res) => {
+router.post('/', auth, upload.fields([
+  { name: 'images', maxCount: 20 },
+  { name: 'image', maxCount: 1 },
+]), async (req, res) => {
   try {
     const { caption } = req.body;
 
@@ -163,19 +166,27 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       allowedAttributes: {}, // Strip ALL attributes
     });
 
-    if (!req.file) {
+    const files = [
+      ...(req.files?.images || []),
+      ...(req.files?.image || []),
+    ];
+    if (files.length === 0) {
       return res.status(400).json({ message: 'Image is required' });
     }
 
-    // Upload image to Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI);
+    const uploadedUrls = [];
+    for (const file of files) {
+      const b64 = Buffer.from(file.buffer).toString('base64');
+      const dataURI = `data:${file.mimetype};base64,${b64}`;
+      const uploadResponse = await cloudinary.uploader.upload(dataURI);
+      uploadedUrls.push(uploadResponse.secure_url);
+    }
 
     const post = new Post({
       userId: req.user.userId, // Ensure userId is set correctly
       caption: sanitizedCaption,
-      imageUrl: uploadResponse.secure_url,
+      imageUrl: uploadedUrls[0],
+      imageUrls: uploadedUrls,
     });
 
     await post.save();
@@ -218,19 +229,39 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
 
 
 // Update post
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, upload.fields([
+  { name: 'images', maxCount: 20 },
+  { name: 'image', maxCount: 1 },
+]), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid post ID format' });
     }
 
+    const update = {
+      caption: sanitizeHtml(req.body.caption || '', { allowedTags: [], allowedAttributes: {} }),
+    };
+    const files = [
+      ...(req.files?.images || []),
+      ...(req.files?.image || []),
+    ];
+
+    if (files.length > 0) {
+      const uploadedUrls = [];
+      for (const file of files) {
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        const uploadResponse = await cloudinary.uploader.upload(dataURI);
+        uploadedUrls.push(uploadResponse.secure_url);
+      }
+      update.imageUrl = uploadedUrls[0];
+      update.imageUrls = uploadedUrls;
+    }
+
     const post = await Post.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        userId: req.user.userId,
-      },
-      { $set: { caption: sanitizeHtml(req.body.caption, { allowedTags: [], allowedAttributes: {} }) } },
-      { new: true }
+      { _id: req.params.id, userId: req.user.userId },
+      { $set: update },
+      { new: true, runValidators: true }
     ).populate('userId', 'username isVeterinarian');
 
     if (!post) {
@@ -270,22 +301,20 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Delete image from Cloudinary — extract full public_id including folder path
-    // URL format: https://res.cloudinary.com/<cloud>/image/upload/v1234567890/folder/filename.ext
-    try {
-      const urlPath = new URL(post.imageUrl).pathname; // e.g. /cloud/image/upload/v123/folder/file.jpg
-      const uploadIndex = urlPath.indexOf('/upload/');
-      if (uploadIndex !== -1) {
-        const afterUpload = urlPath.substring(uploadIndex + '/upload/'.length); // v123/folder/file.jpg
-        // Strip the version prefix (v followed by digits and a slash)
-        const withoutVersion = afterUpload.replace(/^v\d+\//, ''); // folder/file.jpg
-        // Strip the file extension to get the public_id
-        const publicId = withoutVersion.replace(/\.[^.]+$/, ''); // folder/file
-        await cloudinary.uploader.destroy(publicId);
+    const imageUrls = post.imageUrls?.length ? post.imageUrls : [post.imageUrl];
+    for (const imageUrl of imageUrls.filter(Boolean)) {
+      try {
+        const urlPath = new URL(imageUrl).pathname;
+        const uploadIndex = urlPath.indexOf('/upload/');
+        if (uploadIndex !== -1) {
+          const afterUpload = urlPath.substring(uploadIndex + '/upload/'.length);
+          const withoutVersion = afterUpload.replace(/^v\d+\//, '');
+          const publicId = withoutVersion.replace(/\.[^.]+$/, '');
+          await cloudinary.uploader.destroy(publicId);
+        }
+      } catch (cloudErr) {
+        console.error('Error deleting image from Cloudinary:', cloudErr.message);
       }
-    } catch (cloudErr) {
-      console.error('Error deleting image from Cloudinary:', cloudErr.message);
-      // Continue with post deletion even if Cloudinary cleanup fails
     }
 
     // Delete all comments associated with the post

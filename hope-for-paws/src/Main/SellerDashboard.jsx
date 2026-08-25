@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,11 +22,12 @@ ChartJS.register(
 );
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
-  Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
-  BadgeCheck, Clock, Star
+  Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play, ArrowUpRight,
+  BadgeCheck, Clock, Star, ArrowLeft
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';
+import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -38,8 +39,9 @@ const getAxiosConfig = () => {
   };
 };
 
-const SellerDashboard = ({ onNavigateOrders }) => {
+const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [editingProductId, setEditingProductId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -104,6 +106,25 @@ const SellerDashboard = ({ onNavigateOrders }) => {
 
   useEffect(() => {
     fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    const productId = searchParams.get('productId');
+    if (!productId || !products.length) return;
+    const product = products.find((item) => String(item._id) === String(productId));
+    if (product) handleOpenEditModal(product);
+  }, [products, searchParams]);
+
+  useEffect(() => {
+    const refresh = () => fetchDashboardData();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('stock-updated', refresh);
+    const refreshInterval = window.setInterval(refresh, 30000);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('stock-updated', refresh);
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   // Lazy-load reviews when Reviews tab is selected
@@ -217,27 +238,43 @@ const SellerDashboard = ({ onNavigateOrders }) => {
   }
 
   return (
-    <div className="w-full">
+    <div className={embedded ? 'w-full' : 'min-h-screen bg-[#f8f6f4]'}>
+      <div className={embedded ? 'w-full' : 'mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8'}>
+      {!embedded && (
+        <button type="button" onClick={() => navigate('/profile')} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]">
+          <ArrowLeft className="h-4 w-4" />
+          Back to dashboard
+        </button>
+      )}
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <h1 className="text-4xl font-bold text-[#6b493d] tracking-wide">
-            {sellerProfile?.storeName || 'Store Dashboard'}
-          </h1>
+      <div className="mb-8 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <h1 className={`font-bold tracking-tight text-stone-900 ${embedded ? 'text-2xl' : 'text-3xl'}`}>
+              {sellerProfile?.storeName || 'Store Dashboard'}
+            </h1>
 
-          {/* Verification Badge */}
-          {sellerProfile && (
-            sellerProfile.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
-                <BadgeCheck className="w-4 h-4 text-green-600" />
-                Verified Seller
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
-                <Clock className="w-3.5 h-3.5 text-red-600" />
-                Pending Review
-              </span>
-            )
+            {/* Verification Badge */}
+            {sellerProfile && (
+              sellerProfile.isVerified ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
+                  <BadgeCheck className="w-4 h-4 text-green-600" />
+                  Verified Seller
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
+                  <Clock className="w-3.5 h-3.5 text-red-600" />
+                  Pending Review
+                </span>
+              )
+            )}
+          </div>
+          {embedded && (
+            <button type="button" onClick={() => navigate('/seller/dashboard')} className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#57392f] hover:shadow-md">
+              <ShoppingBag className="h-4 w-4" />
+              Open full page
+              <ArrowUpRight className="h-4 w-4" />
+            </button>
           )}
         </div>
         <p className="text-gray-500 mt-2">Manage your marketplace presence and track performance.</p>
@@ -248,6 +285,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
         {[
           { id: 'overview', label: 'Overview', icon: TrendingUp },
           { id: 'products', label: 'Products', icon: Package },
+          { id: 'analytics', label: 'Analytics', icon: TrendingUp },
           { id: 'reviews', label: 'Reviews', icon: Star }
         ].map(tab => (
           <button
@@ -267,21 +305,22 @@ const SellerDashboard = ({ onNavigateOrders }) => {
 
       {/* Content Area */}
       <div className="min-h-[400px]">
+        {activeTab === 'analytics' && <SellerAnalyticsDashboard embedded />}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-green-50 text-green-600' },
-                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-600', onClick: goToOrders, clickable: true },
-                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-purple-50 text-purple-600', onClick: () => setActiveTab('products'), clickable: true },
-                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-orange-50 text-orange-600' }
+                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-emerald-50 text-emerald-700', cardColor: 'bg-emerald-50 border-emerald-100' },
+                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-700', cardColor: 'bg-blue-50 border-blue-100', onClick: goToOrders, clickable: true },
+                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-violet-50 text-violet-700', cardColor: 'bg-violet-50 border-violet-100', onClick: () => setActiveTab('products'), clickable: true },
+                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-amber-50 text-amber-700', cardColor: 'bg-amber-50 border-amber-100' }
               ].map((stat, i) => (
                 <div 
                   key={i} 
                   onClick={stat.onClick ? stat.onClick : undefined}
-                  className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all ${
-                    stat.clickable ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5' : 'hover:shadow-md'
+                    className={`${stat.cardColor} rounded-2xl border-2 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                    stat.clickable ? 'cursor-pointer' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -289,8 +328,8 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                       <stat.icon className="w-6 h-6" />
                     </div>
                   </div>
-                  <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                  <h3 className="text-[#8c6b58] text-sm font-medium">{stat.label}</h3>
+                  <p className="text-2xl font-bold text-[#4a3429] mt-1">{stat.value}</p>
                 </div>
               ))}
             </div>
@@ -426,7 +465,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           <p className="text-sm text-gray-500">{order.customer} • {order.items} item(s)</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-gray-900">Rs. {order.amount.toLocaleString()}</p>
+                          <p className="font-bold text-[#4e3b31]">Rs. {order.amount.toLocaleString()}</p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
                             order.status === 'Shipped' ? 'bg-green-100 text-green-800' : 
                             order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -480,7 +519,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => (
-                      <tr key={product._id} className={`transition-colors ${product.countInStock <= 0 ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50/50'}`}>
+                      <tr key={product._id} className={`transition-colors ${product.countInStock <= 0 ? 'bg-[#f1d9c8]/50 hover:bg-[#f1d9c8]' : 'hover:bg-[#faf6f0]'}`}>
                         <td className="p-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -515,15 +554,15 @@ const SellerDashboard = ({ onNavigateOrders }) => {
                           )}
                         </td>
                         <td className="p-4">
-                          <span className={`flex items-center gap-1.5 text-sm ${product.countInStock <= 0 ? 'text-red-600 font-bold' : product.countInStock <= 5 ? 'text-orange-500 font-medium' : 'text-gray-500'}`}>
-                            {product.countInStock <= 0 && <AlertCircle className="w-4 h-4 text-red-500" />}
+                          <span className={`flex items-center gap-1.5 text-sm ${product.countInStock <= 0 ? 'text-[#8b3f32] font-bold' : product.countInStock <= 5 ? 'text-[#a65d45] font-medium' : 'text-[#7a6554]'}`}>
+                            {product.countInStock <= 0 && <AlertCircle className="w-4 h-4 text-[#a65d45]" />}
                             {product.countInStock}
                           </span>
                         </td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.status === 'hidden' ? 'bg-gray-100 text-gray-800' :
-                            product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            product.status === 'hidden' ? 'bg-[#f1e4d7] text-[#6b493d]' :
+                            product.countInStock > 0 ? 'bg-[#ead8c8] text-[#4e3b31]' : 'bg-[#f1d9c8] text-[#7a3f32]'
                           }`}>
                             {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
                           </span>
@@ -599,6 +638,7 @@ const SellerDashboard = ({ onNavigateOrders }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useRequireAuth } from '../Components/AuthGuard';
@@ -7,51 +7,40 @@ import { API_BASE_URL } from '../config';
 
 const CreatePost = () => {
   const [caption, setCaption] = useState('');
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
   const [error, setError] = useState('');
-  const [preview, setPreview] = useState('');
+  const [previews, setPreviews] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const requireAuth = useRequireAuth();
   const navigate = useNavigate();
 
   const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Only image files (PNG, JPG, GIF) are allowed.');
-        e.target.value = ''; // Reset the input
-        return;
-      }
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image size must be under 5MB.');
-        e.target.value = '';
-        return;
-      }
-      setError('');
-      setImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    const selectedFiles = Array.from(e.target.files || []);
+    const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
+    if (validFiles.length !== selectedFiles.length) setError('Only images under 5MB are allowed.');
+    const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
+    if (images.length + newFiles.length > 20) {
+      setError('You can upload up to 20 images.');
+      return;
     }
+    setImages((previous) => [...previous, ...newFiles]);
+    setPreviews((previous) => [...previous, ...newFiles.map((file) => URL.createObjectURL(file))]);
+    e.target.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!requireAuth('create a post')) return;
     setIsLoading(true);
-    if (!image) {
-        setError('Please select an image');
+    if (images.length === 0) {
+      setError('Please select at least one image');
         setIsLoading(false);
         return;
     }
 
     const formData = new FormData();
     formData.append('caption', caption);
-    formData.append('image', image);
+    images.forEach((image) => formData.append('images', image));
 
     try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -62,7 +51,7 @@ const CreatePost = () => {
             },
         });
         navigate('/posts');
-    } catch (err) {
+    } catch {
         setError('Failed to create post. Please try again.');
     } finally {
         setIsLoading(false);
@@ -98,29 +87,17 @@ const CreatePost = () => {
 
         <div>
           <label className="block text-lg font-medium text-[#6b493d] mb-3">
-            Image
+            Images (up to 20)
           </label>
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-[#6b493d] rounded-xl group hover:border-[#c9a280] transition-colors duration-300">
-            {preview ? (
-              <div className="space-y-3 text-center relative group">
-                <div className="relative overflow-hidden rounded-lg">
-                  <img 
-                    src={preview} 
-                    alt="Preview" 
-                    className="mx-auto h-64 w-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImage(null);
-                    setPreview('');
-                  }}
-                  className="text-sm text-[#f5f3ed] bg-[#6b493d] px-4 py-2 rounded-lg hover:bg-[#c9a280] transition-colors duration-300"
-                >
-                  Remove image
-                </button>
+            {images.length > 0 ? (
+              <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
+                {previews.map((imagePreview, index) => (
+                  <div key={imagePreview} className="relative aspect-square overflow-hidden rounded-lg">
+                    <img src={imagePreview} alt={`Preview ${index + 1}`} className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => { URL.revokeObjectURL(previews[index]); setImages((previous) => previous.filter((_, itemIndex) => itemIndex !== index)); setPreviews((previous) => previous.filter((_, itemIndex) => itemIndex !== index)); }} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">x</button>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="space-y-3 text-center">

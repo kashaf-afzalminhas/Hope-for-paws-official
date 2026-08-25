@@ -117,6 +117,9 @@ export const NotificationProvider = ({ children }) => {
 
                 const handleNotification = (notification) => {
           console.log('New notification received:', notification);
+                  if (notification.type === 'out_of_stock') {
+                    window.dispatchEvent(new Event('stock-updated'));
+                  }
           setNotifications(prev => {
             const exists = prev.some(n => (n._id || n.id) === (notification._id || notification.id));
             if (exists) return prev;

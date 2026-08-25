@@ -22,6 +22,17 @@ export const getNotificationLink = (notification) => {
       if (data.post) return `/posts/${data.post}`;
       return '/posts';
 
+    case 'out_of_stock':
+      if (data.productId) return `/seller/dashboard?productId=${data.productId}`;
+      return null;
+
+    case 'system':
+      if (data.productId) return `/seller/dashboard?productId=${data.productId}`;
+      if (data.link) return data.link;
+      if (data.url) return data.url;
+      if (data.path) return data.path;
+      return null;
+
     case 'adoption_request':
       return '/my-adoptions';
 
@@ -42,6 +53,8 @@ export const getNotificationLink = (notification) => {
     case 'order_status_update':
     case 'payment_confirmed':
     case 'refund_request':
+      if (data.orderStatus === 'Delivered') return `/my-orders?status=delivered`;
+      if (data.orderStatus === 'Cancelled') return `/my-orders?status=cancelled`;
       if (data.orderId) return `/my-orders`;
       return '/my-orders';
 
@@ -80,6 +93,8 @@ export const getNotificationCategoryInfo = (type) => {
     case 'payment_confirmed':
     case 'refund_request':
       return { icon: '📦', bgClass: 'bg-purple-50 border-purple-200', textClass: 'text-purple-600', label: 'Order' };
+    case 'out_of_stock':
+      return { icon: '⚠️', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700', label: 'Stock alert' };
     default:
       return { icon: '🔔', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-[#6b493d]', label: 'Alert' };
   }

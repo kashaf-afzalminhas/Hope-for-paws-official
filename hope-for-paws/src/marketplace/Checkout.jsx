@@ -168,7 +168,8 @@ export default function Checkout() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      if (!isBuyNow) await clearCart();
+      await clearCart();
+      window.dispatchEvent(new Event('stock-updated'));
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);
       
@@ -347,21 +348,21 @@ export default function Checkout() {
 
               {/* Card payment */}
               <div 
-                onClick={() => setPaymentMethod('card')}
-                className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === 'card' 
-                    ? 'border-[#6b493d] bg-[#f7f1ee]' 
-                    : 'border-[#ede6e1] hover:border-[#d4c5c1] bg-white'
-                }`}
+                aria-disabled="true"
+                className="relative cursor-not-allowed rounded-2xl border-2 border-[#ede6e1] bg-[#faf7f5] p-5 opacity-90"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    paymentMethod === 'card' ? 'border-[#6b493d]' : 'border-[#d4c5c1]'
-                  }`}>
-                    {paymentMethod === 'card' && <div className="w-2.5 h-2.5 bg-[#6b493d] rounded-full" />}
+                  <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 border-[#d4c5c1]">
                   </div>
-                  <span className="font-bold text-[#3d2a24]">Card payment</span>
+                  <div>
+                    <span className="font-bold text-[#3d2a24]">Online payment</span>
+                    <span className="mt-1 inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">
+                      Coming soon
+                    </span>
+                  </div>
                 </div>
+                {/* Online payment is intentionally disabled until its payment gateway is released. */}
+                <p className="mt-3 pl-8 text-xs leading-relaxed text-[#a07f77]">Secure online checkout will be available soon.</p>
               </div>
             </div>
             

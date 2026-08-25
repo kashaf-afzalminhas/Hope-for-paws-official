@@ -31,6 +31,7 @@ const notificationSchema = new mongoose.Schema({
       'payment_confirmed',
       'refund_request',
       'order_status_update',
+      'out_of_stock',
       'system'
     ],
     required: true

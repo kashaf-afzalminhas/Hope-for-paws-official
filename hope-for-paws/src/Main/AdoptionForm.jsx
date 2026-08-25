@@ -366,13 +366,14 @@ const AdoptionForm = () => {
         throw new Error(errorData.message || 'Failed to create adoption post');
       }
 
-      await response.json();
+      const createdPost = await response.json();
 
       // Auto-redirect to My Adoptions page after successful submission
       navigate('/my-adoptions', {
         state: {
           message: 'Adoption post created successfully!',
-          showSuccess: true
+          showSuccess: true,
+          createdPost,
         }
       });
     } catch (error) {

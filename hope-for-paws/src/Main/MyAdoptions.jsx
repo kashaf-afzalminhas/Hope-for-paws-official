@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { Pencil, Trash2, X, Eye, Camera, FileText, CheckCircle2, Clock } from "lucide-react";
+import { Pencil, Trash2, X, Eye, Camera, FileText, CheckCircle2, Clock, ArrowLeft } from "lucide-react";
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdoption } from '../context/AdoptionContext';
@@ -35,7 +35,7 @@ const MyAdoptions = ({ embedded = false }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
   const [savingStates, setSavingStates] = useState({}); // Track saving state per post
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { userStats, fetchUserStats } = useAdoption();
   const [storedUser, setStoredUser] = useState(null);
   const location = useLocation();
@@ -64,15 +64,22 @@ const MyAdoptions = ({ embedded = false }) => {
 
   // Fetch adoptions and user stats when user is available
   useEffect(() => {
+    if (authLoading) return;
     const effectiveUser = user || storedUser;
     const uid = getCurrentUserId(effectiveUser);
     if (!uid) {
       setLoading(false);
       return;
     }
+    if (location.state?.createdPost) {
+      setAdoptions((previousAdoptions) => [
+        location.state.createdPost,
+        ...previousAdoptions.filter((post) => post._id !== location.state.createdPost._id),
+      ]);
+    }
     fetchUserAdoptions(uid);
     fetchUserStats();
-  }, [user, storedUser]);
+  }, [authLoading, user, storedUser, location.state?.createdPost]);
 
   const fetchUserAdoptions = async (userId) => {
     try {
@@ -90,6 +97,9 @@ const MyAdoptions = ({ embedded = false }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      if (!Array.isArray(response.data)) {
+        throw new Error('Invalid adoption posts response');
+      }
       setAdoptions(response.data);
       setSelectedPostForRequests((prev) => {
         if (!prev) return null;
@@ -297,7 +307,7 @@ const MyAdoptions = ({ embedded = false }) => {
     );
   }
 
-  if (error) {
+  if (error && adoptions.length === 0) {
     return (
       <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
         <p className="font-semibold">Error loading adoption posts</p>
@@ -317,6 +327,12 @@ const MyAdoptions = ({ embedded = false }) => {
   return (
     <section className={embedded ? 'w-full' : 'min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8'}>
       <div className={embedded ? 'w-full' : 'mx-auto max-w-6xl w-full'}>
+        {!embedded && (
+          <button type="button" onClick={() => window.history.back()} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]">
+            <ArrowLeft className="h-4 w-4" />
+            Back to dashboard
+          </button>
+        )}
         
         {/* Modern Polished Stat Cards */}
         <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-5">

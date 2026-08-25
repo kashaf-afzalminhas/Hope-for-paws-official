@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Inbox,
   ArrowUpRight,
+  ArrowLeft,
   MapPin,
   CalendarDays,
   Hash,
@@ -949,6 +950,12 @@ export default function SellerOrderDashboard({ embedded = false }) {
       <div className={embedded ? "w-full" : "max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6"}>
 
         {/* ── Page header ── */}
+        {!embedded && (
+          <button type="button" onClick={() => navigate('/profile')} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]">
+            <ArrowLeft size={16} />
+            Back to dashboard
+          </button>
+        )}
         <header className={`rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm ${embedded ? "mb-6" : "mb-8"}`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -968,16 +975,28 @@ export default function SellerOrderDashboard({ embedded = false }) {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/seller/analytics')}
-              aria-label="View revenue analytics"
-              className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#6b493d] text-white text-sm font-semibold hover:bg-[#5a3c32] active:scale-95 transition-all shadow-md hover:shadow-lg"
-            >
-              <TrendingUp size={16} />
-              Analytics
-              <ArrowUpRight size={14} />
-            </button>
+            <div className="flex flex-shrink-0 flex-col gap-2">
+              {embedded && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/seller/orders')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg"
+                >
+                  Open full page
+                  <ArrowUpRight size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => navigate('/seller/analytics')}
+                aria-label="View revenue analytics"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#5a3c32] hover:shadow-lg active:scale-95"
+              >
+                <TrendingUp size={16} />
+                Analytics
+                <ArrowUpRight size={14} />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1008,7 +1027,7 @@ export default function SellerOrderDashboard({ embedded = false }) {
         </div>
 
         {/* UNIFIED DATA TABLE CONTAINER */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(107,73,61,0.04),0_12px_32px_-16px_rgba(107,73,61,0.18)] border border-[#e7dfd6] overflow-hidden">
+        <div className="bg-[#fffdfb] rounded-2xl shadow-[0_4px_22px_rgba(107,73,61,0.1)] border border-[#ead8c8] overflow-hidden">
 
           {/* Top Toolbar */}
           <div className="p-6 border-b border-[#ece4da] flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white">

@@ -2,8 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: #2C1810;
+  --ink-soft: #6B4A38;
+  --clay: #A07855;
+  --clay-deep: #8A6A4D;
+  --sand: #E5D9C8;
+  --sand-light: #F5EFE6;
+  --cream: #F8F4EA;
+  --like: #EF4444;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  color: var(--ink);
+  background-color: var(--cream);
+}
+
+.bg-warm-gradient {
+  background: radial-gradient(circle at 50% 0%, #F5EFE6 0%, #F8F4EA 65%, #E5D9C8 100%);
+  background-attachment: fixed;
 }
 
 /* Custom animations for mobile navigation */
