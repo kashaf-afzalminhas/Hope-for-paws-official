@@ -136,7 +136,6 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     e?.preventDefault();
     if (!inputText.trim() || !conversationId) return;
 
-    const senderId = currentUser?._id || currentUser?.id;
     const text = inputText.trim();
     setInputText('');
 
