@@ -227,6 +227,25 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Record a public share. No login is required because shared links are public.
+router.post('/:id/share', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid adoption ID format' });
+    }
+    const adoption = await Adoption.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { shareCount: 1 } },
+      { new: true, select: 'shareCount' }
+    );
+    if (!adoption) return res.status(404).json({ message: 'Adoption listing not found' });
+    res.json({ shareCount: adoption.shareCount });
+  } catch (error) {
+    console.error('Error recording adoption share:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get adoption posts for a specific user (auth required to prevent IDOR)
 router.get('/user/:userId', auth, async (req, res) => {
   try {

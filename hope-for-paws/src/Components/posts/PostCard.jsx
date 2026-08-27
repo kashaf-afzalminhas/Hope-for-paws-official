@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { Heart, MessageCircle, Pencil, Trash2, ChevronDown, ChevronLeft, ChevronRight, UserCircle, Send, Upload, X } from "lucide-react";
 import { API_BASE_URL } from "../../config";
 import UserBadge from "../UserBadge";
+import ShareLinkButton from "../ShareLinkButton";
 
 /**
  * Reusable PostCard component adhering to the single visual language design brief.
@@ -30,6 +31,7 @@ const PostCard = ({
   onDeleteComment,
   onEditSave,
   onDeletePost,
+  onShareCount,
   onAuthorClick,
   onCardClick,
   showImageGallery = true,
@@ -354,6 +356,7 @@ const PostCard = ({
                   <MessageCircle className="h-4 w-4 text-ink-soft" />
                   <span>{comments.length}</span>
                 </button>
+                <ShareLinkButton resourceType="post" resourceId={post._id} onShareCount={(shareCount) => onShareCount?.(post._id, shareCount)} />
               </div>
 
               {/* View/Hide Comments Toggle */}

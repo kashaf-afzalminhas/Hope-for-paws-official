@@ -14,6 +14,7 @@ import {
   getHealthFieldChipStyle,
   formatAdoptionDate,
 } from './adoptionTheme.js';
+import ShareLinkButton from '../ShareLinkButton';
 
 const HealthChip = ({ label, className }) => (
   <span
@@ -186,7 +187,10 @@ const AdoptionCard = ({
           <p className="mt-auto text-xs text-[#6F4C3E]/50">Listed {listed}</p>
         )}
 
-        {children && <div className="mt-auto space-y-2.5 pt-1">{children}</div>}
+        <div className="mt-auto space-y-2.5 pt-1">
+          <ShareLinkButton resourceType="adoption" resourceId={post?._id} />
+          {children}
+        </div>
       </div>
     </article>
   );

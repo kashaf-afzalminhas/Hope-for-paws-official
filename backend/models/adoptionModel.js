@@ -73,6 +73,11 @@ const adoptionSchema = new mongoose.Schema({
     enum: ['available', 'pending', 'adopted'],
     default: 'available'
   },
+  shareCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   requests: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdoptionRequest'
