@@ -61,7 +61,6 @@ const PostDetail = () => {
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Are you sure you want to delete this comment?')) return;
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');

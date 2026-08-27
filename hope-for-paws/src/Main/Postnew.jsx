@@ -207,8 +207,7 @@ const Postnew = () => {
     }
   };
 
-  const handleDeleteComment = async (commentId, postId) => {
-    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = async (postId, commentId) => {
   
     try {
       const token =

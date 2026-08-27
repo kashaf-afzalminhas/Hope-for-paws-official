@@ -47,6 +47,11 @@ const PostCard = ({
   const [submittingComment, setSubmittingComment] = useState(false);
   const [heartAnimating, setHeartAnimating] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { postId, commentId } when modal is open
+
+  // Derive the logged-in user's ID so comment authors can delete their own comments
+  const _storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+  const currentUserId = _storedUser?._id || _storedUser?.id || null;
 
   if (!post) return null;
 
@@ -386,6 +391,8 @@ const PostCard = ({
                       const commentTextContent =
                         typeof comment === "string" ? comment : comment.content || comment.text || "";
                       const commentId = comment._id || comment.id || idx;
+                      const commentOwnerId = comment.userId?._id || comment.userId?.id || comment.userId || comment.user?._id || comment.user?.id;
+                      const canDeleteComment = onDeleteComment && (isOwner || (currentUserId && commentOwnerId && currentUserId === commentOwnerId));
 
                       return (
                         <div
@@ -400,10 +407,10 @@ const PostCard = ({
                               <span className="font-semibold text-ink">
                                 {commentAuthor}
                               </span>
-                              {isOwner && onDeleteComment && (
+                              {canDeleteComment && (
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteComment(post._id, commentId)}
+                                  onClick={() => setDeleteConfirm({ postId: post._id, commentId })}
                                   className="text-ink-soft/50 hover:text-like transition-colors"
                                   title="Delete comment"
                                 >
@@ -547,6 +554,53 @@ const PostCard = ({
               </button>
             </div>
           </form>
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* Delete Comment Confirmation Modal */}
+    {deleteConfirm && createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[#6B4A38]/40 backdrop-blur-sm px-4"
+        onClick={() => setDeleteConfirm(null)}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-sm rounded-2xl border border-sand bg-white p-6 shadow-warm-lg animate-[fadeScaleIn_0.2s_ease-out]"
+          style={{ animation: 'fadeScaleIn 0.2s ease-out' }}
+        >
+          {/* Icon */}
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+            <Trash2 className="h-5 w-5 text-red-500" />
+          </div>
+
+          <h4 className="text-center text-base font-heading font-bold text-ink">
+            Delete Comment
+          </h4>
+          <p className="mt-2 text-center text-sm font-body text-ink-soft">
+            Are you sure you want to delete this comment? This action cannot be undone.
+          </p>
+
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirm(null)}
+              className="min-w-[90px] rounded-xl border border-sand px-4 py-2.5 text-sm font-body font-semibold text-ink hover:bg-sand-light transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onDeleteComment(deleteConfirm.postId, deleteConfirm.commentId);
+                setDeleteConfirm(null);
+              }}
+              className="min-w-[90px] rounded-xl bg-red-500 px-4 py-2.5 text-sm font-body font-semibold text-white hover:bg-red-600 transition-colors shadow-warm-sm"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </div>,
       document.body
