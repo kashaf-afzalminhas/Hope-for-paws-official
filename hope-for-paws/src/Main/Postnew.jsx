@@ -494,13 +494,18 @@ const Postnew = () => {
     });
   };
 
-  const handleCommentSubmit = async (postId, content) => {
-    if (!content || !requireAuth('comment on posts')) return;
+  const handleCommentSubmit = async (postId, content, parentCommentId = null) => {
+    if (!content) return;
+    if (!requireAuth('comment on this post')) return;
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const endpoint = parentCommentId 
+        ? `${API_BASE_URL}/comments/${postId}/comments` 
+        : `${API_BASE_URL}/comments/${postId}`;
+        
       const response = await axios.post(
-        `${API_BASE_URL}/comments/${postId}`,
-        { content },
+        endpoint,
+        { content, parentCommentId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setPosts(
