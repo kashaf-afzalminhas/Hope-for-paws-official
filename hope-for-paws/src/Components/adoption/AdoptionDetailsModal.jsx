@@ -10,6 +10,7 @@ import {
   getHealthFieldChipStyle,
   getPosterProfileId,
 } from './adoptionTheme';
+import ShareLinkButton from '../ShareLinkButton';
 
 const AdoptionDetailsModal = ({
   post,
@@ -218,6 +219,7 @@ const AdoptionDetailsModal = ({
                   Chat
                 </button>
               )}
+              <ShareLinkButton resourceType="adoption" resourceId={post._id} />
             </div>
           </div>
         </div>

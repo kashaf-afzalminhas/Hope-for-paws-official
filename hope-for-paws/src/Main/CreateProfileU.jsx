@@ -1864,7 +1864,15 @@ const ProfilePage = () => {
                 </div>
             )}
             {currentView === 'myposts' && (
-              <MyPosts embedded  />
+              <div>
+                <div className="mb-5 flex justify-end">
+                  <button type="button" onClick={() => navigate('/my-posts')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                    Open full page
+                    <FaChevronLeft className="rotate-180" />
+                  </button>
+                </div>
+                <MyPosts embedded />
+              </div>
             )}
 
             {currentView === 'sellerdashboard' && (

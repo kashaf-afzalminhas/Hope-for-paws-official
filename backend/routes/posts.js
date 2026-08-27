@@ -116,6 +116,25 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Record a public share. No login is required because shared links are public.
+router.post('/:id/share', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { shareCount: 1 } },
+      { new: true, select: 'shareCount' }
+    );
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    res.json({ shareCount: post.shareCount });
+  } catch (error) {
+    console.error('Error recording post share:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get user's posts (auth required, batched comments)
 router.get('/user/:userId', auth, async (req, res) => {
   try {

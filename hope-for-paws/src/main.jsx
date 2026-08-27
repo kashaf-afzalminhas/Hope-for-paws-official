@@ -29,6 +29,7 @@ import VerifyRegistration from './Main/VerifyRegistration';
 import AdoptionPage from './Main/AdoptionPage';
 import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
+import AdoptionDetail from './Main/AdoptionDetail';
 import AdoptionHistory from './Main/AdoptionHistory';
 import FullTeamPage from './Main/FullTeamPage';
 import AdminDashboard from './admin/AdminDashboard.jsx';
@@ -260,6 +261,7 @@ const router = createBrowserRouter(
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/adoption" element={<AdoptionPage />} />
+      <Route path="/adoption/:id" element={<AdoptionDetail />} />
       <Route path="/my-adoptions" element={<MyAdoptions />} />
       <Route path="/create-adoption" element={<CreateAdoptionAdForm />} />
       <Route path="/adoptionhistory" element={<AdoptionHistory />} />
