@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 // 1. Create Product
 exports.createProduct = async (req, res) => {
@@ -335,6 +336,25 @@ exports.toggleProductVisibility = async (req, res) => {
     res.json({ message: `Product is now ${newStatus}`, product: updatedProduct });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Record a public share. No login is required because product links are public.
+exports.shareProduct = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { shareCount: 1 } },
+      { new: true, select: 'shareCount' }
+    );
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    res.json({ shareCount: product.shareCount });
+  } catch (err) {
+    console.error('Error recording product share:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

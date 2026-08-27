@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Plus,
   Minus,
-  Share2,
   Flag,
   CheckCircle2,
   AlertTriangle,
@@ -22,6 +21,7 @@ import {
   Clock,
   BadgeCheck,
 } from "lucide-react";
+import ShareLinkButton from "../Components/ShareLinkButton";
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
@@ -617,13 +617,7 @@ export default function ProductDetails() {
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: BRAND.muted }}>
                 {PRODUCT.brand}
               </span>
-              <button
-                aria-label="Share product"
-                className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-700 transition-colors duration-150"
-              >
-                <Share2 size={14} />
-                Share
-              </button>
+              <ShareLinkButton resourceType="product" resourceId={PRODUCT._id} />
             </div>
 
             {/* Title */}

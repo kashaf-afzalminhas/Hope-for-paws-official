@@ -136,6 +136,12 @@ const productSchema = new mongoose.Schema(
       min: 0
     },
 
+    shareCount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
     // Automated Moderation Engine Fields
     reportCount: {
       type: Number,
