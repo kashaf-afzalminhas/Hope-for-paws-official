@@ -19,8 +19,8 @@ const CreatePost = () => {
     const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
     if (validFiles.length !== selectedFiles.length) setError('Only images under 5MB are allowed.');
     const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
-    if (images.length + newFiles.length > 20) {
-      setError('You can upload up to 20 images.');
+    if (images.length + newFiles.length > 5) {
+      setError('You can only upload a maximum of 5 images/videos.');
       return;
     }
     setImages((previous) => [...previous, ...newFiles]);
@@ -87,7 +87,7 @@ const CreatePost = () => {
 
         <div>
           <label className="block text-lg font-medium text-[#6b493d] mb-3">
-            Images (up to 20)
+            Images (up to 5)
           </label>
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-[#6b493d] rounded-xl group hover:border-[#c9a280] transition-colors duration-300">
             {images.length > 0 ? (
