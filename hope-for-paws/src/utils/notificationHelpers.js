@@ -14,12 +14,30 @@ export const getNotificationLink = (notification) => {
   const data = notification.data || {};
   const type = notification.type;
 
+  const normalizeId = (value) => {
+    if (!value) return null;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const stringValue = String(value);
+      const match = stringValue.match(/[a-f\d]{24}/i);
+      return match ? match[0] : null;
+    }
+    if (value._id) return normalizeId(value._id);
+    if (value.$oid) return String(value.$oid);
+    if (value.id) return normalizeId(value.id);
+    return null;
+  };
+
   switch (type) {
     case 'post_like':
     case 'post_comment':
     case 'new_post_vet_notification':
-      if (data.postId) return `/posts/${data.postId}`;
-      if (data.post) return `/posts/${data.post}`;
+      {
+        const postId = normalizeId(
+          data.postId || data.post || data.postID || data.id ||
+          notification.postId || notification.post_id
+        );
+        if (postId) return `/posts/${encodeURIComponent(postId)}`;
+      }
       return '/posts';
 
     case 'out_of_stock':

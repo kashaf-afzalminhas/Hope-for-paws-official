@@ -99,9 +99,14 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    const comments = await Comment.find({ postId: post._id })
-      .populate('userId', 'username isVeterinarian')
-      .sort({ createdAt: 1 });
+    let comments = [];
+    try {
+      comments = await Comment.find({ postId: post._id })
+        .populate('userId', 'username isVeterinarian')
+        .sort({ createdAt: 1 });
+    } catch (commentError) {
+      console.error('Error loading comments for post:', commentError);
+    }
 
     const postObject = post.toObject();
     const postWithComments = {
