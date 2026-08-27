@@ -5,7 +5,7 @@ import {
   Search, Heart, ShoppingCart, Star, X, ChevronDown, Check, Plus,
   Flame, Sparkles, LayoutGrid, List, SlidersHorizontal,
   Eye, Minus, ChevronUp, Shield,
-  Truck, RotateCcw, Award,
+  Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
@@ -297,10 +297,8 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingBottom:24 }}>
                 {[
-                  { Icon:Truck,     text:"Free shipping over Rs 5000" },
-                  { Icon:RotateCcw, text:"30-day easy returns" },
-                  { Icon:Shield,    text:"Vet-approved quality" },
-                  { Icon:Award,     text:"Premium certified brand" },
+                  { Icon:Shield, text:"Vet-approved quality" },
+                  { Icon:Award,  text:"Premium certified brand" },
                 ].map(({ Icon, text }) => (
                   <div key={text} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", backgroundColor:C.cream, borderRadius:10 }}>
                     <Icon size={13} style={{ color:C.tan, flexShrink:0 }}/>
