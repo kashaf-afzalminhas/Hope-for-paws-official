@@ -31,7 +31,7 @@ const ensureAdmin = async (userId) => {
 // Seller onboarding (post-registration)
 exports.onboardSeller = async (req, res) => {
   try {
-    const { fullName, storeName, email, phone, address, bankName, accountTitle, accountNumber } = req.body;
+    const { fullName, storeName, email, phone, address } = req.body;
     const userId = req.user?.id || req.user?.userId;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -60,11 +60,6 @@ exports.onboardSeller = async (req, res) => {
       email,
       phone,
       address,
-      paymentDetails: {
-        bankName,
-        accountTitle,
-        accountNumber
-      },
       profileImage,
       status: 'pending',
       isVerified: false
@@ -72,6 +67,8 @@ exports.onboardSeller = async (req, res) => {
 
     user.isSeller = true;
     user.sellerStatus = 'pending';
+    user.phone = phone;
+    user.phoneVerified = true;
     // user.canBuy is left true per new rules
     await user.save();
 
