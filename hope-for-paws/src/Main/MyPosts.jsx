@@ -145,10 +145,6 @@ const MyPosts = ({ embedded = false }) => {
                 <ArrowLeft className="h-4 w-4" />
                 Back to dashboard
               </button>
-              <button type="button" onClick={() => setShowPostForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
-                <PlusCircle className="h-4 w-4" />
-                Create Post
-              </button>
             </div>
           )}
           <span className="inline-flex items-center gap-2 text-xs md:text-sm font-semibold tracking-[0.2em] uppercase text-[#6b493d] font-body">
