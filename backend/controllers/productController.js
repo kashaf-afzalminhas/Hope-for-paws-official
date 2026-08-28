@@ -19,7 +19,8 @@ exports.createProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPercentage, additionalInfo
+      brand, sku, discountPercentage, additionalInfo,
+      lowStockThreshold
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
@@ -29,6 +30,9 @@ exports.createProduct = async (req, res) => {
     // Strict Validations
     if (Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
+    if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
+      return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
+    }
     if (
       discountPercentage !== undefined &&
       (Number(discountPercentage) < 0 ||
@@ -63,6 +67,7 @@ exports.createProduct = async (req, res) => {
       price: Number(price),
       category,
       countInStock: Number(countInStock),
+      lowStockThreshold: lowStockThreshold !== undefined && lowStockThreshold !== '' ? Number(lowStockThreshold) : 5,
       brand,
       sku,
       discountPercentage:
@@ -192,12 +197,16 @@ exports.updateProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPercentage, additionalInfo
+      brand, sku, discountPercentage, additionalInfo,
+      lowStockThreshold
     } = req.body;
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (countInStock && Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
+    if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
+      return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
+    }
     if (
       discountPercentage !== undefined &&
       (Number(discountPercentage) < 0 ||
@@ -242,6 +251,9 @@ exports.updateProduct = async (req, res) => {
     product.price = price !== undefined ? Number(price) : product.price;
     product.category = category || product.category;
     product.countInStock = countInStock !== undefined ? Number(countInStock) : product.countInStock;
+    if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
+      product.lowStockThreshold = Number(lowStockThreshold);
+    }
     product.brand = brand || product.brand;
     product.sku = sku || product.sku;
     product.discountPercentage =
