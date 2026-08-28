@@ -1381,7 +1381,7 @@ const ProfilePage = () => {
           </div>
 
           {/* Content Area */}
-          <div className={`min-w-0 flex-1 ${currentView === 'myposts' ? 'rounded-xl border border-[#b88b68]/70 bg-[#d8b89d] p-3 shadow-sm sm:p-5 lg:p-6' : currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
+          <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
               <div className="space-y-6">
                 <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
