@@ -14,6 +14,9 @@ const Navbar = ({ handleSignOut }) => {
   const { wishlist, unviewedCount } = useWishlist();
   
   const isSeller = user && (user.role === 'seller' || user.isSeller);
+  const usernameLength = user?.username?.length || 0;
+  const compactNavigation = !isSeller || usernameLength > 18;
+  const extraCompactNavigation = usernameLength > 28;
 
   const [isHovered, setIsHovered] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -151,7 +154,7 @@ const Navbar = ({ handleSignOut }) => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex flex-1 items-center justify-between ml-4 lg:ml-8 xl:ml-12">
-          <ul className="min-w-0 flex flex-grow justify-center space-x-4 lg:space-x-6 xl:space-x-8 2xl:space-x-12 mx-4">
+          <ul className={`min-w-0 flex flex-grow justify-center mx-4 ${extraCompactNavigation ? 'space-x-3 text-sm lg:space-x-4 xl:space-x-5' : compactNavigation ? 'space-x-4 text-base lg:space-x-5 xl:space-x-6' : 'space-x-6 text-lg lg:space-x-8 xl:space-x-10 2xl:space-x-12'}`}>
             <li className="hover:text-black text-[#a07855] font-bold whitespace-nowrap">
               <NavLink to="/" className={({ isActive }) => isActive ? activeStyle : ''}>Home</NavLink>
             </li>
@@ -196,15 +199,15 @@ const Navbar = ({ handleSignOut }) => {
           </ul>
 
           {/* Desktop User Actions Section */}
-          <div className="flex space-x-4 lg:space-x-6 items-center relative min-w-max">
+          <div className="flex items-center relative min-w-max space-x-4 lg:space-x-6">
             {user ? (
               <>
-                <span className="hidden">
+                <span className={`max-w-[clamp(6rem,14vw,14rem)] break-words text-right font-medium leading-tight text-[#a07855] ${isSeller ? 'text-base' : 'text-sm'}`}>
                   Welcome {user.username}
                 </span>
                 {!isSeller && (
                   <>
-                    <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative mr-2">
+                    <NavLink to="/wishlist" className="text-[#a07855] hover:text-gray-400 relative">
                       <FaHeart className="text-2xl" />
                       {unviewedCount > 0 && wishlist?.length > 0 && (
                         <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
