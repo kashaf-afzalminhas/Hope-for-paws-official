@@ -147,20 +147,6 @@ const MyPosts = ({ embedded = false }) => {
               </button>
             </div>
           )}
-          <span className="inline-flex items-center gap-2 text-xs md:text-sm font-semibold tracking-[0.2em] uppercase text-[#6b493d] font-body">
-            <PawPrint className="h-3.5 w-3.5" />
-            Your Gallery
-          </span>
-          <h3 className="text-2xl md:text-3xl font-bold text-[#4E3B31] mt-2 font-body">
-            My Shared Posts
-          </h3>
-          {!embedded && (
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <span className="h-px w-10 bg-[#9b6b45]" />
-              <Heart className="h-3.5 w-3.5 text-[#6b493d] fill-current" />
-              <span className="h-px w-10 bg-[#9b6b45]" />
-            </div>
-          )}
         </div>
 
         {showPostForm && !embedded && (

@@ -102,8 +102,8 @@ const PostCard = ({
     );
     if (selectedFiles.length !== validFiles.length) {
       setEditImageError("Only image files up to 5MB can be uploaded.");
-    } else if (validFiles.length > 20) {
-      setEditImageError("You can upload up to 20 photos.");
+    } else if (validFiles.length > 10) {
+      setEditImageError("You can upload up to 10 photos.");
     } else {
       setEditImageError("");
     }
@@ -115,8 +115,8 @@ const PostCard = ({
     const newFiles = validFiles.filter((file) => !existingFiles.some(
       (image) => image.name === file.name && image.size === file.size
     ));
-    if (existingFiles.length + newFiles.length > 20) {
-      setEditImageError("You can upload up to 20 photos.");
+    if (existingFiles.length + newFiles.length > 10) {
+      setEditImageError("You can upload up to 10 photos.");
       e.target.value = "";
       return;
     }
