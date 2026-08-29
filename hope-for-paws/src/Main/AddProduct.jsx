@@ -93,7 +93,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const handleMediaChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length + mediaFiles.length + existingImages.length > 5) {
-      setUploadError("You can only upload a maximum of 5 images/videos.");
+      setUploadError("You can only upload a maximum of 5 images.");
       e.target.value = '';
       return;
     }

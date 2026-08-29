@@ -136,7 +136,7 @@ const AdoptionForm = () => {
 
     // Check if adding these files would exceed the max limit
     if (images.length + selectedFiles.length > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} photos in total. You currently have ${images.length} selected.`);
+      setError('You can only upload a maximum of 5 images.');
       return;
     }
 

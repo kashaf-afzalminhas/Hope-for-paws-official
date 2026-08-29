@@ -20,7 +20,7 @@ const CreatePost = () => {
     if (validFiles.length !== selectedFiles.length) setError('Only images under 5MB are allowed.');
     const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
     if (images.length + newFiles.length > 5) {
-      setError('You can only upload a maximum of 5 images/videos.');
+      setError('You can only upload a maximum of 5 images.');
       return;
     }
     setImages((previous) => [...previous, ...newFiles]);

@@ -54,7 +54,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
     const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
     const duplicateCount = validFiles.length - newFiles.length;
     if (images.length + newFiles.length > 5) {
-      setError('You can only upload a maximum of 5 images/videos.');
+      setError('You can only upload a maximum of 5 images.');
       e.target.value = '';
       return;
     }
