@@ -65,6 +65,8 @@ const ProfilePage = () => {
 
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
@@ -74,6 +76,8 @@ const ProfilePage = () => {
 
   // Track original profile data to detect changes
   const [originalProfile, setOriginalProfile] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
@@ -196,6 +200,8 @@ const ProfilePage = () => {
 
       // Initialize form data with current profile data
       setFormData({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
@@ -205,10 +211,13 @@ const ProfilePage = () => {
 
       // Set original profile data for change detection
       setOriginalProfile({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
-        countryCode: phoneCountryCode
+        countryCode: phoneCountryCode,
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // If user doesn't have a phone number, redirect to edit view
@@ -304,6 +313,8 @@ const ProfilePage = () => {
   // Function to detect if there are changes
   const hasChanges = () => {
     return (
+      formData.name !== originalProfile.name ||
+      formData.email !== originalProfile.email ||
       formData.phone !== originalProfile.phone ||
       formData.city !== originalProfile.city ||
       formData.about !== originalProfile.about ||
@@ -343,6 +354,8 @@ const ProfilePage = () => {
   const handleCancelEdit = () => {
     // Reset form data to original profile data
     setFormData({
+      name: originalProfile.name,
+      email: originalProfile.email,
       phone: originalProfile.phone,
       city: originalProfile.city,
       about: originalProfile.about,
@@ -445,7 +458,7 @@ const ProfilePage = () => {
     setError('');
 
     const { id } = profile;
-    const { city, about } = formData;
+    const { name, email, city, about } = formData;
     const fullPhone = formData.countryCode + formData.phone;
 
     // Validate phone number
@@ -471,6 +484,8 @@ const ProfilePage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
+          username: name,
+          email,
           phone: fullPhone,
           city,
           about,
@@ -526,6 +541,8 @@ const ProfilePage = () => {
 
         // Update form data to match the saved profile
         setFormData({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
@@ -535,6 +552,8 @@ const ProfilePage = () => {
 
         // Update original profile data to reflect the saved state
         setOriginalProfile({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
@@ -1551,22 +1570,24 @@ const ProfilePage = () => {
                         <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
                         <input
                           type="text"
-                          disabled
-                          value={profile.name}
-                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your name"
                         />
-                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
 
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
                         <input
                           type="email"
-                          disabled
-                          value={profile.email}
-                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your email"
                         />
-                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
 
                       <div>
