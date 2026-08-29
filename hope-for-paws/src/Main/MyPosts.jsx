@@ -117,6 +117,72 @@ const MyPosts = ({ embedded = false }) => {
     )));
   };
 
+  const handleLike = async (postId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/posts/${postId}/like`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === postId ? { ...post, likes: response.data.likes } : post
+        )
+      );
+    } catch (err) {
+      console.error('Error liking post:', err);
+    }
+  };
+
+  const handleCommentSubmit = async (postId, content, parentCommentId = null) => {
+    if (!content) return;
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const endpoint = parentCommentId 
+        ? `${API_BASE_URL}/comments/${postId}/comments` 
+        : `${API_BASE_URL}/comments/${postId}`;
+        
+      const response = await axios.post(
+        endpoint,
+        { content, parentCommentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post._id === postId) {
+            return { ...post, comments: [...(post.comments || []), response.data] };
+          }
+          return post;
+        })
+      );
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/comments/${commentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post._id === postId) {
+            return {
+              ...post,
+              comments: post.comments.filter((c) => c._id !== commentId),
+            };
+          }
+          return post;
+        })
+      );
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
   const countMetric = (value) => {
     if (Array.isArray(value)) return value.length;
     return Number(value) || 0;
@@ -230,8 +296,12 @@ const MyPosts = ({ embedded = false }) => {
                 key={post._id}
                 post={post}
                 isOwner={true}
+                isLiked={Boolean(userId && post.likes && post.likes.includes(userId))}
                 likeCount={post.likes?.length || 0}
                 comments={post.comments || []}
+                onLike={() => handleLike(post._id)}
+                onCommentSubmit={handleCommentSubmit}
+                onDeleteComment={handleDeleteComment}
                 onShareCount={handleShareCount}
                 onEditSave={handleSaveEdit}
                 onDeletePost={handleDelete}
@@ -242,7 +312,7 @@ const MyPosts = ({ embedded = false }) => {
           <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
             {posts.map((post) => (
               <div key={post._id}>
-                <PostCard post={post} isOwner={true} likeCount={post.likes?.length || 0} comments={post.comments || []} onShareCount={handleShareCount} onEditSave={handleSaveEdit} onDeletePost={handleDelete} />
+                <PostCard post={post} isOwner={true} isLiked={Boolean(userId && post.likes && post.likes.includes(userId))} likeCount={post.likes?.length || 0} comments={post.comments || []} onLike={() => handleLike(post._id)} onCommentSubmit={handleCommentSubmit} onDeleteComment={handleDeleteComment} onShareCount={handleShareCount} onEditSave={handleSaveEdit} onDeletePost={handleDelete} />
               </div>
             ))}
           </div>
