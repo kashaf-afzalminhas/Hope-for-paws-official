@@ -5,7 +5,7 @@ import {
   Search, Heart, ShoppingCart, Star, X, ChevronDown, Check, Plus,
   Flame, Sparkles, LayoutGrid, List, SlidersHorizontal,
   Eye, Minus, ChevronUp, Shield,
-  Truck, RotateCcw, Award,
+  Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
@@ -18,19 +18,11 @@ import { useRequireAuth } from "../Components/AuthGuard";
 ═══════════════════════════════════════════════════════════════════════════════ */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,800&family=Poppins:wght@400;500;600;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #C8965A55; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #C8965A; }
   .hide-scroll { -ms-overflow-style:none; scrollbar-width:none; }
   .hide-scroll::-webkit-scrollbar { display:none; }
 
-  button, input, select { font-family: inherit; }
-  a { text-decoration: none; }
+  .marketplace-container button, .marketplace-container input, .marketplace-container select { font-family: inherit; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
   @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
@@ -297,10 +289,8 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingBottom:24 }}>
                 {[
-                  { Icon:Truck,     text:"Free shipping over Rs 5000" },
-                  { Icon:RotateCcw, text:"30-day easy returns" },
-                  { Icon:Shield,    text:"Vet-approved quality" },
-                  { Icon:Award,     text:"Premium certified brand" },
+                  { Icon:Shield, text:"Vet-approved quality" },
+                  { Icon:Award,  text:"Premium certified brand" },
                 ].map(({ Icon, text }) => (
                   <div key={text} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", backgroundColor:C.cream, borderRadius:10 }}>
                     <Icon size={13} style={{ color:C.tan, flexShrink:0 }}/>

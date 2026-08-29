@@ -94,8 +94,7 @@ exports.createOrder = async (req, res) => {
         0
       );
 
-      const FREE_SHIPPING_THRESHOLD = 5000;
-      const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+      const shippingFee = 0;
       const finalTotal = subtotal + shippingFee;
       ordersToCreate.push({
         buyerId,

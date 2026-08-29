@@ -13,7 +13,8 @@ import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
 import { useRequireAuth } from '../Components/AuthGuard.jsx';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
-import { adoptionGridClass } from '../Components/adoption/adoptionTheme.js';
+import AdoptionDetailsModal from '../Components/adoption/AdoptionDetailsModal.jsx';
+import { adoptionGridClass, adoptionBtnSecondary } from '../Components/adoption/adoptionTheme.js';
 import PostCard from "../Components/posts/PostCard"; // adjust to actual path
 import { ChevronLeft } from 'lucide-react';
 import PostViewToggle from '../Components/posts/PostViewToggle';
@@ -133,6 +134,7 @@ const PublicProfilePage = () => {
   const [conversations, setConversations] = useState([]);
   const [imageFailed, setImageFailed] = useState(false);
   const [postViewMode, setPostViewMode] = useState('grid'); // "grid" | "slide"
+  const [viewDetailsPost, setViewDetailsPost] = useState(null);
 
   // Get current user
   const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
@@ -342,7 +344,7 @@ const PublicProfilePage = () => {
   return (
     <div className="min-h-screen bg-[#f8f4ea] pb-6">
       {/* Sticky Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-[#e5d9c8]">
+      <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-[#e5d9c8]">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center">
           <button
             onClick={() => navigate(-1)}
@@ -433,7 +435,7 @@ const PublicProfilePage = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="sticky top-14 z-10 bg-white pt-3 pb-2 border-b border-[#e5d9c8] shadow-sm">
+      <div className="sticky top-14 z-30 bg-white pt-3 pb-2 border-b border-[#e5d9c8] shadow-sm">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex justify-around">
             {profile?.sellerId && (
@@ -598,7 +600,15 @@ const PublicProfilePage = () => {
           ) : (
             <div className={`${adoptionGridClass} pb-8`}>
               {adoptionAds.map((ad) => (
-                <AdoptionCard key={ad._id} post={ad} descriptionLines={2} poster={{ show: false }} />
+                <AdoptionCard key={ad._id} post={ad} descriptionLines={2} poster={{ show: false }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewDetailsPost(ad)}
+                    className={adoptionBtnSecondary}
+                  >
+                    View details
+                  </button>
+                </AdoptionCard>
               ))}
             </div>
           )
@@ -660,6 +670,27 @@ const PublicProfilePage = () => {
   )
 )}
       </div>
+
+      {/* Adoption Details Modal */}
+      {viewDetailsPost && (
+        <AdoptionDetailsModal
+          post={viewDetailsPost}
+          onClose={() => setViewDetailsPost(null)}
+          imageFailed={false}
+          onImageError={() => {}}
+          canChat={Boolean(
+            currentUserId &&
+              String(viewDetailsPost.userId?._id || viewDetailsPost.userId || '') !== String(currentUserId)
+          )}
+          onChat={(e) =>
+            handleStartConversation(
+              viewDetailsPost.userId?._id || viewDetailsPost.userId,
+              viewDetailsPost.userId?.username || profile?.username,
+              e
+            )
+          }
+        />
+      )}
     </div>
   );
 }

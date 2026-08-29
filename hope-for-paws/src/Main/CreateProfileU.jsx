@@ -2,9 +2,9 @@ import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
-import { Heart, MessageCircle, Pencil, Trash2, X } from 'lucide-react';
+import { Heart, MessageCircle, Pencil, Trash2, X, Info } from 'lucide-react';
 import { MdPets } from 'react-icons/md';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
@@ -15,6 +15,7 @@ import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
 import SellerOrders from '../marketplace/SellerOrders';
+import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
 import { COUNTRY_CODES } from '../utils/constants';
@@ -45,6 +46,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({
@@ -65,6 +67,8 @@ const ProfilePage = () => {
 
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
@@ -74,6 +78,8 @@ const ProfilePage = () => {
 
   // Track original profile data to detect changes
   const [originalProfile, setOriginalProfile] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
@@ -83,7 +89,7 @@ const ProfilePage = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentView, setCurrentView] = useState('profile');
+  const [currentView, setCurrentView] = useState(location.state?.view || 'profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const [posts, setPosts] = useState([]);
@@ -113,6 +119,12 @@ const ProfilePage = () => {
     setToasts((prev) => [...prev, { message, type }]);
     setTimeout(() => setToasts((prev) => prev.slice(1)), 3500);
   };
+
+  useEffect(() => {
+    if (location.state?.view) {
+      setCurrentView(location.state.view);
+    }
+  }, [location.state]);
 
   // Phone validation function
   const validatePhone = (phoneNumber, code) => {
@@ -196,6 +208,8 @@ const ProfilePage = () => {
 
       // Initialize form data with current profile data
       setFormData({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
@@ -205,10 +219,13 @@ const ProfilePage = () => {
 
       // Set original profile data for change detection
       setOriginalProfile({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
-        countryCode: phoneCountryCode
+        countryCode: phoneCountryCode,
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // If user doesn't have a phone number, redirect to edit view
@@ -304,6 +321,8 @@ const ProfilePage = () => {
   // Function to detect if there are changes
   const hasChanges = () => {
     return (
+      formData.name !== originalProfile.name ||
+      formData.email !== originalProfile.email ||
       formData.phone !== originalProfile.phone ||
       formData.city !== originalProfile.city ||
       formData.about !== originalProfile.about ||
@@ -343,6 +362,8 @@ const ProfilePage = () => {
   const handleCancelEdit = () => {
     // Reset form data to original profile data
     setFormData({
+      name: originalProfile.name,
+      email: originalProfile.email,
       phone: originalProfile.phone,
       city: originalProfile.city,
       about: originalProfile.about,
@@ -445,7 +466,7 @@ const ProfilePage = () => {
     setError('');
 
     const { id } = profile;
-    const { city, about } = formData;
+    const { name, email, city, about } = formData;
     const fullPhone = formData.countryCode + formData.phone;
 
     // Validate phone number
@@ -471,6 +492,8 @@ const ProfilePage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
+          username: name,
+          email,
           phone: fullPhone,
           city,
           about,
@@ -526,6 +549,8 @@ const ProfilePage = () => {
 
         // Update form data to match the saved profile
         setFormData({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
@@ -535,6 +560,8 @@ const ProfilePage = () => {
 
         // Update original profile data to reflect the saved state
         setOriginalProfile({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
@@ -1381,7 +1408,7 @@ const ProfilePage = () => {
           </div>
 
           {/* Content Area */}
-          <div className={`min-w-0 flex-1 ${currentView === 'myposts' ? 'rounded-xl border border-[#b88b68]/70 bg-[#d8b89d] p-3 shadow-sm sm:p-5 lg:p-6' : currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
+          <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
               <div className="space-y-6">
                 <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
@@ -1551,22 +1578,24 @@ const ProfilePage = () => {
                         <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
                         <input
                           type="text"
-                          disabled
-                          value={profile.name}
-                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your name"
                         />
-                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
 
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
                         <input
                           type="email"
-                          disabled
-                          value={profile.email}
-                          className="w-full rounded-2xl border border-gray-300 bg-gray-100 px-3 py-2.5"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your email"
                         />
-                        <p className="mt-1 text-xs text-gray-500">Cannot be changed</p>
                       </div>
 
                       <div>
@@ -1684,7 +1713,21 @@ const ProfilePage = () => {
                             className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
                           />
                           <div>
-                            <p className="font-semibold text-gray-900">Push notifications</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-gray-900">Push notifications</p>
+                              <span className="group relative inline-flex">
+                                <button
+                                  type="button"
+                                  aria-label="About push notifications"
+                                  className="text-gray-400 transition hover:text-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/30"
+                                >
+                                  <Info className="h-4 w-4" />
+                                </button>
+                                <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#6b493d] px-3 py-2 text-center text-xs font-normal text-white shadow-lg group-hover:block group-focus-within:block">
+                                  Get alerts on your phone or computer.
+                                </span>
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-500">Receive mobile push alerts where supported.</p>
                           </div>
                         </label>
@@ -1879,8 +1922,18 @@ const ProfilePage = () => {
               <SellerDashboard embedded onNavigateOrders={() => handleViewChange('ordermanagement')} />
             )}
 
+            {currentView === 'selleranalytics' && (
+              <SellerAnalyticsDashboard 
+                embedded 
+                onNavigateOrders={() => handleViewChange('ordermanagement')} 
+              />
+            )}
+
             {currentView === 'ordermanagement' && (
-              <SellerOrders embedded />
+              <SellerOrders
+                embedded
+                onNavigateAnalytics={() => handleViewChange('selleranalytics')}
+              />
             )}
           </div>
         </div>
