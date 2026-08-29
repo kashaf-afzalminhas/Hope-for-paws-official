@@ -207,17 +207,6 @@ const MyPosts = ({ embedded = false }) => {
                 <ArrowLeft className="h-4 w-4" />
                 Back to dashboard
               </button>
-              <button type="button" onClick={() => setShowPostForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
-                <PlusCircle className="h-4 w-4" />
-                Create Post
-              </button>
-            </div>
-          )}
-          {!embedded && (
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <span className="h-px w-10 bg-[#9b6b45]" />
-              <Heart className="h-3.5 w-3.5 text-[#6b493d] fill-current" />
-              <span className="h-px w-10 bg-[#9b6b45]" />
             </div>
           )}
         </div>

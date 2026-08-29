@@ -53,8 +53,8 @@ function PostUploadForm({ onAddPost, onCancel }) {
     const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
     const newFiles = validFiles.filter((file) => !images.some((image) => image.name === file.name && image.size === file.size));
     const duplicateCount = validFiles.length - newFiles.length;
-    if (images.length + newFiles.length > 20) {
-      setError(`You can upload up to 20 photos. You have ${images.length} selected.`);
+    if (images.length + newFiles.length > 10) {
+      setError(`You can upload up to 10 photos. You have ${images.length} selected.`);
       e.target.value = '';
       return;
     }
@@ -112,7 +112,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
         </div>
           <div className="mb-8">
           <label className="block text-[#6b493d] text-sm font-semibold mb-2" htmlFor="post-image">
-            Photos (up to 20)
+            Photos (up to 10)
           </label>
             <div className="space-y-3">
               {images.length > 0 && (
@@ -146,7 +146,7 @@ function PostUploadForm({ onAddPost, onCancel }) {
                 <span>{images.length > 0 ? 'Add more photos' : 'Choose photos'}</span>
               </label>
               <div className="flex items-center justify-between gap-3 text-xs text-[#6b493d]">
-                <span>{images.length}/20 photos selected</span>
+                <span>{images.length}/10 photos selected</span>
                 {images.length > 0 && (
                   <button type="button" onClick={handleRemoveAllImages} className="inline-flex items-center gap-1 text-red-600 hover:text-red-700">
                     <Trash2 className="h-3.5 w-3.5" /> Remove all
