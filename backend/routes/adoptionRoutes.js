@@ -114,7 +114,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
 
     // Validate total size of all images
     let totalSize = 0;
-    for (const file of req.files) {
+    for (const file of req.files || []) {
       totalSize += file.size;
     }
     if (totalSize > MAX_TOTAL_IMAGE_SIZE) {
@@ -138,7 +138,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
     const uploadedUrls = [];
     let uploadError = null;
 
-    for (let i = 0; i < req.files.length; i++) {
+    for (let i = 0; i < (req.files || []).length; i++) {
       const file = req.files[i];
       try {
         const b64 = Buffer.from(file.buffer).toString('base64');
@@ -520,11 +520,6 @@ router.put('/:id', auth, async (req, res) => {
 // Update adoption post images (supports multiple images)
 router.put('/:id/image', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
   try {
-    // Require at least one new image
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'At least one image file is required' });
-    }
-
     // Ensure the post belongs to the user
     const adoptionPost = await Adoption.findOne({
       _id: req.params.id,
@@ -536,11 +531,19 @@ router.put('/:id/image', auth, upload.array('images', MAX_ADOPTION_IMAGES), asyn
     }
 
     // Get list of images to remove (if provided in body)
-    const indicesToRemove = req.body.indicesToRemove ? JSON.parse(req.body.indicesToRemove) : [];
+    let indicesToRemove = [];
+    try {
+      indicesToRemove = req.body.indicesToRemove ? JSON.parse(req.body.indicesToRemove) : [];
+    } catch {
+      return res.status(400).json({ message: 'Invalid image removal data' });
+    }
+    if (!Array.isArray(indicesToRemove)) {
+      return res.status(400).json({ message: 'Invalid image removal data' });
+    }
     
     // Calculate total size of new images
     let totalSize = 0;
-    for (const file of req.files) {
+    for (const file of req.files || []) {
       totalSize += file.size;
     }
     if (totalSize > MAX_TOTAL_IMAGE_SIZE) {
@@ -551,7 +554,7 @@ router.put('/:id/image', auth, upload.array('images', MAX_ADOPTION_IMAGES), asyn
     const newUploadedUrls = [];
     let uploadError = null;
 
-    for (let i = 0; i < req.files.length; i++) {
+    for (let i = 0; i < (req.files || []).length; i++) {
       const file = req.files[i];
       try {
         const b64 = Buffer.from(file.buffer).toString('base64');
@@ -589,6 +592,10 @@ router.put('/:id/image', auth, upload.array('images', MAX_ADOPTION_IMAGES), asyn
 
     // Get current images (supporting both old and new formats for backward compatibility)
     const currentImages = adoptionPost.imageUrls || (adoptionPost.imageUrl ? [adoptionPost.imageUrl] : []);
+
+    if ((!req.files || req.files.length === 0) && indicesToRemove.length === 0) {
+      return res.status(400).json({ message: 'Select a new photo or remove an existing photo' });
+    }
 
     // Remove specified images from current list
     let updatedImages = [...currentImages];
