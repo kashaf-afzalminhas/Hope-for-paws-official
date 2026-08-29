@@ -22,7 +22,7 @@ const PAKISTAN_CITIES = [
 const MAX_FILE_SIZE_MB = 2; // 2MB per image
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_IMAGES = 10;
+const MAX_IMAGES = 5;
 const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
@@ -136,7 +136,7 @@ const AdoptionForm = () => {
 
     // Check if adding these files would exceed the max limit
     if (images.length + selectedFiles.length > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} photos in total. You currently have ${images.length} selected.`);
+      setError('You can only upload a maximum of 5 images.');
       return;
     }
 

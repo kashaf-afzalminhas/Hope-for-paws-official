@@ -19,6 +19,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [error, setError] = useState('');
+  const [uploadError, setUploadError] = useState('');
 
   const [existingImages, setExistingImages] = useState([]);
   const [imagesToDelete, setImagesToDelete] = useState([]);
@@ -96,25 +97,30 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const handleMediaChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length + mediaFiles.length + existingImages.length > 5) {
-      alert("You can only upload up to 5 images/videos total");
+      setUploadError("You can only upload a maximum of 5 images.");
+      e.target.value = '';
       return;
     }
     
+    setUploadError('');
     setMediaFiles(prev => [...prev, ...files]);
     
     const previews = files.map(file => URL.createObjectURL(file));
     setMediaPreviews(prev => [...prev, ...previews]);
+    e.target.value = '';
   };
 
   const removeMedia = (index) => {
     setMediaFiles(prev => prev.filter((_, i) => i !== index));
     setMediaPreviews(prev => prev.filter((_, i) => i !== index));
+    setUploadError('');
   };
 
   const removeExistingMedia = (index) => {
     const urlToRemove = existingImages[index];
     setImagesToDelete(prev => [...prev, urlToRemove]);
     setExistingImages(prev => prev.filter((_, i) => i !== index));
+    setUploadError('');
   };
 
   const generateSKU = () => {
@@ -390,6 +396,13 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 Browse Files
               </button>
             </div>
+            
+            {uploadError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center text-sm">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                {uploadError}
+              </div>
+            )}
             
             {/* Image Previews */}
             {(existingImages.length > 0 || mediaPreviews.length > 0) && (
