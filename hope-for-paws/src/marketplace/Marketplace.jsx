@@ -18,19 +18,11 @@ import { useRequireAuth } from "../Components/AuthGuard";
 ═══════════════════════════════════════════════════════════════════════════════ */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,800&family=Poppins:wght@400;500;600;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #C8965A55; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #C8965A; }
   .hide-scroll { -ms-overflow-style:none; scrollbar-width:none; }
   .hide-scroll::-webkit-scrollbar { display:none; }
 
-  button, input, select { font-family: inherit; }
-  a { text-decoration: none; }
+  .marketplace-container button, .marketplace-container input, .marketplace-container select { font-family: inherit; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
   @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
