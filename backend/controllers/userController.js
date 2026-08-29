@@ -218,10 +218,13 @@ const verifyRegistrationOTP = async (req, res) => {
       }
       user.phoneVerified = true;
 
-      // Seller linking is not auto-upgraded here unless tempUser explicitly registered as seller.
-      if (tempUser.userType === 'seller' && !user.isSeller) {
+      // A seller must complete onboarding before the account becomes pending.
+      if (tempUser.userType === 'seller') {
         user.isSeller = true;
-        user.sellerStatus = 'pending';
+        const sellerProfile = await Seller.exists({ userId: user._id });
+        if (!sellerProfile) {
+          user.sellerStatus = 'incomplete';
+        }
       }
 
       linkAuthProvider(user, 'local');
@@ -290,6 +293,15 @@ const signIn = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+    // Sellers without an onboarding profile still need to complete seller setup.
+    if (user.isSeller && user.sellerStatus === 'pending') {
+      const sellerProfile = await Seller.exists({ userId: user._id });
+      if (!sellerProfile) {
+        user.sellerStatus = 'incomplete';
+        await user.save();
+      }
+    }
 
     const token = jwt.sign(
       {
