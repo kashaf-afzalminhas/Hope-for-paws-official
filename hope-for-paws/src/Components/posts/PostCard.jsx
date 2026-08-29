@@ -50,6 +50,7 @@ const PostCard = ({
   const [heartAnimating, setHeartAnimating] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { postId, commentId } when modal is open
+  const [replyingTo, setReplyingTo] = useState(null); // { id: commentId, username: string }
 
   // Derive the logged-in user's ID so comment authors can delete their own comments
   const _storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
@@ -103,7 +104,7 @@ const PostCard = ({
     if (selectedFiles.length !== validFiles.length) {
       setEditImageError("Only image files up to 5MB can be uploaded.");
     } else if (validFiles.length > 5) {
-      setEditImageError("You can upload up to 5 photos.");
+      setEditImageError("You can only upload a maximum of 5 images.");
     } else {
       setEditImageError("");
     }
@@ -116,7 +117,7 @@ const PostCard = ({
       (image) => image.name === file.name && image.size === file.size
     ));
     if (existingFiles.length + newFiles.length > 5) {
-      setEditImageError("You can upload up to 5 photos.");
+      setEditImageError("You can only upload a maximum of 5 images.");
       e.target.value = "";
       return;
     }
@@ -179,8 +180,9 @@ const PostCard = ({
     if (!commentText.trim() || !onCommentSubmit) return;
     setSubmittingComment(true);
     try {
-      await onCommentSubmit(post._id, commentText.trim());
+      await onCommentSubmit(post._id, commentText.trim(), replyingTo?.id || null);
       setCommentText("");
+      setReplyingTo(null);
     } catch (err) {
       console.error("Error submitting comment:", err);
     } finally {
@@ -386,48 +388,93 @@ const PostCard = ({
                 {/* Comments List */}
                 <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   {comments && comments.length > 0 ? (
-                    comments.map((comment, idx) => {
-                      const commentAuthor =
-                        typeof comment === "string"
-                          ? "User"
-                          : comment.userId?.username || comment.user?.username || comment.author || "Anonymous";
-                      const commentTextContent =
-                        typeof comment === "string" ? comment : comment.content || comment.text || "";
-                      const commentId = comment._id || comment.id || idx;
-                      const commentOwnerId = comment.userId?._id || comment.userId?.id || comment.userId || comment.user?._id || comment.user?.id;
-                      const canDeleteComment = onDeleteComment && (isOwner || (currentUserId && commentOwnerId && currentUserId === commentOwnerId));
+                    (() => {
+                      const rootComments = comments.filter((c) => !c.parentCommentId);
+                      return rootComments.map((comment, idx) => {
+                        const commentAuthor = typeof comment === "string" ? "User" : comment.userId?.username || comment.user?.username || comment.author || "Anonymous";
+                        const commentTextContent = typeof comment === "string" ? comment : comment.content || comment.text || "";
+                        const commentId = comment._id || comment.id || idx;
+                        const commentOwnerId = comment.userId?._id || comment.userId?.id || comment.userId || comment.user?._id || comment.user?.id;
+                        const canDeleteComment = onDeleteComment && (isOwner || (currentUserId && commentOwnerId && currentUserId === commentOwnerId));
+                        
+                        const replies = comments.filter((c) => String(c.parentCommentId) === String(commentId));
 
-                      return (
-                        <div
-                          key={commentId}
-                          className="bg-sand-light p-3 rounded-2xl flex items-start gap-2.5 text-xs font-body"
-                        >
-                          <div className="h-7 w-7 rounded-full bg-clay/20 text-clay flex items-center justify-center font-bold flex-shrink-0 text-xs">
-                            {commentAuthor.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-semibold text-ink">
-                                {commentAuthor}
-                              </span>
-                              {canDeleteComment && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirm({ postId: post._id, commentId })}
-                                  className="text-ink-soft/50 hover:text-like transition-colors"
-                                  title="Delete comment"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              )}
+                        return (
+                          <div key={commentId} className="flex flex-col gap-2">
+                            {/* Root Comment */}
+                            <div className="bg-sand-light p-3 rounded-2xl flex items-start gap-2.5 text-xs font-body group/comment relative">
+                              <div className="h-7 w-7 rounded-full bg-clay/20 text-clay flex items-center justify-center font-bold flex-shrink-0 text-xs">
+                                {commentAuthor.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-ink">{commentAuthor}</span>
+                                </div>
+                                <p className="text-ink-soft mt-0.5 break-words">{commentTextContent}</p>
+                                <div className="mt-1.5 flex items-center gap-3">
+                                  {onCommentSubmit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setReplyingTo({ id: commentId, username: commentAuthor })}
+                                      className="text-[10px] font-semibold text-ink-soft/70 hover:text-clay transition-colors uppercase tracking-wider"
+                                    >
+                                      Reply
+                                    </button>
+                                  )}
+                                  {canDeleteComment && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeleteConfirm({ postId: post._id, commentId })}
+                                      className="text-ink-soft/50 hover:text-like transition-colors flex items-center gap-1 text-[10px] uppercase font-semibold tracking-wider"
+                                    >
+                                      <Trash2 className="h-3 w-3" /> Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-ink-soft mt-0.5 break-words">
-                              {commentTextContent}
-                            </p>
+                            
+                            {/* Nested Replies */}
+                            {replies.length > 0 && (
+                              <div className="pl-9 space-y-2 relative before:absolute before:left-[18px] before:top-[-10px] before:bottom-3 before:w-px before:bg-sand">
+                                {replies.map((reply, rIdx) => {
+                                  const replyAuthor = typeof reply === "string" ? "User" : reply.userId?.username || reply.user?.username || reply.author || "Anonymous";
+                                  const replyTextContent = typeof reply === "string" ? reply : reply.content || reply.text || "";
+                                  const replyId = reply._id || reply.id || rIdx;
+                                  const replyOwnerId = reply.userId?._id || reply.userId?.id || reply.userId || reply.user?._id || reply.user?.id;
+                                  const canDeleteReply = onDeleteComment && (isOwner || (currentUserId && replyOwnerId && currentUserId === replyOwnerId));
+                                  
+                                  return (
+                                    <div key={replyId} className="bg-sand-light/60 p-2.5 rounded-xl flex items-start gap-2 text-xs font-body relative before:absolute before:left-[-18px] before:top-4 before:h-px before:w-3 before:bg-sand">
+                                      <div className="h-6 w-6 rounded-full bg-clay/20 text-clay flex items-center justify-center font-bold flex-shrink-0 text-[10px]">
+                                        {replyAuthor.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-semibold text-ink">{replyAuthor}</span>
+                                        </div>
+                                        <p className="text-ink-soft mt-0.5 break-words">{replyTextContent}</p>
+                                        <div className="mt-1.5 flex items-center gap-3">
+                                          {canDeleteReply && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setDeleteConfirm({ postId: post._id, commentId: replyId })}
+                                              className="text-ink-soft/50 hover:text-like transition-colors flex items-center gap-1 text-[10px] uppercase font-semibold tracking-wider"
+                                            >
+                                              <Trash2 className="h-2.5 w-2.5" /> Delete
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      });
+                    })()
                   ) : (
                     <div className="p-4 text-center bg-sand-light/50 rounded-2xl border border-dashed border-sand">
                       <p className="text-xs font-body italic text-ink-soft">
@@ -439,26 +486,39 @@ const PostCard = ({
 
                 {/* New Comment Input Form */}
                 {onCommentSubmit && (
-                  <form
-                    onSubmit={handleCommentFormSubmit}
-                    className="flex items-center gap-2 pt-2"
-                  >
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="flex-1 bg-sand-light border border-sand rounded-full px-4 py-2 text-xs font-body text-ink placeholder:text-ink-soft/50 focus:outline-none focus:border-clay focus:ring-1 focus:ring-clay"
-                    />
-                    <button
-                      type="submit"
-                      disabled={submittingComment || !commentText.trim()}
-                      className="h-8 w-8 rounded-full bg-clay text-cream hover:bg-clay-deep disabled:opacity-40 disabled:hover:bg-clay flex items-center justify-center transition-colors flex-shrink-0"
-                      aria-label="Send comment"
+                  <div className="pt-2 flex flex-col gap-2">
+                    {replyingTo && (
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-clay/10 rounded-lg text-xs font-body">
+                        <span className="text-clay font-medium">Replying to @{replyingTo.username}</span>
+                        <button
+                          onClick={() => setReplyingTo(null)}
+                          className="text-ink-soft/60 hover:text-ink transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <form
+                      onSubmit={handleCommentFormSubmit}
+                      className="flex items-center gap-2"
                     >
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
-                  </form>
+                      <input
+                        type="text"
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+                        className="flex-1 bg-sand-light border border-sand rounded-full px-4 py-2 text-xs font-body text-ink placeholder:text-ink-soft/50 focus:outline-none focus:border-clay focus:ring-1 focus:ring-clay"
+                      />
+                      <button
+                        type="submit"
+                        disabled={submittingComment || !commentText.trim()}
+                        className="h-8 w-8 rounded-full bg-clay text-cream hover:bg-clay-deep disabled:opacity-40 disabled:hover:bg-clay flex items-center justify-center transition-colors flex-shrink-0"
+                        aria-label="Send comment"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  </div>
                 )}
               </div>
             )}

@@ -259,7 +259,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               <a 
                 key={nav.id}
                 href={`#${nav.id}`}
-                onClick={(e) => setActiveSection(nav.id)}
+                onClick={(e) => { e.preventDefault(); setActiveSection(nav.id); document.getElementById(nav.id)?.scrollIntoView({ behavior: 'smooth' }); }}
                 className={`flex items-center space-x-3 px-5 py-3 rounded-xl font-medium transition-all duration-200 ${
                   activeSection === nav.id 
                     ? 'bg-[#6b493d]/10 text-[#6b493d] shadow-sm' 

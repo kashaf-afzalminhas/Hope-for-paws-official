@@ -88,8 +88,7 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const freeThreshold = 5000;
-  const shippingFee = cartTotal >= freeThreshold ? 0 : SHIPPING_FEE;
+  const shippingFee = 0;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
@@ -417,11 +416,7 @@ export default function Checkout() {
           </div>
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
-            {items.length > 0 && shippingFee === 0 ? (
-              <span className="text-green-600 font-bold">FREE</span>
-            ) : (
-              <span className="text-[#3d2a24] font-bold">Rs {items.length > 0 ? shippingFee : 0}</span>
-            )}
+            <span className="text-[#3d2a24] font-bold">Rs 0</span>
           </div>
         </div>
 

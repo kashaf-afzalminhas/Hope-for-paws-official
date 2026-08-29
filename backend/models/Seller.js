@@ -39,17 +39,14 @@ const sellerSchema = new mongoose.Schema(
     paymentDetails: {
       bankName: {
         type: String,
-        required: true,
         trim: true
       },
       accountTitle: {
         type: String,
-        required: true,
         trim: true
       },
       accountNumber: {
         type: String,
-        required: true,
         trim: true
       }
     },

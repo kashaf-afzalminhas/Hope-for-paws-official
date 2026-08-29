@@ -849,7 +849,7 @@ function EmptyState({ filter, query }) {
 // PAGE ROOT
 // ─────────────────────────────────────────────────────────────────────────
 
-export default function SellerOrderDashboard({ embedded = false }) {
+export default function SellerOrderDashboard({ embedded = false, onNavigateAnalytics }) {
   useGlobalStyles();
 
   const navigate = useNavigate();
@@ -951,9 +951,13 @@ export default function SellerOrderDashboard({ embedded = false }) {
 
         {/* ── Page header ── */}
         {!embedded && (
-          <button type="button" onClick={() => navigate('/profile')} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]">
+          <button 
+            type="button" 
+            onClick={() => navigate('/profile', { state: { view: 'ordermanagement' } })} 
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]"
+          >
             <ArrowLeft size={16} />
-            Back to dashboard
+            Back to profile
           </button>
         )}
         <header className={`rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm ${embedded ? "mb-6" : "mb-8"}`}>
@@ -988,7 +992,13 @@ export default function SellerOrderDashboard({ embedded = false }) {
               )}
               <button
                 type="button"
-                onClick={() => navigate('/seller/analytics')}
+                onClick={() => {
+                  if (embedded && onNavigateAnalytics) {
+                    onNavigateAnalytics();
+                  } else {
+                    navigate('/seller/analytics');
+                  }
+                }}
                 aria-label="View revenue analytics"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#5a3c32] hover:shadow-lg active:scale-95"
               >

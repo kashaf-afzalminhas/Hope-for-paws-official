@@ -116,6 +116,10 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
   }, [products, searchParams]);
 
   useEffect(() => {
+    // Pause background polling while the user is on the Add/Edit Product form
+    // to prevent parent re-renders from unmounting the form and losing data.
+    if (activeTab === 'add-product' || activeTab === 'edit-product') return;
+
     const refresh = () => fetchDashboardData();
     window.addEventListener('focus', refresh);
     window.addEventListener('stock-updated', refresh);
@@ -125,7 +129,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
       window.removeEventListener('stock-updated', refresh);
       window.clearInterval(refreshInterval);
     };
-  }, []);
+  }, [activeTab]);
 
   // Lazy-load reviews when Reviews tab is selected
   const fetchSellerReviews = async () => {

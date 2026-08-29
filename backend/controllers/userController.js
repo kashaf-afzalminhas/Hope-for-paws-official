@@ -218,10 +218,13 @@ const verifyRegistrationOTP = async (req, res) => {
       }
       user.phoneVerified = true;
 
-      // Seller linking is not auto-upgraded here unless tempUser explicitly registered as seller.
-      if (tempUser.userType === 'seller' && !user.isSeller) {
+      // A seller must complete onboarding before the account becomes pending.
+      if (tempUser.userType === 'seller') {
         user.isSeller = true;
-        user.sellerStatus = 'pending';
+        const sellerProfile = await Seller.exists({ userId: user._id });
+        if (!sellerProfile) {
+          user.sellerStatus = 'incomplete';
+        }
       }
 
       linkAuthProvider(user, 'local');
@@ -290,6 +293,15 @@ const signIn = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+    // Sellers without an onboarding profile still need to complete seller setup.
+    if (user.isSeller && user.sellerStatus === 'pending') {
+      const sellerProfile = await Seller.exists({ userId: user._id });
+      if (!sellerProfile) {
+        user.sellerStatus = 'incomplete';
+        await user.save();
+      }
+    }
 
     const token = jwt.sign(
       {
@@ -503,10 +515,32 @@ const getUserProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { id, phone, city, about, notificationPreferences } = req.body;
+    const { id, username, email, phone, city, about, notificationPreferences } = req.body;
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Handle Name / Username update
+    if (username && username.trim() !== '') {
+      user.username = username.trim();
+    }
+
+    // Handle Email update
+    if (email && normalizeEmail(email) !== user.email) {
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail.endsWith('@gmail.com')) {
+        return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+      }
+      if (ADMIN_EMAILS.includes(normalizedEmail)) {
+        return res.status(403).json({ message: 'Reserved email.' });
+      }
+      const emailExists = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email is already in use by another account' });
+      }
+      user.email = normalizedEmail;
+    }
+
+    // Existing Phone validation & update
     if (phone && phone !== user.phone) {
       const normalizedPhone = String(phone).trim();
       const phoneValidationError = validateInternationalPhone(normalizedPhone);
@@ -518,6 +552,7 @@ const updateProfile = async (req, res) => {
       user.phone = normalizedPhone;
       user.phoneVerified = true;
     }
+
     user.city = city || user.city;
     user.about = about || user.about;
 
@@ -545,7 +580,10 @@ const updateProfile = async (req, res) => {
 
     await user.save();
 
-    return res.status(200).json({ message: 'Updated', user });
+    const userSafe = user.toObject();
+    delete userSafe.password;
+
+    return res.status(200).json({ message: 'Updated', user: userSafe });
   } catch (error) {
     return res.status(500).json({ message: 'Server error' });
   }
