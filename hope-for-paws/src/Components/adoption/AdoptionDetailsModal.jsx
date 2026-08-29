@@ -46,6 +46,14 @@ const AdoptionDetailsModal = ({
     setCurrentImageIndex(0);
   }, [post?._id, post?.imageUrl, post?.imageUrls]);
 
+  React.useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   const currentImage = imageList[currentImageIndex] || null;
   const hasMultipleImages = imageList.length > 1;
 
@@ -60,12 +68,16 @@ const AdoptionDetailsModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
       <div
         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="adoption-details-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[#e8dcc8] bg-white px-6 py-4">
           <h2 id="adoption-details-title" className="text-xl font-bold text-[#4E3B31] sm:text-2xl">

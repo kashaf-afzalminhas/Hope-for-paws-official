@@ -84,7 +84,7 @@ const AdoptionCard = ({
         </div>
         {imageOverlay}
         {showStatus && (
-          <div className="pointer-events-none absolute right-3 top-3 z-10">
+          <div className="pointer-events-none absolute right-3 top-3 z-[2]">
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold shadow-md backdrop-blur-sm ${statusBadge.className}`}
             >
