@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
 import { Heart, MessageCircle, Pencil, Trash2, X, Info } from 'lucide-react';
 import { MdPets } from 'react-icons/md';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
@@ -15,6 +15,7 @@ import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
 import SellerOrders from '../marketplace/SellerOrders';
+import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
 import { COUNTRY_CODES } from '../utils/constants';
@@ -45,6 +46,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({
@@ -87,7 +89,7 @@ const ProfilePage = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentView, setCurrentView] = useState('profile');
+  const [currentView, setCurrentView] = useState(location.state?.view || 'profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const [posts, setPosts] = useState([]);
@@ -117,6 +119,12 @@ const ProfilePage = () => {
     setToasts((prev) => [...prev, { message, type }]);
     setTimeout(() => setToasts((prev) => prev.slice(1)), 3500);
   };
+
+  useEffect(() => {
+    if (location.state?.view) {
+      setCurrentView(location.state.view);
+    }
+  }, [location.state]);
 
   // Phone validation function
   const validatePhone = (phoneNumber, code) => {
@@ -1914,8 +1922,18 @@ const ProfilePage = () => {
               <SellerDashboard embedded onNavigateOrders={() => handleViewChange('ordermanagement')} />
             )}
 
+            {currentView === 'selleranalytics' && (
+              <SellerAnalyticsDashboard 
+                embedded 
+                onNavigateOrders={() => handleViewChange('ordermanagement')} 
+              />
+            )}
+
             {currentView === 'ordermanagement' && (
-              <SellerOrders embedded />
+              <SellerOrders
+                embedded
+                onNavigateAnalytics={() => handleViewChange('selleranalytics')}
+              />
             )}
           </div>
         </div>
