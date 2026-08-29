@@ -2,7 +2,7 @@ import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
-import { Heart, MessageCircle, Pencil, Trash2, X } from 'lucide-react';
+import { Heart, MessageCircle, Pencil, Trash2, X, Info } from 'lucide-react';
 import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
@@ -1684,7 +1684,21 @@ const ProfilePage = () => {
                             className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
                           />
                           <div>
-                            <p className="font-semibold text-gray-900">Push notifications</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-gray-900">Push notifications</p>
+                              <span className="group relative inline-flex">
+                                <button
+                                  type="button"
+                                  aria-label="About push notifications"
+                                  className="text-gray-400 transition hover:text-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/30"
+                                >
+                                  <Info className="h-4 w-4" />
+                                </button>
+                                <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#6b493d] px-3 py-2 text-center text-xs font-normal text-white shadow-lg group-hover:block group-focus-within:block">
+                                  Get alerts on your phone or computer.
+                                </span>
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-500">Receive mobile push alerts where supported.</p>
                           </div>
                         </label>
