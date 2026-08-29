@@ -40,28 +40,6 @@ exports.onboardSellerRules = [
     .isLength({ min: 2, max: 200 })
     .withMessage('Address must be 2-200 characters'),
 
-  body('bankName')
-    .trim()
-    .notEmpty()
-    .withMessage('Bank Name is required')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Bank Name must be between 2 and 100 characters'),
-
-  body('accountTitle')
-    .trim()
-    .notEmpty()
-    .withMessage('Account Title is required')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Account Title must be between 2 and 100 characters'),
-
-  body('accountNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('Account Number / IBAN is required')
-    .matches(/^[A-Za-z0-9\s-]+$/)
-    .withMessage('Account Number must contain only alphanumeric characters, spaces, or hyphens')
-    .isLength({ min: 8, max: 34 })
-    .withMessage('Account Number / IBAN must be between 8 and 34 characters')
 ];
 
 /**

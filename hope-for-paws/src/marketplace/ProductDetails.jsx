@@ -9,7 +9,6 @@ import {
   Store,
   Shield,
   Truck,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -17,8 +16,6 @@ import {
   Flag,
   CheckCircle2,
   AlertTriangle,
-  Package,
-  Clock,
   BadgeCheck,
 } from "lucide-react";
 import ShareLinkButton from "../Components/ShareLinkButton";
@@ -301,12 +298,6 @@ export default function ProductDetails() {
           description: data.description || "No description provided.",
           ingredients: data.ingredients || "Not specified.",
           usage: data.usageInstructions || "Not specified.",
-          delivery: [
-            { icon: Truck, label: "Free delivery", detail: "On orders over Rs. 2,000 — arrives in 2–4 business days." },
-            { icon: Package, label: "Secure packaging", detail: "Tamper-proof, moisture-sealed bag inside a branded outer box." },
-            { icon: RotateCcw, label: "Easy returns", detail: "7-day return window on unopened items in original condition." },
-            { icon: Clock, label: "Same-day dispatch", detail: "Order before 2 PM (Mon–Sat) for same-day processing." },
-          ],
         });
         setIsLoading(false);
       } catch (err) {
@@ -450,7 +441,7 @@ export default function ProductDetails() {
 
   function DetailTabs() {
     const [active, setActive] = useState(0);
-    const TABS = ["Description", "Specifications", "Delivery"];
+    const TABS = ["Description", "Specifications"];
 
     const panels = [
       /* Description */
@@ -492,24 +483,6 @@ export default function ProductDetails() {
             No additional specifications provided.
           </div>
         )}
-      </div>,
-
-      /* Delivery */
-      <div key="delivery" className="space-y-4">
-        {PRODUCT.delivery.map(({ icon: Icon, label, detail }) => (
-          <div key={label} className="flex items-start gap-3 sm:gap-4">
-            <div
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: BRAND.light }}
-            >
-              <Icon size={17} style={{ color: BRAND.dark }} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-stone-800">{label}</p>
-              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">{detail}</p>
-            </div>
-          </div>
-        ))}
       </div>,
     ];
 

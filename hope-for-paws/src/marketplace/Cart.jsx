@@ -1,4 +1,3 @@
-import { SHIPPING_FEE } from '../utils/constants';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -184,10 +183,8 @@ function PromoCode() {
 
 // ─── OrderSummary ────────────────────────────────────────────────────────────
 function OrderSummary({ subtotal, itemCount, onCheckout }) {
-  const freeThreshold = 5000;
-  const shipping = subtotal >= freeThreshold ? 0 : SHIPPING_FEE;
+  const shipping = 0;
   const total = subtotal + shipping;
-  const progress = Math.min((subtotal / freeThreshold) * 100, 100);
 
   return (
     <div className="bg-white rounded-2xl border border-[#ede6e1] overflow-hidden">
@@ -202,33 +199,6 @@ function OrderSummary({ subtotal, itemCount, onCheckout }) {
       </div>
 
       <div className="px-6 py-5 space-y-5">
-        {/* Free shipping progress */}
-        {shipping > 0 && (
-          <div className="bg-[#f7f1ee] rounded-xl p-3.5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-semibold text-[#6b493d]">
-                Add {fmt(freeThreshold - subtotal)} for free delivery
-              </p>
-              <Truck size={13} className="text-[#6b493d]" />
-            </div>
-            <div className="h-1.5 bg-[#d4c5c1] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#6b493d] rounded-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {shipping === 0 && (
-          <div className="flex items-center gap-2.5 bg-[#f0faf6] border border-[#a7e8c8] rounded-xl px-3.5 py-2.5">
-            <Truck size={13} className="text-emerald-600 flex-shrink-0" />
-            <p className="text-[11px] font-semibold text-emerald-700">
-              You qualify for free delivery!
-            </p>
-          </div>
-        )}
-
         {/* Line items */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -239,15 +209,9 @@ function OrderSummary({ subtotal, itemCount, onCheckout }) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[13px] text-[#a07f77]">Shipping</span>
-            {shipping === 0 ? (
-              <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-wide">
-                Free
-              </span>
-            ) : (
-              <span className="text-[13px] font-semibold text-[#3d2a24]">
-                {fmt(shipping)}
-              </span>
-            )}
+            <span className="text-[13px] font-semibold text-[#3d2a24]">
+              Rs 0
+            </span>
           </div>
         </div>
 
@@ -277,7 +241,7 @@ function OrderSummary({ subtotal, itemCount, onCheckout }) {
         {/* Trust strip */}
         <div className="grid grid-cols-3 gap-2 pt-1">
           {[
-            { icon: Truck, text: "Free over Rs 5K" },
+            { icon: Truck, text: "Fast delivery" },
             { icon: ShieldCheck, text: "Secure pay" },
             { icon: Tag, text: "Best price" },
           ].map(({ icon: Icon, text }) => (

@@ -117,6 +117,72 @@ const MyPosts = ({ embedded = false }) => {
     )));
   };
 
+  const handleLike = async (postId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await axios.post(
+        `${API_BASE_URL}/posts/${postId}/like`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === postId ? { ...post, likes: response.data.likes } : post
+        )
+      );
+    } catch (err) {
+      console.error('Error liking post:', err);
+    }
+  };
+
+  const handleCommentSubmit = async (postId, content, parentCommentId = null) => {
+    if (!content) return;
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const endpoint = parentCommentId 
+        ? `${API_BASE_URL}/comments/${postId}/comments` 
+        : `${API_BASE_URL}/comments/${postId}`;
+        
+      const response = await axios.post(
+        endpoint,
+        { content, parentCommentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post._id === postId) {
+            return { ...post, comments: [...(post.comments || []), response.data] };
+          }
+          return post;
+        })
+      );
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/comments/${commentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPosts((prev) =>
+        prev.map((post) => {
+          if (post._id === postId) {
+            return {
+              ...post,
+              comments: post.comments.filter((c) => c._id !== commentId),
+            };
+          }
+          return post;
+        })
+      );
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
   const countMetric = (value) => {
     if (Array.isArray(value)) return value.length;
     return Number(value) || 0;
@@ -130,11 +196,7 @@ const MyPosts = ({ embedded = false }) => {
   };
 
   return (
-    <section className={embedded ? "relative overflow-hidden rounded-[28px] border border-[#b88b68] bg-[radial-gradient(circle_at_top_right,_rgba(155,107,69,0.16),_transparent_38%),linear-gradient(135deg,_#fbf8f3_0%,_#f5e8dc_52%,_#dfc3aa_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:p-6" : "relative min-h-screen overflow-hidden bg-cream py-10 md:py-14"}>
-      {!embedded && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,_rgba(160,120,85,0.16),_transparent_70%)]" />
-      )}
-      {embedded && <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.42)_48%,transparent_100%)]" />}
+    <section className={embedded ? "w-full" : "relative min-h-screen overflow-hidden bg-cream py-10 md:py-14"}>
       <div className={embedded ? "relative w-full" : "relative max-w-6xl mx-auto px-4"}>
 
         {/* Header */}
@@ -212,8 +274,12 @@ const MyPosts = ({ embedded = false }) => {
                 key={post._id}
                 post={post}
                 isOwner={true}
+                isLiked={Boolean(userId && post.likes && post.likes.includes(userId))}
                 likeCount={post.likes?.length || 0}
                 comments={post.comments || []}
+                onLike={() => handleLike(post._id)}
+                onCommentSubmit={handleCommentSubmit}
+                onDeleteComment={handleDeleteComment}
                 onShareCount={handleShareCount}
                 onEditSave={handleSaveEdit}
                 onDeletePost={handleDelete}
@@ -224,7 +290,7 @@ const MyPosts = ({ embedded = false }) => {
           <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
             {posts.map((post) => (
               <div key={post._id}>
-                <PostCard post={post} isOwner={true} likeCount={post.likes?.length || 0} comments={post.comments || []} onShareCount={handleShareCount} onEditSave={handleSaveEdit} onDeletePost={handleDelete} />
+                <PostCard post={post} isOwner={true} isLiked={Boolean(userId && post.likes && post.likes.includes(userId))} likeCount={post.likes?.length || 0} comments={post.comments || []} onLike={() => handleLike(post._id)} onCommentSubmit={handleCommentSubmit} onDeleteComment={handleDeleteComment} onShareCount={handleShareCount} onEditSave={handleSaveEdit} onDeletePost={handleDelete} />
               </div>
             ))}
           </div>

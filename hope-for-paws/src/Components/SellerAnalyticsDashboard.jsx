@@ -16,7 +16,7 @@ import { TrendingUp, PieChart, ArrowLeft } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
-export default function SellerAnalyticsDashboard({ embedded = false }) {
+export default function SellerAnalyticsDashboard({ embedded = false, onNavigateOrders }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -233,7 +233,13 @@ export default function SellerAnalyticsDashboard({ embedded = false }) {
             <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto justify-between md:justify-end">
               <button
                 type="button"
-                onClick={() => navigate('/seller/orders')}
+                onClick={() => {
+                  if (embedded && onNavigateOrders) {
+                    onNavigateOrders();
+                  } else {
+                    navigate('/profile', { state: { view: 'ordermanagement' } });
+                  }
+                }}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[#6b493d] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#56382e] active:scale-[0.98]"
               >
                 <ArrowLeft size={14} /> Back to Orders
