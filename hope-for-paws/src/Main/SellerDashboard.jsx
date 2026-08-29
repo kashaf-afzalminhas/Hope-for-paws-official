@@ -561,10 +561,17 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                         </td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.status === 'hidden' ? 'bg-[#f1e4d7] text-[#6b493d]' :
-                            product.countInStock > 0 ? 'bg-[#ead8c8] text-[#4e3b31]' : 'bg-[#f1d9c8] text-[#7a3f32]'
+                            product.status === 'hidden' 
+                              ? 'bg-[#f1e4d7] text-[#6b493d]' 
+                              : product.countInStock <= 0 
+                                ? 'bg-[#f1d9c8] text-[#7a3f32]' 
+                                : 'bg-[#ead8c8] text-[#4e3b31]'
                           }`}>
-                            {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
+                            {product.status === 'hidden' 
+                              ? 'Hidden' 
+                              : product.countInStock <= 0 
+                                ? 'Out of Stock' 
+                                : 'Active'}
                           </span>
                         </td>
                         <td className="p-4 text-right flex items-center justify-end space-x-2">

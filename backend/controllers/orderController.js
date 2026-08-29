@@ -6,6 +6,7 @@ const Cart = require('../models/Cart');
 const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
+const { processCheckoutInventory } = require('../services/inventoryService');
 
 
 function getNotificationService() {
@@ -116,52 +117,27 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Invalid products in order' });
     }
 
-    const createdOrders = await Order.insertMany(ordersToCreate);
-
-    // === Inventory Synchronization Start ===
-    try {
-      for (const order of createdOrders) {
-        for (const item of order.items) {
-          const product = await Product.findById(item.productId);
-          if (product) {
-            // 1. Deduct Stock Quantity
-            product.countInStock = Math.max(0, product.countInStock - Number(item.quantity));
-
-            // 2. Handle Out of Stock Status
-            if (product.countInStock < 1) {
-              // The frontend derives "Out of Stock" from countInStock <= 0
-              // Notify seller about the out of stock event
-              try {
-                const notificationService = getNotificationService();
-                if (notificationService) {
-                  const sellerProfile = await Seller.findById(product.sellerId);
-                  const sellerUserId = sellerProfile && sellerProfile.userId ? sellerProfile.userId : product.sellerId;
-
-                  await notificationService.createNotification({
-                    recipient: sellerUserId,
-                    sender: buyerId,
-                    type: 'out_of_stock',
-                    title: 'Product Out of Stock',
-                    message: `Your product "${product.title}" is out of stock.`,
-                    data: { productId: product._id },
-                    priority: 'routine',
-                    channels: { email: true, inApp: true, push: false }
-                  });
-                }
-              } catch (notifyErr) {
-                console.error('Failed to notify seller about out of stock:', notifyErr);
-              }
-            }
-
-            // 3. Database Save
-            await product.save();
-          }
+    // 1. Consolidate unique product quantities across all seller orders
+    const inventoryItems = [];
+    for (const order of ordersToCreate) {
+      for (const item of order.items) {
+        const qty = Number(item.quantity);
+        if (isNaN(qty) || qty < 1) {
+          return res.status(400).json({ message: 'Invalid item quantity requested' });
         }
+        inventoryItems.push({ productId: item.productId, quantity: qty });
       }
-    } catch (inventoryError) {
-      console.error('Inventory synchronization failed:', inventoryError);
     }
-    // === Inventory Synchronization End ===
+
+    // 2. Atomically reserve inventory BEFORE creating order records
+    try {
+      await processCheckoutInventory(inventoryItems);
+    } catch (invErr) {
+      return res.status(400).json({ message: invErr.message || 'Failed to reserve stock.' });
+    }
+
+    // 3. Insert order records once inventory is guaranteed
+    const createdOrders = await Order.insertMany(ordersToCreate);
 
     // Empty the user's cart
     await Cart.findOneAndUpdate(
@@ -693,9 +669,9 @@ exports.getDashboardStats = async (req, res) => {
     const seller = await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
 
-    const products = await Product.find({ sellerId: seller._id }).select('countInStock status').lean();
+    const products = await Product.find({ sellerId: seller._id }).select('countInStock lowStockThreshold status').lean();
     const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
-    const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= 5).length;
+    const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= (p.lowStockThreshold ?? 5)).length;
 
     const sellerId = seller._id;
 

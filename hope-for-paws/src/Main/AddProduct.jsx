@@ -66,9 +66,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             brand: data.brand || '',
             category: data.category || '',
             description: data.description || '',
-            price: data.price || '',
-            discountPercentage: data.discountPercentage || '',
-            countInStock: data.countInStock || '',
+            price: data.price !== undefined ? data.price : '',
+            discountPercentage: data.discountPercentage !== undefined ? data.discountPercentage : '',
+            countInStock: data.countInStock !== undefined ? data.countInStock : '',
             lowStockThreshold: data.lowStockThreshold ?? 5,
             sku: data.sku || ''
           });
@@ -229,7 +229,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             Cancel
           </button>
           <button 
-            onClick={handleSubmit}
+            type="submit"
+            form="add-product-form"
             disabled={isSubmitting}
             className="px-6 py-2 bg-[#6b493d] text-white font-medium hover:bg-[#8c6b5d] rounded-lg transition-colors flex items-center shadow-md disabled:opacity-70"
           >
@@ -278,7 +279,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
         </div>
 
         {/* Right Column: 75% Form Content */}
-        <div className="w-[75%] space-y-8 pb-32">
+        <form id="add-product-form" onSubmit={handleSubmit} className="w-[75%] space-y-8 pb-32">
           
           {/* Card 1: Basic Details */}
           <div id="basic" className="bg-white shadow-sm hover:shadow-md transition-shadow duration-300 border border-stone-100 rounded-2xl p-8" onMouseEnter={() => setActiveSection('basic')}>
@@ -479,7 +480,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             </div>
           </div>
 
-        </div>
+        </form>
       </div>
     </div>
   );

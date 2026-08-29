@@ -72,6 +72,10 @@ exports.addToCart = async (req, res) => {
 
     const numericQuantity = Number(quantity);
 
+    if (isNaN(numericQuantity) || numericQuantity < 1) {
+      return res.status(400).json({ message: 'Quantity must be at least 1' });
+    }
+
     if (existingIndex > -1) {
       // Increment quantity
       const newQty = cart.items[existingIndex].quantity + numericQuantity;
