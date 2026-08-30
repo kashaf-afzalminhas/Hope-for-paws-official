@@ -32,8 +32,11 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     price: '',
     discountPercentage: '',
     countInStock: '',
+    lowStockThreshold: 5,
     sku: ''
   });
+
+  const [skuWarning, setSkuWarning] = useState('');
 
   const [customFields, setCustomFields] = useState([{ heading: '', description: '' }]);
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -64,9 +67,10 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             brand: data.brand || '',
             category: data.category || '',
             description: data.description || '',
-            price: data.price || '',
-            discountPercentage: data.discountPercentage || '',
-            countInStock: data.countInStock || '',
+            price: data.price !== undefined ? data.price : '',
+            discountPercentage: data.discountPercentage !== undefined ? data.discountPercentage : '',
+            countInStock: data.countInStock !== undefined ? data.countInStock : '',
+            lowStockThreshold: data.lowStockThreshold ?? 5,
             sku: data.sku || ''
           });
           if (data.additionalInfo && data.additionalInfo.length > 0) {
@@ -121,10 +125,11 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
 
   const generateSKU = () => {
     if (!formData.title || !formData.category) {
-      setError("Please enter a title and category first to generate a smart SKU.");
+      setSkuWarning("Please enter a title and category first to auto-generate a SKU.");
+      setTimeout(() => setSkuWarning(''), 4000);
       return;
     }
-    setError('');
+    setSkuWarning('');
     const prefix = formData.category.substring(0, 3).toUpperCase();
     const namePart = formData.title.substring(0, 3).toUpperCase();
     const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -153,6 +158,11 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     }
     if (Number(formData.countInStock) < 0) {
       setError("Stock count cannot be negative.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (formData.lowStockThreshold !== '' && Number(formData.lowStockThreshold) < 0) {
+      setError("Low stock threshold cannot be negative.");
       setIsSubmitting(false);
       return;
     }
@@ -225,7 +235,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             Cancel
           </button>
           <button 
-            onClick={handleSubmit}
+            type="submit"
+            form="add-product-form"
             disabled={isSubmitting}
             className="px-6 py-2 bg-[#6b493d] text-white font-medium hover:bg-[#8c6b5d] rounded-lg transition-colors flex items-center shadow-md disabled:opacity-70"
           >
@@ -274,7 +285,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
         </div>
 
         {/* Right Column: 75% Form Content */}
-        <div className="w-[75%] space-y-8 pb-32">
+        <form id="add-product-form" onSubmit={handleSubmit} className="w-[75%] space-y-8 pb-32">
           
           {/* Card 1: Basic Details */}
           <div id="basic" className="bg-white shadow-sm hover:shadow-md transition-shadow duration-300 border border-stone-100 rounded-2xl p-8" onMouseEnter={() => setActiveSection('basic')}>
@@ -332,15 +343,37 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                   className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-stone-700 mb-2">Low Stock Alert Threshold</label>
+                <input 
+                  type="number" 
+                  name="lowStockThreshold" 
+                  value={formData.lowStockThreshold} 
+                  onChange={handleInputChange} 
+                  min="0"
+                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white" 
+                  placeholder="e.g. 5" 
+                />
+              </div>
+              <div className="col-span-2">
                 <label className="block text-sm font-medium text-stone-700 mb-2">SKU (Stock Keeping Unit) *</label>
                 <div className="relative">
                   <input type="text" name="sku" value={formData.sku} onChange={handleInputChange} required
-                    className="w-full pl-4 pr-20 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white uppercase"
+                    className="w-full pl-4 pr-28 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white uppercase"
                     placeholder="e.g. RC-DOG-001" />
-                  <button type="button" onClick={generateSKU} className="absolute right-2 top-2 bottom-2 px-3 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-sm font-medium transition-colors">
-                    Auto
+                  <button 
+                    type="button" 
+                    onClick={generateSKU} 
+                    className="absolute right-2 top-2 bottom-2 px-3 bg-[#6b493d]/10 hover:bg-[#6b493d] hover:text-white text-[#6b493d] rounded-lg text-xs font-semibold transition-all duration-200"
+                  >
+                    Auto Generate
                   </button>
                 </div>
+                {skuWarning && (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-700 font-medium mt-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                    {skuWarning}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -460,7 +493,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             </div>
           </div>
 
-        </div>
+        </form>
       </div>
     </div>
   );
