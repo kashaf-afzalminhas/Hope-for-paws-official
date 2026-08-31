@@ -42,7 +42,7 @@ router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);
 router.post('/update-profile', updateProfile);
 router.post('/signout', signOut); 
-router.post('/changePassword',changePassword);
+router.post('/change-password', changePassword);
 router.post('/set-password', auth, setPassword);
 // User management routes
 router.post('/getUserById', getUserById);

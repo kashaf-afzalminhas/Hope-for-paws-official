@@ -641,6 +641,7 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Invalid code.' });
     }
     user.password = await bcrypt.hash(newPassword, 10);
+    linkAuthProvider(user, 'local');
     user.verificationCode = undefined;
     await user.save();
     res.status(200).json({ message: 'Password reset.' });
