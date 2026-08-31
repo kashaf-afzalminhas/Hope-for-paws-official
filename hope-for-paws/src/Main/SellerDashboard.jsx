@@ -80,11 +80,13 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
     }
   };
 
-  // Fetch Data
-  const fetchDashboardData = async () => {
+  // Fetch Data — initial load shows spinner; background refresh is silent
+  const fetchDashboardData = async ({ silent = false } = {}) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       const [statsRes, productsRes, profileRes] = await Promise.all([
         axios.get(`${API_URL}/dashboard-stats`, getAxiosConfig()),
         axios.get(`${API_URL}/products`, getAxiosConfig()),
@@ -96,13 +98,25 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
       if (profileRes?.data?.seller) {
         setSellerProfile(profileRes.data.seller);
       }
+      // Clear any previous error on a successful refresh
+      if (silent) setError(null);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please try again.');
+      if (!silent) {
+        setError('Failed to load dashboard data. Please try again.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
+
+  // Stable ref so the interval/listener callback always calls the latest version
+  const silentRefreshRef = React.useRef(() => fetchDashboardData({ silent: true }));
+  React.useEffect(() => {
+    silentRefreshRef.current = () => fetchDashboardData({ silent: true });
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -120,7 +134,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
     // to prevent parent re-renders from unmounting the form and losing data.
     if (activeTab === 'add-product' || activeTab === 'edit-product') return;
 
-    const refresh = () => fetchDashboardData();
+    const refresh = () => silentRefreshRef.current();
     window.addEventListener('focus', refresh);
     window.addEventListener('stock-updated', refresh);
     const refreshInterval = window.setInterval(refresh, 30000);
