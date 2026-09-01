@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { AIAssistantProvider } from './context/AIAssistantContext';
 import { AuthGuardProvider } from './Components/AuthGuard';
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
@@ -300,9 +301,11 @@ const AppWithProviders = () => (
         <AdoptionProvider>
           <NotificationProvider>
             <MessageProvider>
-              <AuthGuardProvider>
-                <RouterProvider router={router} />
-              </AuthGuardProvider>
+              <AIAssistantProvider>
+                <AuthGuardProvider>
+                  <RouterProvider router={router} />
+                </AuthGuardProvider>
+              </AIAssistantProvider>
             </MessageProvider>
           </NotificationProvider>
         </AdoptionProvider>
