@@ -7,11 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
-<<<<<<< HEAD
-import { AIAssistantProvider } from './context/AIAssistantContext';
-=======
 import { AuthGuardProvider } from './Components/AuthGuard';
->>>>>>> origin/sahab
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -93,19 +89,6 @@ const AdminDashboardRoutes = () => {
       navigate('/');
       return;
     }
-<<<<<<< HEAD
-    if (!token || token === 'null' || token === 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('user');
-      navigate('/signin');
-      return;
-    }
-    
-=======
-
->>>>>>> origin/sahab
     // Use the new bulk API endpoint
     fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
       headers: {
@@ -315,17 +298,6 @@ const AppWithProviders = () => (
     <WishlistProvider>
       <CartProvider>
         <AdoptionProvider>
-<<<<<<< HEAD
-        <NotificationProvider>
-          <MessageProvider>
-            <AIAssistantProvider>
-              <RouterProvider router={router} />
-            </AIAssistantProvider>
-          </MessageProvider>
-        </NotificationProvider>
-      </AdoptionProvider>
-    </CartProvider>
-=======
           <NotificationProvider>
             <MessageProvider>
               <AuthGuardProvider>
@@ -335,7 +307,6 @@ const AppWithProviders = () => (
           </NotificationProvider>
         </AdoptionProvider>
       </CartProvider>
->>>>>>> origin/sahab
     </WishlistProvider>
   </AuthProvider>
 );

@@ -114,8 +114,6 @@ exports.sendMessage = async (req, res) => {
             conversationId: conversationId.toString(),
             status: "sent"
           });
-<<<<<<< HEAD
-=======
 
           // Send email notifications to other participants
           const notificationServiceInstance =
@@ -155,7 +153,6 @@ exports.sendMessage = async (req, res) => {
               }
             }
           });
->>>>>>> origin/sahab
         }
       } catch (emitError) {
         console.error('❌ Error emitting socket event:', emitError);

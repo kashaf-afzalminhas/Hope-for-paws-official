@@ -413,40 +413,8 @@ class NotificationService {
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: recipient.email,
-<<<<<<< HEAD
-      subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
-          <div style="background-color: #6b493d; color: white; padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
-            <h1 style="margin: 0; font-size: 24px;">Hope for Paws</h1>
-            <p style="margin: 6px 0 0 0; opacity: 0.9;">You have new messages waiting</p>
-          </div>
-          <div style="padding: 24px; background-color: #f9f9f9; border-radius: 0 0 12px 12px;">
-            <p style="color: #333; line-height: 1.6;">
-              You have <strong>${totalMessages} unread message${totalMessages === 1 ? '' : 's'}</strong> from <strong>${uniqueSenderNames.length} contact${uniqueSenderNames.length === 1 ? '' : 's'}</strong> across <strong>${conversationCount} conversation${conversationCount === 1 ? '' : 's'}</strong>.
-            </p>
-            <div style="margin-top: 24px;">
-              ${previewHtml}
-            </div>
-            <div style="text-align: center; margin: 30px 0 10px;">
-              <a href="${process.env.FRONTEND_URL || 'https://hopeforpawshub.co'}/chat"
-                 style="background-color: #6b493d; color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; display: inline-block; font-weight: bold;">
-                Open Chat
-              </a>
-            </div>
-            <p style="margin: 0; color: #666; font-size: 13px; text-align: center;">
-              We'll only email you if you miss messages for a while.
-            </p>
-          </div>
-          <div style="background-color: #f5f3ed; padding: 16px; text-align: center; color: #666; font-size: 12px; border-radius: 0 0 12px 12px;">
-            <p>© 2024 Hope for Paws. All rights reserved.</p>
-          </div>
-        </div>
-      `
-=======
       subject: mailSubject,
       html,
->>>>>>> origin/sahab
     };
 
     await this.transporter.sendMail(mailOptions);
