@@ -18,10 +18,7 @@ import {
   AlertTriangle,
   BadgeCheck,
 } from "lucide-react";
-<<<<<<< HEAD
-=======
 import ShareLinkButton from "../Components/ShareLinkButton";
->>>>>>> origin/sahab
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";

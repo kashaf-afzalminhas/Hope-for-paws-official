@@ -8,11 +8,7 @@ import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
 import { getConversationBetweenUsers } from './api';
 import PropTypes from 'prop-types';
-<<<<<<< HEAD
-import AdoptionCard from '../Components/adoption/AdoptionCard';
-=======
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
->>>>>>> origin/sahab
 import AdoptionDetailsModal from '../Components/adoption/AdoptionDetailsModal';
 import {
   adoptionGridClass,
@@ -21,13 +17,9 @@ import {
   adoptionBtnDanger,
   adoptionAlertInfo,
   getPosterProfileId,
-<<<<<<< HEAD
-} from '../Components/adoption/adoptionTheme';
-=======
 } from '../Components/adoption/adoptionTheme.js';
 import { useRequireAuth } from '../Components/AuthGuard';
 import PostViewToggle from '../Components/posts/PostViewToggle';
->>>>>>> origin/sahab
 
 const AdoptionList = ({ filter = 'all' }) => {
   const { allAdoptionPosts, loading, error, deleteAdoptionPost, requestAdoption, fetchAllAdoptionPosts, checkUserRequest } = useAdoption();

@@ -11,10 +11,6 @@ import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAl
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
 import { AUTH_BASE_URL } from '../config';
 import { MessageSquare, User } from 'lucide-react';
-<<<<<<< HEAD
-import AdoptionCard from '../Components/adoption/AdoptionCard';
-import { adoptionGridClass } from '../Components/adoption/adoptionTheme';
-=======
 import { useRequireAuth } from '../Components/AuthGuard.jsx';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
 import AdoptionDetailsModal from '../Components/adoption/AdoptionDetailsModal.jsx';
@@ -111,7 +107,6 @@ function ProductCard({ p, isFav, onFav, inCart, onCart }) {
     </Link>
   );
 }
->>>>>>> origin/sahab
 
 const PublicProfilePage = () => {
   const { userId } = useParams();

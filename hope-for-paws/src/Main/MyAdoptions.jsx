@@ -12,10 +12,6 @@ import { useAdoption } from '../context/AdoptionContext';
 const EMPTY_ADOPTION_REQUESTS = [];
 import AdoptionRequestsModal from './AdoptionRequestsModal';
 import { getCurrentUserId } from '../lib/utils';
-<<<<<<< HEAD
-import AdoptionCard from '../Components/adoption/AdoptionCard';
-import { adoptionGridClass, adoptionCardShellClass } from '../Components/adoption/adoptionTheme';
-=======
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
 import { adoptionGridClass, adoptionCardShellClass } from '../Components/adoption/adoptionTheme.js';
 
@@ -121,7 +117,6 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
 };
 
 AdoptionEditModal.propTypes = { post: PropTypes.object.isRequired, onClose: PropTypes.func.isRequired, onSave: PropTypes.func.isRequired, saving: PropTypes.bool };
->>>>>>> origin/sahab
 
 const MyAdoptions = ({ embedded = false }) => {
   const [adoptions, setAdoptions] = useState([]);

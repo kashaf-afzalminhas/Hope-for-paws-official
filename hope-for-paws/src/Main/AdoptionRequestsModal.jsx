@@ -8,11 +8,7 @@ import { AppToastContainer, useAppToast } from '../Components/AppToast';
 import {
   getAdoptionRequesterId,
   getAdoptionRequesterName,
-<<<<<<< HEAD
-} from '../Components/adoption/adoptionTheme';
-=======
 } from '../Components/adoption/adoptionTheme.js';
->>>>>>> origin/sahab
 
 const RequestChatButton = ({ request, currentUserId, onChat, variant = 'compact' }) => {
   const requesterId = getAdoptionRequesterId(request);
