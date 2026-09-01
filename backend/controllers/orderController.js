@@ -683,8 +683,8 @@ exports.getDashboardStats = async (req, res) => {
           totalRevenue: {
             $sum: {
               $cond: [
-                { $ne: ['$status', 'Cancelled'] },
-                '$totals.subtotal',
+                { $eq: ['$status', 'Delivered'] },
+                '$totals.finalTotal',
                 0
               ]
             }
@@ -702,14 +702,14 @@ exports.getDashboardStats = async (req, res) => {
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
     const monthlyAgg = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, sellerId: sellerId, status: { $ne: 'Cancelled' } } },
+      { $match: { createdAt: { $gte: sixMonthsAgo }, sellerId: sellerId, status: 'Delivered' } },
       {
         $group: {
           _id: {
             month: { $month: '$createdAt' },
             year: { $year: '$createdAt' }
           },
-          revenue: { $sum: '$totals.subtotal' }
+          revenue: { $sum: '$totals.finalTotal' }
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
@@ -756,7 +756,7 @@ exports.getDashboardStats = async (req, res) => {
     });
 
     const topProductsAgg = await Order.aggregate([
-      { $match: { sellerId: sellerId, status: { $ne: 'Cancelled' } } },
+      { $match: { sellerId: sellerId, status: 'Delivered' } },
       { $unwind: '$items' },
       {
         $group: {
