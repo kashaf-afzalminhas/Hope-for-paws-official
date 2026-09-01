@@ -45,7 +45,7 @@ export const initSocket = (userId) => {
     reconnectTimeout = null;
   }
 
-  console.log('🚀 Initializing socket connection for user:', userId);
+  console.log('🔌 Initializing socket connection for user:', userId);
   isConnecting = true;
   
   // Get the base URL from the same config as the API
@@ -57,7 +57,7 @@ export const initSocket = (userId) => {
   console.log('🔑 Socket token found:', !!token);
   
   if (!token) {
-    console.error('❌ No authentication token found for socket connection');
+    console.error('⚠️ No authentication token found for socket connection');
     isConnecting = false;
     throw new Error('Authentication token required for socket connection');
   }
@@ -81,7 +81,7 @@ export const initSocket = (userId) => {
   // Set connection timeout
   connectionTimeout = setTimeout(() => {
     if (socket && !socket.connected) {
-      console.error('⏰ Socket connection timeout');
+      console.error('⏱️ Socket connection timeout');
       isConnecting = false;
       socket.disconnect();
       socket = null;
@@ -102,12 +102,12 @@ export const initSocket = (userId) => {
     
     if (userId) {
       socket.emit('join', userId);
-      console.log('📤 Emitted join event for user:', userId);
+      console.log('📡 Emitted join event for user:', userId);
     }
   });
 
   socket.on('connect_error', (error) => {
-    console.error('❌ Socket connection error:', error);
+    console.error('⚠️ Socket connection error:', error);
     isConnecting = false;
     
     // Clear connection timeout
@@ -118,13 +118,13 @@ export const initSocket = (userId) => {
     
     // Try to reconnect with polling if websocket fails
     if (socket.io.opts.transports[0] === 'websocket') {
-      console.log('🔄 Falling back to polling transport');
+      console.log('🔁 Falling back to polling transport');
       socket.io.opts.transports = ['polling', 'websocket'];
     }
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('🔴 Socket disconnected:', reason);
+    console.log('🔌 Socket disconnected:', reason);
     isConnecting = false;
     
     // Clear connection timeout
@@ -135,13 +135,13 @@ export const initSocket = (userId) => {
     
     if (reason === 'io server disconnect') {
       // Server initiated disconnect, don't auto-reconnect
-      console.log('🔄 Server disconnected, not attempting to reconnect');
+      console.log('🔒 Server disconnected, not attempting to reconnect');
       socket = null;
     }
   });
 
   socket.on('error', (error) => {
-    console.error('❌ Socket error:', error);
+    console.error('⚠️ Socket error:', error);
     isConnecting = false;
     
     // Clear connection timeout
@@ -153,7 +153,7 @@ export const initSocket = (userId) => {
 
   // Add notification event handler
   socket.on('notification', (notification) => {
-    console.log('📢 Received notification:', notification);
+    console.log('🔔 Received notification:', notification);
     if (notificationCallback) {
       notificationCallback(notification);
     }
@@ -193,7 +193,7 @@ export const initSocket = (userId) => {
     connectionAttempts = attemptNumber;
     
     if (attemptNumber >= MAX_RECONNECTION_ATTEMPTS) {
-      console.error('❌ Max reconnection attempts reached, stopping reconnection');
+      console.error('⚠️ Max reconnection attempts reached, stopping reconnection');
       socket.disconnect();
       socket = null;
       isConnecting = false;
@@ -201,12 +201,12 @@ export const initSocket = (userId) => {
   });
 
   socket.on('reconnect_error', (error) => {
-    console.error('❌ Socket reconnection error:', error);
+    console.error('⚠️ Socket reconnection error:', error);
     isConnecting = false;
   });
 
   socket.on('reconnect_failed', () => {
-    console.error('❌ Socket reconnection failed');
+    console.error('⚠️ Socket reconnection failed');
     isConnecting = false;
     socket = null;
   });
@@ -219,7 +219,7 @@ export const getSocket = () => {
     console.warn('⚠️ Socket not initialized. Call initSocket first.');
     return null;
   }
-  console.log('🔍 getSocket called - socket exists:', !!socket, 'connected:', socket.connected);
+  console.log('🔎 getSocket called - socket exists:', !!socket, 'connected:', socket.connected);
   return socket;
 };
 

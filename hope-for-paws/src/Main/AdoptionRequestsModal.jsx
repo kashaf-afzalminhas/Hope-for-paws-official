@@ -8,7 +8,11 @@ import { AppToastContainer, useAppToast } from '../Components/AppToast';
 import {
   getAdoptionRequesterId,
   getAdoptionRequesterName,
+<<<<<<< HEAD
 } from '../Components/adoption/adoptionTheme';
+=======
+} from '../Components/adoption/adoptionTheme.js';
+>>>>>>> origin/sahab
 
 const RequestChatButton = ({ request, currentUserId, onChat, variant = 'compact' }) => {
   const requesterId = getAdoptionRequesterId(request);
@@ -47,7 +51,7 @@ const AdoptionRequestsModal = ({ post, requests, onClose, onRequestAction, onRef
   const { toasts, showToast, dismiss } = useAppToast();
 
   // Get current user
-  const currentUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
   const currentUserId = currentUser?._id || currentUser?.id;
 
   const handleRequestAction = async (requestId, action) => {

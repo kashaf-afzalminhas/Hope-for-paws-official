@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, MessageSquare, PawPrint } from 'lucide-react';
+import { useRequireAuth } from '../AuthGuard.jsx';
 import {
   adoptionCardShellClass,
   adoptionContentClass,
@@ -12,7 +13,8 @@ import {
   getPostStatusBadge,
   getHealthFieldChipStyle,
   formatAdoptionDate,
-} from './adoptionTheme';
+} from './adoptionTheme.js';
+import ShareLinkButton from '../ShareLinkButton';
 
 const HealthChip = ({ label, className }) => (
   <span
@@ -42,10 +44,21 @@ const AdoptionCard = ({
   imageOverlay,
   children,
 }) => {
+  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const statusBadge = getPostStatusBadge(post?.status);
   const lineClamp =
     descriptionLines === 2 ? 'line-clamp-2' : descriptionLines === 4 ? 'line-clamp-4' : 'line-clamp-3';
-  const displayImage = imageUrl || post?.imageUrl;
+  
+  // Support both old (imageUrl) and new (imageUrls array) formats
+  const getDisplayImage = () => {
+    if (imageUrl) return imageUrl;
+    if (post?.imageUrls && post.imageUrls.length > 0) return post.imageUrls[0];
+    if (post?.imageUrl) return post.imageUrl;
+    return null;
+  };
+  
+  const displayImage = getDisplayImage();
   const listed = listedDate || (post?.createdAt ? formatAdoptionDate(post.createdAt) : '');
 
   return (
@@ -71,7 +84,7 @@ const AdoptionCard = ({
         </div>
         {imageOverlay}
         {showStatus && (
-          <div className="pointer-events-none absolute right-3 top-3 z-10">
+          <div className="pointer-events-none absolute right-3 top-3 z-[2]">
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold shadow-md backdrop-blur-sm ${statusBadge.className}`}
             >
@@ -143,7 +156,10 @@ const AdoptionCard = ({
                   <Link
                     to={`/profile/public/${poster.profileId}`}
                     className="font-semibold text-[#6b493d] hover:underline underline-offset-2"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!requireAuth('view this user\'s profile')) e.preventDefault();
+                    }}
                   >
                     {poster.username || 'Anonymous'}
                   </Link>
@@ -171,7 +187,10 @@ const AdoptionCard = ({
           <p className="mt-auto text-xs text-[#6F4C3E]/50">Listed {listed}</p>
         )}
 
-        {children && <div className="mt-auto space-y-2.5 pt-1">{children}</div>}
+        <div className="mt-auto space-y-2.5 pt-1">
+          <ShareLinkButton resourceType="adoption" resourceId={post?._id} />
+          {children}
+        </div>
       </div>
     </article>
   );
@@ -190,6 +209,7 @@ AdoptionCard.propTypes = {
     location: PropTypes.string,
     status: PropTypes.string,
     imageUrl: PropTypes.string,
+    imageUrls: PropTypes.arrayOf(PropTypes.string),
     createdAt: PropTypes.string,
     userId: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
   }).isRequired,

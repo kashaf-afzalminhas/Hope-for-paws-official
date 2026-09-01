@@ -7,43 +7,28 @@ function formatMessageTime(ts) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const ChatBubble = ({
-  message,
-  timestamp,
-  isCurrentUser,
-  status = 'sent',
-  className,
-}) => (
-  <div className={cn(
-    "flex mb-4",
-    isCurrentUser ? "justify-end" : "justify-start",
-    className
-  )}>
+const ChatBubble = ({ message, timestamp, isCurrentUser, senderName, className }) => (
+  <div className={cn("flex mb-3.5", isCurrentUser ? "justify-end" : "justify-start", className)}>
     <div
       className={cn(
-        "relative px-4 py-3 rounded-2xl shadow-sm",
+        "relative px-4 py-2.5 rounded-2xl max-w-[85%] sm:max-w-[62%] shadow-xs",
+        "break-words whitespace-pre-line text-[14.5px] leading-relaxed transition-all",
         isCurrentUser
-          ? "bg-gradient-to-br from-[#6b493d] to-[#5a3d32] text-[#ffd8b8] rounded-br-sm shadow-md"
-          : "bg-white text-[#2c1810] rounded-bl-sm border border-[#e5d9c8]",
-        "max-w-[85%] break-words whitespace-pre-line",
-        "text-base transition-all duration-200",
-        isCurrentUser ? "hover:shadow-lg" : "hover:shadow-md"
+          ? "bg-[#D9A676] text-[#2C1810] rounded-br-sm border border-[#C89565]"
+          : "bg-[#8E7060] text-white rounded-bl-sm border border-[#7D5F50]"
       )}
-      style={{
-        wordBreak: "break-word",
-        overflowWrap: "break-word",
-      }}
     >
-      <p className="font-body leading-relaxed">{message}</p>
-      
+      {/* Header with Sender Name and Timestamp like screenshot */}
       <div className={cn(
-        "flex items-center mt-2 text-xs",
-        isCurrentUser 
-          ? "text-[#ffd8b8]/90 justify-end" 
-          : "text-[#2c1810]/70 justify-start"
+        "flex items-center gap-1.5 text-[11.5px] mb-1 font-medium select-none",
+        isCurrentUser ? "text-[#3D1E0C] justify-start" : "text-[#F5EBE1] justify-start"
       )}>
-        <span className="font-medium">{formatMessageTime(timestamp)}</span>
+        <span className="font-semibold">{senderName || (isCurrentUser ? 'Sahab' : 'User')}</span>
+        <span>:</span>
+        <span className="opacity-80 text-[10.5px]">{formatMessageTime(timestamp)}</span>
       </div>
+
+      <p className="font-body font-normal text-[14px] leading-snug">{message}</p>
     </div>
   </div>
 );

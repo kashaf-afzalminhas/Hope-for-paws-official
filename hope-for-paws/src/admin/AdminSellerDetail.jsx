@@ -61,7 +61,7 @@ const AdminSellerDetail = () => {
     if (!window.confirm(`Are you sure you want to verify ${seller.name || seller.userId?.username}?`)) return;
     try {
       await updateStatus('verified');
-      alert("✅ Seller Approved Successfully!");
+      alert('✓ Seller approved successfully!');
       navigate('/admin-dashboard/seller-requests');
     } catch (err) {
       alert(err.message || 'Failed to approve seller');
@@ -72,7 +72,7 @@ const AdminSellerDetail = () => {
     e.preventDefault();
     try {
       await updateStatus('suspended');
-      alert(`❌ Seller Rejected. Reason: ${rejectReason}`);
+      alert(`✕ Seller rejected. Reason: ${rejectReason}`);
       setShowRejectModal(false);
       navigate('/admin-dashboard/seller-requests');
     } catch (err) {
@@ -109,7 +109,7 @@ const AdminSellerDetail = () => {
           {/* Card 1: Basic Info */}
           <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-[#e5e0d8]">
             <h2 className="text-lg font-bold text-[#5d4037] mb-4 border-b border-[#f0ebe0] pb-2">
-              📋 Basic Information
+              Basic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -151,7 +151,7 @@ const AdminSellerDetail = () => {
           {/* Card 2: Address */}
           <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-[#e5e0d8]">
             <h2 className="text-lg font-bold text-[#5d4037] mb-4 border-b border-[#f0ebe0] pb-2">
-              📍 Location Details
+              Location Details
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -168,7 +168,7 @@ const AdminSellerDetail = () => {
           {/* Card 3: Documents */}
           <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-[#e5e0d8]">
             <h2 className="text-lg font-bold text-[#5d4037] mb-4 border-b border-[#f0ebe0] pb-2">
-              📂 Documents
+              Documents
             </h2>
             
             <div className="mb-4">
@@ -192,13 +192,13 @@ const AdminSellerDetail = () => {
                   onClick={handleApprove}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition-all active:scale-95"
                 >
-                  ✅ Approve
+                  Approve
                 </button>
                 <button 
                   onClick={() => setShowRejectModal(true)}
                   className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-lg hover:bg-red-50 transition-colors"
                 >
-                  ❌ Reject
+                  Reject
                 </button>
               </div>
             </div>

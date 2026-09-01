@@ -22,15 +22,19 @@ const imageFileFilter = (req, file, cb) => {
   }
 };
 
-// Configure Multer with strict 5MB limit to prevent DoS
+// Configure Multer with strict 5MB per-file limit to prevent DoS
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   fileFilter: imageFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024 // 5MB limit per file
   }
 });
+
+// Constants for adoption post images
+const MAX_ADOPTION_IMAGES = 100;
+const MAX_TOTAL_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB total for all images in one request
 
 /**
  * When a listing goes from adopted → available (adoption fell through),
@@ -81,7 +85,7 @@ async function reopenListingRequestsForAvailability(adId, adoptionName) {
 }
 
 // Create an adoption post
-router.post('/', auth, upload.single('image'), async (req, res) => {
+router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
   console.log('=== ADOPTION POST ROUTE HIT ===');
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
@@ -100,10 +104,21 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     console.log('neuteredSpayed:', neuteredSpayed);
     console.log('description:', description);
     console.log('location:', location);
+    console.log('Number of images received:', req.files ? req.files.length : 0);
     console.log('Full req.body:', req.body);
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image is required' });
+    // Check if at least one image is provided
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'At least one image is required' });
+    }
+
+    // Validate total size of all images
+    let totalSize = 0;
+    for (const file of req.files || []) {
+      totalSize += file.size;
+    }
+    if (totalSize > MAX_TOTAL_IMAGE_SIZE) {
+      return res.status(400).json({ message: `Total image size cannot exceed 100MB (received ${(totalSize / 1024 / 1024).toFixed(1)}MB)` });
     }
 
     // Sanitize input to prevent Stored XSS
@@ -115,16 +130,53 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
     
     // Strictly validate age as a positive Number
     const parsedAge = Number(age);
-    if (isNaN(parsedAge) || parsedAge < 0) {
-      return res.status(400).json({ message: 'Age must be a valid positive number' });
+    if (isNaN(parsedAge) || parsedAge <= 0) {
+      return res.status(400).json({ message: 'Age must be greater than 0' });
     }
 
-    // Upload image to Cloudinary (restrict allowed formats)
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI, {
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
-    });
+    // Upload all images to Cloudinary
+    const uploadedUrls = [];
+    let uploadError = null;
+
+    for (let i = 0; i < (req.files || []).length; i++) {
+      const file = req.files[i];
+      try {
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+          allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+        });
+        uploadedUrls.push(uploadResponse.secure_url);
+      } catch (uploadErr) {
+        console.error(`Error uploading image ${i + 1}:`, uploadErr);
+        uploadError = uploadErr;
+        // On first error, attempt to clean up successfully uploaded images
+        if (uploadedUrls.length > 0) {
+          console.log('Cleaning up successfully uploaded images due to partial failure...');
+          for (const url of uploadedUrls) {
+            try {
+              const urlParts = url.split('/upload/');
+              if (urlParts.length > 1) {
+                const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
+                const publicId = pathAfterUpload.split('.')[0];
+                await cloudinary.uploader.destroy(publicId);
+              }
+            } catch (cleanupErr) {
+              console.error('Non-fatal cleanup error:', cleanupErr);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    if (uploadError) {
+      return res.status(500).json({ message: 'Failed to upload one or more images. No images were saved. Please try again.' });
+    }
+
+    if (uploadedUrls.length === 0) {
+      return res.status(400).json({ message: 'No valid images could be uploaded' });
+    }
 
     const adoptionPost = new Adoption({
       userId: req.user.userId,
@@ -136,11 +188,12 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
       neuteredSpayed,
       description: sanitizedDescription,
       location: sanitizedLocation,
-      imageUrl: uploadResponse.secure_url,
+      imageUrls: uploadedUrls,
       status: 'available' // Default status
     });
 
     console.log('Saving adoption post with location:', adoptionPost.location);
+    console.log('Number of images to save:', uploadedUrls.length);
     await adoptionPost.save();
     console.log('Adoption post saved successfully');
     
@@ -156,8 +209,8 @@ router.post('/', auth, upload.single('image'), async (req, res) => {
   }
 });
 
-// Get all adoption posts (auth required to prevent unauthenticated data exposure)
-router.get('/', auth, async (req, res) => {
+// Get all adoption posts (public)
+router.get('/', async (req, res) => {
   try {
     console.log('Fetching adoption posts...');
     // Remove the status filter to show all posts
@@ -171,6 +224,25 @@ router.get('/', auth, async (req, res) => {
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Record a public share. No login is required because shared links are public.
+router.post('/:id/share', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid adoption ID format' });
+    }
+    const adoption = await Adoption.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { shareCount: 1 } },
+      { new: true, select: 'shareCount' }
+    );
+    if (!adoption) return res.status(404).json({ message: 'Adoption listing not found' });
+    res.json({ shareCount: adoption.shareCount });
+  } catch (error) {
+    console.error('Error recording adoption share:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -239,7 +311,7 @@ router.get('/history', auth, async (req, res) => {
     const history = await AdoptionHistory.find({ userId: userObjectId })
       .populate({
         path: 'petId',
-        select: 'name petType imageUrl location userId',
+        select: 'name petType imageUrl imageUrls location userId',
         populate: { path: 'userId', select: 'username profileImage' },
       })
       .populate('requestId', 'status message')
@@ -305,6 +377,45 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
+// ==========================================
+// NEW: Adoption Stat Endpoints
+// ==========================================
+
+// 1. Get logged-in user's adoption counts
+router.get('/user-stats', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const [totalPosts, adoptedCount, pendingCount] = await Promise.all([
+      Adoption.countDocuments({ userId }),
+      Adoption.countDocuments({ userId, status: 'adopted' }),
+      Adoption.countDocuments({ userId, status: 'available' }),
+    ]);
+
+    res.json({
+      success: true,
+      data: { totalPosts, adoptedCount, pendingCount },
+    });
+  } catch (error) {
+    console.error('Error fetching user adoption stats:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// 2. Get global total adoption count for Homepage (Public, no auth)
+router.get('/public-count', async (req, res) => {
+  try {
+    // Counts every single adoption post created by all users
+    const totalAdoptions = await Adoption.countDocuments();
+    res.json({
+      success: true,
+      totalAdoptions,
+    });
+  } catch (error) {
+    console.error('Error fetching public adoption count:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 // Get a single adoption post
 router.get('/:id', async (req, res) => {
   try {
@@ -364,8 +475,8 @@ router.put('/:id', auth, async (req, res) => {
     let parsedAge;
     if (age !== undefined) {
       parsedAge = Number(age);
-      if (isNaN(parsedAge) || parsedAge < 0) {
-        return res.status(400).json({ message: 'Age must be a valid positive number' });
+      if (isNaN(parsedAge) || parsedAge <= 0) {
+        return res.status(400).json({ message: 'Age must be greater than 0' });
       }
     }
 
@@ -406,13 +517,9 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Update adoption post image
-router.put('/:id/image', auth, upload.single('image'), async (req, res) => {
+// Update adoption post images (supports multiple images)
+router.put('/:id/image', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image file is required' });
-    }
-
     // Ensure the post belongs to the user
     const adoptionPost = await Adoption.findOne({
       _id: req.params.id,
@@ -423,41 +530,127 @@ router.put('/:id/image', auth, upload.single('image'), async (req, res) => {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // Upload new image to Cloudinary (restrict allowed formats)
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-    const uploadResponse = await cloudinary.uploader.upload(dataURI, {
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
-    });
-
-    // Gracefully delete old image from Cloudinary to prevent orphans
+    // Get list of images to remove (if provided in body)
+    let indicesToRemove = [];
     try {
-      if (adoptionPost.imageUrl) {
-        const urlParts = adoptionPost.imageUrl.split('/upload/');
+      indicesToRemove = req.body.indicesToRemove ? JSON.parse(req.body.indicesToRemove) : [];
+    } catch {
+      return res.status(400).json({ message: 'Invalid image removal data' });
+    }
+    if (!Array.isArray(indicesToRemove)) {
+      return res.status(400).json({ message: 'Invalid image removal data' });
+    }
+    
+    // Calculate total size of new images
+    let totalSize = 0;
+    for (const file of req.files || []) {
+      totalSize += file.size;
+    }
+    if (totalSize > MAX_TOTAL_IMAGE_SIZE) {
+      return res.status(400).json({ message: `Total image size cannot exceed 100MB (received ${(totalSize / 1024 / 1024).toFixed(1)}MB)` });
+    }
+
+    // Upload new images to Cloudinary
+    const newUploadedUrls = [];
+    let uploadError = null;
+
+    for (let i = 0; i < (req.files || []).length; i++) {
+      const file = req.files[i];
+      try {
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+          allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+        });
+        newUploadedUrls.push(uploadResponse.secure_url);
+      } catch (uploadErr) {
+        console.error(`Error uploading image ${i + 1}:`, uploadErr);
+        uploadError = uploadErr;
+        // Clean up successfully uploaded images on error
+        if (newUploadedUrls.length > 0) {
+          console.log('Cleaning up successfully uploaded images due to upload failure...');
+          for (const url of newUploadedUrls) {
+            try {
+              const urlParts = url.split('/upload/');
+              if (urlParts.length > 1) {
+                const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
+                const publicId = pathAfterUpload.split('.')[0];
+                await cloudinary.uploader.destroy(publicId);
+              }
+            } catch (cleanupErr) {
+              console.error('Non-fatal cleanup error:', cleanupErr);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    if (uploadError) {
+      return res.status(500).json({ message: 'Failed to upload one or more new images. Please try again.' });
+    }
+
+    // Get current images (supporting both old and new formats for backward compatibility)
+    const currentImages = adoptionPost.imageUrls || (adoptionPost.imageUrl ? [adoptionPost.imageUrl] : []);
+
+    if ((!req.files || req.files.length === 0) && indicesToRemove.length === 0) {
+      return res.status(400).json({ message: 'Select a new photo or remove an existing photo' });
+    }
+
+    // Remove specified images from current list
+    let updatedImages = [...currentImages];
+    if (indicesToRemove && indicesToRemove.length > 0) {
+      updatedImages = updatedImages.filter((_, index) => !indicesToRemove.includes(index));
+    }
+
+    // Add new images
+    updatedImages = [...updatedImages, ...newUploadedUrls];
+
+    // Ensure we still have at least one image
+    if (updatedImages.length === 0) {
+      // Clean up newly uploaded images if we would end up with no images
+      for (const url of newUploadedUrls) {
+        try {
+          const urlParts = url.split('/upload/');
+          if (urlParts.length > 1) {
+            const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
+            const publicId = pathAfterUpload.split('.')[0];
+            await cloudinary.uploader.destroy(publicId);
+          }
+        } catch (cleanupErr) {
+          console.error('Non-fatal cleanup error:', cleanupErr);
+        }
+      }
+      return res.status(400).json({ message: 'At least one image must be kept' });
+    }
+
+    // Delete old images that were removed from Cloudinary
+    const imagesToDelete = currentImages.filter((_, index) => indicesToRemove.includes(index));
+    for (const url of imagesToDelete) {
+      try {
+        const urlParts = url.split('/upload/');
         if (urlParts.length > 1) {
           const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
           const publicId = pathAfterUpload.split('.')[0];
           await cloudinary.uploader.destroy(publicId);
-        } else {
-          const filename = adoptionPost.imageUrl.split('/').pop();
-          if (filename) {
-            const publicId = filename.split('.')[0];
-            await cloudinary.uploader.destroy(publicId);
-          }
         }
+      } catch (e) {
+        console.error('Non-fatal old image deletion error:', e);
+        console.warn('Failed to delete old image from Cloudinary:', e.message);
       }
-    } catch (e) {
-      console.error('Non-fatal old image deletion error:', e);
-      console.warn('Failed to delete old image from Cloudinary:', e.message);
     }
 
-    // Save new image URL
-    adoptionPost.imageUrl = uploadResponse.secure_url;
+    // Update the adoption post with new images
+    adoptionPost.imageUrls = updatedImages;
+    adoptionPost.imageUrl = updatedImages[0]; // Keep first image as fallback for backward compatibility
     await adoptionPost.save();
 
-    res.json({ imageUrl: adoptionPost.imageUrl });
+    res.json({ 
+      imageUrls: adoptionPost.imageUrls,
+      message: 'Images updated successfully'
+    });
   } catch (error) {
-    console.error('Error updating adoption image:', error);
+    console.error('Error updating adoption images:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -474,9 +667,24 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Adoption post not found' });
     }
 
-    // Delete image from Cloudinary
-    const publicId = adoptionPost.imageUrl.split('/').pop().split('.')[0];
-    await cloudinary.uploader.destroy(publicId);
+    // Delete all associated images from Cloudinary
+    const imagesToDelete = adoptionPost.imageUrls || (adoptionPost.imageUrl ? [adoptionPost.imageUrl] : []);
+    
+    for (const imageUrl of imagesToDelete) {
+      try {
+        const urlParts = imageUrl.split('/upload/');
+        if (urlParts.length > 1) {
+          const pathAfterUpload = urlParts[1].replace(/^v\d+\//, '');
+          const publicId = pathAfterUpload.split('.')[0];
+          await cloudinary.uploader.destroy(publicId);
+        } else {
+          const publicId = imageUrl.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(publicId);
+        }
+      } catch (e) {
+        console.error('Non-fatal image deletion error for image:', imageUrl, e);
+      }
+    }
 
     // Delete all related requests
     await AdoptionRequest.deleteMany({ adId: req.params.id });
@@ -561,6 +769,9 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
     await Adoption.findByIdAndUpdate(adId, { $push: { requests: adoptionRequest._id } });
 
     // Create adoption history entry
+    // Get the first image (supports both new imageUrls array and old imageUrl field)
+    const petImageUrl = adoptionPost.imageUrls?.[0] || adoptionPost.imageUrl;
+    
     const adoptionHistory = new AdoptionHistory({
       userId: requesterId,
       petId: adId,
@@ -568,7 +779,7 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
       status: 'pending',
       petName: adoptionPost.name,
       petType: adoptionPost.petType,
-      petImage: adoptionPost.imageUrl,
+      petImage: petImageUrl,
       image: petHistoryImageUrl, // Store the pet history image (may be empty)
       message: message
     });

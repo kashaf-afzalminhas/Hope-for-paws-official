@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { getSocket, initSocket } from '../services/socket';
+import { useAuth } from './AuthContext';
 
 const MessageContext = createContext(undefined);
 
@@ -13,34 +14,59 @@ const useMessages = () => {
 };
 
 const MessageProvider = ({ children }) => {
+  const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
 
-  // Initialize socket globally when MessageProvider mounts
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
-    const currentUserId = user?.id || user?._id;
-    
-    if (currentUserId) {
-      console.log('📡 MessageProvider: Initializing global socket for user:', currentUserId);
-      const socket = initSocket(currentUserId);
-      console.log('📡 MessageProvider: Global socket initialized:', !!socket);
-    } else {
-      console.log('📡 MessageProvider: No user ID found, cannot initialize global socket');
+  const getStoredUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const storedUser = userStr ? JSON.parse(userStr) : null;
+      return storedUser?.id || storedUser?._id || null;
+    } catch (error) {
+      console.warn('MessageProvider: Failed to parse stored user from storage', error);
+      return null;
     }
-    
-    // Cleanup on unmount
+  };
+
+  const getCurrentUserId = () => user?.id || user?._id || getStoredUserId();
+
+  // Initialize socket whenever authenticated user becomes available
+  useEffect(() => {
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      console.log('MessageProvider: No authenticated user yet, waiting for login');
+      return;
+    }
+
+    console.log('MessageProvider: Initializing global socket for user:', currentUserId);
+    try {
+      const socket = initSocket(currentUserId);
+      console.log('MessageProvider: Global socket initialized:', !!socket);
+    } catch (e) {
+      console.warn('MessageProvider: Failed to initialize socket:', e.message);
+    }
+
     return () => {
-      console.log('📡 MessageProvider: Cleaning up global socket');
+      console.log('MessageProvider: Cleaning up global socket for user:', currentUserId);
     };
-  }, []); // Run only once on mount
+  }, [user]);
 
   // Centralized socket event handler for new messages
   useEffect(() => {
     const socket = getSocket();
     if (!socket) {
+      const currentUserId = user?.id || user?._id;
+      if (currentUserId) {
+        console.log('MessageContext: Socket not ready yet, initializing socket for user:', currentUserId);
+        try {
+          initSocket(currentUserId);
+        } catch (e) {
+          console.warn('MessageContext: Failed to initialize socket inside listener effect:', e.message);
+        }
+      }
       return;
     }
 
@@ -59,87 +85,25 @@ const MessageProvider = ({ children }) => {
     }
 
     const handleNewMessage = (message) => {
-      console.log('📨 MessageContext: Received newMessage:', message);
-      console.log('📨 MessageContext: currentConversationId:', currentConversationId);
+      console.log('MessageContext: Received newMessage:', message);
       
-      // Get current user ID from localStorage/sessionStorage
-      const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+      const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
-      console.log('📨 MessageContext: currentUserId:', currentUserId, 'message.senderId:', message.senderId);
+      const isChatRoute = typeof window !== 'undefined' && /^\/chat(\/|$)/.test(window.location.pathname);
+      const isActiveConversation = currentConversationId !== null && String(message.conversationId) === String(currentConversationId);
+      const isActiveVisibleConversation = isChatRoute && isActiveConversation && document.hasFocus();
       
-      // Only increment unread count if not in the current conversation and not user's own message
-      // When currentConversationId is null (outside chat), we should increment for all messages from others
-      if (message.senderId !== currentUserId && (currentConversationId === null || String(message.conversationId) !== String(currentConversationId))) {
-        console.log('📨 MessageContext: Incrementing unread count');
+      if (
+        message.senderId !== currentUserId &&
+        !isActiveVisibleConversation
+      ) {
         setUnreadCount(prev => prev + 1);
-      } else {
-        console.log('📨 MessageContext: Not incrementing unread count (own message or in current conversation)');
       }
       
-      // Update conversations list with the new message
-      setConversations(prev => {
-        const existingConvIndex = prev.findIndex(conv => String(conv._id) === String(message.conversationId));
-        
-        if (existingConvIndex !== -1) {
-          // Update existing conversation
-          const updatedConversations = [...prev];
-          updatedConversations[existingConvIndex] = {
-            ...updatedConversations[existingConvIndex],
-            lastMessage: {
-              text: message.text,
-              createdAt: message.createdAt,
-              senderId: message.senderId
-            },
-            updatedAt: message.createdAt,
-            unreadCount: (() => {
-              // Don't increment unread count if it's the current user's own message
-              if (message.senderId === currentUserId) {
-                return updatedConversations[existingConvIndex].unreadCount || 0;
-              }
-              
-              // Only mark as read if user is:
-              // 1. Actually viewing this EXACT conversation
-              // 2. The current window/tab has focus (user is actively using this window)
-              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
-                return 0;
-              }
-              
-              // Otherwise increment unread count for messages from other users in other conversations
-              return (updatedConversations[existingConvIndex].unreadCount || 0) + 1;
-            })()
-          };
-          
-          // Sort by updatedAt descending (most recent first)
-          return updatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        } else {
-          // Create new conversation if it doesn't exist
-          const newConv = {
-            _id: message.conversationId,
-            participants: [message.senderId], // This will be updated when conversation is loaded
-            lastMessage: {
-              text: message.text,
-              createdAt: message.createdAt,
-              senderId: message.senderId
-            },
-            updatedAt: message.createdAt,
-            unreadCount: (() => {
-              // Don't increment unread count if it's the current user's own message
-              if (message.senderId === currentUserId) {
-                return 0;
-              }
-              // Only mark as read if user is actually viewing this conversation AND window has focus
-              if (currentConversationId !== null && String(message.conversationId) === String(currentConversationId) && document.hasFocus()) {
-                return 0;
-              }
-              // Otherwise set unread count to 1 for new conversation
-              return 1;
-            })()
-          };
-          
-          return [newConv, ...prev].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        }
-      });
+      if (currentUserId) {
+        refreshConversations(currentUserId);
+      }
     };
 
     // Listen only for newMessage event (backend emits this consistently)
@@ -148,7 +112,7 @@ const MessageProvider = ({ children }) => {
     return () => {
       socket.off('newMessage', handleNewMessage);
     };
-  }, [currentConversationId, socketConnected]);
+  }, [currentConversationId, socketConnected, user]);
 
   const refreshConversations = useCallback(async (userId) => {
     if (!userId) return;
@@ -178,11 +142,19 @@ const MessageProvider = ({ children }) => {
     }
   }, []);
 
+  useEffect(() => {
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) return;
+
+    console.log('MessageContext: Refreshing conversations for authenticated user:', currentUserId);
+    refreshConversations(currentUserId);
+  }, [user, refreshConversations]);
+
   // Listen for refresh conversations event
   useEffect(() => {
     const handleRefreshConversations = () => {
       // Get current user ID from storage
-      const user = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       const userId = user?.id || user?._id;
       if (userId) {
         refreshConversations(userId);
@@ -291,6 +263,19 @@ const MessageProvider = ({ children }) => {
     });
   }, []);
 
+  const removeConversation = useCallback((conversationId) => {
+    setConversations(prev => {
+      if (!Array.isArray(prev)) return [];
+      const updated = prev.filter(c => String(c._id) !== String(conversationId));
+      const totalUnread = updated.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
+      setUnreadCount(totalUnread);
+      return updated;
+    });
+    if (currentConversationId && String(currentConversationId) === String(conversationId)) {
+      setCurrentConversationId(null);
+    }
+  }, [currentConversationId]);
+
   const getTotalUnreadCount = useCallback(() => {
     if (!Array.isArray(conversations)) {
       console.error('MessageContext: conversations is not an array in getTotalUnreadCount:', conversations);
@@ -307,6 +292,7 @@ const MessageProvider = ({ children }) => {
     markAsRead,
     updateConversations,
     addConversation,
+    removeConversation,
     updateConversationUnreadCount,
     getTotalUnreadCount,
     refreshConversations
@@ -318,6 +304,7 @@ const MessageProvider = ({ children }) => {
     markAsRead,
     updateConversations,
     addConversation,
+    removeConversation,
     updateConversationUnreadCount,
     getTotalUnreadCount,
     refreshConversations

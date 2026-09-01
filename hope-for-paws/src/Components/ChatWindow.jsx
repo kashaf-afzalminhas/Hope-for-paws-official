@@ -1,77 +1,62 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ChatBubble from './ChatBubble';
-import MessageInput from './MessageInput';
 import TypingIndicator from './TypingIndicator';
-import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead, debugToken } from '../Main/api';
+import { getMessagesByConversation, sendMessage, getUserById, markConversationAsRead, deleteConversation, debugToken } from '../Main/api';
+import { useMessages } from '../context/MessageContext';
 import { getSocket, sendSocketMessage } from '../services/socket';
 import { Link } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
-import { cn } from '../lib/utils';
-
-// Helper functions with proper error handling
-function formatMessageDate(timestamp) {
-  if (!timestamp) return 'Unknown date';
-  
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === now.toDateString()) {
-      // Use a simple time format without the date-fns library
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else if (date.getFullYear() === now.getFullYear()) {
-      // Use a simple date format without the date-fns library
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    } else {
-      return date.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: 'numeric' });
-    }
-  } catch (error) {
-    console.error('Error formatting date:', error, timestamp);
-    return 'Invalid date';
-  }
-}
-
-function shouldShowDateSeparator(messages, currentIndex) {
-  if (currentIndex === 0) return true;
-  
-  try {
-    const currentDate = new Date(messages[currentIndex].createdAt);
-    const prevDate = new Date(messages[currentIndex - 1].createdAt);
-    
-    if (isNaN(currentDate.getTime()) || isNaN(prevDate.getTime())) {
-      return true;
-    }
-    
-    return (
-      currentDate.getDate() !== prevDate.getDate() ||
-      currentDate.getMonth() !== prevDate.getMonth() ||
-      currentDate.getFullYear() !== prevDate.getFullYear()
-    );
-  } catch (error) {
-    console.error('Error checking date separator:', error);
-    return true;
-  }
-}
+import { FaPaw } from 'react-icons/fa';
 
 const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConversationLastMessage, addToast, setCurrentConversationId }) => {
   const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [userDetails, setUserDetails] = useState(otherUser);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { removeConversation } = useMessages();
   const messagesEndRef = useRef(null);
-  const socketRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
-  const messagesContainerRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  // Handle window resize for mobile detection
+  const handleDeleteChat = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteConversation(conversationId);
+      if (removeConversation) {
+        removeConversation(conversationId);
+      }
+
+      // Triggers immediate sync across MessageContext and background tabs
+      window.dispatchEvent(new CustomEvent('refreshConversations'));
+
+      if (addToast) {
+        addToast({
+          title: 'Success',
+          description: 'Chat deleted successfully'
+        });
+      }
+      setShowDeleteModal(false);
+      if (onBack) {
+        onBack();
+      }
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      if (addToast) {
+        addToast({
+          title: 'Error',
+          description: 'Failed to delete chat',
+          variant: 'destructive'
+        });
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -81,180 +66,97 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       try {
         setIsLoading(true);
         const response = await getMessagesByConversation(conversationId);
-        
-        // Normalize the response data with proper timestamp validation
-        const normalizedMessages = (response.data || []).map(msg => {
-          // Validate and ensure timestamp is valid
-          let timestamp = msg.createdAt || msg.timestamp;
-          if (!timestamp || isNaN(new Date(timestamp).getTime())) {
-            console.warn('Invalid timestamp found, using current time:', timestamp);
-            timestamp = new Date().toISOString();
-          }
-          
-          return {
-            _id: msg._id || msg.id || Date.now().toString(),
-            text: msg.text || msg.content || '',
-            senderId: msg.senderId || msg.sender?.id || '',
-            createdAt: timestamp
-          };
-        }).filter(msg => msg.text); // Remove empty messages
-        
-        setMessages(normalizedMessages);
+        const normalized = (response.data || []).map(msg => ({
+          _id: msg._id || msg.id || Date.now().toString(),
+          text: msg.text || msg.content || '',
+          senderId: msg.senderId || msg.sender?.id || '',
+          createdAt: msg.createdAt || new Date().toISOString()
+        })).filter(msg => msg.text);
+        setMessages(normalized);
       } catch (error) {
-        console.error('Error fetching messages:', error);
         setMessages([]);
       } finally {
         setIsLoading(false);
       }
     };
-
-    if (conversationId) {
-      fetchMessages();
-    }
+    if (conversationId) fetchMessages();
   }, [conversationId]);
 
-  // Mark conversation as read when opened and set as current conversation
   useEffect(() => {
     if (conversationId && setCurrentConversationId) {
-      // Only set current conversation ID if this ChatWindow is actually visible
-      if (document.visibilityState === 'visible' && !document.hidden) {
-        setCurrentConversationId(conversationId);
-      }
-      
-      const markAsRead = async () => {
-        try {
-          const result = await markConversationAsRead(conversationId);
-          
-          // Update parent component to reset unread count
-          if (updateConversationLastMessage) {
-            updateConversationLastMessage(conversationId, { unreadCount: 0 });
-          }
-          
-          // Refresh conversations to get updated unread counts from backend
-          if (result?.data?.modifiedCount > 0) {
-            // Wait a bit for the database to update
-            setTimeout(() => {
-              // Trigger a refresh of conversations
-              window.dispatchEvent(new CustomEvent('refreshConversations'));
-            }, 100);
-          }
-        } catch (error) {
-          console.error("Error marking conversation as read:", error);
-        }
-      };
-      
-      markAsRead();
+      setCurrentConversationId(conversationId);
+      markConversationAsRead(conversationId).catch(console.error);
     }
-  }, [conversationId, updateConversationLastMessage]);
+  }, [conversationId, setCurrentConversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    const setupSocketListeners = () => {
     const socket = getSocket();
-    socketRef.current = socket;
+    if (!socket || !conversationId) return;
 
-    if (!socket || !conversationId) {
-        console.log('ChatWindow: No socket or conversationId available');
-        return;
-      }
-
-      if (!socket.connected) {
-        console.log('ChatWindow: Socket not connected, waiting for connection...');
-        const handleConnect = () => {
-          console.log('ChatWindow: Socket connected, setting up listeners');
-          socket.off('connect', handleConnect); // Remove listener to prevent duplicates
-          setupSocketListeners();
-        };
-        socket.on('connect', handleConnect);
-      return;
-    }
-
-      console.log('ChatWindow: Socket connected, setting up listeners for conversation:', conversationId);
-
-      // Join the conversation room for real-time updates (with a small delay to ensure handlers are registered)
-      setTimeout(() => {
-        console.log('ChatWindow: Emitting joinConversation with ID:', conversationId);
     socket.emit('joinConversation', conversationId);
-      }, 100);
-      
-      // Note: socket.rooms is server-side only, we can't check rooms on client side
-      // The backend will log whether the room joining was successful
-
-      const handleNewMessage = (message) => {
-        // Only add message if it's for this conversation
-        const conversationMatches = String(message.conversationId) === String(conversationId);
-        
-        if (conversationMatches) {
-          // Check if message already exists (avoid duplicates)
-          setMessages(prev => {
-            const messageExists = prev.some(msg => msg._id === message._id || (msg.text === message.text && msg.senderId === message.senderId && Math.abs(new Date(msg.createdAt) - new Date(message.createdAt)) < 5000));
-            if (messageExists) {
-              return prev;
-            }
-            
-            return [...prev, message];
-          });
-        }
-      };
-
-    const handleMessageSent = (data) => {
-      // You can add logic here to update message status if needed
+    const handleNewMessage = (message) => {
+      if (String(message.conversationId) === String(conversationId)) {
+        setMessages(prev => {
+          const alreadyExists = prev.some(
+            m => m._id === message._id || 
+            (m.text === message.text && String(m.senderId) === String(message.senderId) && Math.abs(new Date(m.createdAt) - new Date(message.createdAt || Date.now())) < 5000)
+          );
+          if (alreadyExists) {
+            return prev.map(m => 
+              (m.text === message.text && String(m.senderId) === String(message.senderId)) ? message : m
+            );
+          }
+          return [...prev, message];
+        });
+      }
     };
 
-      // Listen for both newMessage and messageSent events
-      socket.on('newMessage', handleNewMessage);
-    socket.on('messageSent', handleMessageSent);
-
-      // Listen for room joined confirmation
-      socket.on('roomJoined', (data) => {
-        // Room joined successfully
-      });
-
-      // Store cleanup function
-      const cleanup = () => {
-        if (socket && socket.connected) {
-          socket.emit('leaveConversation', conversationId);
-          socket.off('newMessage', handleNewMessage);
-          socket.off('messageSent', handleMessageSent);
-          socket.off('roomJoined');
-        }
-      };
-
-      return cleanup;
+    socket.on('newMessage', handleNewMessage);
+    return () => {
+      socket.emit('leaveConversation', conversationId);
+      socket.off('newMessage', handleNewMessage);
     };
-
-    const cleanup = setupSocketListeners();
-    return cleanup;
-  }, [conversationId, updateConversationLastMessage]);
+  }, [conversationId]);
 
   useEffect(() => {
     if (!otherUser.username) {
       getUserById(otherUser._id)
-        .then(res => {
-          // Some APIs return { data: { ...user } }
-          if (res.data && res.data.data) {
-            setUserDetails(res.data.data);
-          } else if (res.data) {
-            setUserDetails(res.data);
-          } else {
-            setUserDetails(otherUser);
-          }
-        })
+        .then(res => setUserDetails(res.data?.data || res.data || otherUser))
         .catch(() => setUserDetails(otherUser));
     } else {
       setUserDetails(otherUser);
     }
   }, [otherUser]);
 
-  const handleSendMessage = async (text) => {
-    if (!text.trim() || !conversationId) return;
+  const handleSend = async (e) => {
+    e?.preventDefault();
+    if (!inputText.trim() || !conversationId) return;
 
-    const senderId = currentUser.id || currentUser._id;
+    const text = inputText.trim();
+    setInputText('');
+
+    // Safely extract the sender's user ID from props or storage
+    const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+    const senderId = currentUser?._id || currentUser?.id || storedUser?._id || storedUser?.id;
+
+    if (!senderId) {
+      console.error('No valid sender ID found to send message');
+      if (addToast) {
+        addToast({
+          title: 'Error',
+          description: 'Authentication session expired. Please re-login.',
+          variant: 'destructive'
+        });
+      }
+      return;
+    }
+
     const tempId = Date.now().toString();
-    const newMessage = {
+    const tempMessage = {
       _id: tempId,
       conversationId,
       senderId,
@@ -262,202 +164,164 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
       createdAt: new Date().toISOString(),
     };
 
-    // Don't do optimistic update since server will emit via socket
-    // setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => [...prev, tempMessage]);
 
     try {
-      const response = await sendMessage({
-        conversationId,
-        senderId,
-        text
-      });
-      
-      console.log('ChatWindow: Message sent successfully, waiting for socket event');
-      // Server will emit the message via socket, no need to add to local state
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-      // Remove temp message on error
-      setMessages(prev => prev.filter(msg => msg._id !== tempId));
-      // Show error toast
-      if (addToast) {
-        addToast({
-          title: 'Error',
-          description: 'Failed to send message. Please try again.',
-          variant: 'destructive'
+      const response = await sendMessage({ conversationId, senderId, text });
+      const savedMsg = response?.data?.data || response?.data;
+      if (savedMsg && savedMsg._id) {
+        setMessages(prev => {
+          const alreadyAddedBySocket = prev.some(m => m._id === savedMsg._id);
+          if (alreadyAddedBySocket) {
+            return prev.filter(m => m._id !== tempId);
+          }
+          return prev.map(msg => msg._id === tempId ? savedMsg : msg);
         });
       }
+    } catch (error) {
+      setMessages(prev => prev.filter(msg => msg._id !== tempId));
+      if (addToast) addToast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     }
   };
-
-  const handleBackClick = () => {
-    // Clear current conversation ID when navigating away
-    if (setCurrentConversationId) {
-      setCurrentConversationId(null);
-    }
-    if (onBack) {
-      onBack();
-    }
-  };
-
 
   return (
-    <div className="flex flex-col h-full bg-[#f8f4ea] min-h-0 chat-container">
-      {/* Header - Fixed height with improved styling */}
-      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-b border-[#e5d9c8] shadow-sm flex items-center gap-4 chat-header">
-        {isMobile && onBack && (
-          <button
-            onClick={handleBackClick}
-            className="p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 no-select active:scale-95"
-            aria-label="Back to conversations"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-5 w-5 text-[#2c1810]" 
-              viewBox="0 0 20 20" 
-              fill="currentColor"
-            >
-              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          </button>
-        )}
-        
-        <Link 
-          to={`/profile/public/${otherUser._id}`}
-          className="relative shrink-0 flex-shrink-0 group"
-        >
-          {userDetails.profileImage ? (
-            <img 
-              src={`${AUTH_BASE_URL.replace('/auth', '')}${userDetails.profileImage}`}
-              alt={userDetails.username || 'User'}
-              className="w-12 h-12 rounded-xl object-cover border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-          ) : null}
-          <div 
-            className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#a07855] to-[#6b493d] flex items-center justify-center text-[#ffd8b8] text-xl font-bold border-2 border-[#e5d9c8] group-hover:border-[#a07855]/40 transition-colors duration-200 ${userDetails.profileImage ? 'hidden' : ''}`}
-          >
-            {(userDetails.username || 'U').charAt(0).toUpperCase()}
-          </div>
-          {userDetails.status === 'online' && (
-            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div>
+    <div className="flex flex-col h-full bg-[#FAECD8] min-h-0 relative">
+      {/* Top Header */}
+      <div className="flex-shrink-0 bg-[#301B12] px-5 py-3.5 flex items-center justify-between shadow-xs z-10">
+        <div className="flex items-center gap-3">
+          {isMobile && onBack && (
+            <button onClick={onBack} className="text-white/80 hover:text-white p-1 rounded-md" aria-label="Back">
+              ←
+            </button>
           )}
-        </Link>
-        
-        <div className="flex-1 min-w-0">
-          <Link 
-            to={`/profile/public/${otherUser._id}`}
-            className="font-heading text-lg font-semibold text-[#2c1810] hover:text-[#a07855] transition-colors duration-200 block truncate"
-          >
-            {userDetails.username || 'User'}
+
+          <Link to={`/profile/public/${otherUser._id}`} className="relative shrink-0 flex items-center">
+            {userDetails?.profileImage ? (
+              <img
+                src={`${AUTH_BASE_URL.replace('/auth', '')}${userDetails.profileImage}`}
+                alt={userDetails.username || 'User'}
+                className="w-10 h-10 rounded-full object-cover border border-[#BA8B60]"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div className={`w-10 h-10 rounded-full bg-[#FDF6EE] border border-[#BA8B60] flex items-center justify-center text-lg ${userDetails?.profileImage ? 'hidden' : ''}`}>
+              🐶
+            </div>
           </Link>
-          <p className="font-body text-sm text-[#2c1810]/80 mt-1 flex items-center">
-            {isTyping ? (
-              <span className="flex items-center text-[#a07855] font-medium">
-                <span className="flex mr-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5 animation-delay-150"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-bounce mx-0.5 animation-delay-300"></span>
-                </span>
-                typing...
-              </span>
-            ) : userDetails.status === 'online' ? (
-              <span className="flex items-center">
-                <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-1.5 shadow-sm"></span>
-                <span className="text-[#2c1810]/80">Online now</span>
-              </span>
-            ) : (
-              <span className="text-[#2c1810]/60">Offline</span>
-            )}
-          </p>
+
+          <div className="flex flex-col justify-center">
+            <Link to={`/profile/public/${otherUser._id}`} className="text-white font-semibold text-base leading-tight hover:text-[#E2BD9E] transition-colors">
+              {userDetails?.username || 'User'}
+            </Link>
+            <span className="text-xs text-[#D8BCA4] flex items-center gap-1.5 mt-0.5 font-normal">
+              <span className={`w-2 h-2 rounded-full ${userDetails?.status === 'online' ? 'bg-[#9CD373]' : 'bg-[#A88876]'}`} />
+              {userDetails?.status === 'online' ? 'Online' : 'Offline'}
+            </span>
+          </div>
         </div>
+
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="p-2 text-white/70 hover:text-red-400 hover:bg-white/10 rounded-full transition-colors active:scale-95 ml-auto"
+          title="Delete Chat"
+          aria-label="Delete Chat"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
         
       </div>
 
-      {/* Messages area - Enhanced styling */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-[#f8f4ea] to-[#f5efe6] min-h-0 chat-messages-container smooth-scroll"
-      >
+      {/* Messages Stream */}
+      <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-5 min-h-0 smooth-scroll">
         {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
-                </div>
-              </div>
-              <div className="mt-4 font-body text-[#2c1810]/70">
-                Loading messages...
-              </div>
-            </div>
+          <div className="flex justify-center items-center h-full text-[#4A2E1B]/70 text-sm">
+            Loading messages...
           </div>
         ) : messages.length > 0 ? (
-          <div className="space-y-4">
-            {messages.map((message, index) => {
+          <div className="space-y-1">
+            {messages.map((message) => {
               if (!message.text || !message._id) return null;
-              
-              const showDateSeparator = shouldShowDateSeparator(messages, index);
+              const isMe = message.senderId === (currentUser.id || currentUser._id);
+
               return (
-                <React.Fragment key={message._id}>
-                  {showDateSeparator && (
-                    <div className="text-center my-6">
-                      <span className="inline-block px-4 py-2 text-xs font-body text-[#2c1810]/80 bg-white rounded-xl border border-[#e5d9c8] shadow-sm backdrop-blur-sm">
-                        {formatMessageDate(message.createdAt)}
-                      </span>
-                    </div>
-                  )}
-                  <ChatBubble
-                    message={message.text}
-                    timestamp={message.createdAt}
-                    isCurrentUser={message.senderId === (currentUser.id || currentUser._id)}
-                    status="read"
-                  />
-                </React.Fragment>
+                <ChatBubble
+                  key={message._id}
+                  message={message.text}
+                  timestamp={message.createdAt}
+                  isCurrentUser={isMe}
+                  senderName={isMe ? (currentUser?.username || 'Sahab') : (userDetails?.username || 'User')}
+                />
               );
             })}
-            {isTyping && (
-              <div className="mt-1 mb-6">
-                <TypingIndicator username={otherUser.username} />
-              </div>
-            )}
-            <div ref={messagesEndRef} className="h-4" />
           </div>
         ) : (
-          <div className="flex flex-col justify-center items-center h-full text-center p-6">
-            <div className="relative mb-8">
-              <div className="w-32 h-32 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8]">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-[#a07855]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div className="absolute -top-2 -right-2">
-                <div className="w-10 h-10 rounded-full bg-[#a07855] flex items-center justify-center shadow-md">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <h3 className="font-heading text-2xl font-semibold text-[#2c1810] mb-3">Start a Conversation</h3>
-            <p className="font-body text-[#2c1810]/70 max-w-md mb-6 leading-relaxed">
-              Send your first message to {userDetails.username || 'your contact'} to begin chatting
-            </p>
+          <div className="flex flex-col items-center justify-center h-full text-center text-[#5C3C26]">
+            <p className="font-semibold text-base">No messages yet</p>
+            <p className="text-xs opacity-75 mt-1">Say hi to start the conversation!</p>
           </div>
         )}
+        {isTyping && (
+          <div className="mt-1 mb-2">
+            <TypingIndicator username={otherUser.username} />
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area - Enhanced styling */}
-      <div className="flex-shrink-0 p-4 bg-[#fff7f0] border-t border-[#e5d9c8] chat-input shadow-sm">
-        <MessageInput 
-          onSendMessage={handleSendMessage} 
-          className="bg-white border border-[#e5d9c8] rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-[#a07855]/30 focus-within:border-[#a07855]/60 focus-within:shadow-md"
-          disabled={!conversationId}
-        />
+      {/* Bottom Message Input Bar */}
+      <div className="p-3.5 sm:p-4 bg-transparent">
+        <form onSubmit={handleSend} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Type your message or set quick-emojis here."
+            className="flex-1 bg-[#FFF9F2] text-[#2C1810] placeholder-[#8E7060]/70 px-5 py-3 rounded-full border border-[#E3CBB3] focus:outline-hidden focus:ring-2 focus:ring-[#BA8B60] text-sm shadow-xs"
+          />
+
+          <button
+            type="submit"
+            disabled={!inputText.trim()}
+            className="flex items-center gap-2 bg-[#BA8B60] hover:bg-[#A8794E] disabled:opacity-50 text-white font-medium px-5 py-3 rounded-full transition shadow-sm select-none cursor-pointer"
+          >
+            <span>Send</span>
+            <FaPaw className="text-sm" />
+          </button>
+        </form>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-heading font-bold text-[#2c1810] mb-2">Delete Conversation?</h3>
+            <p className="font-body text-sm text-gray-600 mb-6">
+              This chat will be removed from your inbox. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteChat}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

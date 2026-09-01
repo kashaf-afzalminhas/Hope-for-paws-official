@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
-import { MapPin, MessageSquare, PawPrint, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, MapPin, MessageSquare, PawPrint, X } from 'lucide-react';
+import { useRequireAuth } from '../AuthGuard';
 import {
   adoptionTagClass,
   adoptionTagMutedClass,
@@ -9,6 +10,7 @@ import {
   getHealthFieldChipStyle,
   getPosterProfileId,
 } from './adoptionTheme';
+import ShareLinkButton from '../ShareLinkButton';
 
 const AdoptionDetailsModal = ({
   post,
@@ -19,6 +21,8 @@ const AdoptionDetailsModal = ({
   canChat,
   onChat,
 }) => {
+  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   if (!post) return null;
 
   const posterProfileId = getPosterProfileId(post);
@@ -30,13 +34,50 @@ const AdoptionDetailsModal = ({
     ? getHealthFieldChipStyle('neutered', post.neuteredSpayed, post.status)
     : null;
 
+  const imageList = post?.imageUrls && post.imageUrls.length > 0
+    ? post.imageUrls.filter(Boolean)
+    : post?.imageUrl
+      ? [post.imageUrl]
+      : [];
+
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [post?._id, post?.imageUrl, post?.imageUrls]);
+
+  React.useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  const currentImage = imageList[currentImageIndex] || null;
+  const hasMultipleImages = imageList.length > 1;
+
+  const goToPreviousImage = () => {
+    if (imageList.length <= 1) return;
+    setCurrentImageIndex((prev) => (prev - 1 + imageList.length) % imageList.length);
+  };
+
+  const goToNextImage = () => {
+    if (imageList.length <= 1) return;
+    setCurrentImageIndex((prev) => Math.min(prev + 1, imageList.length - 1));
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
       <div
         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="adoption-details-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[#e8dcc8] bg-white px-6 py-4">
           <h2 id="adoption-details-title" className="text-xl font-bold text-[#4E3B31] sm:text-2xl">
@@ -56,20 +97,48 @@ const AdoptionDetailsModal = ({
           <div className="border-b border-[#efe4d8] bg-[#faf6f0] px-6 py-4">
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#faf6f0] to-[#efe4d8]">
               <div className="flex min-h-[200px] items-center justify-center">
-                {imageFailed ? (
+                {imageFailed || !currentImage ? (
                   <div className="flex flex-col items-center py-16 text-[#6F4C3E]">
                     <PawPrint className="mb-3 h-12 w-12 text-[#a07855]/60" />
                     <p className="text-sm font-medium">Photo unavailable</p>
                   </div>
                 ) : (
                   <img
-                    src={post.imageUrl}
-                    alt={`${post.name} – ${post.petType || 'pet'}`}
+                    src={currentImage}
+                    alt={`${post.name} – ${post.petType || 'pet'} (${currentImageIndex + 1}/${imageList.length})`}
                     className="max-h-[min(50vh,400px)] w-full object-contain"
                     onError={onImageError}
                   />
                 )}
               </div>
+
+              {hasMultipleImages && (
+                <>
+                  <button
+                    type="button"
+                    onClick={goToPreviousImage}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={goToNextImage}
+                    disabled={currentImageIndex === imageList.length - 1}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-[#4E3B31] shadow-md transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white">
+                    {currentImageIndex + 1} / {imageList.length}
+                  </div>
+                </>
+              )}
+
               <div className="pointer-events-none absolute right-3 top-3">
                 <span
                   className={`inline-flex rounded-full px-3 py-1 text-xs font-bold shadow-md ${statusBadge.className}`}
@@ -141,6 +210,7 @@ const AdoptionDetailsModal = ({
                     <Link
                       to={`/profile/public/${posterProfileId}`}
                       className="font-semibold text-[#6b493d] hover:underline"
+                      onClick={(e) => { if (!requireAuth('view this user\'s profile')) e.preventDefault(); }}
                     >
                       {post.userId?.username || 'Anonymous'}
                     </Link>
@@ -161,6 +231,7 @@ const AdoptionDetailsModal = ({
                   Chat
                 </button>
               )}
+              <ShareLinkButton resourceType="adoption" resourceId={post._id} />
             </div>
           </div>
         </div>

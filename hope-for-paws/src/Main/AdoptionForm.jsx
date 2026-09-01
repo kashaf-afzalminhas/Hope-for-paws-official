@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
 
 const PAKISTAN_CITIES = [
@@ -17,6 +18,14 @@ const PAKISTAN_CITIES = [
   'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
 ];
 
+// Image validation constants
+const MAX_FILE_SIZE_MB = 2; // 2MB per image
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMAGES = 5;
+const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
+const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
+
 const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -26,15 +35,24 @@ const AdoptionForm = () => {
   const [neuteredSpayed, setNeuteredSpayed] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [images, setImages] = useState([]); // Array of File objects
+  const [imagePreviews, setImagePreviews] = useState([]); // Array of data URLs
+  const [imageErrors, setImageErrors] = useState([]); // Array of error messages for each image
   const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
   const [ageError, setAgeError] = useState('');
+  const [petTypeError, setPetTypeError] = useState('');
+  const [breedError, setBreedError] = useState('');
+  const [vaccinatedError, setVaccinatedError] = useState('');
+  const [neuteredSpayedError, setNeuteredSpayedError] = useState('');
+  const [descriptionError, setDescriptionError] = useState('');
   const [locationError, setLocationError] = useState('');
+  const [imagesError, setImagesError] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const locationRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
 
   const filteredCities = locationQuery.length > 0
     ? PAKISTAN_CITIES.filter(c =>
@@ -43,17 +61,172 @@ const AdoptionForm = () => {
     : PAKISTAN_CITIES;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImage(file);
-      // Create a preview
+  /**
+   * Validate a single image file
+   * Returns { valid: boolean, error?: string }
+   */
+  const validateImageFile = (file) => {
+    if (!file) {
+      return { valid: false, error: 'No file selected' };
+    }
+
+    // Check file type
+    if (!ALLOWED_FORMATS.includes(file.type)) {
+      return {
+        valid: false,
+        error: `${file.name}: Invalid format. Only JPEG, PNG, and WebP are allowed.`
+      };
+    }
+
+    // Check file size
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      return {
+        valid: false,
+        error: `${file.name}: File size ${sizeMB}MB exceeds maximum of ${MAX_FILE_SIZE_MB}MB.`
+      };
+    }
+
+    return { valid: true };
+  };
+
+  /**
+   * Validate the Breed field.
+   * Catches edge cases the old "just check it's non-empty" logic missed:
+   * single letters ("f"), digits-only entries, symbol spam, and
+   * repeated-character junk (e.g. "aaaa").
+   * Returns an error message, or '' if the value is valid.
+   */
+  const validateBreedValue = (value) => {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+      return 'Breed is required';
+    }
+    if (trimmed.length < 3) {
+      return 'Breed must be at least 3 characters';
+    }
+    if (trimmed.length > 50) {
+      return 'Breed must be under 50 characters';
+    }
+    // Letters, spaces, hyphens, and apostrophes only — covers names like
+    // "German Shepherd", "Shih-Tzu", and "Mixed / Don't know".
+    if (!/^[A-Za-z\s'-]+$/.test(trimmed)) {
+      return 'Breed can only contain letters, spaces, and hyphens';
+    }
+    // Must contain at least 2 distinct letters so "fff" or "xx" can't pass.
+    const distinctLetters = new Set(trimmed.toLowerCase().replace(/[^a-z]/g, ''));
+    if (distinctLetters.size < 2) {
+      return 'Please enter a valid breed name';
+    }
+
+    return '';
+  };
+
+  /**
+   * Handle image selection from file input
+   * Supports adding multiple images in a single selection or multiple selections
+   */
+  const handleImageChange = useCallback((e) => {
+    const selectedFiles = Array.from(e.target.files || []);
+
+    if (selectedFiles.length === 0) return;
+
+    // Check if adding these files would exceed the max limit
+    if (images.length + selectedFiles.length > MAX_IMAGES) {
+      setError('You can only upload a maximum of 5 images.');
+      return;
+    }
+
+    // Check if adding these files would exceed the total combined size limit
+    const currentTotalSize = images.reduce((sum, img) => sum + img.size, 0);
+    const newFilesTotalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+    if (currentTotalSize + newFilesTotalSize > MAX_TOTAL_SIZE_BYTES) {
+      const currentMB = (currentTotalSize / (1024 * 1024)).toFixed(1);
+      const wouldBeMB = ((currentTotalSize + newFilesTotalSize) / (1024 * 1024)).toFixed(1);
+      setError(
+        `Adding these photos would bring your total to ${wouldBeMB}MB, which exceeds the ${MAX_TOTAL_SIZE_MB}MB combined limit. You currently have ${currentMB}MB used — try selecting fewer or smaller images.`
+      );
+      return;
+    }
+
+    const newImages = [];
+    const newErrors = [...imageErrors];
+    let hasError = false;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      const validation = validateImageFile(file);
+
+      if (!validation.valid) {
+        newErrors.push(validation.error);
+        hasError = true;
+        continue; // Skip this file, don't add to images/previews
+      }
+
+      // Check for duplicates by comparing file name and size
+      const isDuplicate = images.some(
+        img => img.name === file.name && img.size === file.size
+      );
+
+      if (isDuplicate) {
+        newErrors.push(`${file.name}: This photo has already been added.`);
+        hasError = true;
+        continue;
+      }
+
+      newImages.push(file);
+
+      // Create preview for valid image
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
+        setImagePreviews(prev => [...prev, reader.result]);
       };
       reader.readAsDataURL(file);
+    }
+
+    // Update state
+    if (newImages.length > 0) {
+      setImages(prev => [...prev, ...newImages]);
+      setError(''); // Clear general error if we successfully added images
+      setImagesError(''); // Clear "at least one image required" error once images are added
+    }
+
+    if (hasError) {
+      setImageErrors(newErrors);
+    } else {
+      setImageErrors([]);
+    }
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [images, imageErrors]);
+
+  /**
+   * Remove a single image by index
+   */
+  const handleRemoveImage = (indexToRemove) => {
+    setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    setImagePreviews(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    // Also remove any errors for this image
+    setImageErrors(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    setError('');
+  };
+
+  /**
+   * Remove all images
+   */
+  const handleRemoveAllImages = () => {
+    setImages([]);
+    setImagePreviews([]);
+    setImageErrors([]);
+    setError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -62,37 +235,107 @@ const AdoptionForm = () => {
     setIsSubmitting(true);
     setError('');
 
-    // Guard: block submission if age is invalid
-    if (!age || parseFloat(age) < 0 || isNaN(parseFloat(age))) {
-      setAgeError('Age must be a valid positive number');
+    // Run every field's validation up front (instead of returning on the
+    // first failure) so all mandatory-field errors surface in one go.
+    let hasValidationError = false;
+
+    // Pet Name
+    if (!name || name.trim() === '') {
+      setNameError('Pet name is required');
+      hasValidationError = true;
+    } else {
+      setNameError('');
+    }
+
+    // Age
+    if (!age || parseFloat(age) <= 0 || isNaN(parseFloat(age))) {
+      setAgeError('Pet age must be greater than 0');
+      hasValidationError = true;
+    } else {
+      setAgeError('');
+    }
+
+    // Breed
+    const breedValidationMessage = validateBreedValue(breed);
+    if (breedValidationMessage) {
+      setBreedError(breedValidationMessage);
+      hasValidationError = true;
+    } else {
+      setBreedError('');
+    }
+
+    // Pet Type
+    if (!petType || petType.trim() === '') {
+      setPetTypeError('Please select a pet type');
+      hasValidationError = true;
+    } else {
+      setPetTypeError('');
+    }
+
+    // Vaccinated
+    if (!vaccinated || vaccinated.trim() === '') {
+      setVaccinatedError('Please select vaccination status');
+      hasValidationError = true;
+    } else {
+      setVaccinatedError('');
+    }
+
+    // Neutered/Spayed
+    if (!neuteredSpayed || neuteredSpayed.trim() === '') {
+      setNeuteredSpayedError('Please select neutering status');
+      hasValidationError = true;
+    } else {
+      setNeuteredSpayedError('');
+    }
+
+    // Description
+    if (!description || description.trim() === '') {
+      setDescriptionError('Description is required');
+      hasValidationError = true;
+    } else {
+      setDescriptionError('');
+    }
+
+    // Location
+    if (!location || location.trim() === '') {
+      setLocationError('Please select a valid city from the list');
+      hasValidationError = true;
+    } else {
+      setLocationError('');
+    }
+
+    // Images: require at least one, and re-check total combined size
+    if (images.length === 0) {
+      setImagesError('Please select at least one image');
+      hasValidationError = true;
+    } else {
+      const totalImageSize = images.reduce((sum, img) => sum + img.size, 0);
+      if (totalImageSize > MAX_TOTAL_SIZE_BYTES) {
+        const totalMB = (totalImageSize / (1024 * 1024)).toFixed(1);
+        setImagesError(`Total image size (${totalMB}MB) exceeds the ${MAX_TOTAL_SIZE_MB}MB limit. Please remove some images.`);
+        hasValidationError = true;
+      } else {
+        setImagesError('');
+      }
+    }
+
+    // Existing per-image validation errors (format/size/duplicate issues)
+    if (imageErrors.length > 0) {
+      hasValidationError = true;
+    }
+
+    if (hasValidationError) {
+      setError('Some required information is missing or invalid. Please review the fields marked below and try again.');
       setIsSubmitting(false);
       return;
     }
 
-    // Guard: block submission if location is not a valid Pakistani city
-    if (!location || !PAKISTAN_CITIES.includes(location)) {
-      setLocationError('Please select a valid city from Pakistan');
+    if (!requireAuth('create an adoption post')) {
       setIsSubmitting(false);
       return;
     }
 
-    // Check authentication status
-    if (!isAuthenticated || !user) {
-      setError('You must be logged in to create an adoption post.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Get the JWT token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token is missing. Please log in again.');
-      setIsSubmitting(false);
-      return;
-    }
-
-    console.log('Submitting form with token:', token.substring(0, 10) + '...');
-    console.log('Current user:', user);
 
     const formData = new FormData();
     formData.append('name', name);
@@ -103,23 +346,10 @@ const AdoptionForm = () => {
     formData.append('neuteredSpayed', neuteredSpayed);
     formData.append('description', description);
     formData.append('location', location);
-    formData.append('image', image);
 
-    // Debug: Log what's being sent
-    console.log('Form data being sent:');
-    console.log('name:', name);
-    console.log('age:', age);
-    console.log('petType:', petType);
-    console.log('breed:', breed);
-    console.log('vaccinated:', vaccinated);
-    console.log('neuteredSpayed:', neuteredSpayed);
-    console.log('description:', description);
-    console.log('location:', location);
-    console.log('image:', image ? image.name : 'No image');
-
-    // Debug: Check FormData contents
-    for (let [key, value] of formData.entries()) {
-      console.log('FormData entry:', key, value);
+    // Append all images
+    for (const image of images) {
+      formData.append('images', image);
     }
 
     try {
@@ -136,20 +366,18 @@ const AdoptionForm = () => {
         throw new Error(errorData.message || 'Failed to create adoption post');
       }
 
-      const data = await response.json();
-      console.log('Adoption post created:', data);
+      const createdPost = await response.json();
 
       // Auto-redirect to My Adoptions page after successful submission
-      navigate('/my-adoptions', { 
-        state: { 
+      navigate('/my-adoptions', {
+        state: {
           message: 'Adoption post created successfully!',
-          showSuccess: true 
+          showSuccess: true,
+          createdPost,
         }
       });
     } catch (error) {
-      console.error('Error submitting form:', error);
-      setError(error.message || 'Failed to submit form');
-    } finally {
+      setError(error.message || 'We were unable to submit your post. Please check your connection and try again.');
       setIsSubmitting(false);
     }
   };
@@ -167,33 +395,25 @@ const AdoptionForm = () => {
   if (!isAuthenticated || !user) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
-        <p className="mb-2">You need to be logged in to create an adoption post.</p>
-        <p className="text-sm mb-4">Please log in and try again.</p>
-        
-        {/* Debug information */}
-        <div className="text-xs text-gray-600 mt-4 p-2 bg-gray-100 rounded">
-          <p><strong>Debug Info:</strong></p>
-          <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
-          <p>user: {user ? 'present' : 'null'}</p>
-          <p>localStorage token: {localStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>sessionStorage token: {sessionStorage.getItem('token') ? 'present' : 'missing'}</p>
-          <p>localStorage user: {localStorage.getItem('user') ? 'present' : 'missing'}</p>
-          <p>sessionStorage user: {sessionStorage.getItem('user') ? 'present' : 'missing'}</p>
-        </div>
+        <p className="mb-2 font-medium">Please sign in to create an adoption post.</p>
+        <p className="text-sm">You'll need an account so pet owners can reach you about your listing.</p>
       </div>
     );
   }
 
   return (
     <div className="bg-white rounded-lg">
-      
+
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+        <div
+          role="alert"
+          className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"
+        >
           {error}
         </div>
       )}
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
+
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
@@ -203,12 +423,22 @@ const AdoptionForm = () => {
               type="text"
               placeholder="e.g., Buddy"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
+              onChange={(e) => {
+                const val = e.target.value;
+                setName(val);
+                setNameError(val.trim() === '' ? nameError : '');
+              }}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
+                nameError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             />
+            {nameError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {nameError}
+              </p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Age (years)
@@ -217,15 +447,15 @@ const AdoptionForm = () => {
               type="number"
               placeholder="e.g., 2"
               value={age}
-              min="0"
+              min="0.1"
               step="0.1"
               onChange={(e) => {
                 const val = e.target.value;
                 setAge(val);
                 if (val === '' || val === null) {
-                  setAgeError('');
-                } else if (parseFloat(val) < 0) {
-                  setAgeError('Age cannot be negative');
+                  setAgeError('Pet age must be greater than 0');
+                } else if (parseFloat(val) <= 0) {
+                  setAgeError('Pet age must be greater than 0');
                 } else if (isNaN(parseFloat(val))) {
                   setAgeError('Please enter a valid number');
                 } else {
@@ -236,19 +466,18 @@ const AdoptionForm = () => {
                 // Block minus sign from being typed
                 if (e.key === '-') e.preventDefault();
               }}
-              required
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
                 ageError ? 'border-red-400 bg-red-50' : 'border-gray-300'
               }`}
             />
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-                <span>⚠</span> {ageError}
+                <span>⚠️</span> {ageError}
               </p>
             )}
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
@@ -258,21 +487,36 @@ const AdoptionForm = () => {
               type="text"
               placeholder="e.g., Labrador, Persian Cat, German Shepherd"
               value={breed}
-              onChange={(e) => setBreed(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent"
+              onChange={(e) => {
+                const val = e.target.value;
+                setBreed(val);
+                setBreedError(validateBreedValue(val));
+              }}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
+                breedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             />
+            {breedError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {breedError}
+              </p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Pet Type
             </label>
             <select
               value={petType}
-              onChange={(e) => setPetType(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+              onChange={(e) => {
+                const val = e.target.value;
+                setPetType(val);
+                if (val.trim() !== '') setPetTypeError('');
+              }}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
+                petTypeError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             >
               <option value="">Select pet type</option>
               <option value="Dog">Dog</option>
@@ -282,9 +526,14 @@ const AdoptionForm = () => {
               <option value="Hamster">Hamster</option>
               <option value="Other">Other</option>
             </select>
+            {petTypeError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {petTypeError}
+              </p>
+            )}
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
@@ -292,33 +541,53 @@ const AdoptionForm = () => {
             </label>
             <select
               value={vaccinated}
-              onChange={(e) => setVaccinated(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+              onChange={(e) => {
+                const val = e.target.value;
+                setVaccinated(val);
+                if (val.trim() !== '') setVaccinatedError('');
+              }}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
+                vaccinatedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             >
               <option value="">Select vaccination status</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            {vaccinatedError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {vaccinatedError}
+              </p>
+            )}
           </div>
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
               Neutered/Spayed
             </label>
             <select
               value={neuteredSpayed}
-              onChange={(e) => setNeuteredSpayed(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white"
+              onChange={(e) => {
+                const val = e.target.value;
+                setNeuteredSpayed(val);
+                if (val.trim() !== '') setNeuteredSpayedError('');
+              }}
+              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
+                neuteredSpayedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
             >
               <option value="">Select neutering status</option>
               <option value="Yes">Yes</option>
               <option value="No">No</option>
             </select>
+            {neuteredSpayedError && (
+              <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> {neuteredSpayedError}
+              </p>
+            )}
           </div>
         </div>
-        
+
         <div className="space-y-2" ref={locationRef}>
           <label className="block text-sm font-medium text-[#4E3B31]">
             Location <span className="text-xs text-[#8d6e63] font-normal">(Pakistan only)</span>
@@ -334,14 +603,13 @@ const AdoptionForm = () => {
                 setLocation('');
                 setShowCitySuggestions(true);
                 if (val.trim() === '') {
-                  setLocationError('');
+                  setLocationError('Please select a valid city from the list');
                 } else {
                   setLocationError('Please select a city from the list');
                 }
               }}
               onFocus={() => setShowCitySuggestions(true)}
               onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-              required
               autoComplete="off"
               className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
                 locationError ? 'border-red-400 bg-red-50' : 'border-gray-300'
@@ -375,13 +643,11 @@ const AdoptionForm = () => {
           </div>
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
-              <span>⚠</span> {locationError}
+              <span>⚠️</span> {locationError}
             </p>
           )}
         </div>
-        
 
-        
         <div className="space-y-2">
           <label className="block text-sm font-medium text-[#4E3B31]">
             Description
@@ -389,64 +655,133 @@ const AdoptionForm = () => {
           <textarea
             placeholder="Tell us about your pet's personality, habits, and needs..."
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
+            onChange={(e) => {
+              const val = e.target.value;
+              setDescription(val);
+              if (val.trim() !== '') setDescriptionError('');
+            }}
             rows="4"
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent resize-y"
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent resize-y ${
+              descriptionError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+            }`}
           />
+          {descriptionError && (
+            <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+              <span>⚠️</span> {descriptionError}
+            </p>
+          )}
         </div>
-        
+
+        {/* Image Upload Section - Multiple Images */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-[#4E3B31]">
-            Pet Photo
-          </label>
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#bca18a] rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px]">
-            {imagePreview ? (
-              <div className="w-full h-full flex flex-col items-center justify-center">
-                <div className="relative mb-2 group">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
-                    className="max-w-full max-h-48 object-contain rounded-lg border border-[#bca18a] cursor-pointer"
-                    onClick={() => document.getElementById('adoption-image').click()}
-                  />
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-[#4E3B31]">
+              Pet Photos ({images.length}/{MAX_IMAGES})
+            </label>
+            {images.length > 0 && (
+              <button
+                type="button"
+                onClick={handleRemoveAllImages}
+                className="text-xs text-red-600 hover:text-red-700 font-medium"
+              >
+                Remove all
+              </button>
+            )}
+          </div>
+
+          {/* Image Upload Area */}
+          <div className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 bg-[#f7f4f0] relative hover:bg-[#f3ede7] transition-colors min-h-[200px] ${
+            imagesError ? 'border-red-400' : 'border-[#bca18a]'
+          }`}>
+            {imagePreviews.length > 0 ? (
+              <div className="w-full">
+                {/* Image previews grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
+                  {imagePreviews.map((preview, idx) => (
+                    <div key={idx} className="relative group">
+                      <div className="relative overflow-hidden rounded-lg bg-gray-200 aspect-square">
+                        <img
+                          src={preview}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemoveImage(idx);
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-all z-10 shadow-md"
+                        title="Remove image"
+                      >
+                        ✕
+                      </button>
+                      <span className="absolute bottom-1 left-1 right-1 text-xs bg-black/60 text-white px-1 py-0.5 rounded truncate">
+                        {idx + 1}/{images.length}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add more button if not at max */}
+                {images.length < MAX_IMAGES && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setImage(null);
-                      setImagePreview(null);
-                    }}
-                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition-colors z-10"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2 px-4 text-sm border border-[#bca18a] text-[#6b493d] rounded-md hover:bg-[#f3ede7] transition-colors font-medium"
                   >
-                    ×
+                    + Add more photos ({images.length}/{MAX_IMAGES})
                   </button>
-                </div>
-                <span className="text-xs text-[#6b493d] font-medium">{image.name}</span>
+                )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6 w-full">
                 <svg className="w-10 h-10 mb-3 text-[#6b493d]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                 </svg>
                 <p className="mb-2 text-sm text-[#6b493d]"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. 2MB)</p>
+                <p className="text-xs text-[#6b493d]">PNG, JPG or JPEG (MAX. {MAX_FILE_SIZE_MB}MB per image, up to {MAX_IMAGES} images, {MAX_TOTAL_SIZE_MB}MB total)</p>
               </div>
             )}
-            <input 
-              type="file" 
-              id="adoption-image"
+            <input
+              ref={fileInputRef}
+              type="file"
+              id="adoption-images"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               onChange={handleImageChange}
               accept="image/*"
-              required={!image}
+              multiple
+              disabled={isSubmitting}
             />
           </div>
+
+          {/* "At least one image required" / total size error */}
+          {imagesError && (
+            <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+              <span>⚠️</span> {imagesError}
+            </p>
+          )}
+
+          {/* Image Validation Errors */}
+          {imageErrors.length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-xs font-semibold text-red-700 mb-1">Please fix the following:</p>
+              <ul className="text-xs text-red-600 space-y-1">
+                {imageErrors.map((err, idx) => (
+                  <li key={idx} className="flex items-start gap-1">
+                    <span className="mt-0.5">•</span>
+                    <span>{err}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        
+
         <div className="pt-4">
-          <button 
+          <button
             type="submit"
             disabled={isSubmitting}
             className="w-full py-3 px-4 bg-[#8B5A2B] hover:bg-[#6F4C3E] text-white font-medium rounded-md shadow-sm transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B5A2B] disabled:opacity-50 disabled:cursor-not-allowed"

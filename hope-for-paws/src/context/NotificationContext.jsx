@@ -18,14 +18,49 @@ export const useNotifications = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
+  const [userPreferences, setUserPreferences] = useState({
+    email: 'instant',
+    inApp: true,
+    push: false
+  });
+
+  const refreshUserPreferences = () => {
+    try {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user && user.notificationPreferences) {
+          setUserPreferences({
+            email: user.notificationPreferences.email || 'instant',
+            inApp: user.notificationPreferences.inApp !== false,
+            push: Boolean(user.notificationPreferences.push)
+          });
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  useEffect(() => {
+    refreshUserPreferences();
+  }, []);
   
   const initializationRef = useRef(false);
   const pollingRef = useRef(null);
+  // Holds the function that removes the socket listeners registered below.
+  // This MUST be invoked by the effect's cleanup, or every re-run of the
+  // effect setup (StrictMode double-invoke, provider remount, hot reload,
+  // etc.) stacks a new 'notification' listener on top of the old one on the
+  // shared socket instance — causing every push notification to be handled
+  // (and added to state) once per stacked listener.
+  const socketCleanupRef = useRef(null);
 
   // Socket.IO on localhost only; production Lambda uses REST polling
   useEffect(() => {
@@ -35,6 +70,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token || !user || initializationRef.current) {
       return undefined;
     }
+<<<<<<< HEAD
     initializationRef.current = true;
 
     const checkBackendHealth = async () => {
@@ -120,11 +156,139 @@ export const NotificationProvider = ({ children }) => {
 
     initializeNotificationSystem();
 
+=======
+
+    initializationRef.current = true;
+
+    // Guards against attaching listeners after this effect has already
+    // been torn down (e.g. the async health check resolves post-unmount).
+    let cancelled = false;
+
+    // First check if backend is available
+    const checkBackendHealth = async () => {
+      try {
+        // Fix the health endpoint URL - remove /api from the base URL
+        const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+        await axios.get(healthUrl, { timeout: 5000 });
+        console.log('Backend is available, starting notification system');
+        return true;
+      } catch (error) {
+        console.log('Backend not available:', error.message);
+        setError('Backend service not available');
+        return false;
+      }
+    };
+
+    const connectSocket = () => {
+      try {
+        const existing = getSocket();
+        const userId = user?.id || user?._id;
+        const socketInstance = existing || initSocket(userId);
+
+        if (!socketInstance) {
+          console.error('Failed to initialize socket instance');
+          setIsInitialized(true);
+          return null;
+        }
+
+        const handleConnect = () => {
+          console.log('NotificationContext: socket connected');
+          setSocketConnected(true);
+          setIsInitialized(true);
+        };
+
+        const handleDisconnect = () => {
+          console.log('NotificationContext: socket disconnected');
+          setSocketConnected(false);
+        };
+
+                const handleNotification = (notification) => {
+          console.log('New notification received:', notification);
+                  if (notification.type === 'out_of_stock') {
+                    window.dispatchEvent(new Event('stock-updated'));
+                  }
+          setNotifications(prev => {
+            const exists = prev.some(n => (n._id || n.id) === (notification._id || notification.id));
+            if (exists) return prev;
+
+            fetchUnreadCount();
+            setTotalCount(c => c + 1);
+
+            if (Notification.permission === 'granted') {
+              new Notification(notification.title, {
+                body: notification.message,
+                icon: '/hfplogo.png'
+              });
+            }
+
+            return [{ ...notification, read: false }, ...prev];
+          });
+        };
+
+        // Register listeners
+        socketInstance.on('connect', handleConnect);
+        socketInstance.on('disconnect', handleDisconnect);
+        socketInstance.on('notification', handleNotification);
+
+        // Reflect current status immediately
+        const status = getSocketStatus();
+        setSocketConnected(status === 'connected');
+        setIsInitialized(true);
+
+        // Cleanup
+        return () => {
+          socketInstance.off('connect', handleConnect);
+          socketInstance.off('disconnect', handleDisconnect);
+          socketInstance.off('notification', handleNotification);
+        };
+      } catch (error) {
+        console.error('Error establishing shared socket:', error);
+        setIsInitialized(true);
+        return null;
+      }
+    };
+
+    const initializeNotificationSystem = async () => {
+      const backendAvailable = await checkBackendHealth();
+
+      if (cancelled) return;
+
+      if (!backendAvailable) {
+        setIsInitialized(true);
+        return;
+      }
+
+      const cleanup = connectSocket();
+
+      if (cancelled) {
+        // The effect was already torn down while we were awaiting the
+        // health check — undo the listener registration immediately
+        // instead of leaking it onto the shared socket.
+        if (typeof cleanup === 'function') cleanup();
+        return;
+      }
+
+      socketCleanupRef.current = cleanup;
+    };
+
+    initializeNotificationSystem();
+
+    // Cleanup function — this is what actually runs when the effect tears
+    // down. It now removes the socket listeners (if they were attached)
+    // in addition to resetting the initialization ref.
+>>>>>>> origin/sahab
     return () => {
+      cancelled = true;
       initializationRef.current = false;
+<<<<<<< HEAD
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
+=======
+      if (typeof socketCleanupRef.current === 'function') {
+        socketCleanupRef.current();
+        socketCleanupRef.current = null;
+>>>>>>> origin/sahab
       }
     };
   }, []);
@@ -167,7 +331,14 @@ export const NotificationProvider = ({ children }) => {
       } else {
         setNotifications(prev => [...prev, ...response.data.notifications]);
       }
-      
+
+      // Total count ko backend se set karo, list length se nahi
+      if (response.data.pagination && typeof response.data.pagination.total === 'number') {
+        setTotalCount(response.data.pagination.total);
+      } else if (typeof response.data.total === 'number') {
+        setTotalCount(response.data.total);
+      }
+
       setError(null);
       return response.data;
     } catch (err) {
@@ -249,7 +420,7 @@ export const NotificationProvider = ({ children }) => {
         )
       );
       
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      fetchUnreadCount();
       
       return response.data;
     } catch (err) {
@@ -276,7 +447,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       );
-      setUnreadCount(0);
+      fetchUnreadCount();
     } catch (err) {
       console.error('Error marking all notifications as read:', err);
       throw err;
@@ -299,6 +470,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(prev => 
         prev.filter(notification => notification._id !== notificationId && notification.id !== notificationId)
       );
+      setTotalCount(prev => Math.max(0, prev - 1));
       
       // Update unread count if notification was unread
       const notification = notifications.find(n => n._id === notificationId || n.id === notificationId);
@@ -326,6 +498,7 @@ export const NotificationProvider = ({ children }) => {
       
       setNotifications([]);
       setUnreadCount(0);
+      setTotalCount(0);
     } catch (err) {
       console.error('Error deleting all notifications:', err);
       throw err;
@@ -343,9 +516,13 @@ export const NotificationProvider = ({ children }) => {
   const value = {
     notifications,
     unreadCount,
+    totalCount,
     loading,
     error,
     socketConnected,
+    userPreferences,
+    inAppEnabled: userPreferences.inApp !== false,
+    refreshUserPreferences,
     fetchNotifications,
     fetchUnreadCount,
     markAsRead,
@@ -365,4 +542,4 @@ export const NotificationProvider = ({ children }) => {
 
 NotificationProvider.propTypes = {
   children: PropTypes.node.isRequired,
-}; 
+};

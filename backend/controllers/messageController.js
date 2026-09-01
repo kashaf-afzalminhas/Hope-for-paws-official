@@ -2,6 +2,10 @@ const Message = require("../models/message");
 const Conversation = require("../models/Conversation");
 const mongoose = require("mongoose");
 const NotificationService = require("../services/notificationService");
+const Seller = require('../models/Seller');
+const User = require('../models/User');
+const { sendEmail } = require('../routes/mailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 exports.sendMessage = async (req, res) => {
   console.log('📨 sendMessage called with:', req.body);
@@ -45,14 +49,21 @@ exports.sendMessage = async (req, res) => {
 
     const savedMessage = await message.save();
 
-    // Update conversation's last message
-    conversation.lastMessage = {
-      text,
-      createdAt: savedMessage.createdAt,
-      senderId
-    };
-    conversation.updatedAt = Date.now();
-    await conversation.save();
+    // Update conversation atomically to prevent VersionError (optimisticConcurrency)
+    const updatedConversation = await Conversation.findByIdAndUpdate(
+      conversationId,
+      {
+        $set: {
+          lastMessage: {
+            text,
+            createdAt: savedMessage.createdAt,
+            senderId
+          },
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
 
     // Enhanced socket event emission for real-time notifications
     const io = req.app.get("socketio");
@@ -103,6 +114,48 @@ exports.sendMessage = async (req, res) => {
             conversationId: conversationId.toString(),
             status: "sent"
           });
+<<<<<<< HEAD
+=======
+
+          // Send email notifications to other participants
+          const notificationServiceInstance =
+            global.notificationService || new NotificationService(io);
+          updatedConversation.participants.forEach(async (participantId) => {
+            if (participantId.toString() !== senderId.toString()) {
+              try {
+                await notificationServiceInstance.notifyChatMessage(
+                  conversationId,
+                  savedMessage._id,
+                  senderId,
+                  text,
+                  participantId
+                );
+
+                // If recipient is a seller, send an immediate email alert
+                try {
+                  const sellerProfile = await Seller.findOne({ userId: participantId });
+                  if (sellerProfile) {
+                    const recipientUser = await User.findById(participantId).select('email username');
+                    const senderUser = await User.findById(senderId).select('username');
+                    if (recipientUser && recipientUser.email) {
+                      const { subject, html } = emailTemplates.buildNotificationEmail({
+                        title: `New message from ${senderUser?.username || 'Customer'}`,
+                        message: text
+                      });
+                      await sendEmail(recipientUser.email, subject, `New message: ${text}`, html);
+                    }
+                  }
+                } catch (sellerMailErr) {
+                  console.error('Error sending immediate seller chat email:', sellerMailErr);
+                }
+
+                console.log('📧 Email notification sent to participant:', participantId);
+              } catch (notificationError) {
+                console.error('❌ Error sending chat notification:', notificationError);
+              }
+            }
+          });
+>>>>>>> origin/sahab
         }
       } catch (emitError) {
         console.error('❌ Error emitting socket event:', emitError);
@@ -154,16 +207,37 @@ exports.sendMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
 
   try {
-    // Validate conversation ID
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({ message: "Invalid conversation ID" });
     }
 
-    const messages = await Message.find({ conversationId })
-      .sort({ createdAt: 1 })
-      .populate("readBy", "username email"); // Populate readBy with user details
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const query = { conversationId };
+
+    // Filter out messages prior to the user's deletion date
+    if (userId && Array.isArray(conversation.deletedBy)) {
+      const userDeleteRecord = conversation.deletedBy.find(
+        d => d.userId?.toString() === userId.toString()
+      );
+      if (userDeleteRecord && userDeleteRecord.deletedAt) {
+        const deleteDate = new Date(userDeleteRecord.deletedAt);
+        query.$or = [
+          { createdAt: { $gt: deleteDate } },
+          { timestamp: { $gt: deleteDate } }
+        ];
+      }
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: 1, timestamp: 1 })
+      .populate("readBy", "username email");
 
     res.json(messages);
   } catch (err) {

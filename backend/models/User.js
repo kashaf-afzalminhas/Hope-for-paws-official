@@ -102,12 +102,31 @@ const userSchema = new mongoose.Schema(
     sellerSince: {
       type: Date
     },
+    notificationPreferences: {
+      email: {
+        type: String,
+        enum: ['instant', 'daily_summary', 'disabled'],
+        default: 'instant'
+      },
+      inApp: {
+        type: Boolean,
+        default: true
+      },
+      push: {
+        type: Boolean,
+        default: false
+      }
+    },
     canBuy: {
       type: Boolean,
       default: true
     }
   },
-  { timestamps: true }
+  {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+}
 );
 
 // DB-level uniqueness for non-empty phone numbers.

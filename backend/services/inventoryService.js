@@ -1,5 +1,9 @@
 const Product = require('../models/Product');
 const EventEmitter = require('events');
+const Seller = require('../models/Seller');
+const User = require('../models/User');
+const { sendEmail } = require('../routes/mailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 // Create a dedicated event emitter for inventory operations
 class InventoryEventEmitter extends EventEmitter {}
@@ -13,22 +17,35 @@ const inventoryEvents = new InventoryEventEmitter();
 inventoryEvents.on('checkLowStock', async (productsToCheck) => {
   try {
     for (const item of productsToCheck) {
-      if (item.newStock <= 5) {
-        
-        // 1. Trigger Notification System (e.g., to Seller)
-        console.log(`[Inventory Alert] Product ${item.productId} is running low (Stock: ${item.newStock})`);
-        // e.g. global.notificationService.createSystemNotification(sellerId, 'Low Stock Alert');
+      const product = await Product.findById(item.productId).populate('sellerId');
+      if (!product) continue;
 
-        // 2. Check if completely Out of Stock
-        if (item.newStock === 0) {
-          console.log(`[Inventory Alert] Product ${item.productId} is OUT OF STOCK. Hiding product from storefront.`);
-          
-          // Use atomic findByIdAndUpdate to safely hide the product without triggering Mongoose pre-save hooks
-          await Product.findByIdAndUpdate(item.productId, { 
-            status: 'hidden', 
-            isVisible: false 
-          });
+      const threshold = product.lowStockThreshold ?? 5;
+
+      // 1. Trigger Notification if stock dropped below the product's custom threshold
+      if (item.newStock > 0 && item.newStock <= threshold) {
+        console.log(`[Inventory Alert] Product ${item.productId} is running low (Stock: ${item.newStock}, Threshold: ${threshold})`);
+        try {
+          if (product.sellerId) {
+            const sellerProfile = product.sellerId;
+            const sellerUser = sellerProfile.userId ? await User.findById(sellerProfile.userId).select('email username') : null;
+            if (sellerUser && sellerUser.email) {
+              const { subject, html } = emailTemplates.buildNotificationEmail({
+                title: `Low Stock Alert: ${product.title}`,
+                message: `Your product "${product.title}" is low on stock (remaining: ${item.newStock}). Please restock to avoid missed sales.`
+              });
+              await sendEmail(sellerUser.email, subject, `Low stock for ${product.title}`, html);
+            }
+          }
+        } catch (emailErr) {
+          console.error('[Inventory Alert] Failed to send low-stock email:', emailErr);
         }
+      }
+
+      // 2. Out of Stock Event
+      if (item.newStock === 0) {
+        console.log(`[Inventory Alert] Product ${item.productId} is OUT OF STOCK.`);
+        // Product remains active with 0 stock (UI renders Out of Stock badge & disables CTA)
       }
     }
   } catch (error) {

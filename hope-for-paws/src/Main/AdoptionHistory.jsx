@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import AdoptionHistoryCard from '../Components/adoption/AdoptionHistoryCard';
+<<<<<<< HEAD
 import { adoptionGridClass } from '../Components/adoption/adoptionTheme';
+=======
+import { adoptionGridClass } from '../Components/adoption/adoptionTheme.js';
+import { useRequireAuth } from '../Components/AuthGuard';
+>>>>>>> origin/sahab
 
 const AdoptionHistory = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [effectiveUser, setEffectiveUser] = useState(null);
 
   useEffect(() => {
     if (!user) {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (storedUser) setEffectiveUser(storedUser);
       } catch (e) {
         console.error('Error parsing stored user:', e);
@@ -86,7 +90,7 @@ const AdoptionHistory = () => {
         {!effectiveUser && (
           <button
             type="button"
-            onClick={() => navigate('/signin')}
+            onClick={() => requireAuth('view your adoption history')}
             className="mt-4 rounded-xl bg-[#6b493d] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#5a3d32]"
           >
             Log in
@@ -106,12 +110,14 @@ const AdoptionHistory = () => {
   }
 
   return (
-    <div className="w-full py-2 sm:py-4">
-      <h2 className="mb-2 text-2xl font-bold text-[#4E3B31] sm:text-3xl">My adoption history</h2>
-      <div className={adoptionGridClass}>
-        {history.map((item) => (
-          <AdoptionHistoryCard key={item.id || item._id} item={item} />
-        ))}
+    <div className="min-h-screen bg-[#f5f3ed] py-4 sm:py-6 px-3 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto w-full">
+        <h2 className="mb-4 text-2xl font-bold text-[#4E3B31] sm:text-3xl">My adoption history</h2>
+        <div className={adoptionGridClass}>
+          {history.map((item) => (
+            <AdoptionHistoryCard key={item.id || item._id} item={item} />
+          ))}
+        </div>
       </div>
     </div>
   );

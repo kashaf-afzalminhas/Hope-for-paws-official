@@ -1,20 +1,83 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { SHIPPING_FEE } from '../utils/constants';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
   Lock,
   ShieldCheck,
-  PawPrint
+  PawPrint,
+  ShoppingCart,
+  XCircle,
+  X
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
 
+function ToastStack({ toasts, dismissToast }) {
+  if (toasts.length === 0) return null;
+  return (
+    <div style={{ position: "fixed", bottom: 24, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none" }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          display: "flex", alignItems: "center", gap: 12,
+          backgroundColor: t.type === "success" ? "#6b493d" : "#dc2626",
+          color: "#fff", borderRadius: 16, padding: "13px 18px",
+          boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
+          animation: "slideUp 0.38s cubic-bezier(0.22,1,0.36,1) both",
+          pointerEvents: "auto", minWidth: 240, maxWidth: 360,
+        }}>
+          <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {t.type === "success" ? <ShoppingCart size={14} /> : <XCircle size={14} />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, lineHeight: 1.3 }}>{t.message}</p>
+          </div>
+          <button onClick={() => dismissToast(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, display: "flex", flexShrink: 0 }}>
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Checkout() {
-  const { items, cartTotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal: cartSubtotal, clearCart } = useCart();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
+  // ── Buy Now: use single item from route state; otherwise fall back to cart ──
+  const buyNowItem = location.state?.buyNowItem;
+  const isBuyNow = Boolean(buyNowItem);
+
+  const items = useMemo(() => {
+    if (isBuyNow) {
+      return [buyNowItem];
+    }
+    return cartItems;
+  }, [isBuyNow, buyNowItem, cartItems]);
+
+  const cartTotal = useMemo(() => {
+    if (isBuyNow) {
+      return buyNowItem.price * buyNowItem.quantity;
+    }
+    return cartSubtotal;
+  }, [isBuyNow, buyNowItem, cartSubtotal]);
+
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const addToast = useCallback((type, message) => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t.slice(-2), { id, type, message }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts(t => t.filter(x => x.id !== id));
+  }, []);
   
   const [contact, setContact] = useState({ email: '', phone: '' });
   const [shippingAddress, setShippingAddress] = useState({
@@ -25,15 +88,52 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = 150;
+  const shippingFee = 0;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0) return alert('Your cart is empty');
-    
-    if (!contact.email || !shippingAddress.fullName || !shippingAddress.street) {
-      return alert('Please fill in all required contact and shipping fields.');
+    if (items.length === 0) {
+      addToast('error', 'Your cart is empty');
+      return;
     }
+
+    // Validation for contact and delivery address
+    const errors = {};
+    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
+    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
+
+    if (!contact.phone || !contact.phone.trim()) {
+      errors.phone = 'Phone number is required to complete your order.';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      errors.phone = 'Please enter a valid phone number.';
+    }
+
+    if (!shippingAddress.street || !shippingAddress.street.trim()) {
+      errors.street = 'Delivery address is required to complete your order.';
+    }
+    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+      errors.city = 'City is required.';
+    }
+    if (!contact.email || !contact.email.trim()) {
+      errors.email = 'Email address is required.';
+    }
+    if (!shippingAddress.fullName || !shippingAddress.fullName.trim()) {
+      errors.fullName = 'Full name is required.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const missing = [];
+      if (errors.phone) missing.push('Phone Number');
+      if (errors.street) missing.push('Delivery Address');
+      if (errors.city) missing.push('City');
+      if (errors.email) missing.push('Email');
+      if (errors.fullName) missing.push('Full Name');
+      addToast('error', `Please check: ${missing.join(', ')}`);
+      return;
+    }
+
+    setFieldErrors({});
 
     setIsSubmitting(true);
     try {
@@ -69,12 +169,13 @@ export default function Checkout() {
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
       await clearCart();
-      alert('Order placed successfully!');
-      navigate('/marketplace');
+      window.dispatchEvent(new Event('stock-updated'));
+      addToast('success', 'Order placed successfully!');
+      setTimeout(() => navigate('/my-orders'), 800);
       
     } catch (err) {
       console.error(err);
-      alert('Error: ' + err.message);
+      addToast('error', err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -122,24 +223,35 @@ export default function Checkout() {
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Contact</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Email Address <span className="text-red-400">*</span></label>
                 <input 
                   type="email" 
                   value={contact.email}
-                  onChange={(e) => setContact({...contact, email: e.target.value})}
+                  onChange={(e) => { setContact({...contact, email: e.target.value}); setFieldErrors(prev => ({ ...prev, email: undefined })); }}
                   placeholder="you@example.com"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.email && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.email}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number <span className="text-red-400">*</span></label>
                 <input 
                   type="tel" 
                   value={contact.phone}
-                  onChange={(e) => setContact({...contact, phone: e.target.value})}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
+                  onBlur={() => {
+                    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
+                    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
+                    if (!contact.phone || !contact.phone.trim()) {
+                      setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required to complete your order.' }));
+                    } else if (!phoneRegex.test(cleanPhone)) {
+                      setFieldErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number (e.g. 03001234567).' }));
+                    }
+                  }}
+                  placeholder="0300 1234567 or +923001234567"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.phone && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.phone}</p>}
               </div>
             </div>
           </section >
@@ -149,35 +261,38 @@ export default function Checkout() {
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Delivery Address</h2>
             <div className="space-y-5">
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Full Name</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Full Name <span className="text-red-400">*</span></label>
                 <input 
                   type="text" 
                   value={shippingAddress.fullName}
-                  onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
+                  onChange={(e) => { setShippingAddress({...shippingAddress, fullName: e.target.value}); setFieldErrors(prev => ({ ...prev, fullName: undefined })); }}
                   placeholder="John Doe"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.fullName ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.fullName && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.fullName}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address</label>
+                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Street Address <span className="text-red-400">*</span></label>
                 <input 
                   type="text" 
                   value={shippingAddress.street}
-                  onChange={(e) => setShippingAddress({...shippingAddress, street: e.target.value})}
+                  onChange={(e) => { setShippingAddress({...shippingAddress, street: e.target.value}); setFieldErrors(prev => ({ ...prev, street: undefined })); }}
                   placeholder="123 Main St, Apt 4B"
-                  className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.street ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                 />
+                {fieldErrors.street && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.street}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City</label>
+                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City <span className="text-red-400">*</span></label>
                   <input 
                     type="text" 
                     value={shippingAddress.city}
-                    onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
-                    placeholder="New York"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
+                    onChange={(e) => { setShippingAddress({...shippingAddress, city: e.target.value}); setFieldErrors(prev => ({ ...prev, city: undefined })); }}
+                    placeholder="Lahore"
+                    className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.city ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
                   />
+                  {fieldErrors.city && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.city}</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>
@@ -233,21 +348,21 @@ export default function Checkout() {
 
               {/* Card payment */}
               <div 
-                onClick={() => setPaymentMethod('card')}
-                className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === 'card' 
-                    ? 'border-[#6b493d] bg-[#f7f1ee]' 
-                    : 'border-[#ede6e1] hover:border-[#d4c5c1] bg-white'
-                }`}
+                aria-disabled="true"
+                className="relative cursor-not-allowed rounded-2xl border-2 border-[#ede6e1] bg-[#faf7f5] p-5 opacity-90"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    paymentMethod === 'card' ? 'border-[#6b493d]' : 'border-[#d4c5c1]'
-                  }`}>
-                    {paymentMethod === 'card' && <div className="w-2.5 h-2.5 bg-[#6b493d] rounded-full" />}
+                  <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 border-[#d4c5c1]">
                   </div>
-                  <span className="font-bold text-[#3d2a24]">Card payment</span>
+                  <div>
+                    <span className="font-bold text-[#3d2a24]">Online payment</span>
+                    <span className="mt-1 inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">
+                      Coming soon
+                    </span>
+                  </div>
                 </div>
+                {/* Online payment is intentionally disabled until its payment gateway is released. */}
+                <p className="mt-3 pl-8 text-xs leading-relaxed text-[#a07f77]">Secure online checkout will be available soon.</p>
               </div>
             </div>
             
@@ -301,7 +416,7 @@ export default function Checkout() {
           </div>
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
-            <span className="text-[#3d2a24] font-bold">Rs {items.length > 0 ? shippingFee : 0}</span>
+            <span className="text-[#3d2a24] font-bold">Rs 0</span>
           </div>
         </div>
 
@@ -339,6 +454,8 @@ export default function Checkout() {
         </div >
 
       </main >
+      <ToastStack toasts={toasts} dismissToast={dismissToast} />
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
     </div >
   );
 }

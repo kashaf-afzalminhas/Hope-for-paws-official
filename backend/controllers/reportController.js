@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -60,21 +61,24 @@ exports.createProductReport = async (req, res) => {
           const sellerUser = await User.findById(seller.userId);
           
           if (sellerUser && sellerUser.email) {
-            // Email to Seller
+            const { subject, html } = emailTemplates.buildProductHiddenEmail({ productTitle: product.title });
             await transporter.sendMail({
               from: process.env.GMAIL_USER,
               to: sellerUser.email,
-              subject: 'Notice: Product Temporarily Hidden',
-              text: `Notice: Your product "${product.title}" has been temporarily hidden due to multiple community reports. Please review our marketplace guidelines.`
+              subject,
+              html,
             });
           }
 
-          // Email to Admin
+          const { subject: adminSubject, html: adminHtml } = emailTemplates.buildAdminAlertEmail({
+            productTitle: product.title,
+            storeName: seller.storeName || 'Seller',
+          });
           await transporter.sendMail({
             from: process.env.GMAIL_USER,
             to: process.env.RECIPIENT_EMAIL || process.env.GMAIL_USER,
-            subject: 'Admin Alert: Product Hidden via Automated Moderation',
-            text: `Admin Alert: Product "${product.title}" by ${seller.storeName || 'Seller'} has crossed the report threshold (5) and was automatically hidden. Please review the reports in the admin dashboard.`
+            subject: adminSubject,
+            html: adminHtml,
           });
         } catch (emailErr) {
           console.error('Automated Moderation Email Error:', emailErr);

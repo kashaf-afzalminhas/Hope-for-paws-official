@@ -6,6 +6,7 @@ const VerifyCode = () => {
     const [code, setCode] = useState('');
     const [message, setMessage] = useState('');
     const [resendMessage, setResendMessage] = useState('');
+    const [resending, setResending] = useState(false);
     const navigate = useNavigate();
     const email = localStorage.getItem('resetEmail') || '';
 
@@ -36,6 +37,7 @@ const VerifyCode = () => {
 
     const handleResend = async () => {
         setResendMessage('');
+        setResending(true);
         try {
             const response = await fetch(`${AUTH_BASE_URL}/resend-reset-code`, {
                 method: 'POST',
@@ -50,6 +52,8 @@ const VerifyCode = () => {
             }
         } catch {
             setResendMessage('An error occurred while resending the code.');
+        } finally {
+            setResending(false);
         }
     };
 
@@ -74,7 +78,7 @@ const VerifyCode = () => {
                     </div>
                     <div className="flex justify-between items-center">
                         <button type="submit" className="bg-[#6b493d] text-white py-2 px-4 rounded-md">Verify Code</button>
-                        <button type="button" onClick={handleResend} className="text-[#6b493d] underline ml-2">Resend Code</button>
+                        <button type="button" onClick={handleResend} disabled={resending} className="text-[#6b493d] underline ml-2 disabled:opacity-50 disabled:cursor-not-allowed">{resending ? 'Sending...' : 'Resend Code'}</button>
                     </div>
                 </form>
             </div>

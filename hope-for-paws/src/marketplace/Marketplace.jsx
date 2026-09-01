@@ -5,31 +5,24 @@ import {
   Search, Heart, ShoppingCart, Star, X, ChevronDown, Check, Plus,
   Flame, Sparkles, LayoutGrid, List, SlidersHorizontal,
   Eye, Minus, ChevronUp, Shield,
-  Truck, RotateCcw, Award,
+  Award,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
+import { useRequireAuth } from "../Components/AuthGuard";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
 ═══════════════════════════════════════════════════════════════════════════════ */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,800&family=Poppins:wght@400;500;600;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #C8965A55; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #C8965A; }
   .hide-scroll { -ms-overflow-style:none; scrollbar-width:none; }
   .hide-scroll::-webkit-scrollbar { display:none; }
 
-  button, input, select { font-family: inherit; }
-  a { text-decoration: none; }
+  .marketplace-container button, .marketplace-container input, .marketplace-container select { font-family: inherit; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
   @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
@@ -284,9 +277,9 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                     <Plus size={13}/>
                   </button>
                 </div>
-                <button onClick={() => onCart(p.id)} className="btn-press"
-                  style={{ flex:1, height:42, borderRadius:12, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brown:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7, transition:"all 0.22s" }}>
-                  {inCart ? <><Check size={14}/> In Cart</> : <><ShoppingCart size={14}/> Add to Cart — Rs {p.price * qty}</>}
+                <button onClick={() => { if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+                  style={{ flex:1, height:42, borderRadius:12, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brown:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontWeight:700, fontSize:13, cursor:p.stock <= 0 ? "not-allowed" : "pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7, transition:"all 0.22s" }}>
+                  {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={14}/> In Cart</> : <><ShoppingCart size={14}/> Add to Cart — Rs {p.price * qty}</>}
                 </button>
                 <button onClick={() => onFav(p.id)} className="btn-press"
                   style={{ width:42, height:42, borderRadius:12, backgroundColor:isFav?C.brown:C.white, border:`1.5px solid ${isFav?C.brown:C.border}`, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.22s", flexShrink:0 }}>
@@ -296,10 +289,8 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, paddingBottom:24 }}>
                 {[
-                  { Icon:Truck,     text:"Free shipping over Rs 50" },
-                  { Icon:RotateCcw, text:"30-day easy returns" },
-                  { Icon:Shield,    text:"Vet-approved quality" },
-                  { Icon:Award,     text:"Premium certified brand" },
+                  { Icon:Shield, text:"Vet-approved quality" },
+                  { Icon:Award,  text:"Premium certified brand" },
                 ].map(({ Icon, text }) => (
                   <div key={text} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", backgroundColor:C.cream, borderRadius:10 }}>
                     <Icon size={13} style={{ color:C.tan, flexShrink:0 }}/>
@@ -408,6 +399,7 @@ function HeroBanner({ query, setQuery, isMobile }) {
                 fontSize: 14, color: "#6b493d", fontFamily: "'Inter', sans-serif",
                 background: "transparent",
               }}
+              className="focus:outline-none focus:ring-0"
             />
             <button className="btn-press" style={{
               padding: "12px 24px", margin: 4,
@@ -800,6 +792,7 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
             style={{ width:"100%", height:"100%", objectFit:"cover", display:imgOk?"block":"none" }}
           />
           {discount && <span style={{ position:"absolute", top:6, left:6, padding:"2px 6px", borderRadius:999, backgroundColor:"#B03A2E", color:C.white, fontSize:8.5, fontWeight:800 }}>-{discount}%</span>}
+          {p.stock <= 0 && <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}><span style={{ padding:"4px 8px", backgroundColor:"#B03A2E", color:C.white, borderRadius:6, fontSize:10, fontWeight:800, textTransform:"uppercase" }}>Out of Stock</span></div>}
         </div>
         <div style={{ flex:1, padding:"12px 14px", display:"flex", alignItems:"center", gap:14, minWidth:0 }}>
           <div style={{ flex:1, minWidth:0 }}>
@@ -823,9 +816,9 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
                 style={{ width:32, height:32, borderRadius:10, backgroundColor:isFav?C.brown:C.white, border:`1.5px solid ${isFav?C.brown:C.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s" }}>
                 <Heart size={12} style={{ color:isFav?C.white:C.brownSoft, fill:isFav?C.white:"none" }}/>
               </button>
-              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCart(p.id); }} className="btn-press"
-                style={{ height:32, padding:"0 13px", borderRadius:10, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brownMid:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:5 }}>
-                {inCart ? <><Check size={11}/> Added</> : <><ShoppingCart size={11}/> Add</>}
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+                style={{ height:32, padding:"0 13px", borderRadius:10, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brownMid:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontSize:11, fontWeight:700, cursor:p.stock <= 0 ? "not-allowed" : "pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:5 }}>
+                {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={11}/> Added</> : <><ShoppingCart size={11}/> Add</>}
               </button>
             </div>
           </div>
@@ -845,12 +838,18 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
           style={{ width:"100%", height:"100%", objectFit:"cover", display:imgOk?"block":"none" }}
         />
 
-        <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(30,15,5,0.28)", display:"flex", alignItems:"center", justifyContent:"center", opacity:hovering?1:0, transition:"opacity 0.22s" }}>
+        <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(30,15,5,0.28)", display:"flex", alignItems:"center", justifyContent:"center", opacity:hovering?1:0, transition:"opacity 0.22s", zIndex:3 }}>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onQuickView(p); }} className="btn-press"
             style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", backgroundColor:"rgba(255,255,255,0.95)", borderRadius:999, border:"none", color:C.brown, fontSize:12, fontWeight:700, cursor:"pointer" }}>
             <Eye size={13}/> Quick View
           </button>
         </div>
+
+        {p.stock <= 0 && (
+          <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>
+            <span style={{ padding:"6px 12px", backgroundColor:"#B03A2E", color:C.white, borderRadius:8, fontSize:12, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.05em", boxShadow:`0 4px 12px rgba(176,58,46,0.3)` }}>Out of Stock</span>
+          </div>
+        )}
 
         <div style={{ position:"absolute", top:10, left:10, display:"flex", flexDirection:"column", gap:5, pointerEvents:"none" }}>
           {p.isNew    && <span className="tag-pill" style={{ backgroundColor:C.brown,    color:C.white }}>New</span>}
@@ -879,9 +878,9 @@ function ProductCard({ p, isFav, onFav, inCart, onCart, onQuickView, listView, a
             <p style={{ fontSize:19, fontWeight:800, color:C.brown, margin:0, lineHeight:1 }}>Rs {p.price}</p>
             {p.originalPrice && <p style={{ fontSize:10, color:C.brownSoft, textDecoration:"line-through", margin:0 }}>Rs {p.originalPrice}</p>}
           </div>
-          <button onClick={e => { e.preventDefault(); e.stopPropagation(); onCart(p.id); }} className="btn-press"
-            style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:999, backgroundColor:inCart?C.creamDark:C.brown, color:inCart?C.brownMid:C.white, border:`1.5px solid ${inCart?C.border:C.brown}`, fontSize:11, fontWeight:700, cursor:"pointer", transition:"all 0.22s" }}>
-            {inCart ? <><Check size={11}/> Added</> : <><Plus size={11}/> Cart</>}
+          <button onClick={e => { e.preventDefault(); e.stopPropagation(); if (p.stock > 0) onCart(p.id); }} className="btn-press" disabled={p.stock <= 0}
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:999, backgroundColor:p.stock <= 0 ? C.border : (inCart?C.creamDark:C.brown), color:p.stock <= 0 ? C.brownSoft : (inCart?C.brownMid:C.white), border:`1.5px solid ${p.stock <= 0 ? C.borderSoft : (inCart?C.border:C.brown)}`, fontSize:11, fontWeight:700, cursor:p.stock <= 0 ? "not-allowed" : "pointer", transition:"all 0.22s" }}>
+            {p.stock <= 0 ? "Out of Stock" : inCart ? <><Check size={11}/> Added</> : <><Plus size={11}/> Cart</>}
           </button>
         </div>
       </div>
@@ -962,6 +961,7 @@ export default function Marketplace() {
   const { addToCart: ctxAddToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const cartNavigate = useNavigate();
+  const requireAuth = useRequireAuth();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
@@ -993,13 +993,16 @@ export default function Marketplace() {
             name: p.title,
             image: imageUrl,
             seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
-            sellerVerified: p.sellerId?.isVerified || false,
-            price: p.discountPrice || p.price,
-            originalPrice: p.discountPrice ? p.price : null,
+            price:
+              p.price - (p.price * (p.discountPercentage || 0)) / 100,
+
+            originalPrice:
+              (p.discountPercentage || 0) > 0 ? p.price : null,
             rating: p.averageRating || 0,
             reviews: p.numReviews || 0,
             pop: p.pop || Math.floor(Math.random() * 10000),
             isNew: p.isNew || Math.random() > 0.7,
+            stock: p.countInStock || 0,
           };
         });
         
@@ -1033,23 +1036,26 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
+    if (!requireAuth('use the wishlist')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await toggleWishlist(id);
     if (result.success && result.message.includes('added')) {
       addToast("fav", products.find(x => x.id === id)?.name);
     }
-  }, [toggleWishlist, addToast, products]);
+  }, [requireAuth, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
+    if (!requireAuth('add items to your cart')) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: window.location.pathname }));
+      return;
+    }
     const result = await ctxAddToCart(id, 1);
     if (result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        cartNavigate('/signin');
-      }
     }
-  }, [ctxAddToCart, addToast, products, cartNavigate]);
+  }, [requireAuth, ctxAddToCart, addToast, products]);
 
   const clearAll = useCallback(() => {
     setQuery("");

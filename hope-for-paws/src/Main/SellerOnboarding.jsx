@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerService';
 import { useAuth } from '../context/AuthContext';
-import { User, Store, Mail, Phone, MapPin, Building2, CreditCard, Hash, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
+import { User, Store, Mail, Phone, MapPin, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
 
 const SellerOnboarding = () => {
   const navigate = useNavigate();
@@ -19,9 +19,6 @@ const SellerOnboarding = () => {
     email: '',
     phone: '',
     address: '',
-    bankName: '',
-    accountTitle: '',
-    accountNumber: '',
   });
 
   const [profileImage, setProfileImage] = useState(null);
@@ -34,6 +31,7 @@ const SellerOnboarding = () => {
     if (user) {
       setFormData((prev) => ({
         ...prev,
+        fullName: user.username || user.fullName || prev.fullName,
         email: user.email || '',
         phone: user.phone || ''
       }));
@@ -71,26 +69,6 @@ const SellerOnboarding = () => {
       newErrors.address = 'Address is required';
     } else if (formData.address.length < 2 || formData.address.length > 200) {
       newErrors.address = 'Address must be 2-200 characters';
-    }
-
-    if (!formData.bankName.trim()) {
-      newErrors.bankName = 'Bank Name is required';
-    } else if (formData.bankName.length < 2 || formData.bankName.length > 100) {
-      newErrors.bankName = 'Bank Name must be 2-100 characters';
-    }
-
-    if (!formData.accountTitle.trim()) {
-      newErrors.accountTitle = 'Account Title is required';
-    } else if (formData.accountTitle.length < 2 || formData.accountTitle.length > 100) {
-      newErrors.accountTitle = 'Account Title must be 2-100 characters';
-    }
-
-    if (!formData.accountNumber.trim()) {
-      newErrors.accountNumber = 'Account Number / IBAN is required';
-    } else if (!/^[A-Za-z0-9\s-]+$/.test(formData.accountNumber)) {
-      newErrors.accountNumber = 'Account Number can only contain alphanumeric characters, spaces, or hyphens';
-    } else if (formData.accountNumber.replace(/[\s-]/g, '').length < 8 || formData.accountNumber.replace(/[\s-]/g, '').length > 34) {
-      newErrors.accountNumber = 'Account Number / IBAN must be between 8 and 34 characters';
     }
 
     setErrors(newErrors);
@@ -142,9 +120,6 @@ const SellerOnboarding = () => {
       submitData.append('email', formData.email);
       submitData.append('phone', formData.phone);
       submitData.append('address', formData.address);
-      submitData.append('bankName', formData.bankName);
-      submitData.append('accountTitle', formData.accountTitle);
-      submitData.append('accountNumber', formData.accountNumber);
       if (profileImage) {
         submitData.append('profileImage', profileImage);
       }
@@ -153,6 +128,10 @@ const SellerOnboarding = () => {
       
       const updatedUser = updateLocalUserAsSeller('pending');
       if (updatedUser) {
+        updatedUser.phone = formData.phone;
+        updatedUser.phoneVerified = true;
+        const userStorage = localStorage.getItem('user') ? localStorage : sessionStorage;
+        userStorage.setItem('user', JSON.stringify(updatedUser));
         updateUser(updatedUser);
       }
       
@@ -202,7 +181,7 @@ const SellerOnboarding = () => {
             Start Selling Today
           </h1>
           <p className="text-[#6b493d] text-lg max-w-2xl mx-auto font-medium">
-            Join thousands of pet lovers. Complete your profile to unlock your dedicated Seller Dashboard and start reaching customers nationwide.
+            Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.
           </p>
         </div>
 
@@ -412,86 +391,15 @@ const SellerOnboarding = () => {
                     {errors.address && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.address}</p>}
                   </motion.div>
 
-                  {/* Payout Information Group */}
-                  <motion.div variants={itemVariants} className="md:col-span-2 mt-8 mb-2">
-                    <h3 className="text-xl font-bold text-[#4E3B31] border-b-2 border-[#f0ebe0] pb-3 flex items-center">
-                      <CreditCard className="w-6 h-6 mr-3 text-[#a07855]" />
-                      Bank Details / Payout Information
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-2 font-medium">Please provide accurate Pakistani bank details to receive your payouts securely.</p>
-                  </motion.div>
-
-                  {/* Bank Name */}
-                  <motion.div variants={itemVariants} className="md:col-span-2">
-                    <label htmlFor="bankName" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
-                      Bank Name *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                        <Building2 className="h-5 w-5" />
+                    <motion.div variants={itemVariants} className="md:col-span-2 mt-8 rounded-2xl border-2 border-[#ede6e1] bg-[#faf7f5] p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl font-bold text-[#4E3B31]">Bank details / payout information</h3>
+                        <span className="inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">
+                          Coming soon
+                        </span>
                       </div>
-                      <input
-                        type="text"
-                        id="bankName"
-                        name="bankName"
-                        value={formData.bankName}
-                        onChange={handleChange}
-                        placeholder="e.g., Meezan Bank, HBL, Allied Bank"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-medium ${
-                          errors.bankName ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      />
-                    </div>
-                    {errors.bankName && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.bankName}</p>}
-                  </motion.div>
-
-                  {/* Account Title */}
-                  <motion.div variants={itemVariants}>
-                    <label htmlFor="accountTitle" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
-                      Account Title *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                        <User className="h-5 w-5" />
-                      </div>
-                      <input
-                        type="text"
-                        id="accountTitle"
-                        name="accountTitle"
-                        value={formData.accountTitle}
-                        onChange={handleChange}
-                        placeholder="e.g., Ali Khan"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-medium ${
-                          errors.accountTitle ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      />
-                    </div>
-                    {errors.accountTitle && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.accountTitle}</p>}
-                  </motion.div>
-
-                  {/* Account Number / IBAN */}
-                  <motion.div variants={itemVariants}>
-                    <label htmlFor="accountNumber" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
-                      Account Number / IBAN *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                        <Hash className="h-5 w-5" />
-                      </div>
-                      <input
-                        type="text"
-                        id="accountNumber"
-                        name="accountNumber"
-                        value={formData.accountNumber}
-                        onChange={handleChange}
-                        placeholder="e.g., PK12 MEEZ 3456 7890 1234"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-mono ${
-                          errors.accountNumber ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      />
-                    </div>
-                    {errors.accountNumber && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.accountNumber}</p>}
-                  </motion.div>
+                      <p className="mt-2 text-sm font-medium text-[#a07f77]">Online payments are not available yet, so you do not need to add bank information.</p>
+                    </motion.div>
 
                 </div>
 

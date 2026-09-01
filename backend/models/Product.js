@@ -67,10 +67,14 @@ const productSchema = new mongoose.Schema(
       uppercase: true,
       trim: true
     },
-    discountPrice: {
+
+    discountPercentage: {
       type: Number,
-      min: 0
+      default: 0,
+      min: 0,
+      max: 100
     },
+    
     additionalInfo: {
       type: [{
         heading: { type: String, trim: true },
@@ -90,6 +94,16 @@ const productSchema = new mongoose.Schema(
       min: 0,
 
       default: 0
+
+    },
+
+    lowStockThreshold: {
+
+      type: Number,
+
+      min: [0, 'Low stock threshold cannot be negative'],
+
+      default: 5
 
     },
 
@@ -127,6 +141,12 @@ const productSchema = new mongoose.Schema(
       max: 5
     },
     numReviews: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    shareCount: {
       type: Number,
       default: 0,
       min: 0

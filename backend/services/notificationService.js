@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Adoption = require('../models/adoptionModel');
 const transporter = require('../config/emailTransporter');
+const emailTemplates = require('../utils/emailTemplates');
 const config = require('../config/notificationConfig');
 const activityTracker = require('./activityTracker');
 const { scheduleChatReminder } = require('../queues/chatEmailQueue');
@@ -11,7 +12,7 @@ class NotificationService {
   constructor(io) {
     this.io = io;
     this.userSockets = new Map(); // Map to store user ID to socket ID mapping
-    
+
     this.transporter = transporter;
   }
 
@@ -81,6 +82,51 @@ class NotificationService {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Centralized email-preference gate.
+  //
+  // This is the single source of truth for whether a recipient may be
+  // emailed at all. Every function in this service that actually sends
+  // mail (sendEmailNotification, sendChatDigestEmail, sendDailyDigestEmail)
+  // must call this first, so that a user who has set
+  // notificationPreferences.email = "disabled" can never receive an email
+  // regardless of which code path (instant, digest, chat reminder, or a
+  // direct call from outside this service) triggered it.
+  //
+  // `recipient` may be a full User doc, a lean object, or a partial
+  // projection (e.g. `.select('email notificationPreferences')`) — it only
+  // needs `email` and `notificationPreferences.email`.
+  // ---------------------------------------------------------------------
+  isEmailAllowedForRecipient(recipient) {
+    if (!recipient || !recipient.email) return false;
+    const preference = recipient.notificationPreferences?.email || 'instant';
+    return preference !== 'disabled';
+  }
+
+  // ---------------------------------------------------------------------
+  // Centralized in-app-delivery gate. Mirrors isEmailAllowedForRecipient:
+  // both the per-notification channel flag AND the user's global
+  // preference must allow it, or the real-time (socket) push is skipped.
+  //
+  // Note: this only gates the *live* push via sendRealTimeNotification.
+  // The Notification document itself is always created and persisted
+  // regardless of this preference (same as email, whose document is
+  // always saved even when the message is only ever delivered via a
+  // digest) — this preserves getUserNotifications/getUnreadCount/
+  // markAsRead behavior exactly as it was before this change.
+  //
+  // If `recipient` couldn't be loaded (e.g. the user record is missing),
+  // we deliberately default to allowing delivery rather than blocking it,
+  // since that matches the prior behavior (the emit always fired) and we
+  // have no explicit preference to enforce.
+  // ---------------------------------------------------------------------
+  isInAppDeliveryAllowed(recipient, notification) {
+    const isInAppChannelEnabled = notification?.channels?.inApp !== false;
+    if (!isInAppChannelEnabled) return false;
+    if (!recipient) return true;
+    return recipient.notificationPreferences?.inApp !== false;
+  }
+
   // Create and send notification
   async createNotification(notificationData, { sendEmail = true } = {}) {
     try {
@@ -90,20 +136,32 @@ class NotificationService {
       const notification = new Notification(data);
       await notification.save();
 
-      // Send real-time notification
-      await this.sendRealTimeNotification(notification.recipient, {
-        id: notification._id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        data: notification.data,
-        createdAt: notification.createdAt,
-        read: notification.read
-      });
+      // Fetch the recipient once, up front — used to gate both the
+      // real-time in-app push below and the email path further down.
+      const recipient = await User.findById(notification.recipient).select('email notificationPreferences');
 
-      // Send email notification if explicitly allowed
+      // Send real-time (in-app) notification, respecting the channel flag
+      // and the recipient's notificationPreferences.inApp setting.
+      if (this.isInAppDeliveryAllowed(recipient, notification)) {
+        await this.sendRealTimeNotification(notification.recipient, {
+          id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          createdAt: notification.createdAt,
+          read: notification.read
+        });
+      }
+
       if (sendEmail && !notification.emailSent) {
-        await this.sendEmailNotification(notification);
+        if (this.shouldSendEmailImmediately(recipient, notification)) {
+          await this.sendEmailNotification(notification, recipient);
+        } else {
+          if (this.isEmailAllowedForRecipient(recipient)) {
+            console.log(`Notification queued for digest for user ${recipient._id}`);
+          }
+        }
       }
 
       return notification;
@@ -113,46 +171,51 @@ class NotificationService {
     }
   }
 
-  // Send email notification
-  async sendEmailNotification(notification) {
+  // Decides whether this specific notification should be emailed *right now*,
+  // as opposed to being left for a digest. This is an additional, narrower
+  // check on top of isEmailAllowedForRecipient — it does NOT replace the
+  // preference gate inside sendEmailNotification itself, since that method
+  // can also be called directly from outside this function.
+  shouldSendEmailImmediately(recipient, notification) {
+    if (!this.isEmailAllowedForRecipient(recipient)) return false;
+    if (notification.type === 'chat_message') return false;
+
+    const preference = recipient.notificationPreferences?.email || 'instant';
+    const isHighPriority = notification.priority === 'high';
+    const isEmailChannelEnabled = notification.channels?.email !== false;
+
+    if (!isEmailChannelEnabled) return false;
+    if (isHighPriority) return true;
+    return preference === 'instant';
+  }
+
+  async sendEmailNotification(notification, recipientOverride = null) {
     try {
-      const recipient = await User.findById(notification.recipient);
-      if (!recipient || !recipient.email) {
-        console.log('No recipient or email found for notification:', notification._id);
+      const recipient = recipientOverride || await User.findById(notification.recipient);
+
+      // Preference gate lives here too (not just in shouldSendEmailImmediately)
+      // so this method is safe to call directly from anywhere, now or in the future.
+      if (!this.isEmailAllowedForRecipient(recipient)) {
+        console.log(`Email notification skipped for user ${notification.recipient} (no email on file or email notifications disabled)`);
         return;
       }
       if (notification.type === 'chat_message') {
         return;
       }
 
-          const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: recipient.email,
-      subject: notification.title,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #6b493d; color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0;">Hope for Paws</h1>
-            </div>
-            <div style="padding: 20px; background-color: #f9f9f9;">
-              <h2 style="color: #6b493d;">${notification.title}</h2>
-              <p style="color: #333; line-height: 1.6;">${notification.message}</p>
-              <div style="margin-top: 20px; padding: 15px; background-color: white; border-left: 4px solid #6b493d;">
-                <p style="margin: 0; color: #666; font-size: 14px;">
-                  This is an automated notification from Hope for Paws. 
-                  You can manage your notification preferences in your account settings.
-                </p>
-              </div>
-            </div>
-            <div style="background-color: #f5f3ed; padding: 15px; text-align: center; color: #666; font-size: 12px;">
-              <p>© 2024 Hope for Paws. All rights reserved.</p>
-            </div>
-          </div>
-        `
+      const { subject, html } = emailTemplates.buildNotificationEmail({
+        title: notification.title,
+        message: notification.message,
+      });
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: recipient.email,
+        subject,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
-      
+
       // Update notification as email sent
       notification.emailSent = true;
       notification.emailSentAt = new Date();
@@ -240,14 +303,14 @@ class NotificationService {
   async notifyAdoptionRequestStatus(adoptionId, requesterId, status, adoptionName) {
     try {
       console.log('notifyAdoptionRequestStatus called with:', { adoptionId, requesterId, status, adoptionName });
-      
+
       const requester = await User.findById(requesterId);
       if (!requester) return;
 
-      const title = status === 'accepted' 
-        ? 'Adoption Request Accepted!' 
+      const title = status === 'accepted'
+        ? 'Adoption Request Accepted!'
         : 'Adoption Request Update';
-      
+
       const message = status === 'accepted'
         ? `Congratulations! Your adoption request for ${adoptionName} has been accepted.`
         : `Your adoption request for ${adoptionName} has been ${status}.`;
@@ -271,11 +334,11 @@ class NotificationService {
   async notifyVetsNewPost(postId, postCaption, postCreatorId) {
     try {
       const vets = await User.find({ isVeterinarian: true });
-      
+
       for (const vet of vets) {
         // Don't notify the post creator
         if (vet._id.toString() === postCreatorId.toString()) continue;
-        
+
         await this.createNotification({
           recipient: vet._id,
           sender: null, // System notification
@@ -295,7 +358,7 @@ class NotificationService {
     try {
       const sender = await User.findById(senderId);
       const recipient = await User.findById(recipientId);
-      
+
       if (!sender || !recipient) {
         console.log('Sender or recipient not found for chat message notification');
         return;
@@ -333,35 +396,24 @@ class NotificationService {
   }
 
   async sendChatDigestEmail({ recipient, totalMessages, uniqueSenderNames, conversationCount, previewMessages }) {
-    if (!recipient?.email) {
-      console.log('No recipient email provided for chat digest');
+    // Preference gate: chat digests go out from a queue worker, outside the
+    // normal createNotification flow, so they need their own explicit check.
+    if (!this.isEmailAllowedForRecipient(recipient)) {
+      console.log(`Chat digest email skipped for user ${recipient?._id} (no email on file or email notifications disabled)`);
       return;
     }
 
-    const senderSummary =
-      uniqueSenderNames.length === 1
-        ? uniqueSenderNames[0]
-        : `${uniqueSenderNames.length} contacts`;
-
-    const subject =
-      totalMessages === 1
-        ? `New message from ${senderSummary} - Hope for Paws`
-        : `You have ${totalMessages} new messages - Hope for Paws`;
-
-    const previewHtml = previewMessages
-      .map(
-        (msg) => `
-        <div style="margin-bottom: 12px; padding: 12px; background-color: #ffffff; border-radius: 10px; border-left: 4px solid #6b493d;">
-          <p style="margin: 0; font-weight: bold; color: #6b493d;">${msg.senderName}</p>
-          <p style="margin: 6px 0 0 0; color: #333; line-height: 1.6;">${msg.text}</p>
-        </div>
-      `
-      )
-      .join('');
-
+    const { subject: mailSubject, html } = emailTemplates.buildChatDigestEmail({
+      recipient,
+      totalMessages,
+      uniqueSenderNames,
+      conversationCount,
+      previewMessages,
+    });
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: recipient.email,
+<<<<<<< HEAD
       subject,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
@@ -391,12 +443,98 @@ class NotificationService {
           </div>
         </div>
       `
+=======
+      subject: mailSubject,
+      html,
+>>>>>>> origin/sahab
     };
 
     await this.transporter.sendMail(mailOptions);
     console.log(
       `Chat digest email sent to ${recipient.email} (${totalMessages} messages from ${uniqueSenderNames.length} senders)`
     );
+  }
+
+  async getPendingDigestNotifications(recipient) {
+    if (!recipient?._id) return [];
+    return Notification.find({
+      recipient: recipient._id,
+      'channels.email': true,
+      emailSent: false,
+      type: { $ne: 'chat_message' },
+      priority: 'routine'
+    })
+      .sort({ createdAt: -1 })
+      .limit(config.NOTIFICATION_DIGEST_BATCH_SIZE)
+      .lean();
+  }
+
+  async sendDailyDigestEmail(recipient, notifications) {
+    if (!notifications?.length) return;
+
+    // Preference gate: defensive check in case this is ever called from a
+    // path other than runDailyDigestJob's pre-filtered user query.
+    if (!this.isEmailAllowedForRecipient(recipient)) {
+      console.log(`Daily digest email skipped for user ${recipient?._id} (no email on file or email notifications disabled)`);
+      return;
+    }
+
+    const { subject, html } = emailTemplates.buildDailyDigestEmail({
+      recipient,
+      notifications,
+    });
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: recipient.email,
+      subject,
+      html,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+    await Notification.updateMany(
+      { _id: { $in: notifications.map(n => n._id) } },
+      { $set: { emailSent: true, emailSentAt: new Date() } }
+    );
+
+    console.log(`Daily digest email sent to ${recipient.email} (${notifications.length} notifications)`);
+  }
+
+  async runDailyDigestJob() {
+    try {
+      const users = await User.find({
+        'notificationPreferences.email': 'daily_summary',
+        email: { $exists: true, $ne: '' }
+      }).select('email notificationPreferences');
+
+      for (const user of users) {
+        const pendingNotifications = await this.getPendingDigestNotifications(user);
+        if (!pendingNotifications.length) continue;
+        await this.sendDailyDigestEmail(user, pendingNotifications);
+      }
+    } catch (error) {
+      console.error('Error running daily digest job:', error);
+    }
+  }
+
+  scheduleDailyDigestJob() {
+    const hour = config.NOTIFICATION_DAILY_DIGEST_HOUR;
+    const minute = config.NOTIFICATION_DAILY_DIGEST_MINUTE;
+
+    const now = new Date();
+    const nextRun = new Date(now);
+    nextRun.setHours(hour, minute, 0, 0);
+    if (nextRun <= now) {
+      nextRun.setDate(nextRun.getDate() + 1);
+    }
+
+    const delay = nextRun - now;
+    setTimeout(async () => {
+      await this.runDailyDigestJob();
+      setInterval(() => this.runDailyDigestJob(), 24 * 60 * 60 * 1000);
+    }, delay);
+
+    console.log(`Scheduled daily digest job at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} local time`);
   }
 
   // Get user notifications
@@ -458,4 +596,4 @@ class NotificationService {
   }
 }
 
-module.exports = NotificationService; 
+module.exports = NotificationService;

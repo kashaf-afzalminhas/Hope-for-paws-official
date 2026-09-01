@@ -16,7 +16,7 @@ const adoptionSchema = new mongoose.Schema({
   age: {
     type: Number,
     required: true,
-    min: [0, 'Age must be a positive number']
+    min: [0.1, 'Age must be greater than 0']
   },
   petType: {
     type: String,
@@ -57,12 +57,26 @@ const adoptionSchema = new mongoose.Schema({
   },
   imageUrl: {
     type: String,
-    required: true
+    default: null
+  },
+  imageUrls: {
+    type: [String],
+    validate: {
+      validator: function (value) {
+        return !value || value.length === 0 || value.every(url => typeof url === 'string' && url.length > 0);
+      },
+      message: 'imageUrls must be an array of non-empty strings'
+    }
   },
   status: {
     type: String,
     enum: ['available', 'pending', 'adopted'],
     default: 'available'
+  },
+  shareCount: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   requests: [{
     type: mongoose.Schema.Types.ObjectId,

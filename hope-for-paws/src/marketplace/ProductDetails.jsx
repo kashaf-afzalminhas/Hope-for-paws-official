@@ -9,23 +9,24 @@ import {
   Store,
   Shield,
   Truck,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Plus,
   Minus,
-  Share2,
   Flag,
   CheckCircle2,
   AlertTriangle,
-  Package,
-  Clock,
   BadgeCheck,
 } from "lucide-react";
+<<<<<<< HEAD
+=======
+import ShareLinkButton from "../Components/ShareLinkButton";
+>>>>>>> origin/sahab
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
+import { useRequireAuth } from "../Components/AuthGuard";
 import ReportModal from "./ReportModal";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
@@ -106,7 +107,7 @@ function QuantitySelector({ qty, onChange, max }) {
   );
 }
 
-function SellerCard({ seller }) {
+function SellerCard({ seller, navigate }) {
   return (
     <div className="rounded-2xl p-4 sm:p-5 border" style={{ backgroundColor: BRAND.light, borderColor: BRAND.softBorder }}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -120,7 +121,7 @@ function SellerCard({ seller }) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="text-sm font-semibold text-stone-900 truncate">{seller.name}</p>
-              <VerifiedBadge isVerified={seller.verified} size="md"/>
+              <VerifiedBadge isVerified={seller.verified} size="md" />
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <StarRow rating={seller.rating} size={12} />
@@ -128,13 +129,15 @@ function SellerCard({ seller }) {
             </div>
           </div>
         </div>
-        <button
+        <Link
+          to={seller.userId ? `/profile/public/${seller.userId}` : '#'}
+          state={{ defaultTab: 'products' }}
           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors duration-150 hover:bg-white flex-shrink-0"
-          style={{ borderColor: BRAND.softBorder, color: BRAND.dark }}
+          style={{ borderColor: BRAND.softBorder, color: BRAND.dark, textDecoration: 'none' }}
         >
           <Store size={13} />
           View Store
-        </button>
+        </Link>
       </div>
 
       <div
@@ -143,7 +146,7 @@ function SellerCard({ seller }) {
       >
         {[
           { label: "Rating", value: `${seller.rating}/5` },
-          { label: "Sales",  value: seller.totalSales },
+          { label: "Sales", value: seller.totalSales },
           { label: "Dispatch", value: "Same Day" },
         ].map(({ label, value }) => (
           <div key={label} className="px-1 sm:px-2">
@@ -158,9 +161,9 @@ function SellerCard({ seller }) {
 
 function TrustStrip() {
   const items = [
-    { icon: Shield,       text: "Secure payments" },
+    { icon: Shield, text: "Secure payments" },
     { icon: CheckCircle2, text: "Quality guaranteed" },
-    { icon: Truck,        text: "Nationwide shipping" },
+    { icon: Truck, text: "Nationwide shipping" },
   ];
   return (
     <div className="flex items-center justify-between gap-1 py-4 border-y" style={{ borderColor: BRAND.softBorder }}>
@@ -200,7 +203,7 @@ function CustomerReviews({ productId }) {
   return (
     <div className="mt-12 sm:mt-16 pt-10 border-t" style={{ borderColor: BRAND.softBorder }}>
       <h2 className="text-xl sm:text-2xl font-bold text-stone-900 mb-6 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Customer Reviews</h2>
-      
+
       {reviews.length === 0 ? (
         <div className="bg-stone-50 rounded-2xl p-8 text-center border border-stone-100 transition-all hover:shadow-sm">
           <Star size={32} className="mx-auto mb-3 text-stone-300" />
@@ -246,12 +249,13 @@ export default function ProductDetails() {
   const { user } = useAuth();
   const { addToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const requireAuth = useRequireAuth();
   const [PRODUCT, setPRODUCT] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  const [qty, setQty]           = useState(1);
-  const [cartAdded, setCartAdded]   = useState(false);
+  const [qty, setQty] = useState(1);
+  const [cartAdded, setCartAdded] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
 
   const isWishlisted = PRODUCT ? isInWishlist(PRODUCT._id) : false;
@@ -264,15 +268,20 @@ export default function ProductDetails() {
         const res = await fetch(`http://localhost:3000/api/products/${id}`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch product");
         const data = await res.json();
-        
+
         setPRODUCT({
           _id: data._id,
           title: data.title,
           brand: data.brand || "Hope For Paws",
           sku: data.sku || "N/A",
-          price: data.discountPrice || data.price,
-          originalPrice: data.discountPrice ? data.price : null,
-          discount: data.discountPrice ? Math.round(((data.price - data.discountPrice) / data.price) * 100) : 0,
+          price:
+            data.price - (data.price * (data.discountPercentage || 0)) / 100,
+
+          originalPrice:
+            (data.discountPercentage || 0) > 0 ? data.price : null,
+
+          discount:
+            data.discountPercentage || 0,
           stock: data.countInStock || 0,
           rating: data.averageRating || 0,
           reviewCount: data.numReviews || 0,
@@ -281,6 +290,8 @@ export default function ProductDetails() {
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {
+            id: data.sellerId?._id || null,
+            userId: data.sellerId?.userId?._id || data.sellerId?.userId || null,
             name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
             rating: 4.9,
             totalSales: "1.2k",
@@ -290,12 +301,6 @@ export default function ProductDetails() {
           description: data.description || "No description provided.",
           ingredients: data.ingredients || "Not specified.",
           usage: data.usageInstructions || "Not specified.",
-          delivery: [
-            { icon: Truck,    label: "Free delivery",     detail: "On orders over Rs. 2,000 — arrives in 2–4 business days." },
-            { icon: Package,  label: "Secure packaging",  detail: "Tamper-proof, moisture-sealed bag inside a branded outer box." },
-            { icon: RotateCcw,label: "Easy returns",      detail: "7-day return window on unopened items in original condition." },
-            { icon: Clock,    label: "Same-day dispatch", detail: "Order before 2 PM (Mon–Sat) for same-day processing." },
-          ],
         });
         setIsLoading(false);
       } catch (err) {
@@ -309,38 +314,35 @@ export default function ProductDetails() {
   }, [id]);
 
   const handleAddToCart = async () => {
-    if (addingToCart) return;
+    if (addingToCart || PRODUCT.stock <= 0) return;
+    if (!requireAuth('add items to your cart')) return;
     setAddingToCart(true);
     const result = await addToCart(PRODUCT._id, qty);
     setAddingToCart(false);
     if (result.success) {
       setCartAdded(true);
       setTimeout(() => setCartAdded(false), 2200);
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        navigate('/signin');
-      } else {
-        alert(result.message || 'Failed to add to cart');
-      }
+    } else if (!result.message?.includes('sign in')) {
+      alert(result.message || 'Failed to add to cart');
     }
   };
 
-  const handleBuyNow = async () => {
-    if (addingToCart) return;
-    setAddingToCart(true);
-    const result = await addToCart(PRODUCT._id, qty);
-    setAddingToCart(false);
-    if (result.success) {
-      navigate('/checkout');
-    } else {
-      if (result.message?.includes('sign in')) {
-        alert('Please sign in to add items to your cart.');
-        navigate('/signin');
-      } else {
-        alert(result.message || 'Failed to add to cart');
+  const handleBuyNow = () => {
+    if (PRODUCT.stock <= 0) return;
+    if (!requireAuth('purchase products')) return;
+    navigate('/checkout', {
+      state: {
+        buyNowItem: {
+          productId: PRODUCT._id,
+          title: PRODUCT.title,
+          image: PRODUCT.images?.[0] || '',
+          price: PRODUCT.price,
+          quantity: qty,
+          brand: PRODUCT.brand,
+          weight: PRODUCT.weight,
+        }
       }
-    }
+    });
   };
 
   function ImageGallery({ images }) {
@@ -372,11 +374,11 @@ export default function ProductDetails() {
                 boxShadow: i === active ? `0 0 0 2px ${BRAND.dark}22` : "none",
               }}
             >
-              <img 
-                src={imgErrors[i] ? fallbackSrc : src} 
-                alt="" 
+              <img
+                src={imgErrors[i] ? fallbackSrc : src}
+                alt=""
                 onError={() => handleImgError(i)}
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover"
               />
             </button>
           ))}
@@ -442,7 +444,7 @@ export default function ProductDetails() {
 
   function DetailTabs() {
     const [active, setActive] = useState(0);
-    const TABS = ["Description", "Specifications", "Delivery"];
+    const TABS = ["Description", "Specifications"];
 
     const panels = [
       /* Description */
@@ -470,8 +472,8 @@ export default function ProductDetails() {
         {PRODUCT?.additionalInfo && PRODUCT.additionalInfo.length > 0 ? (
           <dl className="space-y-0">
             {PRODUCT.additionalInfo.map((item, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={`py-3 flex flex-col sm:flex-row gap-1 sm:gap-4 ${index !== PRODUCT.additionalInfo.length - 1 ? 'border-b border-gray-200' : ''}`}
               >
                 <dt className="text-sm font-medium text-gray-700 w-full sm:w-1/3 flex-shrink-0">{item.heading}</dt>
@@ -484,24 +486,6 @@ export default function ProductDetails() {
             No additional specifications provided.
           </div>
         )}
-      </div>,
-
-      /* Delivery */
-      <div key="delivery" className="space-y-4">
-        {PRODUCT.delivery.map(({ icon: Icon, label, detail }) => (
-          <div key={label} className="flex items-start gap-3 sm:gap-4">
-            <div
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: BRAND.light }}
-            >
-              <Icon size={17} style={{ color: BRAND.dark }} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-stone-800">{label}</p>
-              <p className="text-xs sm:text-sm text-stone-500 mt-0.5">{detail}</p>
-            </div>
-          </div>
-        ))}
       </div>,
     ];
 
@@ -581,7 +565,7 @@ export default function ProductDetails() {
       />
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-12">
-        
+
         {/* ── BACK BUTTON ── */}
         <div className="mb-6 sm:mb-8">
           <Link
@@ -609,13 +593,7 @@ export default function ProductDetails() {
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: BRAND.muted }}>
                 {PRODUCT.brand}
               </span>
-              <button
-                aria-label="Share product"
-                className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-700 transition-colors duration-150"
-              >
-                <Share2 size={14} />
-                Share
-              </button>
+              <ShareLinkButton resourceType="product" resourceId={PRODUCT._id} />
             </div>
 
             {/* Title */}
@@ -675,13 +653,16 @@ export default function ProductDetails() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 active:scale-[0.98]"
+                  disabled={PRODUCT.stock <= 0}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: cartAdded ? "#4e8a5a" : BRAND.dark,
-                    boxShadow: `0 4px 18px ${cartAdded ? "#4e8a5a" : BRAND.dark}40`,
+                    backgroundColor: PRODUCT.stock <= 0 ? "#a8a29e" : (cartAdded ? "#4e8a5a" : BRAND.dark),
+                    boxShadow: PRODUCT.stock <= 0 ? "none" : `0 4px 18px ${cartAdded ? "#4e8a5a" : BRAND.dark}40`,
                   }}
                 >
-                  {cartAdded ? (
+                  {PRODUCT.stock <= 0 ? (
+                    "Out of Stock"
+                  ) : cartAdded ? (
                     <><CheckCircle2 size={17} />Added to Cart</>
                   ) : (
                     <><ShoppingCart size={17} />Add to Cart</>
@@ -690,10 +671,11 @@ export default function ProductDetails() {
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98]"
-                  style={{ borderColor: BRAND.dark, color: BRAND.dark, backgroundColor: "transparent" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND.light; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  disabled={PRODUCT.stock <= 0}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-sm border-2 transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ borderColor: PRODUCT.stock <= 0 ? "#d6d3d1" : BRAND.dark, color: PRODUCT.stock <= 0 ? "#78716c" : BRAND.dark, backgroundColor: "transparent" }}
+                  onMouseEnter={(e) => { if (PRODUCT.stock > 0) e.currentTarget.style.backgroundColor = BRAND.light; }}
+                  onMouseLeave={(e) => { if (PRODUCT.stock > 0) e.currentTarget.style.backgroundColor = "transparent"; }}
                 >
                   <Zap size={17} />
                   Buy Now
@@ -702,7 +684,7 @@ export default function ProductDetails() {
 
               {/* Wishlist */}
               <button
-                onClick={() => toggleWishlist(PRODUCT._id)}
+                onClick={() => { if (requireAuth('use the wishlist')) toggleWishlist(PRODUCT._id); }}
                 aria-pressed={isWishlisted}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150"
                 style={{ color: isWishlisted ? "#e24c4c" : "#9c8474" }}
@@ -715,8 +697,8 @@ export default function ProductDetails() {
             {/* Trust strip */}
             <TrustStrip />
 
-            {/* Seller card */}
-            <SellerCard seller={PRODUCT.seller} />
+           {/* Seller card */}
+<SellerCard seller={PRODUCT.seller} navigate={navigate} />
 
           </div>
         </div>
@@ -732,7 +714,7 @@ export default function ProductDetails() {
         {/* Report listing */}
         {user && (
           <div className="mt-8 flex justify-center pb-4">
-            <button 
+            <button
               onClick={() => setIsReportModalOpen(true)}
               className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-red-500 transition-colors duration-150 group"
             >
@@ -746,10 +728,10 @@ export default function ProductDetails() {
 
       {/* Report Modal */}
       {PRODUCT && (
-        <ReportModal 
-          productId={PRODUCT._id} 
-          isOpen={isReportModalOpen} 
-          onClose={() => setIsReportModalOpen(false)} 
+        <ReportModal
+          productId={PRODUCT._id}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
         />
       )}
     </div>

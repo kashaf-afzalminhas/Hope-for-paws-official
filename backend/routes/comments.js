@@ -93,14 +93,22 @@ router.post('/:postId/comments', auth, async (req, res) => {
 // Delete comment (with cascade-delete of replies)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const comment = await Comment.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user.userId,
-    });
+    const comment = await Comment.findById(req.params.id);
 
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
+
+    const post = await Post.findById(comment.postId);
+
+    const isCommentOwner = comment.userId.toString() === req.user.userId;
+    const isPostOwner = post && post.userId.toString() === req.user.userId;
+
+    if (!isCommentOwner && !isPostOwner) {
+      return res.status(403).json({ message: 'Not authorized to delete this comment' });
+    }
+
+    await Comment.findByIdAndDelete(req.params.id);
 
     // Cascade-delete all child replies to prevent orphaned comments
     await Comment.deleteMany({ parentCommentId: comment._id });
@@ -110,7 +118,6 @@ router.delete('/:id', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 // Get comments for a post
 router.get('/:postId/comments', async (req, res) => {
   try {

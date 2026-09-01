@@ -1,24 +1,17 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaChevronLeft } from 'react-icons/fa';
-import { getUserConversations, markConversationAsRead, debugToken } from '../Main/api';
-import UserCard from './UserCard';
-import SearchBar from './SearchBar';
+import { FaSearch } from 'react-icons/fa';
+import { markConversationAsRead, debugToken } from '../Main/api';
 import { format } from 'date-fns';
-import { getSocket } from '../services/socket';
-import { cn } from '../lib/utils';
-import { useSwipeable } from 'react-swipeable';
 import { useMessages } from '../context/MessageContext';
 
 const RecentChats = ({
   currentUserId,
   onSelectConversation,
   selectedConversationId,
-  users,
-  conversations,
-  setConversations,
+  users = [],
+  conversations = [],
   onBackToSidebar,
-  addToast,
   getUserFromCache,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,86 +19,62 @@ const RecentChats = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [swipingId, setSwipingId] = useState(null);
-  const { markAsRead, setCurrentConversationId } = useMessages();
-  
-  // Function to handle marking conversation as read
+  const { markAsRead } = useMessages();
+
+  const getInitials = (name) => {
+    if (!name) return 'PF';
+    const parts = name.trim().split(' ').filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) return format(date, 'h:mm a');
+      if (date.getFullYear() === now.getFullYear()) return format(date, 'MMM d');
+      return format(date, 'MM/dd/yy');
+    } catch {
+      return '';
+    }
+  };
+
   const handleMarkAsRead = async (conversationId) => {
     try {
       debugToken();
-      
       const result = await markConversationAsRead(conversationId);
-      
       if (result?.data?.modifiedCount > 0) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('refreshConversations'));
-        }, 100);
+        setTimeout(() => window.dispatchEvent(new CustomEvent('refreshConversations')), 100);
       }
     } catch (error) {
       console.error("Error marking conversation as read:", error);
     }
   };
 
-  const [audio] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const audio = new Audio();
-      audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
-      audio.volume = 0.3;
-      return audio;
-    }
-    return null;
-  });
-
-  // Socket event listeners for real-time updates - REMOVED
-  // MessageContext now handles all socket events centrally
-  
   useEffect(() => {
-    const handleResize = () => {
-      const newIsMobile = window.innerWidth <= 768;
-      setIsMobile(newIsMobile);
-    };
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Enhanced user lookup function that uses cache
   const getUserById = useCallback((userId) => {
     if (getUserFromCache) {
       const cachedUser = getUserFromCache(userId);
       if (cachedUser) return cachedUser;
     }
-    
     const user = users.find(u => u._id === userId);
     if (user) return user;
-    
-    return { username: 'Unknown', _id: userId };
+    return { username: 'Pet Friend', _id: userId };
   }, [users, getUserFromCache]);
 
-  // Move deduplication logic to useEffect to avoid setState during render
-  useEffect(() => {
-    if (!conversations) return;
-    
-    // Ensure conversations is an array
-    if (!Array.isArray(conversations)) {
-      console.error('RecentChats: conversations is not an array:', conversations);
-      return;
-    }
-
-    // Note: Deduplication is now handled by the parent component (Chat.jsx)
-    // This effect only validates that conversations is an array
-  }, [conversations]);
-
-  // Memoized filtering only (no deduplication)
+  // Filter and sort conversations by latest message timestamp (WhatsApp style)
   const filteredForDisplay = useMemo(() => {
-    if (!conversations) return [];
+    if (!conversations || !Array.isArray(conversations)) return [];
     
-    // Ensure conversations is an array
-    if (!Array.isArray(conversations)) {
-      console.error('RecentChats: conversations is not an array in filteredForDisplay:', conversations);
-      return [];
-    }
-
-    const filtered = searchQuery
+    let filtered = searchQuery
       ? conversations.filter(conv => {
           if (!conv || !conv.participants) return false;
           const otherUserId = conv.participants.find(id => id !== currentUserId);
@@ -114,177 +83,171 @@ const RecentChats = ({
         })
       : conversations;
 
-    return filtered.filter(conv => {
+    filtered = filtered.filter(conv => {
       if (!conv || !conv.lastMessage) return false;
-      if (conv.lastMessage.text === "Start a conversation..." && 
-          conv.participants[0] !== currentUserId) {
+      if (conv.lastMessage.text === "Start a conversation..." && conv.participants[0] !== currentUserId) {
         return false;
       }
       return true;
     });
-  }, [conversations, users, currentUserId, searchQuery, getUserById]);
+
+    // Sort descending by most recent activity
+    return [...filtered].sort((a, b) => {
+      const timeA = new Date(a.lastMessage?.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.lastMessage?.createdAt || b.updatedAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [conversations, currentUserId, searchQuery, getUserById]);
 
   useEffect(() => {
-    // Ensure conversations is an array before setting loading state
-    if (!conversations) {
-      setIsLoading(true);
-    } else if (Array.isArray(conversations)) {
-      setIsLoading(false);
-    } else {
-      console.error('RecentChats: conversations is not an array in loading effect:', conversations);
-      setIsLoading(false);
-    }
+    if (!conversations) setIsLoading(true);
+    else setIsLoading(false);
   }, [conversations]);
 
-  // Remove the effect that was calling setConversations - this should be handled by the parent
-  // The unread count updates should be handled by MessageContext
-
-  // Fixed formatTimestamp function
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return '';
-    
-    try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) return '';
-      
-      const now = new Date();
-
-      if (date.toDateString() === now.toDateString()) {
-        return format(date, 'h:mm a');
-      }
-
-      if (date.getFullYear() === now.getFullYear()) {
-        return format(date, 'MMM d');
-      }
-
-      return format(date, 'MM/dd/yyyy');
-    } catch (error) {
-      console.error("Error formatting timestamp:", error, timestamp);
-      return '';
-    }
-  };
-
-  const handleBackClick = () => {
-    const isOnChatRoute = location.pathname.startsWith('/chat/');
-    
-    if (isMobile) {
-      if (onBackToSidebar) {
-        if (isOnChatRoute) {
-          navigate('/chat');
-          return;
-        } else {
-          navigate(-1);
-        }
-      } else {
-        navigate(-1);
-      }
-    } else {
-      navigate(-1);
-    }
-  };
+  const totalUnread = useMemo(() => {
+    return (conversations || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  }, [conversations]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#f5efe6]">
-      {/* Header with search and back button */}
-      <div className="flex-shrink-0 p-4 pb-3 bg-[#f5efe6] flex items-center">
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleBackClick();
-          }}
-          className="flex items-center p-1.5 rounded-lg hover:bg-[#f0e6d8] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 active:scale-95"
-          aria-label="Back"
-        >
-          <FaChevronLeft className="text-[#6b493d] text-sm" />
-        </button>
-        <div className="flex-1"></div>
+    <div className="flex flex-col h-full overflow-hidden bg-[#301B12] text-white select-none">
+      {/* Top Banner with Clean Greeting & Message Count */}
+      <div className="p-5 pb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🐾</span>
+            <h2 className="text-[#F5EAE2] font-semibold text-lg tracking-tight">
+              Direct Messages
+            </h2>
+          </div>
+          {totalUnread > 0 ? (
+            <span className="text-[11px] font-bold bg-[#a07855] text-white px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
+              {totalUnread} new
+            </span>
+          ) : conversations.length > 0 ? (
+            <span className="text-[11px] font-medium bg-[#42281D] text-[#E2BD9E] px-2.5 py-0.5 rounded-full border border-[#5A382A]">
+              {conversations.length} {conversations.length === 1 ? 'chat' : 'chats'}
+            </span>
+          ) : null}
+        </div>
+        <p className="text-[#E2BD9E]/80 font-normal text-xs leading-relaxed">
+          Stay connected with pet lovers, adopters, and rescues in one place.
+        </p>
+
+        {/* Search Input */}
+        <div className="relative mt-4">
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 text-xs" />
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[#42281D] text-sm text-[#F5EAE2] placeholder-white/40 pl-10 pr-4 py-2.5 rounded-2xl border border-[#523326] focus:outline-hidden focus:border-[#BA8B60] transition-colors"
+          />
+        </div>
       </div>
 
-      {/* Header with search */}
-      <div className="flex-shrink-0 p-3 pb-2 bg-[#f5efe6]">
-        <h2 className="text-[#2c1810] font-semibold text-xl mb-3 px-1">Messages</h2>
-        <SearchBar
-          onSearch={setSearchQuery}
-          placeholder="Search conversations..."
-          className="w-full bg-white border border-[#e5d9c8] rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#a07855]/30 focus:border-[#a07855]/60 shadow-sm transition-all duration-200 text-sm"
-        />
-      </div>
-
-      {/* Conversation list - Flexible height */}
-      <div className="flex-1 overflow-y-auto px-3 pb-4 min-h-0">
+      {/* Conversations List with Unread Count Badges & Timestamps */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0 bg-[#301B12]">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full p-8">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#a07855] border-t-transparent mb-4"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-6 w-6 rounded-full bg-[#a07855]/20 animate-ping"></div>
-              </div>
-            </div>
-            <p className="font-body text-[#2c1810]/70 text-center">Loading conversations...</p>
+          <div className="flex flex-col items-center justify-center h-full p-8 text-white/50 text-xs">
+            Loading conversations...
           </div>
         ) : filteredForDisplay.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <div className="w-24 h-24 bg-gradient-to-br from-[#fff7f0] to-[#f0e6d8] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mb-6">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-12 w-12 text-[#a07855]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <h3 className="font-heading text-xl text-[#2c1810] mb-3 font-medium">No conversations found</h3>
-            <p className="font-body text-[#2c1810]/60 max-w-xs leading-relaxed">
-              {searchQuery ? 'Try different search terms' : 'Start new conversations to begin chatting'}
-            </p>
+          <div className="text-center py-12 text-white/40 text-sm">
+            No conversations found
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredForDisplay.map((conversation) => {
-              const otherUserId = conversation.participants.find(id => id !== currentUserId);
-              const otherUser = getUserById(otherUserId);
-              const timestamp = conversation.lastMessage?.createdAt
-                ? formatTimestamp(conversation.lastMessage.createdAt)
-                : formatTimestamp(conversation.updatedAt);
+          filteredForDisplay.map((conversation) => {
+            const otherUserId = conversation.participants.find(id => id !== currentUserId);
+            const otherUser = getUserById(otherUserId);
+            const isSelected = selectedConversationId === conversation._id;
+            const unreadCount = conversation.unreadCount || 0;
+            const lastMsg = conversation.lastMessage?.text || 'Start a conversation...';
+            const timestamp = formatTimestamp(conversation.lastMessage?.createdAt || conversation.updatedAt);
+            const initials = getInitials(otherUser.username);
 
-              const unreadCount = conversation.unreadCount || 0;
-
-              return (
-                <div 
-                  key={conversation._id}
-                  onClick={() => {
-                    handleMarkAsRead(conversation._id);
-                    markAsRead(conversation._id);
-                    // Don't set currentConversationId here - it will be set when the conversation is actually opened
-                    onSelectConversation({ ...conversation, user: otherUser });
-                  }}
-                  className={cn(
-                    "bg-white rounded-lg p-3 transition-all duration-200 cursor-pointer border border-[#e5d9c8]/30",
-                    "hover:shadow-md hover:border-[#a07855]/40 hover:bg-[#fff7f0]/50 active:scale-[0.98]",
-                    selectedConversationId === conversation._id 
-                      ? "bg-[#f5efe6] border-l-4 border-l-[#a07855] shadow-md border-[#a07855]/40" 
-                      : unreadCount > 0 
-                        ? "border-l-4 border-l-[#a07855]/60 bg-[#fff7f0] shadow-sm" 
-                        : "shadow-sm"
+            return (
+              <button
+                key={conversation._id}
+                onClick={() => {
+                  handleMarkAsRead(conversation._id);
+                  markAsRead(conversation._id);
+                  onSelectConversation({ ...conversation, user: otherUser });
+                }}
+                className={`w-full text-left p-3 rounded-2xl flex items-center gap-3.5 transition-all duration-200 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#BA8B60] text-[#24130A] shadow-md font-medium translate-x-0.5'
+                    : unreadCount > 0
+                    ? 'bg-[#43271A] hover:bg-[#4E2E20] text-white shadow-xs border-l-4 border-[#a07855]'
+                    : 'bg-[#3A2217]/50 hover:bg-[#452A1D] hover:translate-x-1 text-white shadow-xs'
+                }`}
+              >
+                {/* User Avatar with Initials + Online Dot */}
+                <div className="relative shrink-0">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-sm tracking-wider border transition-all ${
+                    isSelected 
+                      ? 'bg-[#FDF6EE] text-[#301B12] border-[#8D5832] shadow-xs' 
+                      : unreadCount > 0
+                      ? 'bg-[#523021] text-[#FFF] border-[#BA8B60]'
+                      : 'bg-[#4B2C1E] text-[#E2BD9E] border-[#5D3A29]'
+                  }`}>
+                    {initials}
+                  </div>
+                  {otherUser.status === 'online' && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#9CD373] rounded-full ring-2 ring-[#301B12]" />
                   )}
-                >
-                  <UserCard
-                    user={otherUser}
-                    selected={selectedConversationId === conversation._id}
-                    lastMessage={conversation.lastMessage?.text || 'Start a conversation...'}
-                    timestamp={timestamp}
-                    unreadCount={unreadCount}
-                  />
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Conversation Info + WhatsApp Unread Badge */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span className={`text-sm truncate ${
+                      isSelected 
+                        ? 'font-bold text-[#24130A]' 
+                        : unreadCount > 0 
+                        ? 'font-extrabold text-white' 
+                        : 'font-semibold text-[#F5EAE2]'
+                    }`}>
+                      {otherUser.username || 'Pet Friend'}
+                    </span>
+                    {timestamp && (
+                      <span className={`text-[11px] shrink-0 ${
+                        isSelected 
+                          ? 'text-[#3D2315]' 
+                          : unreadCount > 0 
+                          ? 'text-[#E2BD9E] font-bold' 
+                          : 'text-white/40'
+                      }`}>
+                        {timestamp}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-xs truncate ${
+                      isSelected 
+                        ? 'text-[#3D2315]' 
+                        : unreadCount > 0 
+                        ? 'text-white font-medium' 
+                        : 'text-white/60'
+                    }`}>
+                      {lastMsg}
+                    </p>
+                    
+                    {/* Unread Message Pill Badge */}
+                    {unreadCount > 0 && !isSelected && (
+                      <span className="shrink-0 min-w-5 h-5 px-1.5 bg-[#a07855] text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })
         )}
       </div>
-    </div> 
+    </div>
   );
 };
 

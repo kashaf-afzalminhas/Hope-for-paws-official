@@ -1,9 +1,10 @@
+import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-// ✅ ADDED FaStore to imports
-import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
+import { Heart, MessageCircle, Pencil, Trash2, X, Info } from 'lucide-react';
 import { MdPets } from 'react-icons/md';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
@@ -13,8 +14,15 @@ import MyAdoptions from './MyAdoptions';
 import AdoptionHistory from './AdoptionHistory';
 import { getCurrentUserId } from '../lib/utils';
 import SellerDashboard from './SellerDashboard';
+import SellerOrders from '../marketplace/SellerOrders';
+import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
+<<<<<<< HEAD
 import VerifiedBadge from '../Components/VerifiedBadge';
+=======
+import MyPosts from './MyPosts';
+import { COUNTRY_CODES } from '../utils/constants';
+>>>>>>> origin/sahab
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -34,8 +42,15 @@ Toast.propTypes = {
   ).isRequired
 };
 
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  email: 'instant',
+  inApp: true,
+  push: false
+};
+
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({
@@ -47,106 +62,43 @@ const ProfilePage = () => {
     userType: '',
     id: '',
     profileImage: '',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
 
   // Phone validation states
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [countryCode, setCountryCode] = useState('+92');
-  
+
   // Form input states (separate from profile state)
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
-    countryCode: '+92'
+    countryCode: '+92',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
-  
+
   // Track original profile data to detect changes
   const [originalProfile, setOriginalProfile] = useState({
+    name: '',
+    email: '',
     phone: '',
     city: '',
     about: '',
-    countryCode: '+92'
+    countryCode: '+92',
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
   });
-  const [countryCodes] = useState([
-    { code: '+92', name: 'Pakistan', flag: '🇵🇰' },
-    { code: '+1', name: 'United States', flag: '🇺🇸' },
-    { code: '+44', name: 'United Kingdom', flag: '🇬🇧' },
-    { code: '+91', name: 'India', flag: '🇮🇳' },
-    { code: '+86', name: 'China', flag: '🇨🇳' },
-    { code: '+33', name: 'France', flag: '🇫🇷' },
-    { code: '+49', name: 'Germany', flag: '🇩🇪' },
-    { code: '+81', name: 'Japan', flag: '🇯🇵' },
-    { code: '+82', name: 'South Korea', flag: '🇰🇷' },
-    { code: '+61', name: 'Australia', flag: '🇦🇺' },
-    { code: '+55', name: 'Brazil', flag: '🇧🇷' },
-    { code: '+52', name: 'Mexico', flag: '🇲🇽' },
-    { code: '+39', name: 'Italy', flag: '🇮🇹' },
-    { code: '+34', name: 'Spain', flag: '🇪🇸' },
-    { code: '+7', name: 'Russia', flag: '🇷🇺' },
-    { code: '+90', name: 'Turkey', flag: '🇹🇷' },
-    { code: '+966', name: 'Saudi Arabia', flag: '🇸🇦' },
-    { code: '+971', name: 'UAE', flag: '🇦🇪' },
-    { code: '+974', name: 'Qatar', flag: '🇶🇦' },
-    { code: '+965', name: 'Kuwait', flag: '🇰🇼' },
-    { code: '+973', name: 'Bahrain', flag: '🇧🇭' },
-    { code: '+968', name: 'Oman', flag: '🇴🇲' },
-    { code: '+20', name: 'Egypt', flag: '🇪🇬' },
-    { code: '+27', name: 'South Africa', flag: '🇿🇦' },
-    { code: '+234', name: 'Nigeria', flag: '🇳🇬' },
-    { code: '+254', name: 'Kenya', flag: '🇰🇪' },
-    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
-    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
-    { code: '+98', name: 'Iran', flag: '🇮🇷' },
-    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
-    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
-    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
-    { code: '+963', name: 'Syria', flag: '🇸🇾' },
-    { code: '+972', name: 'Israel', flag: '🇮🇱' },
-    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
-    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
-    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
-    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
-    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
-    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
-    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
-    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
-    { code: '+856', name: 'Laos', flag: '🇱🇦' },
-    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
-    { code: '+670', name: 'East Timor', flag: '🇹🇱' },
-    { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-    { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
-    { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-    { code: '+93', name: 'Afghanistan', flag: '🇦🇫' },
-    { code: '+98', name: 'Iran', flag: '🇮🇷' },
-    { code: '+964', name: 'Iraq', flag: '🇮🇶' },
-    { code: '+962', name: 'Jordan', flag: '🇯🇴' },
-    { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
-    { code: '+963', name: 'Syria', flag: '🇸🇾' },
-    { code: '+972', name: 'Israel', flag: '🇮🇱' },
-    { code: '+970', name: 'Palestine', flag: '🇵🇸' },
-    { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
-    { code: '+65', name: 'Singapore', flag: '🇸🇬' },
-    { code: '+66', name: 'Thailand', flag: '🇹🇭' },
-    { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
-    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-    { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
-    { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
-    { code: '+855', name: 'Cambodia', flag: '🇰🇭' },
-    { code: '+856', name: 'Laos', flag: '🇱🇦' },
-    { code: '+673', name: 'Brunei', flag: '🇧🇳' },
-    { code: '+670', name: 'East Timor', flag: '🇹🇱' }
-  ]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [currentView, setCurrentView] = useState('profile');
+  const [currentView, setCurrentView] = useState(location.state?.view || 'profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const totalLikes = posts.reduce((sum, post) => sum + (post.likes?.length || 0), 0);
+  const totalComments = posts.reduce((sum, post) => sum + (post.comments?.length || 0), 0);
 
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -172,6 +124,12 @@ const ProfilePage = () => {
     setTimeout(() => setToasts((prev) => prev.slice(1)), 3500);
   };
 
+  useEffect(() => {
+    if (location.state?.view) {
+      setCurrentView(location.state.view);
+    }
+  }, [location.state]);
+
   // Phone validation function
   const validatePhone = (phoneNumber, code) => {
     if (!phoneNumber) return 'Phone number is required';
@@ -192,11 +150,11 @@ const ProfilePage = () => {
     }
 
     if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
-    
+
     const fullPhone = code + phoneNumber;
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-    
+
     return '';
   };
 
@@ -214,7 +172,7 @@ const ProfilePage = () => {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (userData) {
       // Convert isVeterinarian to userType for display
       const getUserType = (user) => {
@@ -227,10 +185,10 @@ const ProfilePage = () => {
       // Parse existing phone number to extract country code and phone number
       let phoneNumber = '';
       let phoneCountryCode = '+92';
-      
+
       if (userData.phone) {
         // Find matching country code
-        const matchingCountry = countryCodes.find(country => userData.phone.startsWith(country.code));
+        const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
         if (matchingCountry) {
           phoneCountryCode = matchingCountry.code;
           phoneNumber = userData.phone.substring(matchingCountry.code.length);
@@ -239,7 +197,6 @@ const ProfilePage = () => {
         }
       }
 
-      setCountryCode(phoneCountryCode);
       setProfile({
         id: userData.id || userData._id || '',
         name: userData.username,
@@ -250,29 +207,36 @@ const ProfilePage = () => {
         userType: getUserType(userData),
         // userType: userData.userType,
         profileImage: userData.profileImage || '',
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // Initialize form data with current profile data
       setFormData({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
-        countryCode: phoneCountryCode
+        countryCode: phoneCountryCode,
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // Set original profile data for change detection
       setOriginalProfile({
+        name: userData.username || '',
+        email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
         about: userData.about || '',
-        countryCode: phoneCountryCode
+        countryCode: phoneCountryCode,
+        notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
       });
 
       // If user doesn't have a phone number, redirect to edit view
       if (!userData.phone || !userData.phoneVerified) {
         setCurrentView('edit');
       }
-      
+
       // Test token transmission
       testToken();
     } else {
@@ -287,10 +251,23 @@ const ProfilePage = () => {
       const response = await getUserProfile();
       if (response.data && response.data.data) {
         const userData = response.data.data;
+        const notificationPreferences = userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
+
         setProfile(prev => ({
           ...prev,
           profileImage: userData.profileImage || '',
           isVerified: userData.sellerDetails?.isVerified || false,
+          notificationPreferences
+        }));
+
+        setFormData(prev => ({
+          ...prev,
+          notificationPreferences
+        }));
+
+        setOriginalProfile(prev => ({
+          ...prev,
+          notificationPreferences
         }));
       }
     } catch (error) {
@@ -306,14 +283,24 @@ const ProfilePage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleNotificationPreferenceChange = (key, value) => {
+    setFormData({
+      ...formData,
+      notificationPreferences: {
+        ...formData.notificationPreferences,
+        [key]: value
+      }
+    });
+  };
+
   const handlePhoneChange = (e) => {
     let phoneValue = e.target.value;
-    
+
     // Remove leading zero if country code is selected
     if (formData.countryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
     }
-    
+
     setFormData({ ...formData, phone: phoneValue });
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, formData.countryCode));
@@ -322,7 +309,7 @@ const ProfilePage = () => {
   const handleCountryCodeChange = (e) => {
     const newCountryCode = e.target.value;
     let phoneValue = formData.phone;
-    
+
     // Remove leading zero when country code changes
     if (newCountryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
@@ -330,8 +317,7 @@ const ProfilePage = () => {
     } else {
       setFormData({ ...formData, countryCode: newCountryCode });
     }
-    
-    setCountryCode(newCountryCode);
+
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
@@ -339,10 +325,13 @@ const ProfilePage = () => {
   // Function to detect if there are changes
   const hasChanges = () => {
     return (
+      formData.name !== originalProfile.name ||
+      formData.email !== originalProfile.email ||
       formData.phone !== originalProfile.phone ||
       formData.city !== originalProfile.city ||
       formData.about !== originalProfile.about ||
-      formData.countryCode !== originalProfile.countryCode
+      formData.countryCode !== originalProfile.countryCode ||
+      JSON.stringify(formData.notificationPreferences) !== JSON.stringify(originalProfile.notificationPreferences)
     );
   };
 
@@ -377,12 +366,14 @@ const ProfilePage = () => {
   const handleCancelEdit = () => {
     // Reset form data to original profile data
     setFormData({
+      name: originalProfile.name,
+      email: originalProfile.email,
       phone: originalProfile.phone,
       city: originalProfile.city,
       about: originalProfile.about,
-      countryCode: originalProfile.countryCode
+      countryCode: originalProfile.countryCode,
+      notificationPreferences: originalProfile.notificationPreferences
     });
-    setCountryCode(originalProfile.countryCode);
     setPhoneError('');
     setPhoneTouched(false);
     setCurrentView('profile');
@@ -415,19 +406,17 @@ const ProfilePage = () => {
       formData.append('image', file);
 
       const response = await uploadProfileImage(formData);
-      
+
       if (response.data && response.data.success) {
         const newImagePath = response.data.data.profileImage;
         setProfile(prev => ({ ...prev, profileImage: newImagePath }));
-        
-        // Update local storage
-        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = newImagePath;
           localStorage.setItem('user', JSON.stringify(userData));
-          sessionStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image uploaded successfully!');
       } else {
         setError('Failed to upload image. Please try again.');
@@ -451,18 +440,16 @@ const ProfilePage = () => {
 
     try {
       const response = await removeProfileImage();
-      
+
       if (response.data && response.data.success) {
         setProfile(prev => ({ ...prev, profileImage: '' }));
-        
-        // Update local storage
-        const userData = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+
+        const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
         if (userData) {
           userData.profileImage = '';
           localStorage.setItem('user', JSON.stringify(userData));
-          sessionStorage.setItem('user', JSON.stringify(userData));
         }
-        
+
         addToast('Profile image removed successfully!');
       } else {
         setError('Failed to remove image. Please try again.');
@@ -483,7 +470,7 @@ const ProfilePage = () => {
     setError('');
 
     const { id } = profile;
-    const { city, about } = formData;
+    const { name, email, city, about } = formData;
     const fullPhone = formData.countryCode + formData.phone;
 
     // Validate phone number
@@ -507,7 +494,15 @@ const ProfilePage = () => {
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, phone: fullPhone, city, about })
+        body: JSON.stringify({
+          id,
+          username: name,
+          email,
+          phone: fullPhone,
+          city,
+          about,
+          notificationPreferences: formData.notificationPreferences
+        })
       });
 
       const data = await response.json();
@@ -515,10 +510,10 @@ const ProfilePage = () => {
 
       if (response.ok) {
         const updatedUser = data.user;
-        
+
         // Update AuthContext with the new user data
         updateUser(updatedUser);
-        
+
         // Convert isVeterinarian to userType for display
         const getUserType = (user) => {
           if (user.userType) return user.userType;
@@ -530,9 +525,9 @@ const ProfilePage = () => {
         // Parse the updated phone number
         let phoneNumber = '';
         let phoneCountryCode = '+92';
-        
+
         if (updatedUser.phone) {
-          const matchingCountry = countryCodes.find(country => updatedUser.phone.startsWith(country.code));
+          const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
           if (matchingCountry) {
             phoneCountryCode = matchingCountry.code;
             phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
@@ -541,7 +536,6 @@ const ProfilePage = () => {
           }
         }
 
-        setCountryCode(phoneCountryCode);
         const resolvedUserId = updatedUser.id || updatedUser._id || id;
 
         setProfile({
@@ -554,29 +548,56 @@ const ProfilePage = () => {
           userType: getUserType(updatedUser),
           // userType: updatedUser.userType,
           profileImage: profile.profileImage, // Keep the current profile image
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update form data to match the saved profile
         setFormData({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          countryCode: phoneCountryCode
+          countryCode: phoneCountryCode,
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Update original profile data to reflect the saved state
         setOriginalProfile({
+          name: updatedUser.username || '',
+          email: updatedUser.email || '',
           phone: phoneNumber,
           city: updatedUser.city || '',
           about: updatedUser.about || '',
-          countryCode: phoneCountryCode
+          countryCode: phoneCountryCode,
+          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
-        
+
         // Clear phone validation errors
         setPhoneError('');
         setPhoneTouched(false);
-        
+
         addToast('Profile updated successfully!');
+
+        const savedRedirect = (() => {
+          try {
+            const item = sessionStorage.getItem('redirectAfterAuth');
+            return item ? JSON.parse(item) : null;
+          } catch { return null; }
+        })();
+        const openStorage = sessionStorage.getItem('openAdoptionCreate') === 'true';
+
+        if (savedRedirect?.from || openStorage) {
+          const targetPath = savedRedirect?.from || '/adoption';
+          const openCreate = savedRedirect?.openCreate || openStorage || false;
+          sessionStorage.removeItem('redirectAfterAuth');
+          if (openCreate) {
+            sessionStorage.setItem('openAdoptionCreate', 'true');
+          }
+          navigate(targetPath, { state: { openCreate } });
+          return;
+        }
+
         setCurrentView('profile');
       } else {
         // Handle specific phone number errors
@@ -753,12 +774,11 @@ const ProfilePage = () => {
     { name: 'My Posts', view: 'myposts', icon: <FaListAlt /> },
   ];
 
-  // ✅ ADDED: Conditionally add Order Management below My Posts for Sellers
+  // Conditionally add Order Management below My Posts for Sellers
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
       name: 'Order Management',
-      external: true,
-      path: '/seller/orders',
+      view: 'ordermanagement',
       icon: <FaShoppingBag />
     });
   }
@@ -777,10 +797,10 @@ const ProfilePage = () => {
     { name: 'Adoption History', view: 'adoptionhistory', icon: <FaHistory /> }
   );
 
-  // ✅ ADDED: Conditionally add Seller Dashboard
+  // Conditionally add Store Dashboard
   if (user?.isSeller || user?.role === 'seller') {
     profileLinks.push({
-      name: 'Seller Dashboard',
+      name: 'Store Dashboard',
       view: 'sellerdashboard',
       icon: <FaStore />
     });
@@ -795,15 +815,15 @@ const ProfilePage = () => {
   // MyAdoptions state
   const [adoptions, setAdoptions] = useState([]);
   const [editingAdoptionPost, setEditingAdoptionPost] = useState(null);
-  const [editAdoptionData, setEditAdoptionData] = useState({ 
-    name: '', 
-    age: '', 
-    petType: '', 
-    breed: '', 
-    vaccinated: '', 
-    neuteredSpayed: '', 
-    description: '', 
-    location: '' 
+  const [editAdoptionData, setEditAdoptionData] = useState({
+    name: '',
+    age: '',
+    petType: '',
+    breed: '',
+    vaccinated: '',
+    neuteredSpayed: '',
+    description: '',
+    location: ''
   });
   const [adoptionsLoading, setAdoptionsLoading] = useState(false);
   const [adoptionsError, setAdoptionsError] = useState('');
@@ -812,9 +832,8 @@ const ProfilePage = () => {
   const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
-  
+
   // MyPosts state
-  const [posts, setPosts] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [editCaption, setEditCaption] = useState("");
   const [postsLoading, setPostsLoading] = useState(false);
@@ -829,7 +848,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (currentView !== 'adoptionhistory') return;
     // Check for user in localStorage/sessionStorage if not in context
-    const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (!user && storedUser) {
       setAdoptionHistoryEffectiveUser(storedUser);
     } else {
@@ -866,7 +885,7 @@ const ProfilePage = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {/* ignore error parsing error response */}
+        } catch {/* ignore error parsing error response */ }
         throw new Error(errorMessage);
       }
       const data = await response.json();
@@ -890,7 +909,7 @@ const ProfilePage = () => {
   // MyAdoptions logic
   useEffect(() => {
     if (currentView !== 'myadoptions') return;
-    const userFromStorage = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+    const userFromStorage = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     setAdoptionsStoredUser(userFromStorage);
   }, [currentView]);
   useEffect(() => {
@@ -936,15 +955,15 @@ const ProfilePage = () => {
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
-    const postData = { 
-      name: post.name, 
-      age: post.age, 
-      petType: post.petType, 
-      breed: post.breed || '', 
-      vaccinated: post.vaccinated || '', 
-      neuteredSpayed: post.neuteredSpayed || '', 
-      description: post.description, 
-      location: post.location || '' 
+    const postData = {
+      name: post.name,
+      age: post.age,
+      petType: post.petType,
+      breed: post.breed || '',
+      vaccinated: post.vaccinated || '',
+      neuteredSpayed: post.neuteredSpayed || '',
+      description: post.description,
+      location: post.location || ''
     };
     setEditAdoptionData(postData);
     setOriginalAdoptionData(postData);
@@ -956,7 +975,7 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific adoption post
       setAdoptionSavingStates(prev => ({ ...prev, [postId]: true }));
-      
+
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       // If there's a new image, upload first
       if (newAdoptionImages[postId]) {
@@ -971,40 +990,40 @@ const ProfilePage = () => {
           const errData = await imgRes.json().catch(() => ({}));
           throw new Error(errData.message || 'Failed to update image');
         }
-        
+
         // Get the updated image URL from the response
         const imgData = await imgRes.json();
         if (imgData.imageUrl) {
           // Update local state with new image URL
-          setAdoptions(prev => prev.map(post => 
+          setAdoptions(prev => prev.map(post =>
             post._id === postId ? { ...post, imageUrl: imgData.imageUrl } : post
           ));
         }
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(editAdoptionData)
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update adoption post');
       }
-      
+
       // Update local state immediately for better UX
-      setAdoptions(prev => prev.map(post => 
+      setAdoptions(prev => prev.map(post =>
         post._id === postId ? { ...post, ...editAdoptionData } : post
       ));
-      
+
       setEditingAdoptionPost(null);
       // Clear image data for this post
       setNewAdoptionImages(prev => ({ ...prev, [postId]: null }));
       setAdoptionImagePreviews(prev => ({ ...prev, [postId]: null }));
-      
+
       // Show immediate success feedback
       addToast('Adoption post updated successfully!');
-      
+
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to update post');
       addToast(err.message || 'Failed to update post', 'error');
@@ -1107,16 +1126,17 @@ const ProfilePage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentView !== 'myposts') return;
-    const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
-    if (!userr || !userr.id) return;
-    fetchUserPosts(userr.id);
+    const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+    const uid = getCurrentUserId(userr);
+    if (!uid) return;
+    fetchUserPosts(uid);
   }, [currentView]);
   const fetchUserPosts = async (userId) => {
     if (!userId) return;
     try {
       setPostsLoading(true);
       setPostsError("");
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) throw new Error("Token is missing. Please log in again.");
       const response = await fetch(`${API_BASE_URL}/posts/user/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1138,28 +1158,28 @@ const ProfilePage = () => {
     try {
       // Set saving state for this specific post
       setPostSavingStates(prev => ({ ...prev, [postId]: true }));
-      
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ caption: editCaption })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update post');
       }
-      
+
       // Update local state immediately for better UX
-      setPosts(prev => prev.map(post => 
+      setPosts(prev => prev.map(post =>
         post._id === postId ? { ...post, caption: editCaption } : post
       ));
-      
+
       setEditingPost(null);
-      
+
       // Show immediate success feedback
       addToast('Post updated successfully!');
-      
+
     } catch (err) {
       setPostsError("Failed to update post. Please try again.");
       addToast("Failed to update post. Please try again.", 'error');
@@ -1171,17 +1191,40 @@ const ProfilePage = () => {
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const userr = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const userr = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       fetchUserPosts(userr.id);
     } catch {
       setPostsError("Failed to delete post. Please try again.");
     }
   };
+  const handleDeleteComment = async (commentId, postId) => {// change here.
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setPosts(prev => prev.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            comments: post.comments.filter((c) => c._id !== commentId),
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      addToast('Failed to delete comment.', 'error');
+    }
+  }; // till here.
   const toggleComments = (postId) => {
     setExpandedComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
@@ -1194,7 +1237,7 @@ const ProfilePage = () => {
     // Block access to other pages if user doesn't have phone number OR if there's a phone validation error
     const hasPhoneError = phoneTouched && phoneError;
     const needsPhone = !profile.phone || !user?.phoneVerified;
-    
+
     if ((needsPhone || hasPhoneError) && view !== 'edit' && view !== 'profile') {
       if (hasPhoneError) {
         addToast('Please fix the phone number error first', 'error');
@@ -1203,7 +1246,7 @@ const ProfilePage = () => {
       }
       return;
     }
-    
+
     setCurrentView(view);
     setMobileMenuOpen(false);
   };
@@ -1214,35 +1257,29 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#f8f4ea]">
       <Toast toasts={toasts} />
-      {/* Header */}
-      <header className="bg-[#F8F4ED] text-[#a07855] p-4 shadow-md">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <NavLink to="/" className="flex items-center">
-            <FaChevronLeft className="text-xl text-[#6b493d]" />
-            <span className="ml-2 text-[#6b493d]">Back</span>
-          </NavLink>
-          <h1 className="text-lg font-bold text-[#6b493d]">My Profile</h1>
-          <button 
-            onClick={handleSignOut} 
-            className="flex items-center text-[#a07855] hover:text-[#6b493d]"
-          >
-            <span className="mr-1 hidden md:inline">Sign Out</span>
-            <FaSignOutAlt />
-          </button>
-        </div>
-      </header>
 
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+      <main className="mx-auto min-w-0 w-full max-w-[1440px] flex-1 overflow-x-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
           {/* Sidebar */}
           <div className="mb-2 w-full shrink-0 lg:mb-0 lg:w-64 xl:w-72">
-            <div className="bg-[#F8F4ED] rounded-lg shadow p-4 text-center">
+            {/* Back Button */}
+            <div className="mb-4">
+              <NavLink
+                to="/"
+                className="inline-flex items-center gap-2 rounded-full border border-[#e8dcc8] bg-white px-4 py-2 text-sm font-semibold text-[#6b493d] shadow-sm transition hover:bg-[#f8f4ed] hover:text-[#57392f]"
+              >
+                <FaChevronLeft className="text-xs" />
+                <span>Back to Home</span>
+              </NavLink>
+            </div>
+
+            <div className="rounded-[24px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-4 text-center shadow-sm">
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
-                  <img 
+                  <img
                     src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
@@ -1255,7 +1292,7 @@ const ProfilePage = () => {
                 <div className={`w-20 h-20 rounded-full bg-[#6b493d] text-white flex items-center justify-center text-3xl font-bold ${profile.profileImage ? 'hidden' : ''}`}>
                   {profile.name ? profile.name[0].toUpperCase() : <FaUserCircle />}
                 </div>
-                
+
                 {/* Image upload button */}
                 <label className="absolute bottom-0 right-0 bg-[#6b493d] text-white rounded-full p-2 cursor-pointer hover:bg-[#57392f] transition-colors">
                   <FaCamera size={12} />
@@ -1267,7 +1304,7 @@ const ProfilePage = () => {
                     disabled={imageLoading}
                   />
                 </label>
-                
+
                 {/* Remove image button */}
                 {profile.profileImage && (
                   <button
@@ -1280,13 +1317,13 @@ const ProfilePage = () => {
                   </button>
                 )}
               </div>
-              
+
               {imageLoading && (
                 <div className="text-sm text-[#a07855] mb-2">
                   {profile.profileImage ? 'Updating...' : 'Uploading...'}
                 </div>
               )}
-              
+
               <div className="flex items-center justify-center gap-1.5">
                 <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
                 {profile.userType === 'Seller' && (
@@ -1299,19 +1336,19 @@ const ProfilePage = () => {
               <div className="mt-4 md:hidden">
                 <button
                   onClick={toggleMobileMenu}
-                  className="w-full flex items-center justify-between bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-4 rounded-md"
+                  className="flex w-full items-center justify-between rounded-full bg-[#6b493d] px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#57392f]"
                 >
                   <span>{currentView === 'profile' ? 'View Profile' : currentView === 'edit' ? 'Edit Profile' : 'Security Settings'}</span>
                   {mobileMenuOpen ? <FaTimes /> : <FaBars />}
                 </button>
                 {mobileMenuOpen && (
-                  <div className="absolute z-20 mt-2 w-64 bg-white rounded-md shadow-lg py-1 left-1/2 transform -translate-x-1/2">
+                  <div className="absolute left-1/2 z-20 mt-2 w-64 -translate-x-1/2 rounded-[20px] border border-[#e8dcc8] bg-white p-2 shadow-lg">
                     {profileLinks.map((link, i) =>
                       link.external ? (
                         <button
                           key={i}
                           onClick={() => handleExternalNavigation(link.path)}
-                          className="flex items-center w-full px-4 py-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]"
+                          className="flex w-full items-center rounded-2xl px-3 py-3 text-[#6b493d] transition hover:bg-[#f8f4ed]"
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
                         </button>
@@ -1320,26 +1357,33 @@ const ProfilePage = () => {
                           key={i}
                           onClick={() => handleViewChange(link.view)}
                           disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                          className={`flex items-center w-full px-4 py-3 border-b border-gray-100 ${
-                            currentView === link.view ? 'bg-[#6b493d] text-white' : 
-                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                            'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                          className={`flex w-full items-center rounded-2xl px-3 py-3 transition ${
+                            currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                            ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                            'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                           }`}
                         >
                           {link.icon}<span className="ml-2">{link.name}</span>
                         </button>
                       )
                     )}
+                    <div className="my-1 border-t border-[#e8dcc8]/60" />
+                    <button
+                      onClick={handleSignOut}
+                      className="flex w-full items-center rounded-2xl px-3 py-3 text-left text-red-600 hover:bg-red-50 font-medium transition"
+                    >
+                      <FaSignOutAlt /><span className="ml-2">Sign Out</span>
+                    </button>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Desktop navigation */}
-            <div className="mt-4 bg-white rounded-lg shadow hidden md:block">
+            <div className="mt-4 hidden rounded-[24px] border border-[#e8dcc8] bg-[#fcfaf7] p-2 shadow-sm md:block">
               {profileLinks.map((link, i) =>
                 link.external ? (
-                  <NavLink key={i} to={link.path} className="flex items-center p-3 border-b border-gray-100 text-[#6b493d] hover:bg-[#F8F4ED]">
+                  <NavLink key={i} to={link.path} className="flex items-center rounded-2xl px-3 py-3 text-[#6b493d] transition hover:bg-[#f8f4ed]">
                     {link.icon}<span className="ml-2">{link.name}</span>
                   </NavLink>
                 ) : (
@@ -1347,205 +1391,369 @@ const ProfilePage = () => {
                     key={i}
                     onClick={() => handleViewChange(link.view)}
                     disabled={((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile'}
-                    className={`flex items-center w-full p-3 border-b border-gray-100 text-left ${
-                      currentView === link.view ? 'bg-[#6b493d] text-white' : 
-                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ? 
-                      'text-gray-400 cursor-not-allowed' : 'text-[#6b493d] hover:bg-[#F8F4ED]'
+                    className={`flex w-full items-center rounded-2xl px-3 py-3 text-left transition ${
+                      currentView === link.view ? 'bg-[#6b493d] text-white shadow-sm' :
+                      ((!profile.phone || !user?.phoneVerified) || (phoneTouched && phoneError)) && link.view !== 'edit' && link.view !== 'profile' ?
+                      'cursor-not-allowed text-gray-400' : 'text-[#6b493d] hover:bg-[#f8f4ed]'
                     }`}
                   >
                     {link.icon}<span className="ml-2">{link.name}</span>
                   </button>
                 )
               )}
+              <div className="my-1.5 border-t border-[#e8dcc8]/60" />
+              <button
+                onClick={handleSignOut}
+                className="flex w-full items-center rounded-2xl px-3 py-3 text-left text-red-600 hover:bg-red-50 hover:text-red-700 font-medium transition"
+              >
+                <FaSignOutAlt /><span className="ml-2">Sign Out</span>
+              </button>
             </div>
           </div>
 
           {/* Content Area */}
-          <div className="min-w-0 flex-1 rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10">
+          <div className={`min-w-0 flex-1 ${currentView === 'ordermanagement' || currentView === 'sellerdashboard' ? 'rounded-xl border border-[#e8dcc8]/60 bg-white p-3 shadow-sm sm:p-4' : 'rounded-xl border border-[#e8dcc8]/60 bg-white p-5 shadow-sm sm:p-8 lg:p-10'}`}>
             {currentView === 'profile' && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">My Profile</h2>
-                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Personal Information</h3>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Name</p>
-                        <p className="font-medium">{profile.name}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{profile.email}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{profile.phone || 'Not provided'}</p>
-                      </div>
-                      <div className="mb-3">
-                        <p className="text-sm text-gray-500">City</p>
-                        <p className="font-medium">{profile.city || 'Not provided'}</p>
-                      </div>
+              <div className="space-y-6">
+                <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Profile overview</p>
+                      <h2 className="mt-2 text-2xl font-bold text-[#6b493d]">My Profile</h2>
+                      <p className="mt-2 max-w-2xl text-sm text-[#715645]">A calm, trustworthy snapshot of your account for buyers, adopters, and fellow sellers.</p>
                     </div>
+                    <button
+                      onClick={() => setCurrentView('edit')}
+                      className="inline-flex items-center justify-center rounded-full bg-[#6b493d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#57392f]"
+                    >
+                      Edit Profile
+                    </button>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium mb-2 text-[#6b493d]">About Me</h3>
-                    <div className="bg-gray-50 p-4 rounded h-full">
-                      <p>{profile.about || 'No information provided yet.'}</p>
+
+                  <div className="mt-6 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Primary contact</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.phone || 'No phone added yet'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Account type</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.userType || 'Standard User'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Notifications</p>
+                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.notificationPreferences?.inApp ? 'Active' : 'Muted'}</p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2 text-[#6b493d]">Account Type</h3>
-                  <div className="bg-gray-50 p-4 rounded flex items-center justify-between">
-                    <p className="font-medium capitalize">{profile.userType || 'Standard User'}</p>
+
+                {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#6b493d]">Personal information</h3>
+                        <p className="mt-1 text-sm text-[#7a6554]">Keep your profile helpful and easy to recognize.</p>
+                      </div>
+                      <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Contact</span>
+                    </div>
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Name</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.name}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Email</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.email}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">Phone</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.phone || 'Not provided'}</p>
+                      </div>
+                      <div className="rounded-2xl bg-[#fcfaf7] p-4">
+                        <p className="text-sm text-[#8d7565]">City</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.city || 'Not provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#6b493d]">Notification preferences</h3>
+                        <p className="mt-1 text-sm text-[#7a6554]">Choose how updates should reach you.</p>
+                      </div>
+                      <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Alerts</span>
+                    </div>
+                    <div className="mt-5 grid gap-3">
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">Email</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.email === 'instant' ? 'Instant' : profile.notificationPreferences?.email === 'daily_summary' ? 'Daily summary' : 'Disabled'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">In-app</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.inApp ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-[#e8dcc8] bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-[#4E3B31]">Push</p>
+                        <p className="mt-1 text-sm text-[#7a6554]">{profile.notificationPreferences?.push ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#6b493d]">About me</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">A short intro helps people connect with your profile.</p>
+                    </div>
+                    <span className="rounded-full bg-[#f8f4ed] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Story</span>
+                  </div>
+                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm leading-7 text-[#5f473b]">
+                    {profile.about || 'No information provided yet.'}
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Account type</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">Your current role and verification status.</p>
+                    </div>
                     {profile.userType === 'Seller' && (
                       profile.isVerified ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
                           Verified Seller
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                          Status: Unverified
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                          Unverified Seller
                         </span>
                       )
                     )}
                   </div>
-                </div>
-                
-                <div className="mt-8 flex justify-end">
-                  <button 
-                    onClick={() => setCurrentView('edit')}
-                    className="bg-[#6b493d] hover:bg-[#57392f] text-white font-medium py-2 px-6 rounded-md"
-                  >
-                    Edit Profile
-                  </button>
+                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm font-semibold text-[#4E3B31]">
+                    {profile.userType || 'Standard User'}
+                  </div>
                 </div>
               </div>
             )}
 
             {currentView === 'edit' && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Edit Profile</h2>
-                {error && !(phoneTouched && phoneError) && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
-                {/* Warning message for users without phone (but not for phone validation errors) */}
+              <div className="space-y-6">
+                <div className="rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fdf9f5] to-[#f1e4d7] p-6 shadow-sm sm:p-8">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#a07855]">Edit account</p>
+                      <h2 className="mt-2 text-2xl font-bold text-[#6b493d]">Personal details</h2>
+                      <p className="mt-2 text-sm text-[#715645]">Keep your public profile polished and your alert preferences easy to manage.</p>
+                    </div>
+                    <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Secure update</span>
+                  </div>
+                </div>
+
+                {error && !(phoneTouched && phoneError) && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
                 {(!profile.phone || !user?.phoneVerified) && !(phoneTouched && phoneError) && (
-                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg mb-6">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex-shrink-0">
                         <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium">
-                          Phone Number Required
-                        </h3>
-                        <div className="mt-2 text-sm">
-                          <p>You must add a phone number to access other features of the application.</p>
-                        </div>
+                      <div>
+                        <h3 className="text-sm font-semibold">Phone number required</h3>
+                        <p className="mt-1 text-sm">Add a phone number to unlock the rest of the experience.</p>
                       </div>
                     </div>
                   </div>
                 )}
-                
-                <form onSubmit={handleSaveProfile}>
-                  <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input 
-                        type="text" 
-                        disabled
-                        value={profile.name}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
+
+                <form onSubmit={handleSaveProfile} className="space-y-6">
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="mb-5">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Basic details</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">These details help people recognize and contact you.</p>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input 
-                        type="email" 
-                        disabled
-                        value={profile.email}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                      <div className="flex gap-2">
-                        <select
-                          value={formData.countryCode}
-                          onChange={handleCountryCodeChange}
-                          className="px-3 py-2 border border-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
-                        >
-                          {countryCodes.map((country, index) => (
-                            <option key={index} value={country.code}>
-                              {country.flag} {country.code}
-                            </option>
-                          ))}
-                        </select>
-                        <input 
-                          type="tel" 
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handlePhoneChange}
-                          onBlur={() => setPhoneTouched(true)}
-                          className={`flex-1 px-3 py-2 border ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'} text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
-                          placeholder="XXXXXXXXXX"
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your name"
                         />
                       </div>
-                      {phoneTouched && phoneError && (
-                        <p className="text-xs text-red-600 mt-1">{phoneError}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                      <input 
-                        type="text" 
-                        name="city"
-                        value={formData.city}
-                        onChange={handleProfileChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      />
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                          placeholder="Enter your email"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
+                        <div className="flex gap-2">
+                          <select
+                            value={formData.countryCode}
+                            onChange={handleCountryCodeChange}
+                            className="min-w-[120px] rounded-2xl border border-gray-300 px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm"
+                          >
+                            {COUNTRY_CODES.map((country, index) => (
+                              <option key={index} value={country.code}>
+                                {country.flag} {country.code}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handlePhoneChange}
+                            onBlur={() => setPhoneTouched(true)}
+                            className={`flex-1 rounded-2xl border px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="XXXXXXXXXX"
+                          />
+                        </div>
+                        {phoneTouched && phoneError && (
+                          <p className="mt-1 text-xs text-red-600">{phoneError}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={formData.city}
+                          onChange={handleProfileChange}
+                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                        />
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">About Me</label>
-                    <textarea 
+
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-sm">
+                    <div className="mb-5">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">About you</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">A short introduction makes your profile feel warmer and more personal.</p>
+                    </div>
+                    <textarea
                       name="about"
                       value={formData.about}
                       onChange={handleProfileChange}
                       rows="4"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
                       placeholder="Tell us a bit about yourself..."
                     ></textarea>
                   </div>
-                  
-                  <div className="flex justify-between">
-                    <button 
+
+                  <div className="rounded-[24px] border border-[#e8dcc8] bg-[#fcfaf7] p-6 shadow-sm">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-[#6b493d]">Notification preferences</h3>
+                      <p className="mt-1 text-sm text-[#7a6554]">Choose how updates should reach you without overwhelming your inbox.</p>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div>
+                        <p className="mb-2 text-sm font-medium text-gray-700">Email notifications</p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {[
+                            { value: 'instant', label: 'Instant' },
+                            { value: 'daily_summary', label: 'Daily summary' },
+                            { value: 'disabled', label: 'Disabled' }
+                          ].map(option => (
+                            <button
+                              type="button"
+                              key={option.value}
+                              disabled={option.value === 'daily_summary'}
+                              onClick={option.value === 'daily_summary' ? undefined : () => handleNotificationPreferenceChange('email', option.value)}
+                              className={`relative w-full rounded-2xl border px-4 py-3 text-left transition ${option.value === 'daily_summary' ? 'cursor-not-allowed border-[#d8c5b6] bg-[#f3e7dc] text-[#7a6554]' : formData.notificationPreferences.email === option.value ? 'border-[#6b493d] bg-[#6b493d]/10 text-[#1f2a3d]' : 'border-gray-200 bg-white text-gray-700 hover:border-[#6b493d]/70 hover:bg-[#f8f6f4]'}`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-semibold">{option.label}</p>
+                                {option.value === 'daily_summary' && (
+                                  <span className="shrink-0 rounded-full border border-[#c9a280]/70 bg-white/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">Coming soon</span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500">
+                                {option.value === 'instant' ? 'Send urgent updates immediately.' : option.value === 'daily_summary' ? 'Bundle routine alerts into one daily digest.' : 'Disable email alerts.'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={formData.notificationPreferences.inApp}
+                            onChange={(e) => handleNotificationPreferenceChange('inApp', e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
+                          />
+                          <div>
+                            <p className="font-semibold text-gray-900">In-app notifications</p>
+                            <p className="text-xs text-gray-500">Show alerts inside the app whenever activity happens.</p>
+                          </div>
+                        </label>
+
+                        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={formData.notificationPreferences.push}
+                            onChange={(e) => handleNotificationPreferenceChange('push', e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-[#6b493d]"
+                          />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-gray-900">Push notifications</p>
+                              <span className="group relative inline-flex">
+                                <button
+                                  type="button"
+                                  aria-label="About push notifications"
+                                  className="text-gray-400 transition hover:text-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/30"
+                                >
+                                  <Info className="h-4 w-4" />
+                                </button>
+                                <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#6b493d] px-3 py-2 text-center text-xs font-normal text-white shadow-lg group-hover:block group-focus-within:block">
+                                  Get alerts on your phone or computer.
+                                </span>
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500">Receive mobile push alerts where supported.</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <button
                       type="button"
                       onClick={handleCancelEdit}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-md"
+                      className="rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       type="submit"
                       disabled={loading || !hasChanges() || (phoneTouched && phoneError)}
-                      className={`font-medium py-2 px-6 rounded-md ${
-                        loading || !hasChanges() || (phoneTouched && phoneError)
-                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-[#6b493d] hover:bg-[#57392f] text-white'
-                      }`}
+                      className={`rounded-full px-5 py-2.5 text-sm font-semibold ${loading || !hasChanges() || (phoneTouched && phoneError)
+                          ? 'cursor-not-allowed bg-gray-400 text-gray-200'
+                          : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
+                        }`}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -1558,7 +1766,7 @@ const ProfilePage = () => {
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-[#6b493d]">Security Settings</h2>
                 {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-                
+
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-4 text-[#6b493d]">
                     {shouldShowSetPassword ? 'Set Password' : 'Change Password'}
@@ -1573,7 +1781,7 @@ const ProfilePage = () => {
                         <>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                           <div className="relative">
-                            <input 
+                            <input
                               type={showPasswords.currentPassword ? 'text' : 'password'}
                               name="currentPassword"
                               value={passwords.currentPassword}
@@ -1594,11 +1802,11 @@ const ProfilePage = () => {
                         </>
                       )}
                     </div>
-                    
+
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.newPassword ? 'text' : 'password'}
                           name="newPassword"
                           value={passwords.newPassword}
@@ -1613,9 +1821,8 @@ const ProfilePage = () => {
                             setPasswordError(validatePasswordStrength(passwords.newPassword));
                           }}
                           required
-                          className={`w-full px-3 py-2 pr-10 border rounded-md ${
-                            passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
-                          }`}
+                          className={`w-full px-3 py-2 pr-10 border rounded-md ${passwordTouched.newPassword && passwordError ? 'border-red-500' : 'border-gray-300'
+                            }`}
                         />
                         <button
                           type="button"
@@ -1636,11 +1843,11 @@ const ProfilePage = () => {
                         <p className="text-xs text-red-600 mt-1">Password must have: {passwordError}</p>
                       )}
                     </div>
-                    
+
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
                       <div className="relative">
-                        <input 
+                        <input
                           type={showPasswords.confirmPassword ? 'text' : 'password'}
                           name="confirmPassword"
                           value={passwords.confirmPassword}
@@ -1662,9 +1869,9 @@ const ProfilePage = () => {
                         <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
                       )}
                     </div>
-                    
+
                     <div className="flex justify-end">
-                      <button 
+                      <button
                         type="submit"
                         disabled={
                           loading ||
@@ -1681,151 +1888,56 @@ const ProfilePage = () => {
               </div>
             )}
             {currentView === 'adoptionhistory' && <AdoptionHistory />}
-            {currentView === 'myadoptions' && <MyAdoptions embedded />}
+            {currentView === 'myadoptions' && (
+              <div>
+                <div className="mb-5 flex justify-end">
+                  <button type="button" onClick={() => navigate('/my-adoptions')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                    Open full page
+                    <FaChevronLeft className="rotate-180" />
+                  </button>
+                </div>
+                <MyAdoptions embedded />
+              </div>
+            )}
             {currentView === 'myorders' && (
-                <MyOrdersPage embedded />
+                <div>
+                  <div className="mb-5 flex justify-end">
+                    <button type="button" onClick={() => navigate('/my-orders')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                      Open full page
+                      <FaChevronLeft className="rotate-180" />
+                    </button>
+                  </div>
+                  <MyOrdersPage embedded />
+                </div>
             )}
             {currentView === 'myposts' && (
-              <section className="min-h-screen py-4">
-                <div className="w-full">
-                  <h3 className="text-3xl font-bold text-[#6b493d] mb-8 text-center" style={{ fontFamily: '"Playfair Display", serif' }}>
-                    My Shared Posts
-                  </h3>
-                  {postsLoading ? (
-                    <div className="flex justify-center items-center h-64">
-                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#6b493d] border-t-transparent"></div>
-                    </div>
-                  ) : posts.length === 0 ? (
-                    <div className="bg-[#c9a280]/20 rounded-xl p-8 text-center border-2 border-dashed border-[#6b493d]/30">
-                      <p className="text-xl text-[#6b493d]/80 italic">No posts yet. Share your first pet moment!</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-                      {posts.map((post) => (
-                        <div key={post._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col w-full max-w-full">
-                          <div className="relative group">
-                            <img 
-                              src={post.imageUrl} 
-                              alt="Pet" 
-                              className="w-full h-60 object-cover rounded-t-2xl transition-transform duration-300 hover:scale-105" 
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#6b493d]/40 to-transparent rounded-t-2xl" />
-                          </div>
-                          <div className="p-4 md:p-6 flex flex-col justify-between w-full max-w-full">
-                            {editingPost === post._id ? (
-                              <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-[#6b493d] mb-4 border-b border-[#6b493d]/20 pb-2">
-                                  Edit Post Caption
-                                </h3>
-                                <textarea
-                                  value={editCaption}
-                                  onChange={(e) => setEditCaption(e.target.value)}
-                                  className="w-full rounded-lg border-[#c9a280] focus:border-[#6b493d] focus:ring-[#6b493d] text-[#6b493d]"
-                                  rows={3}
-                                  style={{ fontFamily: '"Poppins", sans-serif' }}
-                                />
-                                <div className="flex justify-end space-x-3">
-                                  <button 
-                                    onClick={() => setEditingPost(null)}
-                                    className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                    disabled={postSavingStates[post._id]}
-                                  >
-                                    <span className="h-5 w-5 text-[#6b493d]">✕</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveEditPost(post._id)}
-                                    disabled={postSavingStates[post._id]}
-                                    className="px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#5a3d32] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                                    style={{ fontFamily: '"Poppins", sans-serif' }}
-                                  >
-                                    {postSavingStates[post._id] ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                        <span>Saving...</span>
-                                      </>
-                                    ) : (
-                                      <span>Save Changes</span>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col justify-between">
-                                <div>
-                                  <p 
-                                    className="text-[#6b493d] mb-4 italic text-lg leading-relaxed break-words"
-                                    style={{ fontFamily: '"Poppins", sans-serif' }}
-                                  >
-                                    &quot;{post.caption}&quot;
-                                  </p>
-                                </div>
-                                <div className="flex items-center justify-between mt-4 flex-wrap gap-y-2">
-                                  <div className="flex items-center space-x-4 text-[#6b493d]/80">
-                                    <div className="flex items-center space-x-1">
-                                      <span>❤️</span>
-                                      <span>{post.likes.length}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <span>💬</span>
-                                      <span>{post.comments.length}</span>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-3">
-                                    <button
-                                      onClick={() => handleEditPost(post)}
-                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                    >
-                                      <span className="h-5 w-5 text-[#6b493d]">✎</span>
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeletePost(post._id)}
-                                      className="p-2 hover:bg-[#6b493d]/10 rounded-full transition-colors"
-                                    >
-                                      <span className="h-5 w-5 text-[#6b493d]">🗑️</span>
-                                    </button>
-                                  </div>
-                                  <button
-                                    onClick={() => toggleComments(post._id)}
-                                    className="text-[#6b493d] hover:underline ml-4 whitespace-nowrap"
-                                  >
-                                    {expandedComments[post._id] ? "Hide Comments" : "View Comments"}
-                                  </button>
-                                </div>
-                                {expandedComments[post._id] && (
-                                  <div className="mt-4 space-y-4 w-full max-w-full overflow-x-auto px-1 md:px-0">
-                                    {post.comments.length > 0 ? (
-                                      post.comments.map((comment) => (
-                                        <div key={comment._id} className="bg-[#f5f3ed] p-3 md:p-4 rounded-lg w-full max-w-full break-words">
-                                          <p className="text-[#6b493d] font-medium break-words">
-                                            {comment.userId?.username || "Unknown User"}
-                                          </p>
-                                          <p className="text-[#6b493d]/80 break-words">{comment.content}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-[#6b493d]/80 italic">No comments yet. Be the first to comment!</p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {postsError && (
-                    <div className="mt-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
-                      {postsError}
-                    </div>
-                  )}
+              <div>
+                <div className="mb-5 flex justify-end">
+                  <button type="button" onClick={() => navigate('/my-posts')} className="inline-flex items-center gap-2 rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#57392f] hover:shadow-lg">
+                    Open full page
+                    <FaChevronLeft className="rotate-180" />
+                  </button>
                 </div>
-              </section>
+                <MyPosts embedded />
+              </div>
             )}
-            
+
             {currentView === 'sellerdashboard' && (
-              <SellerDashboard />
+              <SellerDashboard embedded onNavigateOrders={() => handleViewChange('ordermanagement')} />
+            )}
+
+            {currentView === 'selleranalytics' && (
+              <SellerAnalyticsDashboard 
+                embedded 
+                onNavigateOrders={() => handleViewChange('ordermanagement')} 
+              />
+            )}
+
+            {currentView === 'ordermanagement' && (
+              <SellerOrders
+                embedded
+                onNavigateAnalytics={() => handleViewChange('selleranalytics')}
+              />
             )}
           </div>
         </div>

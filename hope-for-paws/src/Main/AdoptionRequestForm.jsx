@@ -74,9 +74,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       return;
     }
     try {
-      const storedUser =
-        JSON.parse(localStorage.getItem('user') || 'null') ||
-        JSON.parse(sessionStorage.getItem('user') || 'null');
+      const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
       applyUser(storedUser);
     } catch (e) {
       console.error('Error parsing stored user:', e);

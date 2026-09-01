@@ -25,40 +25,46 @@ const C = {
 
 const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
   const [imgOk, setImgOk] = useState(false);
-  const discount = p.discountPrice ? Math.round((1 - p.discountPrice/p.price)*100) : null;
-  const currentPrice = p.discountPrice || p.price;
-  const originalPrice = p.discountPrice ? p.price : null;
-  
-  // Normalizing image path
-  let imageUrl = "https://placehold.co/400x400/EDE8DF/9B6B45?text=🐾";
-  if (p.images && p.images.length > 0) {
-    imageUrl = p.images[0].startsWith("http") ? p.images[0] : `${API_BASE_URL}${p.images[0]}`;
+  const discount = p.discountPercentage || null;
+
+  const currentPrice =
+    p.price - (p.price * (p.discountPercentage || 0)) / 100;
+
+  const originalPrice =
+    (p.discountPercentage || 0) > 0 ? p.price : null;
+
+  // Normalizing image path — strip "/api" from API_BASE_URL for static file serving
+  const STATIC_BASE = API_BASE_URL.replace(/\/api\/?$/, '');
+  const FALLBACK_IMG = "https://placehold.co/400x400/EDE8DF/9B6B45?text=🐾";
+  let imageUrl = FALLBACK_IMG;
+  if (p.images && p.images.length > 0 && p.images[0]) {
+    imageUrl = p.images[0].startsWith("http") ? p.images[0] : `${STATIC_BASE}${p.images[0]}`;
   }
-  
+
   const sellerName = p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller";
   const isVerified = p.sellerId?.isVerified || false;
 
   return (
     <Link to={`/product/${p._id}`} className="group relative bg-white rounded-2xl overflow-hidden border border-[#EAE2D8] flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1" style={{ textDecoration: 'none' }}>
-      
+
       <div className="relative h-48 bg-[#F0EAE1] overflow-hidden flex-shrink-0">
-        <img 
-          src={imageUrl} 
-          alt={p.title} 
+        <img
+          src={imageUrl}
+          alt={p.title}
           onLoad={() => setImgOk(true)}
           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${imgOk ? 'block' : 'hidden'}`}
-          onError={e => { setImgOk(true); e.target.src=`https://placehold.co/400x400/EDE8DF/9B6B45?text=🐾`; }}
+          onError={e => { setImgOk(true); e.target.src = `https://placehold.co/400x400/EDE8DF/9B6B45?text=🐾`; }}
         />
         {!imgOk && <div className="absolute inset-0 animate-pulse bg-[#E2D8CC]"></div>}
-        
+
         {discount && (
           <span className="absolute top-3 left-3 px-2 py-1 rounded-full bg-[#B03A2E] text-white text-[10px] font-bold z-10 shadow-sm">
             -{discount}%
           </span>
         )}
-        
+
         {/* Remove Button Overlay */}
-        <button 
+        <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(p._id); }}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-[#e24c4c] shadow-md transition-transform hover:scale-110 border border-[#E2D8CC] z-10"
           title="Remove from Wishlist"
@@ -72,11 +78,11 @@ const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
           {p.category || "General"}
           {isVerified && <VerifiedBadge isVerified={true} size="sm" />}
         </p>
-        
+
         <h3 className="text-[15px] text-[#6b493d] mb-1.5 font-semibold leading-tight line-clamp-2 min-h-[40px]">
           {p.title}
         </h3>
-        
+
         <div className="flex items-center gap-1 mb-3">
           <StarDisplay rating={p.averageRating || 0} numReviews={p.numReviews || 0} size={12} />
         </div>
@@ -92,24 +98,23 @@ const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
               </p>
             )}
           </div>
-          
-          <button 
+
+          <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCart(p._id); }}
             disabled={inCart || p.countInStock === 0}
-            className={`h-9 px-4 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-200 border-1.5 ${
-              inCart 
-                ? 'bg-[#F0EAE1] text-[#856046] border-[#E2D8CC]' 
-                : p.countInStock === 0 
+            className={`h-9 px-4 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-200 border-1.5 ${inCart
+                ? 'bg-[#F0EAE1] text-[#856046] border-[#E2D8CC]'
+                : p.countInStock === 0
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                   : 'bg-[#6b493d] text-white border-[#6b493d] hover:bg-[#856046]'
-            }`}
+              }`}
           >
             {inCart ? (
               <>Added</>
             ) : p.countInStock === 0 ? (
               <>Out of Stock</>
             ) : (
-              <><ShoppingCart size={14}/> Add</>
+              <><ShoppingCart size={14} /> Add</>
             )}
           </button>
         </div>
@@ -119,7 +124,12 @@ const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
 };
 
 export default function Wishlist() {
-  const { wishlist, isLoading, toggleWishlist } = useWishlist();
+  const { wishlist, isLoading, toggleWishlist, clearWishlist, markAsViewed } = useWishlist();
+
+  useEffect(() => {
+    markAsViewed();
+  }, [markAsViewed]);
+  
   const { addToCart, isInCart } = useCart();
   const navigate = useNavigate();
 
@@ -146,7 +156,7 @@ export default function Wishlist() {
     <div className="min-h-screen bg-[#F8F4ED] pb-24">
       {/* Header Banner */}
       <div className="bg-[#6b493d] text-white py-12 px-6 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage:`radial-gradient(circle at 20% 150%, #ffffff 0%, transparent 50%), radial-gradient(circle at 80% -50%, #c9a280 0%, transparent 50%)` }}></div>
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 20% 150%, #ffffff 0%, transparent 50%), radial-gradient(circle at 80% -50%, #c9a280 0%, transparent 50%)` }}></div>
         <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-extrabold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -156,11 +166,20 @@ export default function Wishlist() {
               Curated items you love. {populatedWishlist.length > 0 ? `You have ${populatedWishlist.length} saved product${populatedWishlist.length === 1 ? '' : 's'}.` : ''}
             </p>
           </div>
+          {populatedWishlist.length > 0 && (
+            <button
+              onClick={clearWishlist}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#e8d5c0] hover:text-red-300 hover:bg-white/10 transition-all duration-200"
+            >
+              <Trash2 size={14} />
+              Clear Wishlist
+            </button>
+          )}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        
+
         {populatedWishlist.length === 0 ? (
           /* EMPTY STATE */
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white rounded-3xl border border-[#EAE2D8] shadow-sm">
@@ -171,8 +190,8 @@ export default function Wishlist() {
             <p className="text-[#a07855] max-w-md mb-8">
               Looks like you haven't saved any items yet. Explore our marketplace to find perfect products for your furry friends.
             </p>
-            <Link 
-              to="/marketplace" 
+            <Link
+              to="/marketplace"
               className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#6b493d] text-white font-bold rounded-xl hover:bg-[#856046] hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
             >
               Explore Marketplace <ArrowRight size={18} />
@@ -182,9 +201,9 @@ export default function Wishlist() {
           /* WISHLIST GRID */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {populatedWishlist.map((product) => (
-              <WishlistItemCard 
-                key={product._id} 
-                p={product} 
+              <WishlistItemCard
+                key={product._id}
+                p={product}
                 onRemove={toggleWishlist}
                 onCart={handleAddToCart}
                 inCart={isInCart(product._id)}
@@ -192,7 +211,7 @@ export default function Wishlist() {
             ))}
           </div>
         )}
-        
+
       </div>
     </div>
   );

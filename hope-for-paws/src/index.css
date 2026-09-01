@@ -2,8 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: #2C1810;
+  --ink-soft: #6B4A38;
+  --clay: #A07855;
+  --clay-deep: #8A6A4D;
+  --sand: #E5D9C8;
+  --sand-light: #F5EFE6;
+  --cream: #F8F4EA;
+  --like: #EF4444;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  color: var(--ink);
+  background-color: var(--cream);
+}
+
+.bg-warm-gradient {
+  background: radial-gradient(circle at 50% 0%, #F5EFE6 0%, #F8F4EA 65%, #E5D9C8 100%);
+  background-attachment: fixed;
 }
 
 /* Custom animations for mobile navigation */
@@ -40,6 +62,17 @@ body {
   from {
     opacity: 0;
     transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
@@ -195,6 +228,7 @@ body {
   scroll-behavior: smooth;
 }
 
+<<<<<<< HEAD
 /* AI Assistant animations */
 @keyframes aiPulse {
   0%, 100% {
@@ -254,4 +288,10 @@ body {
     background-color: #1a1a1a;
     color: #e0d0c0;
   }
+=======
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+>>>>>>> origin/sahab
 }

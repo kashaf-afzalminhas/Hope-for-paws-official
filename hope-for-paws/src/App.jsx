@@ -13,16 +13,8 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const getStoredUser = () => {
-    if (localStorage.getItem('token')) {
-      const user = localStorage.getItem('user');
-      if (user) return JSON.parse(user);
-    }
-    if (sessionStorage.getItem('token')) {
-      const user = sessionStorage.getItem('user');
-      if (user) return JSON.parse(user);
-    }
-    const legacy = localStorage.getItem('user') || sessionStorage.getItem('user');
-    return legacy ? JSON.parse(legacy) : null;
+    const user = localStorage.getItem('user') || sessionStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
   };
   const user = getStoredUser();
   const [justVerifiedPhone, setJustVerifiedPhone] = useState(false);
@@ -64,7 +56,11 @@ function App() {
       }
       
       if (user && !isSkipRoute && !user.isAdmin && !justVerifiedPhone) {
-        // Check if user needs phone verification - redirect to profile instead of showing modal
+        // Skip phone verification for sellers with incomplete onboarding—
+        // they'll provide their phone number during the onboarding process.
+        if (user.isSeller && user.sellerStatus === 'incomplete') {
+          return;
+        }
         if (!user.phone || !user.phoneVerified) {
           navigate('/profile', { replace: true });
         }
@@ -101,29 +97,25 @@ function App() {
         const data = await response.json();
         const updatedUser = data.user;
         
-        // Update localStorage with fresh user data
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        // Force a page reload to update the user state
-        window.location.reload();
-      } else {
-        // Fallback: update localStorage and reload
-        const updatedUser = { ...user, phoneVerified: true };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Error fetching updated user data:', error);
-      // Fallback: update localStorage and reload
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      window.location.reload();
+    } else {
       const updatedUser = { ...user, phoneVerified: true };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('Error fetching updated user data:', error);
+    const updatedUser = { ...user, phoneVerified: true };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    window.location.reload();
+  }
+};
 
-  const handleSignOut = async () => {
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+const handleSignOut = async () => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
       const response = await fetch(`${AUTH_BASE_URL}/signout`, {
         method: 'POST',

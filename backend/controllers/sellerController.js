@@ -2,6 +2,7 @@ const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
+const emailTemplates = require('../utils/emailTemplates');
 
 // Email Transporter Setup (matches codebase pattern in userController/contactController)
 const transporter = nodemailer.createTransport({
@@ -30,7 +31,7 @@ const ensureAdmin = async (userId) => {
 // Seller onboarding (post-registration)
 exports.onboardSeller = async (req, res) => {
   try {
-    const { fullName, storeName, email, phone, address, bankName, accountTitle, accountNumber } = req.body;
+    const { fullName, storeName, email, phone, address } = req.body;
     const userId = req.user?.id || req.user?.userId;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -59,11 +60,6 @@ exports.onboardSeller = async (req, res) => {
       email,
       phone,
       address,
-      paymentDetails: {
-        bankName,
-        accountTitle,
-        accountNumber
-      },
       profileImage,
       status: 'pending',
       isVerified: false
@@ -71,6 +67,8 @@ exports.onboardSeller = async (req, res) => {
 
     user.isSeller = true;
     user.sellerStatus = 'pending';
+    user.phone = phone;
+    user.phoneVerified = true;
     // user.canBuy is left true per new rules
     await user.save();
 
@@ -134,79 +132,20 @@ exports.updateSellerStatus = async (req, res) => {
     let emailWarning = null;
     try {
       if (isVerified) {
+        const { subject, html } = emailTemplates.buildSellerApprovedEmail({ storeName: seller.storeName });
         await transporter.sendMail({
           from: process.env.GMAIL_USER,
           to: seller.email,
-          subject: 'You are now a Verified Seller on Hope For Paws! \uD83D\uDC3E',
-          html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 1px solid #e5e0d8;">
-              <div style="background: linear-gradient(135deg, #6b493d, #a07855); color: white; padding: 32px; text-align: center;">
-                <h1 style="margin: 0; font-size: 26px;">Hope for Paws \uD83D\uDC3E</h1>
-                <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">Verified Seller Program</p>
-              </div>
-              <div style="padding: 28px; background-color: #fdfbf7;">
-                <h2 style="color: #4a342e; margin-top: 0;">Congratulations, ${seller.storeName}! \uD83C\uDF89</h2>
-                <p style="color: #5d4037; line-height: 1.7; font-size: 15px;">
-                  We are thrilled to inform you that your seller application has been <strong>approved</strong>.
-                  Your store is now part of our Verified Seller network!
-                </p>
-                <div style="margin: 24px 0; padding: 16px; background-color: #fff; border-left: 4px solid #4caf50; border-radius: 6px;">
-                  <p style="margin: 0; color: #2e7d32; font-weight: bold;">What this means for you:</p>
-                  <ul style="color: #5d4037; line-height: 1.8; padding-left: 20px; margin-bottom: 0;">
-                    <li>A premium <strong>Verified Seller</strong> badge has been added to your storefront.</li>
-                    <li>Your products will stand out with enhanced buyer trust.</li>
-                    <li>You now have full access to all marketplace features.</li>
-                  </ul>
-                </div>
-                <p style="color: #5d4037; line-height: 1.7; font-size: 15px;">
-                  Thank you for being a trusted member of our community. We look forward to seeing your store grow!
-                </p>
-              </div>
-              <div style="background-color: #f5f3ed; padding: 16px; text-align: center; color: #8d6e63; font-size: 12px;">
-                <p style="margin: 0;">Hope for Paws. All rights reserved.</p>
-              </div>
-            </div>
-          `
+          subject,
+          html,
         });
       } else {
+        const { subject, html } = emailTemplates.buildSellerRejectedEmail({ storeName: seller.storeName, notes });
         await transporter.sendMail({
           from: process.env.GMAIL_USER,
           to: seller.email,
-          subject: 'Update regarding your Hope for Paws Seller Account',
-          html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 1px solid #e5e0d8;">
-              <div style="background: linear-gradient(135deg, #6b493d, #a07855); color: white; padding: 32px; text-align: center;">
-                <h1 style="margin: 0; font-size: 26px;">Hope for Paws \uD83D\uDC3E</h1>
-                <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">Seller Account Update</p>
-              </div>
-              <div style="padding: 28px; background-color: #fdfbf7;">
-                <h2 style="color: #4a342e; margin-top: 0;">Hi ${seller.storeName},</h2>
-                <p style="color: #5d4037; line-height: 1.7; font-size: 15px;">
-                  Thank you for your interest in becoming a Verified Seller on Hope for Paws.
-                  After careful review, we were unable to approve your verification at this time.
-                </p>
-                ${notes ? `
-                <div style="margin: 24px 0; padding: 16px; background-color: #fff; border-left: 4px solid #e65100; border-radius: 6px;">
-                  <p style="margin: 0 0 8px; color: #e65100; font-weight: bold;">Reason provided by the admin:</p>
-                  <p style="margin: 0; color: #5d4037; line-height: 1.6; font-style: italic;">${notes}</p>
-                </div>` : ''}
-                <div style="margin: 24px 0; padding: 16px; background-color: #fff; border-left: 4px solid #1976d2; border-radius: 6px;">
-                  <p style="margin: 0; color: #1565c0; font-weight: bold;">Important:</p>
-                  <ul style="color: #5d4037; line-height: 1.8; padding-left: 20px; margin-bottom: 0;">
-                    <li>You still have <strong>full access</strong> to your Seller Dashboard.</li>
-                    <li>You can update your information and <strong>re-apply</strong> once the issue is resolved.</li>
-                    <li>Your existing products and order history remain intact.</li>
-                  </ul>
-                </div>
-                <p style="color: #5d4037; line-height: 1.7; font-size: 15px;">
-                  If you have any questions, please don't hesitate to reach out to our support team.
-                </p>
-              </div>
-              <div style="background-color: #f5f3ed; padding: 16px; text-align: center; color: #8d6e63; font-size: 12px;">
-                <p style="margin: 0;">Hope for Paws. All rights reserved.</p>
-              </div>
-            </div>
-          `
+          subject,
+          html,
         });
       }
       console.log(`Verification email sent to ${seller.email} (status: ${seller.status})`);

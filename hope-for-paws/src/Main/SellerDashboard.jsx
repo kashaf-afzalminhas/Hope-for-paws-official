@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,10 +22,12 @@ ChartJS.register(
 );
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
-  Plus, Edit2, Trash2, X, AlertCircle, ChevronDown, Check, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play,
-  BadgeCheck, Clock
+  Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play, ArrowUpRight,
+  BadgeCheck, Clock, Star, ArrowLeft
 } from 'lucide-react';
 import AddProduct from './AddProduct';
+import StarDisplay from '../Components/StarDisplay';
+import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -36,7 +39,9 @@ const getAxiosConfig = () => {
   };
 };
 
-const SellerDashboard = () => {
+const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [editingProductId, setEditingProductId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -53,43 +58,115 @@ const SellerDashboard = () => {
     topProducts: []
   });
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [sellerProfile, setSellerProfile] = useState(null);
   
+  // Reviews States
+  const [reviews, setReviews] = useState([]);
+  const [reviewsStats, setReviewsStats] = useState({ averageRating: 0, totalReviews: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [reviewsFetched, setReviewsFetched] = useState(false);
+
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch Data
-  const fetchDashboardData = async () => {
+  const goToOrders = () => {
+    if (onNavigateOrders) {
+      onNavigateOrders();
+    } else {
+      navigate('/seller/orders');
+    }
+  };
+
+  // Fetch Data — initial load shows spinner; background refresh is silent
+  const fetchDashboardData = async ({ silent = false } = {}) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const [statsRes, productsRes, ordersRes, profileRes] = await Promise.all([
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
+      const [statsRes, productsRes, profileRes] = await Promise.all([
         axios.get(`${API_URL}/dashboard-stats`, getAxiosConfig()),
         axios.get(`${API_URL}/products`, getAxiosConfig()),
-        axios.get(`${API_URL}/orders`, getAxiosConfig()),
         axios.get(`${API_URL}/me`, getAxiosConfig()).catch(() => null)
       ]);
       
       setStats(statsRes.data);
       setProducts(productsRes.data);
-      setOrders(ordersRes.data);
       if (profileRes?.data?.seller) {
         setSellerProfile(profileRes.data.seller);
       }
+      // Clear any previous error on a successful refresh
+      if (silent) setError(null);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please try again.');
+      if (!silent) {
+        setError('Failed to load dashboard data. Please try again.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
+
+  // Stable ref so the interval/listener callback always calls the latest version
+  const silentRefreshRef = React.useRef(() => fetchDashboardData({ silent: true }));
+  React.useEffect(() => {
+    silentRefreshRef.current = () => fetchDashboardData({ silent: true });
+  });
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const productId = searchParams.get('productId');
+    if (!productId || !products.length) return;
+    const product = products.find((item) => String(item._id) === String(productId));
+    if (product) handleOpenEditModal(product);
+  }, [products, searchParams]);
+
+  useEffect(() => {
+    // Pause background polling while the user is on the Add/Edit Product form
+    // to prevent parent re-renders from unmounting the form and losing data.
+    if (activeTab === 'add-product' || activeTab === 'edit-product') return;
+
+    const refresh = () => silentRefreshRef.current();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('stock-updated', refresh);
+    const refreshInterval = window.setInterval(refresh, 30000);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('stock-updated', refresh);
+      window.clearInterval(refreshInterval);
+    };
+  }, [activeTab]);
+
+  // Lazy-load reviews when Reviews tab is selected
+  const fetchSellerReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const res = await axios.get(`${API_URL}/reviews`, getAxiosConfig());
+      setReviews(res.data.reviews || []);
+      setReviewsStats(res.data.stats || { averageRating: 0, totalReviews: 0 });
+      setReviewsFetched(true);
+    } catch (err) {
+      console.error('Error fetching seller reviews:', err);
+      setReviewsError('Failed to load reviews. Please try again.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && !reviewsFetched) {
+      fetchSellerReviews();
+    }
+  }, [activeTab]);
 
   const handleOpenEditModal = (product) => {
     setEditingProductId(product._id);
@@ -105,6 +182,15 @@ const SellerDashboard = () => {
     if (!productToDelete) return;
     try {
       await axios.delete(`${API_URL}/products/${productToDelete._id}`, getAxiosConfig());
+      
+      // Decrement count if the deleted item was active
+      if (productToDelete.status === 'active' && productToDelete.countInStock > 0) {
+        setStats(prev => ({
+          ...prev,
+          activeProducts: Math.max(0, prev.activeProducts - 1)
+        }));
+      }
+
       setProducts(products.filter(p => p._id !== productToDelete._id));
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
@@ -117,21 +203,21 @@ const SellerDashboard = () => {
   const handleToggleVisibility = async (product) => {
     try {
       const res = await axios.patch(`${API_URL}/products/${product._id}/toggle-visibility`, {}, getAxiosConfig());
-      setProducts(products.map(p => p._id === product._id ? { ...p, status: res.data.product.status } : p));
+      const updatedStatus = res.data.product.status;
+      setProducts(products.map(p => p._id === product._id ? { ...p, status: updatedStatus } : p));
+      
+      // Update active products count in stats immediately if item is in stock
+      if (product.countInStock > 0) {
+        setStats(prev => ({
+          ...prev,
+          activeProducts: updatedStatus === 'active'
+            ? prev.activeProducts + 1
+            : Math.max(0, prev.activeProducts - 1)
+        }));
+      }
     } catch (err) {
       console.error('Error toggling visibility:', err);
       alert('Failed to toggle product visibility');
-    }
-  };
-
-  const handleOrderStatusChange = async (orderId, newStatus) => {
-    try {
-      await axios.patch(`${API_URL}/orders/${orderId}/status`, { status: newStatus }, getAxiosConfig());
-      // Update local state
-      setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      alert('Failed to update order status');
     }
   };
 
@@ -170,27 +256,43 @@ const SellerDashboard = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className={embedded ? 'w-full' : 'min-h-screen bg-[#f8f6f4]'}>
+      <div className={embedded ? 'w-full' : 'mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8'}>
+      {!embedded && (
+        <button type="button" onClick={() => navigate('/profile')} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6b493d] transition hover:text-[#4E3B31]">
+          <ArrowLeft className="h-4 w-4" />
+          Back to dashboard
+        </button>
+      )}
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <h1 className="text-4xl font-bold text-[#6b493d] tracking-wide">
-            {sellerProfile?.storeName || 'Seller Dashboard'}
-          </h1>
+      <div className="mb-8 rounded-[28px] border border-[#e8dcc8] bg-gradient-to-br from-[#f8f4ed] via-[#fcf8f3] to-[#efe4d8] p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <h1 className={`font-bold tracking-tight text-stone-900 ${embedded ? 'text-2xl' : 'text-3xl'}`}>
+              {sellerProfile?.storeName || 'Store Dashboard'}
+            </h1>
 
-          {/* Verification Badge */}
-          {sellerProfile && (
-            sellerProfile.isVerified ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
-                <BadgeCheck className="w-4 h-4 text-green-600" />
-                Verified Seller
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
-                <Clock className="w-3.5 h-3.5 text-red-600" />
-                Pending Review
-              </span>
-            )
+            {/* Verification Badge */}
+            {sellerProfile && (
+              sellerProfile.isVerified ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm self-start sm:self-auto">
+                  <BadgeCheck className="w-4 h-4 text-green-600" />
+                  Verified Seller
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
+                  <Clock className="w-3.5 h-3.5 text-red-600" />
+                  Pending Review
+                </span>
+              )
+            )}
+          </div>
+          {embedded && (
+            <button type="button" onClick={() => navigate('/seller/dashboard')} className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#57392f] hover:shadow-md">
+              <ShoppingBag className="h-4 w-4" />
+              Open full page
+              <ArrowUpRight className="h-4 w-4" />
+            </button>
           )}
         </div>
         <p className="text-gray-500 mt-2">Manage your marketplace presence and track performance.</p>
@@ -201,7 +303,8 @@ const SellerDashboard = () => {
         {[
           { id: 'overview', label: 'Overview', icon: TrendingUp },
           { id: 'products', label: 'Products', icon: Package },
-          { id: 'orders', label: 'Orders', icon: ShoppingBag }
+          { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+          { id: 'reviews', label: 'Reviews', icon: Star }
         ].map(tab => (
           <button
             key={tab.id}
@@ -220,21 +323,22 @@ const SellerDashboard = () => {
 
       {/* Content Area */}
       <div className="min-h-[400px]">
+        {activeTab === 'analytics' && <SellerAnalyticsDashboard embedded />}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-green-50 text-green-600' },
-                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-600', onClick: () => setActiveTab('orders'), clickable: true },
-                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-purple-50 text-purple-600', onClick: () => setActiveTab('products'), clickable: true },
-                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-orange-50 text-orange-600' }
+                { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-emerald-50 text-emerald-700', cardColor: 'bg-emerald-50 border-emerald-100' },
+                { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-700', cardColor: 'bg-blue-50 border-blue-100', onClick: goToOrders, clickable: true },
+                { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-violet-50 text-violet-700', cardColor: 'bg-violet-50 border-violet-100', onClick: () => setActiveTab('products'), clickable: true },
+                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-amber-50 text-amber-700', cardColor: 'bg-amber-50 border-amber-100' }
               ].map((stat, i) => (
                 <div 
                   key={i} 
                   onClick={stat.onClick ? stat.onClick : undefined}
-                  className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all ${
-                    stat.clickable ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5' : 'hover:shadow-md'
+                    className={`${stat.cardColor} rounded-2xl border-2 p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                    stat.clickable ? 'cursor-pointer' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -242,8 +346,8 @@ const SellerDashboard = () => {
                       <stat.icon className="w-6 h-6" />
                     </div>
                   </div>
-                  <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                  <h3 className="text-[#8c6b58] text-sm font-medium">{stat.label}</h3>
+                  <p className="text-2xl font-bold text-[#4a3429] mt-1">{stat.value}</p>
                 </div>
               ))}
             </div>
@@ -367,7 +471,7 @@ const SellerDashboard = () => {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-[#6b493d]">Recent Orders</h3>
-                  <button onClick={() => setActiveTab('orders')} className="text-[#6b493d] text-sm font-medium hover:underline">View All</button>
+                  <button onClick={goToOrders} className="text-[#6b493d] text-sm font-medium hover:underline">View All</button>
                 </div>
                 
                 {stats.recentOrders && stats.recentOrders.length > 0 ? (
@@ -379,7 +483,7 @@ const SellerDashboard = () => {
                           <p className="text-sm text-gray-500">{order.customer} • {order.items} item(s)</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-gray-900">Rs. {order.amount.toLocaleString()}</p>
+                          <p className="font-bold text-[#4e3b31]">Rs. {order.amount.toLocaleString()}</p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
                             order.status === 'Shipped' ? 'bg-green-100 text-green-800' : 
                             order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -424,6 +528,7 @@ const SellerDashboard = () => {
                     <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <th className="p-4 font-medium">Product</th>
                       <th className="p-4 font-medium">Category</th>
+                      <th className="p-4 font-medium">Discount</th>
                       <th className="p-4 font-medium">Price</th>
                       <th className="p-4 font-medium">Stock</th>
                       <th className="p-4 font-medium">Status</th>
@@ -432,7 +537,7 @@ const SellerDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {products.map((product) => (
-                      <tr key={product._id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={product._id} className={`transition-colors ${product.countInStock <= 0 ? 'bg-[#f1d9c8]/50 hover:bg-[#f1d9c8]' : 'hover:bg-[#faf6f0]'}`}>
                         <td className="p-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -446,18 +551,45 @@ const SellerDashboard = () => {
                           </div>
                         </td>
                         <td className="p-4 text-gray-500 text-sm">{product.category || 'N/A'}</td>
-                        <td className="p-4 text-gray-900 font-medium">Rs. {product.price.toLocaleString()}</td>
+                        <td className="p-4 text-gray-500 text-sm">{product.discountPercentage || 0}%</td>
                         <td className="p-4">
-                          <span className={`text-sm ${product.countInStock <= 5 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                          {product.discountPercentage > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-400 line-through">
+                                Rs. {product.price.toLocaleString()}
+                              </span>
+                              <span className="font-semibold text-gray-900">
+                                Rs. {(
+                                  product.price -
+                                  (product.price * product.discountPercentage) / 100
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="font-medium text-gray-900">
+                              Rs. {product.price.toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className={`flex items-center gap-1.5 text-sm ${product.countInStock <= 0 ? 'text-[#8b3f32] font-bold' : product.countInStock <= 5 ? 'text-[#a65d45] font-medium' : 'text-[#7a6554]'}`}>
+                            {product.countInStock <= 0 && <AlertCircle className="w-4 h-4 text-[#a65d45]" />}
                             {product.countInStock}
                           </span>
                         </td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.status === 'hidden' ? 'bg-gray-100 text-gray-800' :
-                            product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            product.status === 'hidden' 
+                              ? 'bg-[#f1e4d7] text-[#6b493d]' 
+                              : product.countInStock <= 0 
+                                ? 'bg-[#f1d9c8] text-[#7a3f32]' 
+                                : 'bg-[#ead8c8] text-[#4e3b31]'
                           }`}>
-                            {product.status === 'hidden' ? 'Hidden' : product.countInStock > 0 ? 'Active' : 'Out of Stock'}
+                            {product.status === 'hidden' 
+                              ? 'Hidden' 
+                              : product.countInStock <= 0 
+                                ? 'Out of Stock' 
+                                : 'Active'}
                           </span>
                         </td>
                         <td className="p-4 text-right flex items-center justify-end space-x-2">
@@ -499,79 +631,6 @@ const SellerDashboard = () => {
           </div>
         )}
 
-        {activeTab === 'orders' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 bg-[#fcfaf8]">
-              <h2 className="text-2xl font-bold text-[#6b493d]">Recent Orders</h2>
-            </div>
-            
-            <div className="overflow-x-auto">
-              {orders.length > 0 ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                      <th className="p-4 font-medium">Order ID</th>
-                      <th className="p-4 font-medium">Date</th>
-                      <th className="p-4 font-medium">Customer</th>
-                      <th className="p-4 font-medium">Items</th>
-                      <th className="p-4 font-medium">Total</th>
-                      <th className="p-4 font-medium">Status</th>
-                      <th className="p-4 font-medium text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-4 text-sm font-medium text-gray-900">#{order.id.substring(0, 8)}</td>
-                        <td className="p-4 text-sm text-gray-500">{order.date}</td>
-                        <td className="p-4 text-sm text-gray-900">{order.customer}</td>
-                        <td className="p-4 text-sm text-gray-500">{order.items}</td>
-                        <td className="p-4 text-sm font-medium text-gray-900">Rs. {order.amount.toLocaleString()}</td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            order.status === 'Shipped' ? 'bg-green-100 text-green-800' : 
-                            order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="relative inline-block text-left group">
-                            <button className="text-sm font-medium text-[#6b493d] hover:text-[#8c6b5d] flex items-center justify-end w-full">
-                              Update <ChevronDown className="w-4 h-4 ml-1" />
-                            </button>
-                            <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg border border-gray-100 hidden group-hover:block z-10">
-                              <div className="py-1">
-                                {['Pending', 'Shipped', 'Cancelled'].map(s => (
-                                  <button
-                                    key={s}
-                                    onClick={() => handleOrderStatusChange(order.id, s)}
-                                    className={`block w-full text-left px-4 py-2 text-sm ${
-                                      order.status === s ? 'bg-gray-50 text-[#6b493d] font-medium' : 'text-gray-700 hover:bg-gray-50'
-                                    }`}
-                                  >
-                                    {order.status === s && <Check className="w-3 h-3 inline mr-2 text-[#6b493d]" />}
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="p-12 text-center text-gray-500">
-                  <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p>No orders received yet.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
 
@@ -604,6 +663,7 @@ const SellerDashboard = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -9,12 +9,14 @@ export const useWishlist = () => useContext(WishlistContext);
 export const WishlistProvider = ({ children }) => {
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState([]);
+  const [unviewedCount, setUnviewedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchWishlist = useCallback(async () => {
     if (!user) {
       setWishlist([]);
+      setUnviewedCount(0);
       setIsLoading(false);
       return;
     }
@@ -33,6 +35,7 @@ export const WishlistProvider = ({ children }) => {
       const data = await res.json();
       
       setWishlist(data.products || []);
+      setUnviewedCount(data.unviewedCount || 0);
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -46,23 +49,24 @@ export const WishlistProvider = ({ children }) => {
   }, [fetchWishlist]);
 
   const toggleWishlist = async (productId) => {
-    if (!user) {
-      alert("Please log in to use the wishlist.");
-      return { success: false, message: 'Not logged in' };
-    }
+    if (!user) return { success: false, message: 'Not logged in' };
 
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    
-    // Check if in wishlist
     const isCurrentlyInWishlist = wishlist.some(p => (p._id || p.id || p) === productId);
     const previousWishlist = [...wishlist];
+    const previousUnviewedCount = unviewedCount;
     
     // Optimistic Update
     setWishlist(prev => 
       isCurrentlyInWishlist 
         ? prev.filter(p => (p._id || p.id || p) !== productId) 
-        : [...prev, productId] // Just add the ID for now, will fetch full object later
+        : [...prev, productId] 
     );
+
+    // Increment count optimistically if adding; let backend sync precise count on remove
+    if (!isCurrentlyInWishlist) {
+      setUnviewedCount(prev => prev + 1);
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/wishlist/toggle`, {
@@ -75,33 +79,82 @@ export const WishlistProvider = ({ children }) => {
       });
 
       if (!res.ok) throw new Error('Failed to toggle wishlist');
-      
       const data = await res.json();
-      
-      // We trigger a silent background fetch to ensure the wishlist is fully populated
-      // This ensures if a user goes to the Wishlist page, they have the full objects.
-      fetchWishlist();
-      
+
+      // Sync populated products and unviewed count directly from backend response
+      if (data.products) {
+        setWishlist(data.products);
+      }
+      if (typeof data.unviewedCount === 'number') {
+        setUnviewedCount(data.unviewedCount);
+      }
+
       return { success: true, message: data.message };
-      
     } catch (err) {
       console.error(err);
-      // Revert optimistic update
       setWishlist(previousWishlist);
+      setUnviewedCount(previousUnviewedCount);
       return { success: false, message: err.message };
     }
   };
 
   const isInWishlist = (productId) => wishlist.some(p => (p._id || p.id || p) === productId);
 
+  const clearWishlist = async () => {
+    if (!user) return { success: false, message: 'Not logged in' };
+
+    const previousWishlist = [...wishlist];
+    const previousUnviewedCount = unviewedCount;
+
+    // Optimistic update
+    setWishlist([]);
+    setUnviewedCount(0);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/wishlist/clear`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) throw new Error('Failed to clear wishlist');
+      return { success: true, message: 'Wishlist cleared' };
+    } catch (err) {
+      console.error(err);
+      setWishlist(previousWishlist);
+      setUnviewedCount(previousUnviewedCount);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const markAsViewed = useCallback(async () => {
+    if (!user) return;
+    setUnviewedCount(0); // Instantly reset count to 0 in UI
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/wishlist/view`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error('Failed to mark wishlist as viewed:', err);
+    }
+  }, [user]);
+
   return (
     <WishlistContext.Provider value={{
       wishlist,
+      unviewedCount,
       isLoading,
       error,
       toggleWishlist,
       isInWishlist,
-      fetchWishlist
+      clearWishlist,
+      fetchWishlist,
+      markAsViewed
     }}>
       {children}
     </WishlistContext.Provider>

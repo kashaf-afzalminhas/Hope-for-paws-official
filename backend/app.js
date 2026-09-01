@@ -104,6 +104,7 @@ if (!IS_LAMBDA) {
 
 // Initialize notification service (works with or without Socket.IO)
 const notificationService = new NotificationService(io);
+notificationService.scheduleDailyDigestJob();
 
 if (io) {
   app.set('socketio', io);

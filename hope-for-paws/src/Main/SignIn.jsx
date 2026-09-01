@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { NavLink } from 'react-router-dom';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
 import UserTypeModal from '../Components/UserTypeModal';
@@ -15,9 +16,47 @@ const Login = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [fieldError, setFieldError] = useState(false);
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { addToCart } = useCart();
+  const { toggleWishlist } = useWishlist();
+
+  const handlePostLoginNavigation = async (user) => {
+    const pendingActionStr = localStorage.getItem('pendingAction');
+    let redirected = false;
+    if (pendingActionStr) {
+      try {
+        const pendingAction = JSON.parse(pendingActionStr);
+        localStorage.removeItem('pendingAction');
+        if (pendingAction.action === 'cart') {
+          await addToCart(pendingAction.productId, 1);
+          navigate('/cart');
+        } else if (pendingAction.action === 'wishlist') {
+          await toggleWishlist(pendingAction.productId);
+          navigate('/wishlist');
+        } else {
+          navigate(pendingAction.redirectUrl || '/marketplace');
+        }
+        redirected = true;
+      } catch (e) {
+        console.error("Failed to process pending action", e);
+      }
+    }
+
+    if (!redirected) {
+      if (user.isSeller && user.sellerStatus === 'incomplete') {
+        navigate('/seller/onboard');
+      } else if (!user.phone || !user.phoneVerified) {
+        navigate('/profile');
+      } else {
+        navigate("/");
+      }
+    }
+    window.location.reload();
+  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -29,16 +68,46 @@ const Login = () => {
   };
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem('savedEmail');
-    const savedPassword = localStorage.getItem('savedPassword');
-    const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    } else {
+      const savedEmail = localStorage.getItem('savedEmail');
+      const savedPassword = localStorage.getItem('savedPassword');
+      const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
 
-    if (savedRememberMe) {
-      setEmail(savedEmail || '');
-      setPassword(savedPassword || '');
-      setRememberMe(true);
+      if (savedRememberMe) {
+        setEmail(savedEmail || '');
+        setPassword(savedPassword || '');
+        setRememberMe(true);
+      }
     }
-  }, []);
+  }, [location.state]);
+
+  const performPostLoginRedirect = (userObj) => {
+    const savedRedirect = (() => {
+      try {
+        const item = sessionStorage.getItem('redirectAfterAuth');
+        return item ? JSON.parse(item) : null;
+      } catch { return null; }
+    })();
+
+    const targetPath = location.state?.from || savedRedirect?.from || "/";
+    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+    if (openCreate) {
+      sessionStorage.setItem('openAdoptionCreate', 'true');
+    }
+
+    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+      navigate('/seller/onboard');
+    } else if (!userObj.phone || !userObj.phoneVerified) {
+      navigate('/profile');
+    } else {
+      sessionStorage.removeItem('redirectAfterAuth');
+      navigate(targetPath, { state: { openCreate } });
+    }
+    window.location.reload();
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -48,6 +117,7 @@ const Login = () => {
     event.preventDefault();
     setLoading(true);
     setError('');
+    setFieldError(false);
 
     try {
       const response = await fetch(`${AUTH_BASE_URL}/signin`, {
@@ -68,7 +138,7 @@ const Login = () => {
             window.location.reload();
             return;
           }
-          if (rememberMe) { // change here.
+          if (rememberMe) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
@@ -79,25 +149,23 @@ const Login = () => {
           } else {
             sessionStorage.setItem('token', data.token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('savedEmail');
+            localStorage.removeItem('savedPassword');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
           }
           
-          // Check if phone verification is required
-          if (!data.user.phone || !data.user.phoneVerified) {
-            // User will be redirected to phone verification by App.jsx
-            navigate("/");
-            window.location.reload();
-          } else {
-            navigate("/");
-            window.location.reload();
-          }
+          performPostLoginRedirect(data.user);
         } else {
+          setLoading(false);
           setError('Login failed: No token received.');
         }
       } else {
         const data = await response.json();
+        setLoading(false);
         setError(data.error || 'Invalid email or password');
+        setFieldError(true);
       }
     } catch {
       setLoading(false);
@@ -154,21 +222,20 @@ const Login = () => {
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx (till here.)
-          navigate("/");
-          window.location.reload();
-        } else {
-          navigate("/");
-          window.location.reload();
-        }
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
       }
@@ -203,7 +270,7 @@ const Login = () => {
       setLoading(false);
       setShowUserTypeModal(false);
       setPendingGoogleUser(null);
-      if (response.ok) { // change here.
+      if (response.ok) {
         if (data.user && data.user.isAdmin) {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
@@ -214,21 +281,20 @@ const Login = () => {
           window.location.reload();
           return;
         }
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          sessionStorage.setItem("token", data.token);
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) { // till here.
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
-        } else {
-          navigate("/");
-          window.location.reload();
-        }
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -244,6 +310,7 @@ const Login = () => {
       setError('Please enter a valid Gmail address to reset password.');
       return;
     }
+    setLoading(true);
     try {
       const response = await fetch(`${AUTH_BASE_URL}/forgot-password`, {
         method: 'POST',
@@ -259,6 +326,8 @@ const Login = () => {
       }
     } catch {
       setError('An error occurred while sending the verification code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -302,8 +371,12 @@ const Login = () => {
                     autoComplete="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
+                    onChange={(e) => { setEmail(e.target.value); setFieldError(false); }}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm transition-colors text-[#4E3B31] ${
+                      fieldError
+                        ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                        : 'border-[#a07855] focus:ring-[#6b493d] focus:border-transparent'
+                    }`}
                     placeholder="Enter your email"
                   />
                 </div>
@@ -318,8 +391,12 @@ const Login = () => {
                       autoComplete="current-password"
                       required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2 pr-10 border border-[#a07855] text-[#4E3B31] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b493d] focus:border-transparent text-sm transition-colors"
+                      onChange={(e) => { setPassword(e.target.value); setFieldError(false); }}
+                      className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 text-sm transition-colors text-[#4E3B31] ${
+                        fieldError
+                          ? 'border-red-400 focus:ring-red-400 focus:border-red-400'
+                          : 'border-[#a07855] focus:ring-[#6b493d] focus:border-transparent'
+                      }`}
                       placeholder="Enter your password"
                     />
                     <button
@@ -356,7 +433,8 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer"
+                  disabled={loading}
+                  className="text-sm text-[#6b493d] hover:text-[#a07855] transition-colors font-medium bg-transparent border-none p-0 m-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Forgot Password?
                 </button>
@@ -371,7 +449,7 @@ const Login = () => {
               </button>
             </form>
             <motion.div variants={itemVariants} className="flex justify-center">
-              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
+              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
                 <GoogleLogin 
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={(error) => console.log(error)}
@@ -394,7 +472,7 @@ const Login = () => {
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
               Don&apos;t have an account?{' '}
-              <NavLink to="/signup" className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
+              <NavLink to="/signup" state={location.state} className="font-medium text-[#6b493d] hover:text-[#a07855] transition-colors">
                 Sign up
               </NavLink>
             </p>

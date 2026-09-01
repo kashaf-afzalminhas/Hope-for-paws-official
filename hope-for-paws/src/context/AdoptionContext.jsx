@@ -36,6 +36,35 @@ export const AdoptionProvider = ({ children }) => {
     requests: ''
   });
   const { user } = useAuth();
+
+  const [userStats, setUserStats] = useState({
+  totalPosts: 0,
+  adoptedCount: 0,
+  pendingCount: 0,
+});
+
+const fetchUserStats = async () => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+
+    const response = await fetch(`${API_BASE_URL}/adoptions/user-stats`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.data) {
+        setUserStats(result.data);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching user stats:', err);
+  }
+};
   
   // Helper function to get user ID consistently
   const getUserId = () => {
@@ -45,7 +74,7 @@ export const AdoptionProvider = ({ children }) => {
     
     // Then try from storage
     try {
-      const storedUser = JSON.parse(localStorage.getItem('user')) || JSON.parse(sessionStorage.getItem('user'));
+      const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       if (storedUser?._id) return storedUser._id;
       if (storedUser?.id) return storedUser.id;
     } catch (e) {
@@ -249,6 +278,9 @@ export const AdoptionProvider = ({ children }) => {
       setAllAdoptionPosts(prev => [data, ...prev]);
       setUserAdoptionPosts(prev => [data, ...prev]);
 
+      // AUTO-UPDATE STAT CARDS ON CREATE
+      fetchUserStats();
+
       return data;
     } catch (error) {
       console.error('Error creating adoption post:', error);
@@ -328,6 +360,9 @@ export const AdoptionProvider = ({ children }) => {
       // Update both states
       setAllAdoptionPosts(prev => prev.filter(post => post._id !== postId));
       setUserAdoptionPosts(prev => prev.filter(post => post._id !== postId));
+
+      // AUTO-UPDATE STAT CARDS ON DELETE
+      fetchUserStats();
     } catch (error) {
       console.error('Error deleting adoption post:', error);
       throw error;
@@ -585,6 +620,8 @@ export const AdoptionProvider = ({ children }) => {
       value={{
         allAdoptionPosts,
         userAdoptionPosts,
+        userStats,
+        fetchUserStats,
         postRequests,
         loading,
         error,

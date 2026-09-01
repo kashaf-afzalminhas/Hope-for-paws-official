@@ -37,7 +37,7 @@ const useIsMobile = () => {
 };
 
 const ChatPage = () => {
-  const user = JSON.parse(localStorage.getItem("user")) || JSON.parse(sessionStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
   
@@ -155,6 +155,10 @@ const addUserToCache = useCallback((user) => {
     setLastHandledRecipientId(recipientId);
 
     const handleRecipientNavigation = async () => {
+      if (!recipientId || recipientId === 'undefined' || recipientId === 'null') {
+        return;
+      }
+
       setIsTransitioning(true);
       try {
         const response = await getConversationBetweenUsers(currentUserId, recipientId);
@@ -167,14 +171,16 @@ const addUserToCache = useCallback((user) => {
             setTimeout(() => setShowChatMobile(true), 100);
           }
         } else {
-          // Create new conversation
-          const createResponse = await createConversation(currentUserId, recipientId);
-          if (createResponse.data?.data) {
-            setSelectedConversation(createResponse.data.data);
-            const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
-            setSelectedUser(fullUserObj);
-            if (isMobile) {
-              setTimeout(() => setShowChatMobile(true), 100);
+          // Only create a conversation if recipientId is a valid user and not self
+          if (recipientId !== currentUserId) {
+            const createResponse = await createConversation(currentUserId, recipientId);
+            if (createResponse.data?.data) {
+              setSelectedConversation(createResponse.data.data);
+              const fullUserObj = users.find(u => u._id === recipientId) || { _id: recipientId };
+              setSelectedUser(fullUserObj);
+              if (isMobile) {
+                setTimeout(() => setShowChatMobile(true), 100);
+              }
             }
           }
         }
@@ -231,12 +237,12 @@ const addUserToCache = useCallback((user) => {
   // Initialize socket when user is authenticated
   useEffect(() => {
     if (currentUserId && isAuthenticated) {
-      console.log('🚀 Initializing socket for user:', currentUserId);
+      console.log('ðŸš€ Initializing socket for user:', currentUserId);
       
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
-          console.log('📱 Notification permission:', permission);
+          console.log('🔔 Notification permission:', permission);
         });
       }
       
@@ -245,9 +251,9 @@ const addUserToCache = useCallback((user) => {
         try {
           const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
           const data = await response.json();
-          console.log('🏥 Backend health check:', data);
+          console.log('📩 Backend health check:', data);
         } catch (error) {
-          console.error('❌ Backend connectivity test failed:', error);
+          console.error('⚠️ Backend connectivity test failed:', error);
           setError('Cannot connect to chat server');
         }
       };
@@ -260,12 +266,12 @@ const addUserToCache = useCallback((user) => {
         if (existingSocket && existingSocket.connected) {
           console.log('✅ Socket already connected, reusing existing connection');
         } else {
-          console.log('⚠️ Socket not connected yet, MessageProvider should handle initialization');
+          console.log('ℹ️ Socket not connected yet, MessageProvider should handle initialization');
         }
         
         // Set up notification callback for real-time notifications
         setNotificationCallback((notification) => {
-          console.log('📢 Received notification:', notification);
+          console.log('🔔 Received notification:', notification);
           
           // Show toast notification
           addToast({
@@ -283,14 +289,14 @@ const addUserToCache = useCallback((user) => {
           }
         });
       } catch (error) {
-        console.error('❌ Error initializing socket:', error);
+        console.error('⚠️ Error initializing socket:', error);
         setError('Failed to initialize chat connection');
       }
     }
 
     // No cleanup needed - socket is managed globally by MessageProvider
     return () => {
-      console.log('🧹 Chat component unmounting...');
+      console.log('👋 Chat component unmounting...');
     };
   }, [currentUserId, isAuthenticated, addToast]);
 
@@ -461,7 +467,7 @@ const addUserToCache = useCallback((user) => {
 
   // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
-    console.log('🔄 Updating conversation last message:', { conversationId, message });
+    console.log('ðŸ”„ Updating conversation last message:', { conversationId, message });
     
     // This function is now only used for optimistic updates when sending messages
     // The actual conversation updates are handled by MessageContext via socket events
@@ -623,6 +629,9 @@ const addUserToCache = useCallback((user) => {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (setCurrentConversationId) {
+        setCurrentConversationId(null);
+      }
     };
   }, [setCurrentConversationId]);
 
@@ -818,93 +827,129 @@ const addUserToCache = useCallback((user) => {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="flex items-center justify-center min-h-screen font-body bg-[#f8f4ea] pt-8 pb-8 px-4">
-        <div className="text-center p-6 md:p-8 max-w-md w-full">
-          {/* Chat icon with decorative elements */}
-          <div className="relative mb-6 md:mb-8">
-            <div className="w-24 h-24 md:w-32 md:h-32 bg-[#fff7f0] rounded-full flex items-center justify-center shadow-lg border-2 border-[#e5d9c8] mx-auto">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-12 w-12 md:h-16 md:w-16 text-[#a07855]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
+      <div className="min-h-[88vh] bg-gradient-to-b from-[#FAF5EE] via-[#F4EDE2] to-[#FAF5EE] flex items-center justify-center p-4 sm:p-8 select-none relative overflow-hidden">
+        {/* Soft Ambient Brand Glows */}
+        <div className="absolute top-12 left-12 w-80 h-80 bg-[#a07855]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#2c1810]/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-4xl w-full bg-[#FFFDF9] border border-[#E8DFC8] rounded-3xl p-6 sm:p-10 shadow-[0_20px_40px_-15px_rgba(180,140,110,0.12)] relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          
+          {/* Left Side: Pitch, Standalone CTA, Clean Auth Link, and Unified Trust Badges */}
+          <div className="lg:col-span-6 flex flex-col justify-center text-left">
+            <div className="inline-flex items-center gap-2 h-7 bg-[#FFF7F0] text-[#a07855] text-[11px] font-bold px-3.5 rounded-full w-fit mb-4 border border-[#E5D9C8] shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#a07855] animate-pulse" />
+              <span>Direct Rescuer & Adopter Chat</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl font-heading font-extrabold text-[#2c1810] leading-tight tracking-tight">
+              A kinder world begins with a conversation.
+            </h1>
+
+            <p className="text-[#6E5041] font-body text-sm sm:text-[15px] mt-3 leading-relaxed">
+              Connect directly with pet parents, verified shelters, and rescues. Message in real time about adoptions, foster support, and pet care.
+            </p>
+
+            {/* Standalone Primary Action with Distinct Sign-in Text Link */}
+            <div className="mt-7 mb-6 flex flex-col items-start gap-3">
+              <a
+                href="/signup"
+                className="group inline-flex items-center justify-center gap-2 h-11 w-full sm:w-auto bg-[#a07855] hover:bg-[#8a6a4d] text-white font-semibold px-8 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-95 transition-all duration-200 text-sm cursor-pointer"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            {/* Decorative dots */}
-            <div className="absolute -top-1 -right-1 md:-top-2 md:-right-2 w-6 h-6 md:w-8 md:h-8 rounded-full bg-[#a07855] flex items-center justify-center">
-              <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-[#ffd8b8] rounded-full"></div>
-            </div>
-            <div className="absolute -bottom-1 -left-1 md:-bottom-2 md:-left-2 w-4 h-4 md:w-6 md:h-6 rounded-full bg-[#8a6a4d] flex items-center justify-center">
-              <div className="w-1 h-1 md:w-1.5 md:h-1.5 bg-[#ffd8b8] rounded-full"></div>
-            </div>
-          </div>
-          
-          {/* Main content */}
-          <h2 className="text-2xl md:text-3xl font-heading font-bold text-[#2c1810] mb-3 md:mb-4">
-            Welcome to Chat
-          </h2>
-          <p className="font-body text-[#2c1810]/80 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">
-            Connect with other pet lovers and start meaningful conversations about adoption, care, and everything pets!
-          </p>
-          
-          {/* Sign in button */}
-          <div className="space-y-3 md:space-y-4">
-            <a 
-              href="/signin" 
-              className="inline-flex items-center px-6 md:px-8 py-3 md:py-4 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold text-sm md:text-base w-full md:w-auto justify-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              Sign In to Start Chatting
-            </a>
-            
-            {/* Additional options */}
-            <div className="text-xs md:text-sm text-[#2c1810]/60">
-              <p>Don't have an account? 
-                <a href="/signup" className="text-[#a07855] hover:text-[#8a6a4d] font-semibold ml-1 transition-colors">
-                  Sign up here
+                <span>Create Free Account</span>
+                <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+              </a>
+              <p className="text-xs text-[#7A5B4C] mt-1">
+                Already have an account?{' '}
+                <a href="/signin?redirect=/chat" className="text-[#a07855] font-bold hover:underline">
+                  Sign in
                 </a>
               </p>
             </div>
-          </div>
-          
-          {/* Feature highlights */}
-          <div className="mt-8 md:mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            <div className="text-center">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
-                </svg>
+
+            {/* Equalized 32px Trust Badges with Consistent Warm Neutrals */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="inline-flex items-center gap-1.5 h-8 bg-[#FFF7F0] text-[#2c1810] text-xs font-semibold px-3.5 rounded-xl border border-[#E5D9C8]">
+                <span>🛡️</span>
+                <span>Verified Rescuers</span>
               </div>
-              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Real-time Chat</h3>
-              <p className="text-xs md:text-sm text-[#2c1810]/70">Instant messaging with other pet lovers</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                </svg>
+              <div className="inline-flex items-center gap-1.5 h-8 bg-[#FFF7F0] text-[#2c1810] text-xs font-semibold px-3.5 rounded-xl border border-[#E5D9C8]">
+                <span>⚡</span>
+                <span>Instant Alerts</span>
               </div>
-              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Connect</h3>
-              <p className="text-xs md:text-sm text-[#2c1810]/70">Build relationships with fellow pet enthusiasts</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#fff7f0] rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 border border-[#e5d9c8]">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6 text-[#a07855]" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="font-heading font-semibold text-[#2c1810] mb-1 text-sm md:text-base">Safe & Secure</h3>
-              <p className="text-xs md:text-sm text-[#2c1810]/70">Your conversations are private and protected</p>
             </div>
           </div>
+
+          {/* Right Side: Mock Chat Card with Calibrated Padding & Centered Send Button */}
+          <div className="lg:col-span-6 flex flex-col justify-center">
+            <div className="w-full bg-[#FAFAFA] border border-[#EAEAEA] rounded-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
+              
+              {/* Header */}
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-[#F0F0F0]">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative">
+                    <img
+                      src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=120&h=120&q=80"
+                      alt="Milo the Labrador"
+                      className="w-9 h-9 rounded-full object-cover border border-[#E5D9C8]"
+                    />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-[#2c1810] font-bold text-xs leading-tight">Hope For Paws Rescue</h4>
+                    <span className="text-[10px] text-gray-500 font-medium">Active now</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-[#a07855] bg-[#FFF7F0] px-2.5 py-0.5 rounded-md border border-[#E5D9C8]">
+                  Adoption
+                </span>
+              </div>
+
+              {/* Message Feed */}
+              <div className="px-4 py-4 bg-[#FBF8F5] space-y-3 min-h-[220px] flex flex-col justify-center">
+                <div className="flex justify-start">
+                  <div className="bg-white rounded-2xl rounded-tl-xs shadow-xs border border-[#E8E2DC] max-w-[88%] overflow-hidden">
+                    {/* Header Strip with 10px 14px Padding */}
+                    <div className="px-3.5 py-2.5 text-[10px] text-gray-500 font-medium border-b border-gray-100 flex items-center justify-between bg-[#FAFAFA]">
+                      <span>Rescue Coordinator</span>
+                      <span>10:24 AM</span>
+                    </div>
+                    
+                    <img
+                      src="https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=600&q=80"
+                      alt="Milo"
+                      className="w-full h-28 object-cover"
+                    />
+                    {/* Equal 12px Padding Around Message Text */}
+                    <div className="p-3">
+                      <p className="leading-snug text-[#2A2421] text-xs font-normal">
+                        Hello! Milo the Labrador is ready to meet your family this Saturday 🐶
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  {/* High-Contrast Outgoing Bubble with 1px Border */}
+                  <div className="bg-[#F5EBE1] text-[#2A2421] px-3.5 py-2.5 rounded-2xl rounded-tr-xs text-xs max-w-[85%] shadow-xs border border-[#E8D5C8]">
+                    <div className="text-[10px] text-[#8E5B3D] mb-1 font-semibold text-right">You • 10:26 AM</div>
+                    <p className="leading-snug font-medium text-[#2A2421]">That is wonderful news! We will bring our adoption form 🐾</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Input Capsule with Centered Paw Button */}
+              <div className="px-4 py-3 bg-white flex items-center gap-2 border-t border-[#F0F0F0]">
+                <div className="flex-1 bg-[#F5F2EE] text-gray-400 text-[11.5px] px-3.5 py-2 rounded-full border border-[#EAE5DE]">
+                  Sign in to type a message...
+                </div>
+                <div className="w-8 h-8 rounded-full bg-[#a07855] text-white flex items-center justify-center shadow-xs shrink-0 select-none">
+                  <span className="text-xs leading-none">🐾</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </div>
     );
@@ -992,7 +1037,7 @@ return (
       {/* Sidebar - Recent Chats */}
       <div className={`
         h-full w-full md:w-80 lg:w-96
-        bg-[#f5efe6] shadow-sm md:shadow-none
+        bg-[#3B2319] border-r border-[#4D3024] shadow-sm md:shadow-none
         transform transition-all duration-300 ease-in-out
         ${isMobile && showChatMobile ? 'hidden md:flex' : 'flex'}
         ${isMobile ? 'relative' : 'relative'}
@@ -1049,49 +1094,44 @@ return (
              setCurrentConversationId={setCurrentConversationId}
            />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <div className="relative mb-8">
-              <div className="w-32 h-32 bg-[#f0e6d8] rounded-full flex items-center justify-center">
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-16 w-16 text-[#a07855]" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div className="absolute -top-2 -right-2">
-                <div className="w-10 h-10 rounded-full bg-[#a07855] flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  
-                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-[#FAECD8]">
+            <div className="max-w-md w-full bg-[#FFF8F2]/90 border border-[#E8D7C8] rounded-3xl p-8 sm:p-10 shadow-lg flex flex-col items-center">
+              {/* Pet & Chat Illustration Badge */}
+              <div className="relative mb-5">
+                <div className="w-20 h-20 bg-[#BA8B60]/15 text-[#301B12] rounded-full flex items-center justify-center text-3xl shadow-inner border border-[#BA8B60]/30">
+                  🐾
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#BA8B60] text-white rounded-full flex items-center justify-center text-xs shadow-md">
+                  💬
                 </div>
               </div>
+
+              <h3 className="text-xl font-heading font-bold text-[#301B12] mb-2">
+                Your Messages
+              </h3>
+              <p className="font-body text-sm text-[#6E5041] leading-relaxed mb-6 max-w-xs">
+                Select a conversation from the left drawer or message a pet parent to start chatting.
+              </p>
+
+              <div className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-[#F2E4D4] rounded-2xl text-xs text-[#5D3A29] font-medium border border-[#E5D0BC]">
+                <span>🔒</span>
+                <span>End-to-end communication with verified members</span>
+              </div>
+
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setIsTransitioning(true);
+                    setShowChatMobile(false);
+                    setTimeout(() => setIsTransitioning(false), 300);
+                  }}
+                  className="mt-6 px-6 py-2.5 bg-[#BA8B60] hover:bg-[#A8794E] text-white font-medium text-sm rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <span>View Conversations</span>
+                  <span>→</span>
+                </button>
+              )}
             </div>
-            <h3 className="text-2xl font-heading font-bold text-[#2c1810] mb-3">
-              Start a Conversation
-            </h3>
-            <p className="font-body text-[#2c1810]/80 max-w-md mb-8">
-              Select a chat from your conversations or create a new one to begin messaging
-            </p>
-            {isMobile && (
-              <button
-                onClick={() => {
-                  setIsTransitioning(true);
-                  setShowChatMobile(false);
-                  setTimeout(() => setIsTransitioning(false), 300);
-                }}
-                className="px-6 py-3 bg-[#a07855] hover:bg-[#8a6a4d] text-[#ffd8b8] rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center mobile-transition"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                </svg>
-                View Conversations
-              </button>
-            )}
           </div>
         )}
       </div>

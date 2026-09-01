@@ -6,13 +6,13 @@ const tempUserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   isVeterinarian: { type: Boolean, default: false },
   phone: { type: String, required: true },
-  
-  // ✅ ADDED: Fields to store Seller info temporarily
+
   userType: { type: String, enum: ['user', 'seller'], default: 'user' },
+  existingUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: undefined },
 
   verificationCode: { type: String, required: true },
   verificationCodeExpires: { type: Date, required: true },
-  createdAt: { type: Date, default: Date.now, expires: 3600 } // Documents expire after 1 hour
+  createdAt: { type: Date, default: Date.now, expires: 3600 }
 });
 
 module.exports = mongoose.model('TempUser', tempUserSchema);

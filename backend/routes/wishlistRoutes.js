@@ -9,7 +9,13 @@ router.use(auth);
 // GET /api/wishlist
 router.get('/', wishlistController.getWishlist);
 
+// PUT /api/wishlist/view  <-- ADD THIS LINE HERE
+router.put('/view', wishlistController.markWishlistAsViewed);
+
 // POST /api/wishlist/toggle
 router.post('/toggle', wishlistController.toggleWishlistItem);
+
+// DELETE /api/wishlist/clear
+router.delete('/clear', wishlistController.clearWishlist);
 
 module.exports = router;

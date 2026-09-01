@@ -7,7 +7,11 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MessageProvider } from './context/MessageContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+<<<<<<< HEAD
 import { AIAssistantProvider } from './context/AIAssistantContext';
+=======
+import { AuthGuardProvider } from './Components/AuthGuard';
+>>>>>>> origin/sahab
 import { createBrowserRouter, createRoutesFromElements, Route, useNavigate, Routes } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
@@ -29,6 +33,7 @@ import VerifyRegistration from './Main/VerifyRegistration';
 import AdoptionPage from './Main/AdoptionPage';
 import CreateAdoptionAdForm from './Main/AdoptionForm';
 import MyAdoptions from './Main/MyAdoptions';
+import AdoptionDetail from './Main/AdoptionDetail';
 import AdoptionHistory from './Main/AdoptionHistory';
 import FullTeamPage from './Main/FullTeamPage';
 import AdminDashboard from './admin/AdminDashboard.jsx';
@@ -49,6 +54,7 @@ import AdminPostComments from './admin/AdminPostComments';
 import AdminAdoptionRequests from './admin/AdminAdoptionRequests';
 import AdminUserAdoptionRequests from './admin/AdminUserAdoptionRequests.jsx';
 import ReportedItems from './admin/ReportedItems.jsx';
+import SellerAnalyticsDashboard from './Components/SellerAnalyticsDashboard';
 
 // ✅ MERGED IMPORTS (Both Seller and Buyer/Admin)
 
@@ -87,6 +93,7 @@ const AdminDashboardRoutes = () => {
       navigate('/');
       return;
     }
+<<<<<<< HEAD
     if (!token || token === 'null' || token === 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -96,6 +103,9 @@ const AdminDashboardRoutes = () => {
       return;
     }
     
+=======
+
+>>>>>>> origin/sahab
     // Use the new bulk API endpoint
     fetch(`${ADMIN_BASE_URL}/users-with-stats`, {
       headers: {
@@ -134,13 +144,13 @@ const AdminDashboardRoutes = () => {
   const fetchUserStats = async (userId, preFetchedStats = null) => {
     // If stats are already loaded, don't fetch again
     if (userStats[userId] && !preFetchedStats) return;
-    
+
     // If pre-fetched stats are provided, use them
     if (preFetchedStats) {
       setUserStats(prev => ({ ...prev, [userId]: preFetchedStats }));
       return;
     }
-    
+
     // Fallback to individual API call if needed
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     try {
@@ -215,26 +225,26 @@ const AdminDashboardRoutes = () => {
     <AdminDashboardLayout admin={admin} onSignOut={handleSignOut}>
       <Routes>
         <Route path="" element={
-        <AdminDashboard 
-          vets={vets}
-          users={users}
-          sellers={sellers}
-          admin={admin}
-          onSignOut={handleSignOut}
-        />
+          <AdminDashboard
+            vets={vets}
+            users={users}
+            sellers={sellers}
+            admin={admin}
+            onSignOut={handleSignOut}
+          />
         } />
         <Route path="manage-users" element={
-        <AdminManageUsers
-          vets={vets}
-          users={users}
-          sellers={sellers}
-          userStats={userStats}
-          fetchUserStats={fetchUserStats}
-          handleDeleteUser={handleDeleteUser}
-          deleting={deleting}
-          search={search}
-          setSearch={setSearch}
-        />
+          <AdminManageUsers
+            vets={vets}
+            users={users}
+            sellers={sellers}
+            userStats={userStats}
+            fetchUserStats={fetchUserStats}
+            handleDeleteUser={handleDeleteUser}
+            deleting={deleting}
+            search={search}
+            setSearch={setSearch}
+          />
         } />
         <Route path="adoptions" element={<AdminAdoptions />} />
         <Route path="adoptions/user/:userId" element={<AdminUserAdoptions />} />
@@ -267,9 +277,10 @@ const router = createBrowserRouter(
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/adoption" element={<AdoptionPage />} />
+      <Route path="/adoption/:id" element={<AdoptionDetail />} />
       <Route path="/my-adoptions" element={<MyAdoptions />} />
       <Route path="/create-adoption" element={<CreateAdoptionAdForm />} />
-      <Route path="/adoptionhistory" element={<AdoptionHistory/>} />
+      <Route path="/adoptionhistory" element={<AdoptionHistory />} />
       <Route path="/verify-code" element={<VerifyCode />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile" element={<Createprofile />} />
@@ -285,15 +296,16 @@ const router = createBrowserRouter(
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
       <Route path="/seller/dashboard" element={<ProtectedRoute allowedRoles={['seller']}><SellerDashboard /></ProtectedRoute>} />
       <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
+      <Route path="/seller/analytics" element={<ProtectedRoute allowedRoles={['seller']}><SellerAnalyticsDashboard /></ProtectedRoute>} />
       {/* Deprecated Seller Routes removed */}
 
-      {/* ✅ Marketplace Routes */}
-      <Route path="/marketplace" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Marketplace /></ProtectedRoute>} />
-      <Route path="/product/:id" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><ProductDetails /></ProtectedRoute>} />
+      {/* ✅ Marketplace Routes — browse public, actions require auth */}
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/product/:id" element={<ProductDetails />} />
       <Route path="/cart" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Cart /></ProtectedRoute>} />
       <Route path="/wishlist" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Wishlist /></ProtectedRoute>} />
       <Route path="/checkout" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><Checkout /></ProtectedRoute>} />
-      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders/></ProtectedRoute>} />
+      <Route path="/my-orders" element={<ProtectedRoute allowedRoles={['buyer', 'vet']}><BuyerOrders /></ProtectedRoute>} />
     </Route>
   )
 );
@@ -303,6 +315,7 @@ const AppWithProviders = () => (
     <WishlistProvider>
       <CartProvider>
         <AdoptionProvider>
+<<<<<<< HEAD
         <NotificationProvider>
           <MessageProvider>
             <AIAssistantProvider>
@@ -312,6 +325,17 @@ const AppWithProviders = () => (
         </NotificationProvider>
       </AdoptionProvider>
     </CartProvider>
+=======
+          <NotificationProvider>
+            <MessageProvider>
+              <AuthGuardProvider>
+                <RouterProvider router={router} />
+              </AuthGuardProvider>
+            </MessageProvider>
+          </NotificationProvider>
+        </AdoptionProvider>
+      </CartProvider>
+>>>>>>> origin/sahab
     </WishlistProvider>
   </AuthProvider>
 );

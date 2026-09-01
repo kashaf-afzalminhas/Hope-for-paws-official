@@ -2,27 +2,27 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 export const testNotificationSystem = async () => {
-  console.log('🔍 Testing notification system...\n');
+  console.log('Testing notification system...\n');
   console.log('API Base URL:', API_BASE_URL);
 
   try {
     // Test 1: Health endpoint
     console.log('1. Testing health endpoint...');
     const healthResponse = await axios.get(`${API_BASE_URL.replace('/api', '')}/health`);
-    console.log('✅ Health endpoint working:', healthResponse.data);
+    console.log('Health endpoint working:', healthResponse.data);
 
     // Test 2: Socket health endpoint
     console.log('\n2. Testing socket health endpoint...');
     const socketHealthResponse = await axios.get(`${API_BASE_URL.replace('/api', '')}/socket-health`);
-    console.log('✅ Socket health endpoint working:', socketHealthResponse.data);
+    console.log('Socket health endpoint working:', socketHealthResponse.data);
 
     // Test 3: Notification test endpoint (no auth required)
     console.log('\n3. Testing notification test endpoint...');
     try {
       const testResponse = await axios.get(`${API_BASE_URL}/notifications/test`);
-      console.log('✅ Notification test endpoint working:', testResponse.data);
+      console.log('Notification test endpoint working:', testResponse.data);
     } catch (error) {
-      console.log('❌ Notification test endpoint error:', error.response?.status, error.response?.data?.message);
+      console.log('Notification test endpoint error:', error.response?.status, error.response?.data?.message);
     }
 
     // Test 4: Check if user is logged in
@@ -31,10 +31,10 @@ export const testNotificationSystem = async () => {
     
     console.log('\n4. Checking authentication...');
     if (token && user) {
-      console.log('✅ User is logged in:', user.username);
-      console.log('✅ Token exists:', token.substring(0, 20) + '...');
+      console.log('User is logged in:', user.username);
+      console.log('Token exists:', token.substring(0, 20) + '...');
     } else {
-      console.log('❌ User not logged in');
+      console.log('User not logged in');
       console.log('Note: Notification endpoints require authentication');
       return;
     }
@@ -46,9 +46,9 @@ export const testNotificationSystem = async () => {
       const notificationsResponse = await axios.get(`${API_BASE_URL}/notifications?page=1&limit=5`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('✅ Notifications endpoint working:', notificationsResponse.data);
+      console.log('Notifications endpoint working:', notificationsResponse.data);
     } catch (error) {
-      console.log('❌ Notifications endpoint error:', error.response?.status, error.response?.data?.message);
+      console.log('Notifications endpoint error:', error.response?.status, error.response?.data?.message);
       console.log('Full error:', error);
     }
 
@@ -56,9 +56,9 @@ export const testNotificationSystem = async () => {
       const unreadResponse = await axios.get(`${API_BASE_URL}/notifications/unread-count`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('✅ Unread count endpoint working:', unreadResponse.data);
+      console.log('Unread count endpoint working:', unreadResponse.data);
     } catch (error) {
-      console.log('❌ Unread count endpoint error:', error.response?.status, error.response?.data?.message);
+      console.log('Unread count endpoint error:', error.response?.status, error.response?.data?.message);
       console.log('Full error:', error);
     }
 
@@ -89,14 +89,14 @@ export const testNotificationSystem = async () => {
       });
 
       const result = await connectionPromise;
-      console.log('✅ Socket.IO connection successful:', result);
+      console.log('Socket.IO connection successful:', result);
       socket.disconnect();
     } catch (error) {
-      console.log('❌ Socket.IO connection failed:', error.message);
+      console.log('Socket.IO connection failed:', error.message);
       console.log('Note: This is expected on Vercel as it doesn\'t support WebSocket connections');
     }
 
-    console.log('\n✅ Notification system test completed!');
+    console.log('\nNotification system test completed!');
     console.log('\nSummary:');
     console.log('- Backend endpoints are accessible');
     console.log('- Authentication is working');
@@ -104,7 +104,7 @@ export const testNotificationSystem = async () => {
     console.log('- Polling fallback will be used if Socket.IO fails');
 
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
+    console.error('Test failed:', error.message);
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);

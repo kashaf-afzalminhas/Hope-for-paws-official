@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 // 1. Create Product
 exports.createProduct = async (req, res) => {
@@ -16,9 +17,10 @@ exports.createProduct = async (req, res) => {
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
     if (seller.status === 'suspended') return res.status(403).json({ message: 'Seller account is suspended' });
 
-    const { 
+    const {
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, additionalInfo
+      brand, sku, discountPercentage, additionalInfo,
+      lowStockThreshold
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
@@ -28,8 +30,17 @@ exports.createProduct = async (req, res) => {
     // Strict Validations
     if (Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
+      return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
+    }
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
 
     let parsedAdditionalInfo = [];
@@ -43,9 +54,9 @@ exports.createProduct = async (req, res) => {
 
     let images = req.body.images || [];
     if (typeof images === 'string') images = [images];
-    
+
     if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/profile-images/${file.filename}`);
+      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
       images = [...images, ...uploadedImages];
     }
 
@@ -56,9 +67,11 @@ exports.createProduct = async (req, res) => {
       price: Number(price),
       category,
       countInStock: Number(countInStock),
+      lowStockThreshold: lowStockThreshold !== undefined && lowStockThreshold !== '' ? Number(lowStockThreshold) : 5,
       brand,
       sku,
-      discountPrice: discountPrice ? Number(discountPrice) : undefined,
+      discountPercentage:
+        discountPercentage !== undefined ? Number(discountPercentage) : 0,
       additionalInfo: parsedAdditionalInfo,
       images,
       status: 'active',
@@ -78,9 +91,13 @@ exports.createProduct = async (req, res) => {
 // 2. Public List (Updated for Frontend Filtering & Verified Badge)
 exports.listProducts = async (req, res) => {
   try {
-    const { category, search, sort } = req.query;
+    const { category, search, sort, sellerId } = req.query;
     // Strictly filter out hidden items (from automated moderation)
     let query = { isVisible: true, isHidden: { $ne: true } };
+
+    if (sellerId) {
+      query.sellerId = sellerId;
+    }
 
     if (category && category !== 'All') {
       query.category = category;
@@ -129,7 +146,7 @@ exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
-      .populate('sellerId', 'userId name status isVerified storeName'); 
+      .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
@@ -180,14 +197,24 @@ exports.updateProduct = async (req, res) => {
 
     const {
       title, description, price, category, countInStock,
-      brand, sku, discountPrice, additionalInfo
+      brand, sku, discountPercentage, additionalInfo,
+      lowStockThreshold
     } = req.body;
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
     if (countInStock && Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
-    if (discountPrice && Number(discountPrice) >= Number(price || product.price)) {
-      return res.status(400).json({ message: 'Discount price must be less than the regular price' });
+    if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
+      return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
+    }
+    if (
+      discountPercentage !== undefined &&
+      (Number(discountPercentage) < 0 ||
+        Number(discountPercentage) > 100)
+    ) {
+      return res.status(400).json({
+        message: 'Discount percentage must be between 0 and 100.'
+      });
     }
 
     let parsedAdditionalInfo;
@@ -224,9 +251,15 @@ exports.updateProduct = async (req, res) => {
     product.price = price !== undefined ? Number(price) : product.price;
     product.category = category || product.category;
     product.countInStock = countInStock !== undefined ? Number(countInStock) : product.countInStock;
+    if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
+      product.lowStockThreshold = Number(lowStockThreshold);
+    }
     product.brand = brand || product.brand;
     product.sku = sku || product.sku;
-    product.discountPrice = discountPrice ? Number(discountPrice) : product.discountPrice;
+    product.discountPercentage =
+      discountPercentage !== undefined
+        ? Number(discountPercentage)
+        : product.discountPercentage;
     if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
 
     // Media Sync Logic
@@ -248,7 +281,7 @@ exports.updateProduct = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/profile-images/${file.filename}`);
+      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
       product.images = [...product.images, ...uploadedImages];
     }
 
@@ -315,6 +348,25 @@ exports.toggleProductVisibility = async (req, res) => {
     res.json({ message: `Product is now ${newStatus}`, product: updatedProduct });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Record a public share. No login is required because product links are public.
+exports.shareProduct = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid product ID format' });
+    }
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { shareCount: 1 } },
+      { new: true, select: 'shareCount' }
+    );
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    res.json({ shareCount: product.shareCount });
+  } catch (err) {
+    console.error('Error recording product share:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

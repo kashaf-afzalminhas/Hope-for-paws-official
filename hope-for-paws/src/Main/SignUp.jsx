@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import Paws from '/Hopeforpaws.jpg';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { motion } from "framer-motion";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import UserTypeModal from '../Components/UserTypeModal';
+import { COUNTRY_CODES } from '../utils/constants';
 
 const SignUp = () => {
   const [username, setUsername] = useState('');
@@ -25,69 +26,44 @@ const SignUp = () => {
   const [showUserTypeModal, setShowUserTypeModal] = useState(false);
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Country codes data
-  const countryCodes = [
-    { code: '+92', country: 'Pakistan', flag: '🇵🇰' },
-    { code: '+1', country: 'United States', flag: '🇺🇸' },
-    { code: '+1', country: 'Canada', flag: '🇨🇦' },
-    { code: '+44', country: 'United Kingdom', flag: '🇬🇧' },
-    { code: '+91', country: 'India', flag: '🇮🇳' },
-    { code: '+86', country: 'China', flag: '🇨🇳' },
-    { code: '+81', country: 'Japan', flag: '🇯🇵' },
-    { code: '+82', country: 'South Korea', flag: '🇰🇷' },
-    { code: '+65', country: 'Singapore', flag: '🇸🇬' },
-    { code: '+60', country: 'Malaysia', flag: '🇲🇾' },
-    { code: '+66', country: 'Thailand', flag: '🇹🇭' },
-    { code: '+63', country: 'Philippines', flag: '🇵🇭' },
-    { code: '+62', country: 'Indonesia', flag: '🇮🇩' },
-    { code: '+84', country: 'Vietnam', flag: '🇻🇳' },
-    { code: '+880', country: 'Bangladesh', flag: '🇧🇩' },
-    { code: '+94', country: 'Sri Lanka', flag: '🇱🇰' },
-    { code: '+977', country: 'Nepal', flag: '🇳🇵' },
-    { code: '+975', country: 'Bhutan', flag: '🇧🇹' },
-    { code: '+93', country: 'Afghanistan', flag: '🇦🇫' },
-    { code: '+98', country: 'Iran', flag: '🇮🇷' },
-    { code: '+90', country: 'Turkey', flag: '🇹🇷' },
-    { code: '+971', country: 'UAE', flag: '🇦🇪' },
-    { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦' },
-    { code: '+965', country: 'Kuwait', flag: '🇰🇼' },
-    { code: '+974', country: 'Qatar', flag: '🇶🇦' },
-    { code: '+973', country: 'Bahrain', flag: '🇧🇭' },
-    { code: '+968', country: 'Oman', flag: '🇴🇲' },
-    { code: '+20', country: 'Egypt', flag: '🇪🇬' },
-    { code: '+27', country: 'South Africa', flag: '🇿🇦' },
-    { code: '+234', country: 'Nigeria', flag: '🇳🇬' },
-    { code: '+254', country: 'Kenya', flag: '🇰🇪' },
-    { code: '+33', country: 'France', flag: '🇫🇷' },
-    { code: '+49', country: 'Germany', flag: '🇩🇪' },
-    { code: '+39', country: 'Italy', flag: '🇮🇹' },
-    { code: '+34', country: 'Spain', flag: '🇪🇸' },
-    { code: '+31', country: 'Netherlands', flag: '🇳🇱' },
-    { code: '+32', country: 'Belgium', flag: '🇧🇪' },
-    { code: '+41', country: 'Switzerland', flag: '🇨🇭' },
-    { code: '+43', country: 'Austria', flag: '🇦🇹' },
-    { code: '+46', country: 'Sweden', flag: '🇸🇪' },
-    { code: '+47', country: 'Norway', flag: '🇳🇴' },
-    { code: '+45', country: 'Denmark', flag: '🇩🇰' },
-    { code: '+358', country: 'Finland', flag: '🇫🇮' },
-    { code: '+7', country: 'Russia', flag: '🇷🇺' },
-    { code: '+61', country: 'Australia', flag: '🇦🇺' },
-    { code: '+64', country: 'New Zealand', flag: '🇳🇿' },
-    { code: '+55', country: 'Brazil', flag: '🇧🇷' },
-    { code: '+54', country: 'Argentina', flag: '🇦🇷' },
-    { code: '+56', country: 'Chile', flag: '🇨🇱' },
-    { code: '+57', country: 'Colombia', flag: '🇨🇴' },
-    { code: '+52', country: 'Mexico', flag: '🇲🇽' },
-  ];
+  const countryCodes = COUNTRY_CODES;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { type: "spring", stiffness: 120 }
     }
+  };
+
+  const performPostLoginRedirect = (userObj) => {
+    const savedRedirect = (() => {
+      try {
+        const item = sessionStorage.getItem('redirectAfterAuth');
+        return item ? JSON.parse(item) : null;
+      } catch { return null; }
+    })();
+
+    const targetPath = location.state?.from || savedRedirect?.from || "/";
+    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+    if (openCreate) {
+      sessionStorage.setItem('openAdoptionCreate', 'true');
+    }
+
+    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+      navigate('/seller/onboard');
+    } else if (!userObj.phone || !userObj.phoneVerified) {
+      navigate('/profile');
+    } else {
+      sessionStorage.removeItem('redirectAfterAuth');
+      navigate(targetPath, { state: { openCreate } });
+    }
+    window.location.reload();
   };
 
   // Email validation
@@ -151,12 +127,12 @@ const SignUp = () => {
 
   const handlePhoneChange = (e) => {
     let phoneValue = e.target.value;
-    
+
     // Remove leading zero if country code is selected
     if (countryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
     }
-    
+
     setPhone(phoneValue);
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, countryCode));
@@ -165,13 +141,13 @@ const SignUp = () => {
   const handleCountryCodeChange = (e) => {
     const newCountryCode = e.target.value;
     let phoneValue = phone;
-    
+
     // Remove leading zero when country code changes
     if (newCountryCode && phoneValue.startsWith('0')) {
       phoneValue = phoneValue.substring(1);
       setPhone(phoneValue);
     }
-    
+
     setCountryCode(newCountryCode);
     setPhoneTouched(true);
     setPhoneError(validatePhone(phoneValue, newCountryCode));
@@ -188,7 +164,7 @@ const SignUp = () => {
     setEmailError(validateEmail(email));
     setPasswordError(validatePassword(password));
     setPhoneError(validatePhone(phone, countryCode));
-    
+
     if (validateEmail(email) || validatePassword(password) || validatePhone(phone, countryCode)) {
       setLoading(false);
       return;
@@ -199,10 +175,10 @@ const SignUp = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          username, 
-          email, 
-          password, 
+        body: JSON.stringify({
+          username,
+          email,
+          password,
           isVeterinarian: userType === 'veterinarian',
           userType: userType === 'seller' ? 'seller' : 'user',
           phone: countryCode + phone
@@ -211,7 +187,13 @@ const SignUp = () => {
       const data = await response.json();
       setLoading(false);
       if (response.ok) {
-        navigate('/verify-registration', { state: { email: data.email || email } });
+        navigate('/verify-registration', {
+          state: {
+            email: data.email || email,
+            from: location.state?.from,
+            openCreate: location.state?.openCreate
+          }
+        });
       } else {
         setError(data.message || 'Registration failed');
       }
@@ -274,16 +256,8 @@ const SignUp = () => {
         }
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
-        } else {
-          navigate("/");
-          window.location.reload();
-        }
+
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -292,7 +266,7 @@ const SignUp = () => {
       setError("An error occurred during Google registration");
     }
   };
-  
+
   const handleUserTypeSelect = async (userTypeSelected) => {
     if (!pendingGoogleUser) return;
     setLoading(true);
@@ -316,16 +290,8 @@ const SignUp = () => {
       if (response.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        
-        // Check if phone verification is required
-        if (!data.user.phone || !data.user.phoneVerified) {
-          // User will be redirected to phone verification by App.jsx
-          navigate("/");
-          window.location.reload();
-        } else {
-          navigate("/");
-          window.location.reload();
-        }
+
+        performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -340,17 +306,17 @@ const SignUp = () => {
       <div className="w-full max-w-md bg-white rounded-lg shadow-md overflow-hidden">
         {/* Logo Section with full-width beige background */}
         <div className="w-full h-72 bg-[#F8F4ED] py-6 mb-2 flex flex-col items-center">
-          <img 
-            className="w-full h-72 max-w-sm:max-w-md object-cover" 
-            src={Paws} 
-            alt="Hope For Paws Logo" 
+          <img
+            className="w-full h-72 max-w-sm:max-w-md object-cover"
+            src={Paws}
+            alt="Hope For Paws Logo"
           />
         </div>
-        
+
         {/* Form Section */}
         <div className="p-6">
           <h2 className="text-xl font-extrabold text-black mb-6 mt-6 text-center">Create Your Account</h2>
-          
+
           <form onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -371,7 +337,7 @@ const SignUp = () => {
                 placeholder="Enter your username"
               />
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium text-[#4E3B31] mb-1">Email Address</label>
               <input
@@ -390,7 +356,7 @@ const SignUp = () => {
                 <p className="text-xs text-red-600 mt-1">{emailError}</p>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="phone" className="block text-sm font-medium text-[#4E3B31] mb-1">Phone Number</label>
               <div className="flex gap-2">
@@ -421,7 +387,7 @@ const SignUp = () => {
                 <p className="text-xs text-red-600 mt-1">{phoneError}</p>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="password" className="block text-sm font-medium text-[#4E3B31] mb-1">Password</label>
               <div className="relative">
@@ -467,7 +433,7 @@ const SignUp = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="mb-4">
               <label htmlFor="userType" className="block text-sm font-medium text-[#4E3B31] mb-1">I am registering as:</label>
               <select
@@ -503,10 +469,10 @@ const SignUp = () => {
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
-          
+
           <motion.div variants={itemVariants} className="flex justify-center mt-4">
-              <GoogleOAuthProvider clientId="495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com">
-                  <GoogleLogin 
+              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+                  <GoogleLogin
                     onSuccess={(response) => googleLoginHandler(response)}
                     onError={(error) => console.log(error)}
                     theme="filled_blue"
@@ -529,7 +495,7 @@ const SignUp = () => {
 
           <p className="text-sm text-[#4E3B31] text-center mt-4">
             Already have an account?{' '}
-            <NavLink to="/signin" className="font-medium text-[#6b493d] hover:text-[#a07855]">
+            <NavLink to="/signin" state={location.state} className="font-medium text-[#6b493d] hover:text-[#a07855]">
               Sign in
             </NavLink>
           </p>
