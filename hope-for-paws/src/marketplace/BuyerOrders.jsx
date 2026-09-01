@@ -296,16 +296,10 @@ function TrackingTimeline({ currentStep, status, timestamps = {} }) {
             top: 14,
             left: "calc(10% + 14px)",
             height: 2,
-<<<<<<< HEAD
-            width: currentStep === 0
-              ? 0
-              : `calc(${(currentStep / totalSegments)} * (80% - 0px))`,
-=======
             // Precise: span from first circle center to current circle center
             width: currentStep === 0
               ? 0
               : `calc(${currentStep / totalSegments} * (80% - 28px))`,
->>>>>>> origin/sahab
           }}
           aria-hidden="true"
         />
