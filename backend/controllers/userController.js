@@ -541,7 +541,7 @@ const updateProfile = async (req, res) => {
     }
 
     // Existing Phone validation & update
-    if (phone && phone !== user.phone) {
+    if (phone && String(phone).trim() !== '' && phone !== user.phone) {
       const normalizedPhone = String(phone).trim();
       const phoneValidationError = validateInternationalPhone(normalizedPhone);
       if (phoneValidationError) {

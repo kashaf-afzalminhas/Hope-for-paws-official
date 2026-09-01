@@ -128,8 +128,18 @@ const ProfilePage = () => {
 
   // Phone validation function
   const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber) return 'Phone number is required';
-    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
+    if (!phoneNumber || String(phoneNumber).trim() === '') return '';
+
+    let cleaned = String(phoneNumber).trim();
+    // Strip country code or leading '+' if present
+    if (code && cleaned.startsWith(code)) {
+      cleaned = cleaned.slice(code.length);
+    }
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.replace(/^\+/, '');
+    }
+
+    if (!/^\d+$/.test(cleaned)) return 'Phone number must contain digits only';
 
     const countryRules = {
       '+92': { min: 10, max: 10, label: 'Pakistan' },
@@ -138,16 +148,16 @@ const ProfilePage = () => {
       '+91': { min: 10, max: 10, label: 'India' }
     };
     const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
+    if (rule && (cleaned.length < rule.min || cleaned.length > rule.max)) {
       if (rule.min === rule.max) {
         return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
       }
       return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
     }
 
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
+    if (cleaned.length < 7 || cleaned.length > 15) return 'Phone number must be 7-15 digits';
 
-    const fullPhone = code + phoneNumber;
+    const fullPhone = code + cleaned;
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
 
@@ -183,13 +193,14 @@ const ProfilePage = () => {
       let phoneCountryCode = '+92';
 
       if (userData.phone) {
-        // Find matching country code
-        const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
+        const rawPhone = String(userData.phone).trim();
+        const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+        const matchingCountry = sortedCodes.find(country => rawPhone.startsWith(country.code));
         if (matchingCountry) {
           phoneCountryCode = matchingCountry.code;
-          phoneNumber = userData.phone.substring(matchingCountry.code.length);
+          phoneNumber = rawPhone.substring(matchingCountry.code.length).replace(/\D/g, '');
         } else {
-          phoneNumber = userData.phone;
+          phoneNumber = rawPhone.replace(/\D/g, '');
         }
       }
 
@@ -467,16 +478,20 @@ const ProfilePage = () => {
 
     const { id } = profile;
     const { name, email, city, about } = formData;
-    const fullPhone = formData.countryCode + formData.phone;
+    const fullPhone = formData.phone && formData.phone.trim() !== '' 
+      ? formData.countryCode + formData.phone.trim() 
+      : (profile.phone || '');
 
-    // Validate phone number
-    const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
-    if (phoneValidationError) {
-      setPhoneError(phoneValidationError);
-      setPhoneTouched(true);
-      setLoading(false);
-      addToast(phoneValidationError, 'error');
-      return;
+    // Validate phone number only if provided
+    if (formData.phone && formData.phone.trim() !== '') {
+      const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
+      if (phoneValidationError) {
+        setPhoneError(phoneValidationError);
+        setPhoneTouched(true);
+        setLoading(false);
+        addToast(phoneValidationError, 'error');
+        return;
+      }
     }
 
     if (!id) {
@@ -523,12 +538,14 @@ const ProfilePage = () => {
         let phoneCountryCode = '+92';
 
         if (updatedUser.phone) {
-          const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
+          const rawPhone = String(updatedUser.phone).trim();
+          const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+          const matchingCountry = sortedCodes.find(country => rawPhone.startsWith(country.code));
           if (matchingCountry) {
             phoneCountryCode = matchingCountry.code;
-            phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
+            phoneNumber = rawPhone.substring(matchingCountry.code.length).replace(/\D/g, '');
           } else {
-            phoneNumber = updatedUser.phone;
+            phoneNumber = rawPhone.replace(/\D/g, '');
           }
         }
 
