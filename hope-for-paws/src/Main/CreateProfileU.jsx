@@ -17,12 +17,8 @@ import SellerDashboard from './SellerDashboard';
 import SellerOrders from '../marketplace/SellerOrders';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
-<<<<<<< HEAD
-import VerifiedBadge from '../Components/VerifiedBadge';
-=======
 import MyPosts from './MyPosts';
 import { COUNTRY_CODES } from '../utils/constants';
->>>>>>> origin/sahab
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
