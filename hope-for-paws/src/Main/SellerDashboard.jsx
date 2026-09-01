@@ -453,7 +453,8 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[#6b493d]">Rs. {product.revenue.toLocaleString()}</p>
+                          <p className="font-bold text-[#6b493d]">Rs. {product.price.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">Total: Rs. {product.revenue.toLocaleString()}</p>
                         </div>
                       </div>
                     ))}
