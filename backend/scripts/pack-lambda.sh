@@ -19,7 +19,7 @@ echo "==> Copying application source"
 cp -R app.js lambda.js package.json package-lock.json "$STAGING/"
 
 # App directories required at runtime
-for dir in config controllers middleware models queues routes services validators; do
+for dir in config controllers middleware models queues routes services validators utils; do
   if [ -d "$ROOT/$dir" ]; then
     cp -R "$ROOT/$dir" "$STAGING/"
   fi
@@ -94,15 +94,15 @@ python3 - <<PY
 import zipfile, sys
 z = zipfile.ZipFile(r"""$OUT_ZIP""")
 names = set(z.namelist())
-required = ["lambda.js", "app.js", "package.json"]
+required = ["lambda.js", "app.js", "package.json", "utils/emailTemplates.js", "utils/constants.js"]
 missing = [r for r in required if r not in names]
 if missing:
-    print("ERROR: missing from zip root:", ", ".join(missing))
+    print("ERROR: missing from zip:", ", ".join(missing))
     sys.exit(1)
 if not any(n.startswith("node_modules/serverless-http/") for n in names):
     print("ERROR: serverless-http missing from zip")
     sys.exit(1)
-print("Structure check: OK (lambda.js, app.js, serverless-http present at zip root)")
+print("Structure check: OK (lambda.js, app.js, utils/, serverless-http present)")
 PY
 
 # Smoke-load handler from staging (same layout as zip)

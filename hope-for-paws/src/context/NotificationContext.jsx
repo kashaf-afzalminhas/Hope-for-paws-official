@@ -70,93 +70,6 @@ export const NotificationProvider = ({ children }) => {
     if (!token || !user || initializationRef.current) {
       return undefined;
     }
-<<<<<<< HEAD
-    initializationRef.current = true;
-
-    const checkBackendHealth = async () => {
-      try {
-        const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
-        await axios.get(healthUrl, { timeout: 5000 });
-        return true;
-      } catch (err) {
-        console.log('Backend not available:', err.message);
-        setError('Backend service not available');
-        return false;
-      }
-    };
-
-    const startPolling = () => {
-      if (pollingRef.current) return;
-      pollingRef.current = setInterval(() => {
-        fetchUnreadCount();
-        fetchNotifications(1, 20);
-      }, POLL_INTERVAL_MS);
-    };
-
-    const initializeNotificationSystem = async () => {
-      const backendAvailable = await checkBackendHealth();
-      if (!backendAvailable) {
-        setIsInitialized(true);
-        return;
-      }
-
-      if (!SOCKET_ENABLED) {
-        console.log('Socket.IO disabled — using REST polling for notifications');
-        setSocketConnected(false);
-        setIsInitialized(true);
-        startPolling();
-        return;
-      }
-
-      try {
-        const existing = getSocket();
-        const userId = user?.id || user?._id;
-        const socketInstance = existing || initSocket(userId);
-
-        if (!socketInstance) {
-          setIsInitialized(true);
-          startPolling();
-          return;
-        }
-
-        const handleConnect = () => {
-          setSocketConnected(true);
-          setIsInitialized(true);
-        };
-
-        const handleDisconnect = () => {
-          setSocketConnected(false);
-          startPolling();
-        };
-
-        const handleNotification = (notification) => {
-          setNotifications((prev) => [{ ...notification, read: false }, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification(notification.title, {
-              body: notification.message,
-              icon: '/hfplogo.png',
-            });
-          }
-        };
-
-        socketInstance.on('connect', handleConnect);
-        socketInstance.on('disconnect', handleDisconnect);
-        socketInstance.on('notification', handleNotification);
-
-        setSocketConnected(getSocketStatus() === 'connected');
-        setIsInitialized(true);
-        startPolling();
-      } catch (err) {
-        console.error('Error establishing socket; falling back to polling:', err);
-        setIsInitialized(true);
-        startPolling();
-      }
-    };
-
-    initializeNotificationSystem();
-
-=======
 
     initializationRef.current = true;
 
@@ -276,19 +189,12 @@ export const NotificationProvider = ({ children }) => {
     // Cleanup function — this is what actually runs when the effect tears
     // down. It now removes the socket listeners (if they were attached)
     // in addition to resetting the initialization ref.
->>>>>>> origin/sahab
     return () => {
       cancelled = true;
       initializationRef.current = false;
-<<<<<<< HEAD
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-=======
       if (typeof socketCleanupRef.current === 'function') {
         socketCleanupRef.current();
         socketCleanupRef.current = null;
->>>>>>> origin/sahab
       }
     };
   }, []);
