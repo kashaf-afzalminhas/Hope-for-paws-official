@@ -508,6 +508,83 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
           </div>
         )}
 
+        {activeTab === 'reviews' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 bg-[#fcfaf8]">
+              <h2 className="text-2xl font-bold text-[#6b493d]">Store Reviews</h2>
+              {reviewsStats.totalReviews > 0 && (
+                <div className="flex items-center gap-3 mt-2">
+                  <StarDisplay rating={reviewsStats.averageRating} size={20} />
+                  <span className="text-sm text-gray-500">
+                    {reviewsStats.averageRating.toFixed(1)} average · {reviewsStats.totalReviews} review{reviewsStats.totalReviews !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6">
+              {reviewsLoading ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 text-[#6b493d] animate-spin mb-3" />
+                  <p className="text-[#8c6b5d] font-medium animate-pulse">Loading reviews...</p>
+                </div>
+              ) : reviewsError ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
+                  <p className="text-red-600 font-medium">{reviewsError}</p>
+                  <button
+                    onClick={() => { setReviewsFetched(false); fetchSellerReviews(); }}
+                    className="mt-4 px-4 py-2 bg-[#6b493d] text-white rounded-lg hover:bg-[#8c6b5d] transition-colors text-sm font-medium"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : !reviews || reviews.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50">
+                  <Star className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="font-medium text-gray-500">No reviews yet.</p>
+                  <p className="text-sm text-gray-400 mt-1">When customers leave feedback on your products, their reviews will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reviews.map((review, index) => (
+                    <div key={review._id || index} className="p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          {review.user?.profileImage ? (
+                            <img src={review.user.profileImage.startsWith('http') ? review.user.profileImage : `http://localhost:3000${review.user.profileImage}`} alt={review.user.username} className="w-9 h-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-[#6b493d]/10 flex items-center justify-center text-[#6b493d] font-semibold text-sm">
+                              {review.user?.username ? review.user.username.charAt(0).toUpperCase() : '?'}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{review.user?.username || 'Anonymous'}</p>
+                            {review.product?.title && (
+                              <p className="text-xs text-gray-400">on {review.product.title}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StarDisplay rating={review.rating} size={14} />
+                          {review.createdAt && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-sm text-gray-600 mt-2 pl-12">{review.comment}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'products' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#fcfaf8]">
