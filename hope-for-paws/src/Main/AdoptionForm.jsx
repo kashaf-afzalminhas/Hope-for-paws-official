@@ -1,22 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
 
-const PAKISTAN_CITIES = [
-  'Abbottabad', 'Attock', 'Bahawalpur', 'Bahawalnagar', 'Bannu', 'Battagram',
-  'Bhakkar', 'Chakwal', 'Chaman', 'Chiniot', 'Chishtian', 'Dadu', 'Dera Ghazi Khan',
-  'Dera Ismail Khan', 'Faisalabad', 'Ghotki', 'Gilgit', 'Gojra', 'Gujranwala',
-  'Gujrat', 'Hafizabad', 'Haripur', 'Hyderabad', 'Islamabad', 'Jacobabad',
-  'Jhelum', 'Kamalia', 'Karachi', 'Kasur', 'Khanewal', 'Khushab', 'Khuzdar',
-  'Kohat', 'Kot Addu', 'Lahore', 'Larkana', 'Layyah', 'Lodhran', 'Mansehra',
-  'Mardan', 'Mirpur', 'Mirpur Khas', 'Multan', 'Muzaffarabad', 'Muzaffargarh',
-  'Narowal', 'Nawabshah', 'Nowshera', 'Okara', 'Pakpattan', 'Peshawar',
-  'Quetta', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha',
-  'Sheikhupura', 'Sialkot', 'Sibi', 'Sukkur', 'Swabi', 'Swat', 'Tando Adam',
-  'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
-];
+
 
 // Image validation constants
 const MAX_FILE_SIZE_MB = 2; // 2MB per image
@@ -53,12 +41,31 @@ const AdoptionForm = () => {
   const locationRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+  const [cities, setCities] = useState([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
+
+  // Fetch cities dynamically from the backend on mount
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/adoptions/cities`);
+        if (!response.ok) throw new Error('Failed to fetch cities');
+        const data = await response.json();
+        setCities(data);
+      } catch (err) {
+        console.error('Error fetching cities:', err);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+    fetchCities();
+  }, []);
 
   const filteredCities = locationQuery.length > 0
-    ? PAKISTAN_CITIES.filter(c =>
+    ? cities.filter(c =>
         c.toLowerCase().includes(locationQuery.toLowerCase())
       )
-    : PAKISTAN_CITIES;
+    : cities;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
