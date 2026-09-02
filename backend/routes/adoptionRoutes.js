@@ -84,6 +84,26 @@ async function reopenListingRequestsForAvailability(adId, adoptionName) {
   return { reopenedCount: requestsToReopen.length, requesterIds };
 }
 
+// ── City list served from the backend so the frontend is not hardcoded ──
+const PAKISTAN_CITIES = [
+  'Abbottabad', 'Attock', 'Bahawalpur', 'Bahawalnagar', 'Bannu', 'Battagram',
+  'Bhakkar', 'Chakwal', 'Chaman', 'Chiniot', 'Chishtian', 'Dadu', 'Dera Ghazi Khan',
+  'Dera Ismail Khan', 'Faisalabad', 'Ghotki', 'Gilgit', 'Gojra', 'Gujranwala',
+  'Gujrat', 'Hafizabad', 'Haripur', 'Hyderabad', 'Islamabad', 'Jacobabad',
+  'Jhelum', 'Kamalia', 'Karachi', 'Kasur', 'Khanewal', 'Khushab', 'Khuzdar',
+  'Kohat', 'Kot Addu', 'Lahore', 'Larkana', 'Layyah', 'Lodhran', 'Mansehra',
+  'Mardan', 'Mirpur', 'Mirpur Khas', 'Multan', 'Muzaffarabad', 'Muzaffargarh',
+  'Narowal', 'Nawabshah', 'Nowshera', 'Okara', 'Pakpattan', 'Peshawar',
+  'Quetta', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha',
+  'Sheikhupura', 'Sialkot', 'Sibi', 'Sukkur', 'Swabi', 'Swat', 'Tando Adam',
+  'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
+];
+
+// GET /api/adoptions/cities — public endpoint, no auth required
+router.get('/cities', (req, res) => {
+  res.json(PAKISTAN_CITIES);
+});
+
 // Create an adoption post
 router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
   console.log('=== ADOPTION POST ROUTE HIT ===');
