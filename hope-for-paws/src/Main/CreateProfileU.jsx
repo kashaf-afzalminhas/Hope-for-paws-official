@@ -1,5 +1,6 @@
 import VerifiedBadge from "../Components/VerifiedBadge";
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { FaUserCircle, FaEdit, FaLock, FaListAlt, FaHistory, FaSignOutAlt, FaBars, FaTimes, FaChevronLeft, FaCamera, FaTrash, FaStore, FaEye, FaEyeSlash, FaShoppingBag, FaHeart, FaComment, FaPen } from 'react-icons/fa';
 import { Heart, MessageCircle, Pencil, Trash2, X, Info } from 'lucide-react';
@@ -36,6 +37,45 @@ Toast.propTypes = {
       type: PropTypes.string
     })
   ).isRequired
+};
+
+// Email OTP countdown timer component
+const EmailOTPTimer = ({ timeLeft, setTimeLeft, isExpired, setIsExpired }) => {
+  useEffect(() => {
+    if (timeLeft > 0 && !isExpired) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsExpired(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [timeLeft, isExpired, setTimeLeft, setIsExpired]);
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+  return (
+    <div className={`px-2 py-1 rounded text-xs font-mono ${
+      isExpired
+        ? 'bg-red-100 text-red-700 border border-red-200'
+        : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'
+    }`}>
+      {isExpired ? 'Expired' : formatted}
+    </div>
+  );
+};
+
+EmailOTPTimer.propTypes = {
+  timeLeft: PropTypes.number.isRequired,
+  setTimeLeft: PropTypes.func.isRequired,
+  isExpired: PropTypes.bool.isRequired,
+  setIsExpired: PropTypes.func.isRequired
 };
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
@@ -113,6 +153,17 @@ const ProfilePage = () => {
     confirmPassword: false
   });
   const [passwordError, setPasswordError] = useState('');
+
+  // Email OTP verification states
+  const [showEmailOTPModal, setShowEmailOTPModal] = useState(false);
+  const [emailOTP, setEmailOTP] = useState('');
+  const [emailOTPLoading, setEmailOTPLoading] = useState(false);
+  const [emailOTPError, setEmailOTPError] = useState('');
+  const [emailOTPMessage, setEmailOTPMessage] = useState('');
+  const [emailOTPTimeLeft, setEmailOTPTimeLeft] = useState(120);
+  const [emailOTPExpired, setEmailOTPExpired] = useState(false);
+  const [pendingProfilePayload, setPendingProfilePayload] = useState(null);
+  const [pendingNewEmail, setPendingNewEmail] = useState('');
 
   const [toasts, setToasts] = useState([]);
   const addToast = (message, type = 'success') => {
@@ -460,31 +511,74 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSaveProfile = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
+  // Helper to apply profile update response to all local state
+  const applyProfileUpdate = (updatedUser) => {
+    // Convert isVeterinarian to userType for display
+    const getUserType = (user) => {
+      if (user.userType) return user.userType;
+      if (user.isSeller) return 'Seller';
+      if (user.isVeterinarian) return 'Veterinarian';
+      return 'Regular User';
+    };
 
+    // Parse the updated phone number
+    let phoneNumber = '';
+    let phoneCountryCode = '+92';
+
+    if (updatedUser.phone) {
+      const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
+      if (matchingCountry) {
+        phoneCountryCode = matchingCountry.code;
+        phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
+      } else {
+        phoneNumber = updatedUser.phone;
+      }
+    }
+
+    const resolvedUserId = updatedUser.id || updatedUser._id || profile.id;
+
+    setProfile({
+      id: resolvedUserId,
+      name: updatedUser.username,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      city: updatedUser.city || '',
+      about: updatedUser.about || '',
+      userType: getUserType(updatedUser),
+      profileImage: profile.profileImage,
+      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
+    });
+
+    setFormData({
+      name: updatedUser.username || '',
+      email: updatedUser.email || '',
+      phone: phoneNumber,
+      city: updatedUser.city || '',
+      about: updatedUser.about || '',
+      countryCode: phoneCountryCode,
+      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
+    });
+
+    setOriginalProfile({
+      name: updatedUser.username || '',
+      email: updatedUser.email || '',
+      phone: phoneNumber,
+      city: updatedUser.city || '',
+      about: updatedUser.about || '',
+      countryCode: phoneCountryCode,
+      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
+    });
+
+    setPhoneError('');
+    setPhoneTouched(false);
+  };
+
+  // Save the non-email profile fields to the backend
+  const saveProfileFields = async (emailOverride) => {
     const { id } = profile;
-    const { name, email, city, about } = formData;
+    const { name, city, about } = formData;
     const fullPhone = formData.countryCode + formData.phone;
-
-    // Validate phone number
-    const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
-    if (phoneValidationError) {
-      setPhoneError(phoneValidationError);
-      setPhoneTouched(true);
-      setLoading(false);
-      addToast(phoneValidationError, 'error');
-      return;
-    }
-
-    if (!id) {
-      setError('Please log in again to update profile');
-      addToast('Please log in again to update profile', 'error');
-      setLoading(false);
-      return;
-    }
+    const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
     try {
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
@@ -493,7 +587,7 @@ const ProfilePage = () => {
         body: JSON.stringify({
           id,
           username: name,
-          email,
+          email: emailToSend,
           phone: fullPhone,
           city,
           about,
@@ -502,77 +596,11 @@ const ProfilePage = () => {
       });
 
       const data = await response.json();
-      setLoading(false);
 
       if (response.ok) {
         const updatedUser = data.user;
-
-        // Update AuthContext with the new user data
         updateUser(updatedUser);
-
-        // Convert isVeterinarian to userType for display
-        const getUserType = (user) => {
-          if (user.userType) return user.userType;
-          if (user.isSeller) return 'Seller';
-          if (user.isVeterinarian) return 'Veterinarian';
-          return 'Regular User';
-        };
-
-        // Parse the updated phone number
-        let phoneNumber = '';
-        let phoneCountryCode = '+92';
-
-        if (updatedUser.phone) {
-          const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
-          if (matchingCountry) {
-            phoneCountryCode = matchingCountry.code;
-            phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
-          } else {
-            phoneNumber = updatedUser.phone;
-          }
-        }
-
-        const resolvedUserId = updatedUser.id || updatedUser._id || id;
-
-        setProfile({
-          id: resolvedUserId,
-          name: updatedUser.username,
-          email: updatedUser.email,
-          phone: updatedUser.phone, // Store the full phone number with country code for display
-          city: updatedUser.city || '',
-          about: updatedUser.about || '',
-          userType: getUserType(updatedUser),
-          // userType: updatedUser.userType,
-          profileImage: profile.profileImage, // Keep the current profile image
-          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-        });
-
-        // Update form data to match the saved profile
-        setFormData({
-          name: updatedUser.username || '',
-          email: updatedUser.email || '',
-          phone: phoneNumber,
-          city: updatedUser.city || '',
-          about: updatedUser.about || '',
-          countryCode: phoneCountryCode,
-          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-        });
-
-        // Update original profile data to reflect the saved state
-        setOriginalProfile({
-          name: updatedUser.username || '',
-          email: updatedUser.email || '',
-          phone: phoneNumber,
-          city: updatedUser.city || '',
-          about: updatedUser.about || '',
-          countryCode: phoneCountryCode,
-          notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-        });
-
-        // Clear phone validation errors
-        setPhoneError('');
-        setPhoneTouched(false);
-
+        applyProfileUpdate(updatedUser);
         addToast('Profile updated successfully!');
 
         const savedRedirect = (() => {
@@ -596,28 +624,193 @@ const ProfilePage = () => {
 
         setCurrentView('profile');
       } else {
-        // Handle specific phone number errors
         if (data.message && data.message.includes('already used')) {
           setPhoneError('This phone number is already used by another user');
           setPhoneTouched(true);
-          // Only show toast for duplicate phone, not the general error
           addToast('This phone number is already used by another user', 'error');
         } else if (data.message && data.message.includes('valid international phone number')) {
           setPhoneError('Please enter a valid international phone number');
           setPhoneTouched(true);
           addToast('Please enter a valid international phone number', 'error');
         } else {
-          // For other errors, show both error state and toast
           setError(data.message || 'Failed to update profile. Please try again.');
           addToast(data.message || 'Failed to update profile. Please try again.', 'error');
         }
       }
-    } catch (error) {
-      setLoading(false);
-      console.error('Error:', error);
+    } catch (err) {
+      console.error('Error:', err);
       setError('An error occurred while updating the profile.');
       addToast('An error occurred while updating the profile.', 'error');
     }
+  };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const { id } = profile;
+    const fullPhone = formData.countryCode + formData.phone;
+
+    // Validate phone number
+    const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      setPhoneTouched(true);
+      setLoading(false);
+      addToast(phoneValidationError, 'error');
+      return;
+    }
+
+    if (!id) {
+      setError('Please log in again to update profile');
+      addToast('Please log in again to update profile', 'error');
+      setLoading(false);
+      return;
+    }
+
+    const emailChanged = formData.email !== originalProfile.email;
+
+    if (emailChanged) {
+      // Email has changed — trigger OTP verification flow
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const response = await fetch(`${AUTH_BASE_URL}/send-email-change-otp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ newEmail: formData.email })
+        });
+
+        const data = await response.json();
+        setLoading(false);
+
+        if (response.ok) {
+          // Show OTP modal
+          setPendingNewEmail(formData.email);
+          setPendingProfilePayload({ fullPhone });
+          setEmailOTP('');
+          setEmailOTPError('');
+          setEmailOTPMessage('');
+          setEmailOTPTimeLeft(120);
+          setEmailOTPExpired(false);
+          setShowEmailOTPModal(true);
+        } else {
+          setError(data.message || 'Failed to send verification code.');
+          addToast(data.message || 'Failed to send verification code.', 'error');
+        }
+      } catch (err) {
+        setLoading(false);
+        console.error('Error:', err);
+        setError('An error occurred while sending the verification code.');
+        addToast('An error occurred while sending the verification code.', 'error');
+      }
+    } else {
+      // No email change — save directly
+      try {
+        await saveProfileFields();
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Handle OTP verification for email change
+  const handleVerifyEmailOTP = async () => {
+    setEmailOTPLoading(true);
+    setEmailOTPError('');
+    setEmailOTPMessage('');
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${AUTH_BASE_URL}/verify-email-change`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ otp: emailOTP })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailOTPMessage('Email verified successfully!');
+
+        // Update AuthContext and local storage with the email-updated user
+        if (data.user) {
+          updateUser(data.user);
+        }
+
+        // Now save the rest of the profile fields (with the new email)
+        setTimeout(async () => {
+          setShowEmailOTPModal(false);
+          setEmailOTP('');
+          setEmailOTPError('');
+          setEmailOTPMessage('');
+          setPendingNewEmail('');
+          setPendingProfilePayload(null);
+
+          // Save remaining profile fields using the now-verified new email
+          await saveProfileFields(data.user?.email || formData.email);
+        }, 1500);
+      } else {
+        setEmailOTPError(data.message || 'Verification failed.');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setEmailOTPError('An error occurred during verification.');
+    } finally {
+      setEmailOTPLoading(false);
+    }
+  };
+
+  // Handle resending email change OTP
+  const handleResendEmailOTP = async () => {
+    setEmailOTPLoading(true);
+    setEmailOTPError('');
+    setEmailOTPMessage('');
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${AUTH_BASE_URL}/send-email-change-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ newEmail: pendingNewEmail })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailOTPMessage('New verification code sent!');
+        setEmailOTPTimeLeft(120);
+        setEmailOTPExpired(false);
+        setEmailOTP('');
+        setTimeout(() => setEmailOTPMessage(''), 5000);
+      } else {
+        setEmailOTPError(data.message || 'Failed to resend code.');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setEmailOTPError('An error occurred while resending the code.');
+    } finally {
+      setEmailOTPLoading(false);
+    }
+  };
+
+  // Cancel email OTP modal
+  const handleCancelEmailOTP = () => {
+    setShowEmailOTPModal(false);
+    setEmailOTP('');
+    setEmailOTPError('');
+    setEmailOTPMessage('');
+    setPendingNewEmail('');
+    setPendingProfilePayload(null);
   };
 
   const handlePasswordUpdate = async (event) => {
@@ -1755,6 +1948,95 @@ const ProfilePage = () => {
                     </button>
                   </div>
                 </form>
+
+                {showEmailOTPModal && createPortal(
+                  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-[24px] border border-[#e8dcc8] bg-white p-6 shadow-xl sm:p-8">
+                      <div className="mb-6 text-center">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#f8f4ed]">
+                          <svg className="h-6 w-6 text-[#6b493d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-[#4E3B31]">Verify Your New Email</h3>
+                        <p className="mt-2 text-sm text-[#715645]">
+                          We've sent a verification code to<br />
+                          <span className="font-semibold text-[#6b493d]">{pendingNewEmail}</span>
+                        </p>
+                      </div>
+
+                      <form onSubmit={(e) => { e.preventDefault(); handleVerifyEmailOTP(); }}>
+                        {emailOTPError && (
+                          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {emailOTPError}
+                          </div>
+                        )}
+                        {emailOTPMessage && (
+                          <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                            {emailOTPMessage}
+                          </div>
+                        )}
+
+                        <div className="mb-4">
+                          <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Verification Code</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={emailOTP}
+                              onChange={(e) => setEmailOTP(e.target.value)}
+                              className="flex-1 rounded-2xl border border-[#a07855] px-3 py-2.5 text-[#4E3B31] focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d] sm:text-sm"
+                              placeholder="Enter verification code"
+                              autoFocus
+                            />
+                            <EmailOTPTimer
+                              timeLeft={emailOTPTimeLeft}
+                              setTimeLeft={setEmailOTPTimeLeft}
+                              isExpired={emailOTPExpired}
+                              setIsExpired={setEmailOTPExpired}
+                            />
+                          </div>
+                          <div className="mt-2 flex items-center justify-between">
+                            <p className="text-xs text-[#6b493d]">Check your inbox for the code</p>
+                            <button
+                              type="button"
+                              onClick={handleResendEmailOTP}
+                              disabled={!emailOTPExpired || emailOTPLoading}
+                              className={`text-xs font-medium transition-colors ${
+                                emailOTPExpired && !emailOTPLoading
+                                  ? 'cursor-pointer text-[#6b493d] hover:text-[#a07855]'
+                                  : 'cursor-not-allowed text-gray-400'
+                              }`}
+                            >
+                              {emailOTPLoading ? 'Sending...' : 'Resend Code'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={handleCancelEmailOTP}
+                            className="flex-1 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={emailOTPLoading || !emailOTP || emailOTPExpired}
+                            className={`flex-1 rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                              emailOTPLoading || !emailOTP || emailOTPExpired
+                                ? 'cursor-not-allowed bg-gray-400 text-gray-200'
+                                : 'bg-[#6b493d] text-white hover:bg-[#57392f]'
+                            }`}
+                          >
+                            {emailOTPLoading ? 'Verifying...' : 'Verify Email'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>,
+                  document.body
+                )}
               </div>
             )}
 
