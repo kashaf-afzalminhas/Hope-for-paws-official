@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
-import UserTypeModal from '../Components/UserTypeModal';
+import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -60,8 +60,8 @@ const Login = () => {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { type: "spring", stiffness: 120 }
     }
@@ -155,7 +155,7 @@ const Login = () => {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
           }
-          
+
           performPostLoginRedirect(data.user);
         } else {
           setLoading(false);
@@ -170,7 +170,7 @@ const Login = () => {
     } catch {
       setLoading(false);
       setError('An error occurred while signing in');
-    }    
+    }
   };
 
   const googleLoginHandler = async (googleResponse) => {
@@ -208,7 +208,12 @@ const Login = () => {
       setLoading(false);
       if (response.ok) {
         if (data.needsUserType) {
-          setPendingGoogleUser({ email: data.email, username: data.username, googleId: data.googleId });
+          setPendingGoogleUser({
+            email: data.email,
+            username: data.username,
+            googleId: data.googleId,
+            picture: data.picture
+          });
           setShowUserTypeModal(true);
           return;
         }
@@ -234,7 +239,7 @@ const Login = () => {
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
-        
+
         performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
@@ -293,7 +298,7 @@ const Login = () => {
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
-        
+
         performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
@@ -336,9 +341,9 @@ const Login = () => {
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
         {/* Image Section - Visible on both mobile and desktop */}
         <div className="w-full sm:h-72 md:w-1/2 h-64 md:h-auto bg-[#F8F4ED] relative">
-          <img 
-            src={Paws} 
-            alt="Hope For Paws" 
+          <img
+            src={Paws}
+            alt="Hope For Paws"
             className="absolute h-72 inset-0 w-full md:h-full object-cover"
             style={{ objectFit: 'cover' }}
           />
@@ -450,7 +455,7 @@ const Login = () => {
             </form>
             <motion.div variants={itemVariants} className="flex justify-center">
               <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                <GoogleLogin 
+                <GoogleLogin
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={(error) => console.log(error)}
                   theme="filled_blue"
@@ -463,11 +468,11 @@ const Login = () => {
                 />
               </GoogleOAuthProvider>
             </motion.div>
-            <UserTypeModal
+            <GoogleAccountTypeOnboarding
               open={showUserTypeModal}
               onClose={() => setShowUserTypeModal(false)}
               onSelect={handleUserTypeSelect}
-              username={pendingGoogleUser?.username}
+              googleUser={pendingGoogleUser}
             />
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
