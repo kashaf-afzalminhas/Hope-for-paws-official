@@ -53,7 +53,6 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['Food', 'Toys', 'Bedding', 'Grooming', 'Health & Medicine', 'Accessories', 'Walking'],
       trim: true
     },
     brand: {

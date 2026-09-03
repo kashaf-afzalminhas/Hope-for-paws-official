@@ -370,3 +370,23 @@ exports.shareProduct = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Seller-specific custom categories for product creation.
+exports.listMyProductCategories = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId }).select('_id').lean();
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+
+    const products = await Product.find({ sellerId: seller._id }).select('category').lean();
+    const categories = [...new Set(
+      products
+        .map(product => product.category?.trim())
+        .filter(category => category)
+    )].sort((first, second) => first.localeCompare(second));
+
+    return res.json(categories);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
