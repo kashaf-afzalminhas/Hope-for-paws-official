@@ -4,7 +4,7 @@ import Paws from '/Hopeforpaws.jpg';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { motion } from "framer-motion";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
-import UserTypeModal from '../Components/UserTypeModal';
+import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
 import { COUNTRY_CODES } from '../utils/constants';
 
 const SignUp = () => {
@@ -250,7 +250,12 @@ const SignUp = () => {
       setLoading(false);
       if (response.ok) {
         if (data.needsUserType) {
-          setPendingGoogleUser({ email: data.email, username: data.username, googleId: data.googleId });
+          setPendingGoogleUser({
+            email: data.email,
+            username: data.username,
+            googleId: data.googleId,
+            picture: data.picture
+          });
           setShowUserTypeModal(true);
           return;
         }
@@ -486,11 +491,11 @@ const SignUp = () => {
                 </GoogleOAuthProvider>
               </motion.div>
 
-          <UserTypeModal
+          <GoogleAccountTypeOnboarding
             open={showUserTypeModal}
             onClose={() => setShowUserTypeModal(false)}
             onSelect={handleUserTypeSelect}
-            username={pendingGoogleUser?.username}
+            googleUser={pendingGoogleUser}
           />
 
           <p className="text-sm text-[#4E3B31] text-center mt-4">
