@@ -19,7 +19,7 @@ import SellerOrders from '../marketplace/SellerOrders';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
-import { COUNTRY_CODES } from '../utils/constants';
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -177,34 +177,6 @@ const ProfilePage = () => {
     }
   }, [location.state]);
 
-  // Phone validation function
-  const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber) return 'Phone number is required';
-    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
-
-    const countryRules = {
-      '+92': { min: 10, max: 10, label: 'Pakistan' },
-      '+1': { min: 10, max: 10, label: 'US/Canada' },
-      '+44': { min: 10, max: 10, label: 'United Kingdom' },
-      '+91': { min: 10, max: 10, label: 'India' }
-    };
-    const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
-      if (rule.min === rule.max) {
-        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
-      }
-      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
-    }
-
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
-
-    const fullPhone = code + phoneNumber;
-    const phoneRegex = /^\+[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-
-    return '';
-  };
-
   // Debug function to test token
   const testToken = async () => {
     try {
@@ -229,20 +201,9 @@ const ProfilePage = () => {
         return 'Regular User';
       };
 
-      // Parse existing phone number to extract country code and phone number
-      let phoneNumber = '';
-      let phoneCountryCode = '+92';
-
-      if (userData.phone) {
-        // Find matching country code
-        const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
-        if (matchingCountry) {
-          phoneCountryCode = matchingCountry.code;
-          phoneNumber = userData.phone.substring(matchingCountry.code.length);
-        } else {
-          phoneNumber = userData.phone;
-        }
-      }
+      const parsedPhone = parsePhoneNumber(userData.phone);
+      const phoneNumber = parsedPhone.phone;
+      const phoneCountryCode = parsedPhone.countryCode;
 
       setProfile({
         id: userData.id || userData._id || '',
@@ -338,35 +299,6 @@ const ProfilePage = () => {
         [key]: value
       }
     });
-  };
-
-  const handlePhoneChange = (e) => {
-    let phoneValue = e.target.value;
-
-    // Remove leading zero if country code is selected
-    if (formData.countryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-    }
-
-    setFormData({ ...formData, phone: phoneValue });
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, formData.countryCode));
-  };
-
-  const handleCountryCodeChange = (e) => {
-    const newCountryCode = e.target.value;
-    let phoneValue = formData.phone;
-
-    // Remove leading zero when country code changes
-    if (newCountryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-      setFormData({ ...formData, phone: phoneValue, countryCode: newCountryCode });
-    } else {
-      setFormData({ ...formData, countryCode: newCountryCode });
-    }
-
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
 
   // Function to detect if there are changes
@@ -521,19 +453,9 @@ const ProfilePage = () => {
       return 'Regular User';
     };
 
-    // Parse the updated phone number
-    let phoneNumber = '';
-    let phoneCountryCode = '+92';
-
-    if (updatedUser.phone) {
-      const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
-      if (matchingCountry) {
-        phoneCountryCode = matchingCountry.code;
-        phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
-      } else {
-        phoneNumber = updatedUser.phone;
-      }
-    }
+    const parsedPhone = parsePhoneNumber(updatedUser.phone);
+    const phoneNumber = parsedPhone.phone;
+    const phoneCountryCode = parsedPhone.countryCode;
 
     const resolvedUserId = updatedUser.id || updatedUser._id || profile.id;
 
@@ -577,7 +499,7 @@ const ProfilePage = () => {
   const saveProfileFields = async (emailOverride) => {
     const { id } = profile;
     const { name, city, about } = formData;
-    const fullPhone = formData.countryCode + formData.phone;
+    const fullPhone = getFullPhoneNumber(formData.phone, formData.countryCode);
     const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
     try {
@@ -650,7 +572,7 @@ const ProfilePage = () => {
     setError('');
 
     const { id } = profile;
-    const fullPhone = formData.countryCode + formData.phone;
+    const fullPhone = getFullPhoneNumber(formData.phone, formData.countryCode);
 
     // Validate phone number
     const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
@@ -1792,32 +1714,19 @@ const ProfilePage = () => {
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
-                        <div className="flex gap-2">
-                          <select
-                            value={formData.countryCode}
-                            onChange={handleCountryCodeChange}
-                            className="min-w-[120px] rounded-2xl border border-gray-300 px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm"
-                          >
-                            {COUNTRY_CODES.map((country, index) => (
-                              <option key={index} value={country.code}>
-                                {country.flag} {country.code}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handlePhoneChange}
-                            onBlur={() => setPhoneTouched(true)}
-                            className={`flex-1 rounded-2xl border px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'}`}
-                            placeholder="XXXXXXXXXX"
-                          />
-                        </div>
-                        {phoneTouched && phoneError && (
-                          <p className="mt-1 text-xs text-red-600">{phoneError}</p>
-                        )}
+                        <PhoneNumberInput
+                          phone={formData.phone}
+                          countryCode={formData.countryCode}
+                          touched={phoneTouched}
+                          error={phoneError}
+                          label="Phone number"
+                          onBlur={() => setPhoneTouched(true)}
+                          onChange={({ phone, countryCode, error }) => {
+                            setFormData((prev) => ({ ...prev, phone, countryCode }));
+                            setPhoneTouched(true);
+                            setPhoneError(error);
+                          }}
+                        />
                       </div>
 
                       <div>

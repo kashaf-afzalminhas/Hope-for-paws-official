@@ -2,35 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAdoption } from '../context/AdoptionContext';
 import { useAuth } from '../context/AuthContext';
-
-const E164_PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
-const COUNTRY_PHONE_LENGTH_RULES = {
-  '+92': { min: 10, max: 10, label: 'Pakistan' },
-  '+1': { min: 10, max: 10, label: 'US/Canada' },
-  '+44': { min: 10, max: 10, label: 'United Kingdom' },
-  '+91': { min: 10, max: 10, label: 'India' },
-};
-
-function validateInternationalPhone(phone) {
-  const trimmed = String(phone || '').trim();
-  if (!trimmed) return 'Phone number is required';
-  if (!E164_PHONE_REGEX.test(trimmed)) {
-    return 'Enter a valid number with country code (e.g. +923001234567).';
-  }
-  const matchedCode = Object.keys(COUNTRY_PHONE_LENGTH_RULES)
-    .sort((a, b) => b.length - a.length)
-    .find((code) => trimmed.startsWith(code));
-  if (!matchedCode) return null;
-
-  const nationalNumber = trimmed.slice(matchedCode.length);
-  const rule = COUNTRY_PHONE_LENGTH_RULES[matchedCode];
-  if (nationalNumber.length < rule.min || nationalNumber.length > rule.max) {
-    return rule.min === rule.max
-      ? `Use ${rule.min} digits after ${matchedCode} for ${rule.label}.`
-      : `Use ${rule.min}–${rule.max} digits after ${matchedCode} for ${rule.label}.`;
-  }
-  return null;
-}
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 
 const inputClass =
   'w-full rounded-xl border border-[#e8dcc8] bg-white px-3 py-2.5 text-[#4E3B31] shadow-sm transition focus:border-[#a07855] focus:outline-none focus:ring-2 focus:ring-[#a07855]/25';
@@ -45,6 +17,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
     name: '',
     email: '',
     phone: '',
+    countryCode: '+92',
     message: '',
   });
   const [phoneTouched, setPhoneTouched] = useState(false);
@@ -60,12 +33,13 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       if (!u) return;
       setEffectiveUser(u);
       const displayName = (u.username || u.name || '').trim();
-      const phone = u.phone != null ? String(u.phone).trim() : '';
+      const parsedPhone = parsePhoneNumber(u.phone);
       setFormData((prev) => ({
         ...prev,
         name: displayName || prev.name,
         email: u.email || prev.email,
-        phone: phone || prev.phone,
+        phone: parsedPhone.phone || prev.phone,
+        countryCode: parsedPhone.countryCode,
       }));
     };
 
@@ -84,14 +58,11 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === 'phone') {
-      setPhoneError(validateInternationalPhone(value));
-    }
   };
 
   const handlePhoneBlur = () => {
     setPhoneTouched(true);
-    setPhoneError(validateInternationalPhone(formData.phone));
+    setPhoneError(validatePhone(formData.phone, formData.countryCode));
   };
 
   const handleImageChange = (e) => {
@@ -140,7 +111,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
         throw new Error('Please enter a valid email address');
       }
 
-      const phoneErr = validateInternationalPhone(formData.phone);
+      const phoneErr = validatePhone(formData.phone, formData.countryCode);
       if (phoneErr) {
         setPhoneError(phoneErr);
         throw new Error(phoneErr);
@@ -149,7 +120,7 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
       const submitData = new FormData();
       submitData.append('name', formData.name.trim());
       submitData.append('email', formData.email.trim());
-      submitData.append('phone', formData.phone.trim());
+      submitData.append('phone', getFullPhoneNumber(formData.phone.trim(), formData.countryCode));
       submitData.append('message', formData.message.trim());
       if (petHistoryImage) {
         submitData.append('petHistoryImage', petHistoryImage);
@@ -166,9 +137,9 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[#e8dcc8] bg-white shadow-xl"
+        className="my-auto w-full max-w-md rounded-2xl border border-[#e8dcc8] bg-white shadow-xl"
         role="dialog"
         aria-labelledby="adoption-request-title"
       >
@@ -229,26 +200,21 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Phone</label>
-              <input
-                type="tel"
-                name="phone"
+              <PhoneNumberInput
+                phone={formData.phone}
+                countryCode={formData.countryCode}
                 required
-                autoComplete="tel"
-                inputMode="tel"
-                value={formData.phone}
-                onChange={handleChange}
+                touched={phoneTouched}
+                error={phoneError}
+                label="Phone"
                 onBlur={handlePhoneBlur}
-                className={phoneTouched && phoneError ? inputErrorClass : inputClass}
-                placeholder="+923001234567"
-                aria-invalid={phoneTouched && phoneError ? 'true' : 'false'}
-                aria-describedby={phoneTouched && phoneError ? 'phone-error' : undefined}
+                onChange={({ phone, countryCode, error }) => {
+                  setFormData((prev) => ({ ...prev, phone, countryCode }));
+                  setPhoneTouched(true);
+                  setPhoneError(error);
+                }}
+                className="[&>div>select]:!rounded-xl [&>div>select]:!border-[#e8dcc8] [&>div>select]:!bg-white [&>div>select]:!py-2.5 [&>div>input]:!rounded-xl [&>div>input]:!border-[#e8dcc8] [&>div>input]:!py-2.5"
               />
-              {phoneTouched && phoneError && (
-                <p id="phone-error" className="mt-1.5 text-xs text-rose-600">
-                  {phoneError}
-                </p>
-              )}
             </div>
 
             <div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AUTH_BASE_URL } from '../config';
-import { COUNTRY_CODES } from '../utils/constants';
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from './PhoneNumberInput';
 
 const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingUser = false }) => {
   const [phone, setPhone] = useState('');
@@ -9,49 +9,16 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const countryCodes = COUNTRY_CODES;
-
   useEffect(() => {
     if (isOpen && user?.phone) {
-      // Extract country code and phone number from existing phone
-      const phoneStr = user.phone;
-      const foundCountry = countryCodes.find(country => phoneStr.startsWith(country.code));
-      if (foundCountry) {
-        setCountryCode(foundCountry.code);
-        setPhone(phoneStr.substring(foundCountry.code.length));
-      } else {
-        setPhone(phoneStr);
-      }
+      const parsedPhone = parsePhoneNumber(user.phone);
+      setCountryCode(parsedPhone.countryCode);
+      setPhone(parsedPhone.phone);
     } else if (isOpen) {
       setPhone('');
       setCountryCode('+92');
     }
   }, [isOpen, user]);
-
-  const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber || !code) return 'Phone number is required';
-    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
-
-    const countryRules = {
-      '+92': { min: 10, max: 10, label: 'Pakistan' },
-      '+1': { min: 10, max: 10, label: 'US/Canada' },
-      '+44': { min: 10, max: 10, label: 'United Kingdom' },
-      '+91': { min: 10, max: 10, label: 'India' }
-    };
-    const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
-      if (rule.min === rule.max) {
-        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
-      }
-      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
-    }
-
-    const fullPhone = code + phoneNumber;
-    const phoneRegex = /^\+[1-9]\d{1,14}$/; // International phone number format
-    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be between 7-15 digits';
-    return '';
-  };
 
   const handleAddPhone = async (e) => {
     e.preventDefault();
@@ -73,7 +40,7 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ phone: countryCode + phone }),
+        body: JSON.stringify({ phone: getFullPhoneNumber(phone, countryCode) }),
       });
 
       const data = await response.json();
@@ -132,49 +99,20 @@ const PhoneVerificationModal = ({ isOpen, onClose, onVerified, user, isExistingU
             <label htmlFor="phone" className="block text-sm font-medium text-[#4E3B31] mb-1">
               Phone Number
             </label>
-            <div className="flex gap-2">
-              <select
-                value={countryCode}
-                onChange={(e) => {
-                  const newCountryCode = e.target.value;
-                  let phoneValue = phone;
-                  
-                  // Remove leading zero when country code changes
-                  if (newCountryCode && phoneValue.startsWith('0')) {
-                    phoneValue = phoneValue.substring(1);
-                    setPhone(phoneValue);
-                  }
-                  
-                  setCountryCode(newCountryCode);
-                }}
-                className="px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
-              >
-                {countryCodes.map((country, index) => (
-                  <option key={index} value={country.code}>
-                    {country.flag} {country.code}
-                  </option>
-                ))}
-              </select>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
+              <PhoneNumberInput
+                phone={phone}
+                countryCode={countryCode}
                 required
-                value={phone}
-                onChange={(e) => {
-                  let phoneValue = e.target.value;
-                  
-                  // Remove leading zero if country code is selected
-                  if (countryCode && phoneValue.startsWith('0')) {
-                    phoneValue = phoneValue.substring(1);
-                  }
-                  
-                  setPhone(phoneValue);
+                disabled={loading}
+                touched={Boolean(error)}
+                error={error}
+                label={null}
+                onChange={({ phone: nextPhone, countryCode: nextCountryCode, error: nextError }) => {
+                  setPhone(nextPhone);
+                  setCountryCode(nextCountryCode);
+                  setError(nextError);
                 }}
-                className="flex-1 px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm"
-                placeholder="XXXXXXXXXX"
               />
-            </div>
             <p className="text-xs text-gray-600 mt-1">
               Enter your phone number. No verification code required.
             </p>
