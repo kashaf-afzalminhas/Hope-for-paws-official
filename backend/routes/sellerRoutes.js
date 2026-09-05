@@ -12,7 +12,7 @@ const {
   getSellerApplicationById
 } = require('../controllers/sellerController');
 const { getSellerOrders, updateOrderStatus, getDashboardStats } = require('../controllers/orderController');
-const { listMyProducts, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
+const { listMyProducts, listMyProductCategories, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
 const { getSellerReviews } = require('../controllers/reviewController');
 
 
@@ -48,6 +48,7 @@ router.get('/admin/:sellerId', auth, getSellerApplicationById);
 // --- Seller Dashboard Routes ---
 // Products CRUD
 router.get('/products', auth, listMyProducts);
+router.get('/product-categories', auth, listMyProductCategories);
 router.get('/products/:id', auth, getSellerProductById);
 router.post('/products', auth, uploadProductImage.array('media', 5), createProduct);
 router.put('/products/:id', auth, uploadProductImage.array('media', 5), updateProduct);
