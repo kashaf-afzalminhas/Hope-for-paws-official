@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import PhoneNumberInput, { getFullPhoneNumber } from '../Components/PhoneNumberInput';
 
 const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
+    countryCode: '+92',
     message: ''
   });
   const [petHistoryImage, setPetHistoryImage] = useState(null);
@@ -47,7 +49,7 @@ const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
     const submitData = new FormData();
     submitData.append('name', formData.name);
     submitData.append('email', formData.email);
-    submitData.append('phone', formData.phone);
+    submitData.append('phone', getFullPhoneNumber(formData.phone, formData.countryCode));
     submitData.append('message', formData.message);
     if (petHistoryImage) {
       submitData.append('petHistoryImage', petHistoryImage);
@@ -95,14 +97,14 @@ const AdoptionRequestModel = ({ petName, onClose, onSubmit, loading }) => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#6b493d] mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              className="w-full p-2 border border-[#c9a280] rounded focus:ring-[#6b493d] focus:border-[#6b493d]"
+            <PhoneNumberInput
+              phone={formData.phone}
+              countryCode={formData.countryCode}
               required
               disabled={loading}
+              label="Phone"
+              onChange={({ phone, countryCode }) => setFormData((prev) => ({ ...prev, phone, countryCode }))}
+              className="[&>div>select]:!rounded [&>div>select]:!border-[#c9a280] [&>div>select]:!py-2 [&>div>input]:!rounded [&>div>input]:!border-[#c9a280] [&>div>input]:!py-2"
             />
           </div>
           <div>
