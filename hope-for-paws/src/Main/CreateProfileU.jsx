@@ -1726,6 +1726,7 @@ const ProfilePage = () => {
                             setPhoneTouched(true);
                             setPhoneError(error);
                           }}
+                          className="[&>div>select]:!rounded-2xl [&>div>select]:!border-gray-300 [&>div>select]:!py-2.5 [&>div>input]:!rounded-2xl [&>div>input]:!border-gray-300 [&>div>input]:!py-2.5"
                         />
                       </div>
 
