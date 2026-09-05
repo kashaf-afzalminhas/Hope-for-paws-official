@@ -7,8 +7,6 @@ import {
   Zap,
   Star,
   Store,
-  Shield,
-  Truck,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -122,7 +120,9 @@ function SellerCard({ seller, navigate }) {
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <StarRow rating={seller.rating} size={12} />
-              <span className="text-xs text-stone-500">{seller.rating} · {seller.totalSales} sales</span>
+              <span className="text-xs text-stone-500">{seller.rating.toFixed(1)} rating</span>
+              <span className="text-xs text-stone-300" aria-hidden="true">•</span>
+              <span className="text-xs text-stone-500">{seller.totalSales} sales</span>
             </div>
           </div>
         </div>
@@ -138,13 +138,12 @@ function SellerCard({ seller, navigate }) {
       </div>
 
       <div
-        className="mt-4 pt-4 border-t grid grid-cols-3 divide-x text-center"
+        className="mt-4 pt-4 border-t grid grid-cols-2 divide-x text-center"
         style={{ borderColor: BRAND.softBorder }}
       >
         {[
           { label: "Rating", value: `${seller.rating}/5` },
           { label: "Sales", value: seller.totalSales },
-          { label: "Dispatch", value: "Same Day" },
         ].map(({ label, value }) => (
           <div key={label} className="px-1 sm:px-2">
             <p className="text-xs text-stone-500">{label}</p>
@@ -152,24 +151,6 @@ function SellerCard({ seller, navigate }) {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function TrustStrip() {
-  const items = [
-    { icon: Shield, text: "Secure payments" },
-    { icon: CheckCircle2, text: "Quality guaranteed" },
-    { icon: Truck, text: "Nationwide shipping" },
-  ];
-  return (
-    <div className="flex items-center justify-between gap-1 py-4 border-y" style={{ borderColor: BRAND.softBorder }}>
-      {items.map(({ icon: Icon, text }) => (
-        <div key={text} className="flex items-center gap-1 sm:gap-1.5 text-xs text-stone-500 min-w-0">
-          <Icon size={13} className="flex-shrink-0" style={{ color: BRAND.muted }} />
-          <span className="truncate">{text}</span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -279,10 +260,12 @@ export default function ProductDetails() {
 
           discount:
             data.discountPercentage || 0,
+
+          totalSales: data.totalSales || 0,
           stock: data.countInStock || 0,
           rating: data.averageRating || 0,
           reviewCount: data.numReviews || 0,
-          weight: data.weight || "N/A",
+          weight: data.weight || null,
           images: data.images?.length > 0 ? data.images.map(img => img.startsWith('http') ? img : `http://localhost:3000${img}`) : [
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
@@ -290,12 +273,12 @@ export default function ProductDetails() {
             id: data.sellerId?._id || null,
             userId: data.sellerId?.userId?._id || data.sellerId?.userId || null,
             name: data.sellerId?.storeName || data.sellerId?.name || "Hope For Paws Seller",
-            rating: 4.9,
-            totalSales: "1.2k",
+            rating: data.sellerId?.rating ?? 0,
+            totalSales: data.sellerId?.totalSales ?? 0,
             verified: data.sellerId?.isVerified || false,
           },
-          tags: [data.category, "Premium"],
           description: data.description || "No description provided.",
+          additionalInfo: data.additionalInfo || [],
           ingredients: data.ingredients || "Not specified.",
           usage: data.usageInstructions || "Not specified.",
         });
@@ -445,21 +428,48 @@ export default function ProductDetails() {
 
     const panels = [
       /* Description */
-      <div key="desc">
-        {PRODUCT?.description?.split("\n\n").map((p, i) => (
-          <p key={i} className="text-sm sm:text-base text-stone-600 leading-relaxed mb-4 last:mb-0">{p}</p>
-        ))}
-        {PRODUCT?.tags && PRODUCT.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-5">
-            {PRODUCT.tags.map((t) => (
-              <span
-                key={t}
-                className="px-3 py-1 rounded-full text-xs font-medium border"
-                style={{ borderColor: BRAND.softBorder, color: BRAND.mid, backgroundColor: BRAND.light }}
-              >
-                {t}
-              </span>
-            ))}
+      <div key="desc" className="space-y-4">
+        {PRODUCT?.description ? (
+          <div className="bg-stone-50/40 rounded-xl p-5 sm:p-6 border border-stone-200/80 space-y-4">
+            {PRODUCT.description.split("\n\n").map((paragraph, pIdx) => {
+              const lines = paragraph.split("\n").filter(Boolean);
+              const hasBullets = lines.some(line => /^\s*[\bullet\-\*\•\d\.\)]/.test(line));
+
+              if (hasBullets) {
+                return (
+                  <div key={pIdx} className="space-y-2.5 my-2">
+                    {lines.map((line, lIdx) => {
+                      const cleanLine = line.replace(/^\s*[\bullet\-\*\•\d\.\)]\s*/, "");
+                      const isBullet = /^\s*[\bullet\-\*\•\d\.\)]/.test(line);
+
+                      if (isBullet) {
+                        return (
+                          <div key={lIdx} className="flex items-start gap-3 p-3.5 bg-white rounded-xl border border-stone-200/70 shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-[#8B5A2B] shrink-0 mt-2" />
+                            <span className="text-sm sm:text-base text-stone-800 font-medium leading-relaxed">{cleanLine}</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <h4 key={lIdx} className="text-sm sm:text-base font-semibold text-stone-900 mt-3 mb-1">
+                          {line}
+                        </h4>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              return (
+                <p key={pIdx} className="text-sm sm:text-base text-stone-700 leading-relaxed whitespace-pre-wrap">
+                  {paragraph}
+                </p>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-sm text-stone-500 italic bg-stone-50/50 rounded-xl border border-dashed border-stone-200">
+            No description provided for this product.
           </div>
         )}
       </div>,
@@ -467,20 +477,40 @@ export default function ProductDetails() {
       /* Specifications */
       <div key="specs">
         {PRODUCT?.additionalInfo && PRODUCT.additionalInfo.length > 0 ? (
-          <dl className="space-y-0">
-            {PRODUCT.additionalInfo.map((item, index) => (
-              <div
-                key={index}
-                className={`py-3 flex flex-col sm:flex-row gap-1 sm:gap-4 ${index !== PRODUCT.additionalInfo.length - 1 ? 'border-b border-gray-200' : ''}`}
-              >
-                <dt className="text-sm font-medium text-gray-700 w-full sm:w-1/3 flex-shrink-0">{item.heading}</dt>
-                <dd className="text-sm text-gray-600 w-full sm:w-2/3">{item.description}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="overflow-x-auto rounded-xl border border-stone-200 shadow-sm bg-white">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-stone-100/90 border-b border-stone-200">
+                  <th className="py-3 px-5 font-bold uppercase tracking-wider text-xs w-1/3 sm:w-1/4 border-r border-stone-200" style={{ color: BRAND.dark }}>
+                    Specification
+                  </th>
+                  <th className="py-3 px-5 font-bold uppercase tracking-wider text-xs w-2/3 sm:w-3/4" style={{ color: BRAND.dark }}>
+                    Details
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-200">
+                {PRODUCT.additionalInfo.map((item, index) => (
+                  <tr
+                    key={index}
+                    className={`transition-colors duration-150 ${
+                      index % 2 === 0 ? "bg-stone-50/50" : "bg-white"
+                    } hover:bg-amber-50/30`}
+                  >
+                    <td className="py-3.5 px-5 font-semibold text-stone-900 align-top border-r border-stone-200 bg-stone-50/30">
+                      {item.heading}
+                    </td>
+                    <td className="py-3.5 px-5 text-stone-700 leading-relaxed align-top whitespace-pre-wrap">
+                      {item.details || item.description}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <div className="py-6 text-center text-sm text-gray-500 italic">
-            No additional specifications provided.
+          <div className="py-8 text-center text-sm text-stone-500 italic bg-stone-50/50 rounded-xl border border-dashed border-stone-200">
+            No additional specifications provided for this product.
           </div>
         )}
       </div>,
@@ -598,9 +628,11 @@ export default function ProductDetails() {
               {PRODUCT.title}
             </h1>
 
-            {/* Rating */}
+            {/* Rating & Sales */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap mt-1 mb-2">
               <StarDisplay rating={PRODUCT.rating} numReviews={PRODUCT.reviewCount} size={15} />
+              <span className="text-stone-300">•</span>
+              <span className="text-xs font-medium text-stone-500">{PRODUCT.totalSales} sold</span>
             </div>
 
             {/* Price */}
@@ -626,7 +658,7 @@ export default function ProductDetails() {
             {/* Stock + SKU */}
             <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
               <StockBadge stock={PRODUCT.stock} />
-              <span className="text-xs text-stone-400">SKU: {PRODUCT.sku} · {PRODUCT.weight}</span>
+              <span className="text-xs text-stone-400">SKU: {PRODUCT.sku}{PRODUCT.weight ? ` · ${PRODUCT.weight}` : ''}</span>
             </div>
 
             {/* ── BUY BOX ── */}
@@ -691,11 +723,8 @@ export default function ProductDetails() {
               </button>
             </div>
 
-            {/* Trust strip */}
-            <TrustStrip />
-
-           {/* Seller card */}
-<SellerCard seller={PRODUCT.seller} navigate={navigate} />
+            {/* Seller card */}
+            <SellerCard seller={PRODUCT.seller} navigate={navigate} />
 
           </div>
         </div>
