@@ -137,13 +137,13 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4">
       <div
-        className="my-auto w-full max-w-md rounded-2xl border border-[#e8dcc8] bg-white shadow-xl"
+        className="my-4 w-full max-w-md overflow-hidden rounded-2xl border border-[#e8dcc8] bg-white shadow-xl"
         role="dialog"
         aria-labelledby="adoption-request-title"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#e8dcc8] bg-white px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[#e8dcc8] bg-white px-5 py-4">
           <h2 id="adoption-request-title" className="text-xl font-bold text-[#6b493d]">
             Request adoption
           </h2>
