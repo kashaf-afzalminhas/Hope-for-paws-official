@@ -139,6 +139,9 @@ const MyAdoptions = ({ embedded = false }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
   const [savingStates, setSavingStates] = useState({}); // Track saving state per post
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { userStats, fetchUserStats } = useAdoption();
   const [storedUser, setStoredUser] = useState(null);
@@ -218,13 +221,18 @@ const MyAdoptions = ({ embedded = false }) => {
     }
   };
 
-  const handleDelete = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
-    
+  const handleDelete = (postId) => {
+    setPostToDelete(postId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!postToDelete) return;
     try {
+      setIsDeleting(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.delete(
-        `${API_BASE_URL}/adoptions/${postId}`,
+        `${API_BASE_URL}/adoptions/${postToDelete}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -238,7 +246,16 @@ const MyAdoptions = ({ embedded = false }) => {
     } catch (err) {
       console.error('Error deleting adoption post:', err);
       setError(err.response?.data?.message || err.message || 'Failed to delete post');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setPostToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setPostToDelete(null);
   };
 
   const handleEdit = (post) => {
@@ -588,6 +605,55 @@ const MyAdoptions = ({ embedded = false }) => {
           onRequestAction={handleRequestAction}
           onRefresh={() => { const effectiveUser = user || storedUser; const uid = getCurrentUserId(effectiveUser); if (uid) fetchUserAdoptions(uid); }}
         />
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {isDeleteModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#6B4A38]/40 px-4 backdrop-blur-sm"
+          onClick={cancelDelete}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-sand bg-white p-6 shadow-warm-lg animate-in fade-in zoom-in-95 duration-200"
+          >
+            {/* Icon */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 border border-rose-100">
+              <Trash2 className="h-7 w-7 text-rose-600" />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-center text-lg font-heading font-bold text-ink">
+              Delete Adoption Post
+            </h3>
+
+            {/* Message */}
+            <p className="mt-2 text-center text-sm text-ink-soft">
+              Are you sure you want to delete this adoption post? This action cannot be undone.
+            </p>
+
+            {/* Buttons */}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={cancelDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl border border-sand px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-sand-light disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </section>
   );
