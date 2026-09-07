@@ -607,12 +607,20 @@ const AdoptionForm = () => {
               onChange={(e) => {
                 const val = e.target.value;
                 setLocationQuery(val);
-                setLocation('');
                 setShowCitySuggestions(true);
-                if (val.trim() === '') {
-                  setLocationError('Please select a valid city from the list');
+                // Auto-accept if the typed text exactly matches a city (case-insensitive)
+                const exactMatch = cities.find(c => c.toLowerCase() === val.trim().toLowerCase());
+                if (exactMatch) {
+                  setLocation(exactMatch);
+                  setLocationError('');
+                  setShowCitySuggestions(false);
                 } else {
-                  setLocationError('Please select a city from the list');
+                  setLocation('');
+                  if (val.trim() === '') {
+                    setLocationError('Please select a valid city from the list');
+                  } else {
+                    setLocationError('Please select a city from the list');
+                  }
                 }
               }}
               onFocus={() => setShowCitySuggestions(true)}
