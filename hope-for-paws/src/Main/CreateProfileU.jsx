@@ -943,6 +943,9 @@ const ProfilePage = () => {
   const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
+  const [isAdoptionDeleteModalOpen, setIsAdoptionDeleteModalOpen] = useState(false);
+  const [adoptionPostToDelete, setAdoptionPostToDelete] = useState(null);
+  const [isDeletingAdoption, setIsDeletingAdoption] = useState(false);
 
   // MyPosts state
   const [editingPost, setEditingPost] = useState(null);
@@ -1049,11 +1052,16 @@ const ProfilePage = () => {
       setAdoptionsLoading(false);
     }
   };
-  const handleDeleteAdoption = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
+  const handleDeleteAdoption = (postId) => {
+    setAdoptionPostToDelete(postId);
+    setIsAdoptionDeleteModalOpen(true);
+  };
+  const confirmDeleteAdoption = async () => {
+    if (!adoptionPostToDelete) return;
     try {
+      setIsDeletingAdoption(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+      await fetch(`${API_BASE_URL}/adoptions/${adoptionPostToDelete}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1062,7 +1070,15 @@ const ProfilePage = () => {
       if (uid) fetchUserAdoptions(uid);
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to delete post');
+    } finally {
+      setIsDeletingAdoption(false);
+      setIsAdoptionDeleteModalOpen(false);
+      setAdoptionPostToDelete(null);
     }
+  };
+  const cancelDeleteAdoption = () => {
+    setIsAdoptionDeleteModalOpen(false);
+    setAdoptionPostToDelete(null);
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
