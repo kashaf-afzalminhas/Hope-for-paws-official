@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle, Trash2, Plus, ChevronDown } from 'lucide-react';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -20,6 +20,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [error, setError] = useState('');
   const [uploadError, setUploadError] = useState('');
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const categoryMenuRef = React.useRef(null);
+  const [customCategories, setCustomCategories] = useState([]);
 
   const [existingImages, setExistingImages] = useState([]);
   const [imagesToDelete, setImagesToDelete] = useState([]);
@@ -35,6 +38,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     lowStockThreshold: 5,
     sku: ''
   });
+  const [customCategory, setCustomCategory] = useState('');
 
   const [skuWarning, setSkuWarning] = useState('');
 
@@ -62,10 +66,12 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
         setIsFetchingData(true);
         try {
           const { data } = await axios.get(`${API_URL}/products/${productId}`, getAxiosConfig());
+          const category = data.category || '';
+          const isPredefinedCategory = CATEGORIES.includes(category);
           setFormData({
             title: data.title || '',
             brand: data.brand || '',
-            category: data.category || '',
+            category: isPredefinedCategory ? category : 'Other',
             description: data.description || '',
             price: data.price !== undefined ? data.price : '',
             discountPercentage: data.discountPercentage !== undefined ? data.discountPercentage : '',
@@ -73,6 +79,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             lowStockThreshold: data.lowStockThreshold ?? 5,
             sku: data.sku || ''
           });
+          setCustomCategory(isPredefinedCategory ? '' : category);
           if (data.additionalInfo && data.additionalInfo.length > 0) {
             setCustomFields(data.additionalInfo);
           }
@@ -89,10 +96,51 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     }
   }, [productId, isEditMode]);
 
+  React.useEffect(() => {
+    const fetchCustomCategories = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/product-categories`, getAxiosConfig());
+        setCustomCategories(
+          Array.isArray(data)
+            ? data.filter(category => !CATEGORIES.includes(category) && category !== 'Other')
+            : []
+        );
+      } catch {
+        setCustomCategories([]);
+      }
+    };
+
+    fetchCustomCategories();
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleCategoryChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({ ...prev, category: value }));
+    if (value !== 'Other') {
+      setCustomCategory('');
+    }
+  };
+
+  const selectCategory = (value) => {
+    handleCategoryChange({ target: { value } });
+    setIsCategoryOpen(false);
+  };
+
+  React.useEffect(() => {
+    const closeCategoryMenu = (event) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+        setIsCategoryOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', closeCategoryMenu);
+    return () => document.removeEventListener('mousedown', closeCategoryMenu);
+  }, []);
 
   const handleMediaChange = (e) => {
     const files = Array.from(e.target.files);
@@ -141,6 +189,16 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     setIsSubmitting(true);
     setError('');
 
+    const category = formData.category === 'Other'
+      ? customCategory.trim()
+      : formData.category;
+
+    if (!category) {
+      setError('Please enter a custom category.');
+      setIsSubmitting(false);
+      return;
+    }
+
     // Frontend Validations
     if (Number(formData.price) < 0) {
       setError("Price cannot be negative.");
@@ -175,7 +233,11 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     try {
       const submitData = new FormData();
       Object.keys(formData).forEach(key => {
-        if (formData[key] !== '') submitData.append(key, formData[key]);
+        if (key === 'category') {
+          submitData.append(key, category);
+        } else if (formData[key] !== '') {
+          submitData.append(key, formData[key]);
+        }
       });
       
       // Attach the custom fields as a JSON string
@@ -196,6 +258,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
         await axios.put(`${API_URL}/products/${productId}`, submitData, getAxiosConfig());
       } else {
         await axios.post(`${API_URL}/products`, submitData, getAxiosConfig());
+      }
+      if (!CATEGORIES.includes(category) && category !== 'Other') {
+        setCustomCategories(prev => [...new Set([...prev, category])].sort((first, second) => first.localeCompare(second)));
       }
       onSuccess(); // Triggers refresh and goes back to dashboard
     } catch (err) {
@@ -306,13 +371,83 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-2">Category *</label>
-                  <select name="category" value={formData.category} onChange={handleInputChange} required
-                    className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white cursor-pointer">
-                    <option value="">Select a category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div ref={categoryMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryOpen(prev => !prev)}
+                      aria-haspopup="listbox"
+                      aria-expanded={isCategoryOpen}
+                      className="block w-full px-3 py-3 border border-[#a07855] text-left text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] bg-white transition-colors"
+                    >
+                      <span className="flex items-center justify-between">
+                        <span>{formData.category || 'Select a category'}</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${isCategoryOpen ? 'rotate-180' : ''}`} />
+                      </span>
+                    </button>
+                    {isCategoryOpen && (
+                      <div
+                        role="listbox"
+                        aria-label="Product category"
+                        className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-[#a07855] bg-white py-1 text-[#4E3B31] shadow-lg"
+                      >
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={!formData.category}
+                          onClick={() => selectCategory('')}
+                          className="block w-full px-3 py-2 text-left text-sm hover:bg-[#F8F4ED]"
+                        >
+                          Select a category
+                        </button>
+                        {CATEGORIES.map(categoryOption => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={formData.category === categoryOption}
+                            key={categoryOption}
+                            onClick={() => selectCategory(categoryOption)}
+                            className="block w-full px-3 py-2 text-left text-sm hover:bg-[#F8F4ED]"
+                          >
+                            {categoryOption}
+                          </button>
+                        ))}
+                        {customCategories.length > 0 && (
+                          <>
+                            <div className="border-t border-[#a07855]/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#6b493d]">
+                              Your custom categories
+                            </div>
+                            {customCategories.map(categoryOption => (
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={formData.category === categoryOption}
+                                key={`custom-${categoryOption}`}
+                                onClick={() => selectCategory(categoryOption)}
+                                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#F8F4ED]"
+                              >
+                                {categoryOption}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+              {formData.category === 'Other' && (
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-2">Custom Category *</label>
+                  <input
+                    type="text"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white"
+                    placeholder="e.g. Reptile Supplies"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-2">Description *</label>
                 <textarea name="description" value={formData.description} onChange={handleInputChange} rows={5} required

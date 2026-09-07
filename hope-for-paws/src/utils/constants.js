@@ -1,13 +1,23 @@
 export const PRODUCT_CATEGORIES = [
   'Food',
+  'Treats',
   'Toys',
   'Bedding',
   'Grooming',
   'Health & Medicine',
   'Accessories',
-  'Walking'
+  'Walking',
+  'Training',
+  'Feeding Supplies',
+  'Cleaning & Hygiene',
+  'Housing & Enclosures',
+  'Travel & Transport',
+  'Clothing',
+  'Aquarium Supplies',
+  'Bird Supplies',
+  'Small Animal Supplies',
+  'Other'
 ];
-
 
 //shipping fee constant for the shipping fee inconsistency issue (bug#13)
 export const SHIPPING_FEE = 200;
