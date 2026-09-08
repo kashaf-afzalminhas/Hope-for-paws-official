@@ -31,7 +31,7 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
           sessionStorage.getItem('token') ||
           localStorage.getItem('hope_for_paws_token');
         const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const res = await fetch(`${apiBase}/api/orders/seller`, {
+        const res = await fetch(`${apiBase}/api/sellers/orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -71,6 +71,7 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
     } else if (range === '7-days') {
       cutoff.setDate(now.getDate() - 7);
     }
+    cutoff.setHours(0, 0, 0, 0);
 
     return orders.filter((o) => new Date(o.createdAt || Date.now()) >= cutoff);
   }, [orders, range]);
@@ -99,17 +100,20 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
   }, [filteredOrders]);
 
   const salesTrendData = useMemo(() => {
-    const monthlyMap = {};
+    // Sort orders chronologically (oldest to newest) before grouping
+    const sortedOrders = [...filteredOrders]
+      .filter((o) => o.status !== 'Cancelled')
+      .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
-    filteredOrders.forEach((o) => {
-      if (o.status === 'Cancelled') return;
+    const dateMap = {};
+    sortedOrders.forEach((o) => {
       const date = new Date(o.createdAt || Date.now());
       const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      monthlyMap[label] = (monthlyMap[label] || 0) + (o.totals?.finalTotal || 0);
+      dateMap[label] = (dateMap[label] || 0) + (o.totals?.finalTotal || 0);
     });
 
-    const labels = Object.keys(monthlyMap).slice(-7);
-    const dataValues = labels.map((l) => monthlyMap[l]);
+    const labels = Object.keys(dateMap).slice(-7);
+    const dataValues = labels.map((l) => dateMap[l]);
 
     return {
       labels: labels.length > 0 ? labels : [],

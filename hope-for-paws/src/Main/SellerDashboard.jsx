@@ -323,7 +323,12 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
 
       {/* Content Area */}
       <div className="min-h-[400px]">
-        {activeTab === 'analytics' && <SellerAnalyticsDashboard embedded />}
+        {activeTab === 'analytics' && (
+          <SellerAnalyticsDashboard 
+            embedded 
+            onNavigateOrders={goToOrders} 
+          />
+        )}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
