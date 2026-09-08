@@ -53,6 +53,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
     totalOrders: 0,
     activeProducts: 0,
     lowStock: 0,
+    outOfStock: 0,
     revenueByMonth: [],
     recentOrders: [],
     topProducts: []
@@ -327,12 +328,13 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               {[
                 { label: 'Total Revenue', value: `Rs. ${stats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'bg-emerald-50 text-emerald-700', cardColor: 'bg-emerald-50 border-emerald-100' },
                 { label: 'Total Orders', value: stats.totalOrders.toString(), icon: ShoppingBag, color: 'bg-blue-50 text-blue-700', cardColor: 'bg-blue-50 border-blue-100', onClick: goToOrders, clickable: true },
                 { label: 'Active Products', value: stats.activeProducts.toString(), icon: Package, color: 'bg-violet-50 text-violet-700', cardColor: 'bg-violet-50 border-violet-100', onClick: () => setActiveTab('products'), clickable: true },
-                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-amber-50 text-amber-700', cardColor: 'bg-amber-50 border-amber-100' }
+                { label: 'Low Stock Alerts', value: stats.lowStock.toString(), icon: AlertCircle, color: 'bg-amber-50 text-amber-700', cardColor: 'bg-amber-50 border-amber-100' },
+                { label: 'Out of Stock', value: (stats.outOfStock || 0).toString(), icon: AlertCircle, color: 'bg-rose-50 text-rose-700', cardColor: 'bg-rose-50 border-rose-100', onClick: () => setActiveTab('products'), clickable: true }
               ].map((stat, i) => (
                 <div 
                   key={i} 

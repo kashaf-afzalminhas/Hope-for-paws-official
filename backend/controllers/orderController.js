@@ -671,6 +671,7 @@ exports.getDashboardStats = async (req, res) => {
     const products = await Product.find({ sellerId: seller._id }).select('countInStock lowStockThreshold status').lean();
     const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= (p.lowStockThreshold ?? 5)).length;
+    const outOfStock = products.filter(p => p.countInStock <= 0).length;
 
     const sellerId = seller._id;
 
@@ -790,6 +791,7 @@ exports.getDashboardStats = async (req, res) => {
       totalOrders,
       activeProducts,
       lowStock,
+      outOfStock,
       revenueByMonth: revenueByMonth.map(r => ({ month: r.month, value: r.value })),
       recentOrders,
       topProducts
