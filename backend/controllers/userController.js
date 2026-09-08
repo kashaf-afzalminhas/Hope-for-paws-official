@@ -524,20 +524,13 @@ const updateProfile = async (req, res) => {
       user.username = username.trim();
     }
 
-    // Handle Email update
+    // Handle Email update — direct email changes are no longer allowed.
+    // Users must go through the OTP verification flow (send-email-change-otp → verify-email-change).
     if (email && normalizeEmail(email) !== user.email) {
-      const normalizedEmail = normalizeEmail(email);
-      if (!normalizedEmail.endsWith('@gmail.com')) {
-        return res.status(400).json({ message: 'Please use a valid Gmail address.' });
-      }
-      if (ADMIN_EMAILS.includes(normalizedEmail)) {
-        return res.status(403).json({ message: 'Reserved email.' });
-      }
-      const emailExists = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
-      if (emailExists) {
-        return res.status(400).json({ message: 'Email is already in use by another account' });
-      }
-      user.email = normalizedEmail;
+      return res.status(400).json({
+        message: 'Email changes require verification. Please use the email verification flow.',
+        requiresVerification: true
+      });
     }
 
     // Existing Phone validation & update
@@ -801,6 +794,140 @@ const addPhoneNumber = async (req, res) => {
   await user.save();
   res.status(200).json({ message: 'Phone added', user });
 };
+
+// ==========================================
+// EMAIL CHANGE VERIFICATION
+// ==========================================
+const sendEmailChangeOTP = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { newEmail } = req.body;
+
+    if (!newEmail) {
+      return res.status(400).json({ message: 'New email is required' });
+    }
+
+    const normalizedNewEmail = normalizeEmail(newEmail);
+
+    // Validate Gmail
+    if (!normalizedNewEmail.endsWith('@gmail.com')) {
+      return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+    }
+
+    // Check reserved emails
+    if (ADMIN_EMAILS.includes(normalizedNewEmail)) {
+      return res.status(403).json({ message: 'Reserved email.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Don't send OTP if email hasn't actually changed
+    if (normalizedNewEmail === user.email) {
+      return res.status(400).json({ message: 'New email is the same as your current email.' });
+    }
+
+    // Check if email is already in use by another account
+    const emailExists = await User.findOne({ email: normalizedNewEmail, _id: { $ne: userId } });
+    if (emailExists) {
+      return res.status(400).json({ message: 'Email is already in use by another account' });
+    }
+
+    // Generate OTP
+    const otp = crypto.randomBytes(3).toString('hex');
+
+    // Store pending email info on the user document
+    user.pendingEmail = normalizedNewEmail;
+    user.pendingEmailOTP = otp;
+    user.pendingEmailOTPExpires = Date.now() + 2 * 60 * 1000; // 2 minutes
+    await user.save();
+
+    // Send verification email to the NEW email address
+    const html = buildVerificationEmail({
+      code: otp,
+      heading: 'Email Change Verification',
+      message: 'You requested to change your email address on Hope for Paws. Use this code to verify your new email.',
+      expiry: '2 minutes',
+      preheader: `Your Hope for Paws email verification code is ${otp}`,
+    });
+
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: normalizedNewEmail,
+      subject: 'Hope for Paws: Email Change Verification',
+      text: `Your verification code is: ${otp}\nIt expires in 2 minutes.`,
+      html
+    });
+
+    res.status(200).json({ message: 'Verification code sent to your new email address.' });
+
+  } catch (error) {
+    console.error('SendEmailChangeOTP Error:', error);
+    res.status(500).json({ message: 'Server error while sending verification code' });
+  }
+};
+
+const verifyEmailChange = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({ message: 'Verification code is required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify pending email change exists
+    if (!user.pendingEmail || !user.pendingEmailOTP) {
+      return res.status(400).json({ message: 'No pending email change found. Please request a new verification code.' });
+    }
+
+    // Check OTP
+    if (user.pendingEmailOTP !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code.' });
+    }
+
+    // Check expiry
+    if (user.pendingEmailOTPExpires < Date.now()) {
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    // Check email isn't taken (race condition guard)
+    const emailExists = await User.findOne({ email: user.pendingEmail, _id: { $ne: userId } });
+    if (emailExists) {
+      // Clear pending fields
+      user.pendingEmail = null;
+      user.pendingEmailOTP = null;
+      user.pendingEmailOTPExpires = null;
+      await user.save();
+      return res.status(400).json({ message: 'Email is already in use by another account.' });
+    }
+
+    // Update the email
+    user.email = user.pendingEmail;
+
+    // Clear pending fields
+    user.pendingEmail = null;
+    user.pendingEmailOTP = null;
+    user.pendingEmailOTPExpires = null;
+    await user.save();
+
+    const userSafe = user.toObject();
+    delete userSafe.password;
+
+    res.status(200).json({ message: 'Email updated successfully.', user: userSafe });
+
+  } catch (error) {
+    console.error('VerifyEmailChange Error:', error);
+    res.status(500).json({ message: 'Server error during email verification' });
+  }
+};
 const verifyResetCodeRoute = async (req, res) => { verifyCode(req, res); }; // Wrapper if needed
 const resendResetCode = async (req, res) => { forgotPassword(req, res); }; // Wrapper
 
@@ -827,6 +954,8 @@ module.exports = {
   changePassword,
   setPassword,
   addPhoneNumber,
+  sendEmailChangeOTP,
+  verifyEmailChange,
   verifyResetCode: verifyResetCodeRoute,
   resendResetCode
 };

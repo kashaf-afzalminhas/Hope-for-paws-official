@@ -690,8 +690,30 @@ const Postnew = () => {
                 />
               );
             })}
-          </div> : <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
-            {posts.map((post) => <div key={post._id}><PostCard post={post} isOwner={currentUserId && (post.userId?._id === currentUserId || post.userId === currentUserId)} showAuthor likeCount={post.likes?.length || 0} comments={post.comments || []} onLike={() => handleLike(post._id)} onCommentSubmit={handleCommentSubmit} onDeleteComment={handleDeleteComment} onEditSave={handleSaveEdit} onDeletePost={handleDeletePost} onAuthorClick={(authorId) => navigate(`/profile/public/${authorId}`)} onCardClick={() => navigate(`/posts/${post._id}`)} /></div>)}
+                    </div> : <div className="mx-auto flex max-w-xl flex-col gap-5 pb-4">
+            {posts.map((post) => {
+              const isOwner = currentUserId && (post.userId?._id === currentUserId || post.userId === currentUserId);
+              const isLiked = Boolean(user && post.likes && post.likes.includes(currentUserId));
+              return (
+                <div key={post._id}>
+                  <PostCard
+                    post={post}
+                    isOwner={isOwner}
+                    showAuthor
+                    isLiked={isLiked}
+                    likeCount={post.likes?.length || 0}
+                    comments={post.comments || []}
+                    onLike={() => handleLike(post._id)}
+                    onCommentSubmit={handleCommentSubmit}
+                    onDeleteComment={handleDeleteComment}
+                    onEditSave={handleSaveEdit}
+                    onDeletePost={handleDeletePost}
+                    onAuthorClick={(authorId) => navigate(`/profile/public/${authorId}`)}
+                    onCardClick={() => navigate(`/posts/${post._id}`)}
+                  />
+                </div>
+              );
+            })}
           </div>}
           </>
         )}
