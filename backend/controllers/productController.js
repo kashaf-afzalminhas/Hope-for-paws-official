@@ -1,6 +1,8 @@
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Review = require('../models/Review');
 const mongoose = require('mongoose');
 
 // 1. Create Product
@@ -46,7 +48,15 @@ exports.createProduct = async (req, res) => {
     let parsedAdditionalInfo = [];
     if (additionalInfo) {
       try {
-        parsedAdditionalInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        const rawInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        if (Array.isArray(rawInfo)) {
+          parsedAdditionalInfo = rawInfo
+            .map(item => ({
+              heading: (item.heading || '').trim(),
+              details: (item.details || item.description || '').trim()
+            }))
+            .filter(item => item.heading !== '' || item.details !== '');
+        }
       } catch (e) {
         console.error('Error parsing additionalInfo:', e);
       }
@@ -141,15 +151,91 @@ exports.listMyProducts = async (req, res) => {
   }
 };
 
-// 4. Get Single Product (Updated to prevent Detail Page Crash)
+// 4. Get Single Product (Updated with dynamic sales and seller rating)
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
       .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json(product);
+
+    const successfulStatuses = ['Confirmed', 'Processing', 'Shipped', 'Delivered'];
+
+    // Aggregate total successful sales for this specific product
+    const productSalesAgg = await Order.aggregate([
+      {
+        $match: {
+          status: { $in: successfulStatuses },
+          'items.productId': product._id
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.productId': product._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$items.quantity' }
+        }
+      }
+    ]);
+
+    const productTotalSales = productSalesAgg.length > 0 ? productSalesAgg[0].totalSales : 0;
+
+    // Calculate seller statistics (total sales & rating) if seller is populated
+    let sellerTotalSales = 0;
+    let sellerRating = 0;
+
+    if (product.sellerId) {
+      const sellerObjId = product.sellerId._id;
+
+      const sellerSalesAgg = await Order.aggregate([
+        {
+          $match: {
+            sellerId: sellerObjId,
+            status: { $in: successfulStatuses }
+          }
+        },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: '$items.quantity' }
+          }
+        }
+      ]);
+      sellerTotalSales = sellerSalesAgg.length > 0 ? sellerSalesAgg[0].totalSales : 0;
+
+      const sellerProducts = await Product.find({ sellerId: sellerObjId }).select('_id').lean();
+      const productIds = sellerProducts.map((p) => p._id);
+
+      if (productIds.length > 0) {
+        const reviewAgg = await Review.aggregate([
+          { $match: { product: { $in: productIds } } },
+          {
+            $group: {
+              _id: null,
+              avgRating: { $avg: '$rating' }
+            }
+          }
+        ]);
+        if (reviewAgg.length > 0 && reviewAgg[0].avgRating) {
+          sellerRating = Math.round(reviewAgg[0].avgRating * 10) / 10;
+        }
+      }
+    }
+
+    const productObj = product.toObject();
+    productObj.totalSales = productTotalSales;
+    if (productObj.sellerId && typeof productObj.sellerId === 'object') {
+      productObj.sellerId.totalSales = sellerTotalSales;
+      productObj.sellerId.rating = sellerRating;
+    }
+
+    res.json(productObj);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -219,15 +305,24 @@ exports.updateProduct = async (req, res) => {
 
     let parsedAdditionalInfo;
     if (additionalInfo !== undefined) {
+      let rawInfo = additionalInfo;
       if (typeof additionalInfo === 'string') {
         try {
-          parsedAdditionalInfo = JSON.parse(additionalInfo);
+          rawInfo = JSON.parse(additionalInfo);
         } catch (e) {
           console.error('Error parsing additionalInfo:', e);
-          parsedAdditionalInfo = [];
+          rawInfo = [];
         }
+      }
+      if (Array.isArray(rawInfo)) {
+        parsedAdditionalInfo = rawInfo
+          .map(item => ({
+            heading: (item.heading || '').trim(),
+            details: (item.details || item.description || '').trim()
+          }))
+          .filter(item => item.heading !== '' || item.details !== '');
       } else {
-        parsedAdditionalInfo = additionalInfo;
+        parsedAdditionalInfo = [];
       }
     }
 

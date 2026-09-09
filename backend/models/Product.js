@@ -78,9 +78,10 @@ const productSchema = new mongoose.Schema(
     additionalInfo: {
       type: [{
         heading: { type: String, trim: true },
+        details: { type: String, trim: true },
         description: { type: String, trim: true }
       }],
-      validate: [(val) => val.length <= 5, '{PATH} exceeds the limit of 5 custom fields']
+      validate: [(val) => val.length <= 20, '{PATH} exceeds the limit of 20 custom fields']
     },
 
     // ✅ NEW FIELD: Stock (Matches your frontend code)
