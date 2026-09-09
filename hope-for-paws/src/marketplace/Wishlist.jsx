@@ -124,11 +124,14 @@ const WishlistItemCard = ({ p, onRemove, onCart, inCart }) => {
 };
 
 export default function Wishlist() {
-  const { wishlist, isLoading, toggleWishlist, clearWishlist, markAsViewed } = useWishlist();
+  const { wishlist, isLoading, toggleWishlist, clearWishlist, markAsViewed, fetchWishlist } = useWishlist();
 
   useEffect(() => {
     markAsViewed();
-  }, [markAsViewed]);
+    if (fetchWishlist) {
+      fetchWishlist();
+    }
+  }, [markAsViewed, fetchWishlist]);
   
   const { addToCart, isInCart } = useCart();
   const navigate = useNavigate();
