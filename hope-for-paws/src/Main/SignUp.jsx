@@ -284,6 +284,7 @@ const SignUp = () => {
           email: pendingGoogleUser.email,
           username: pendingGoogleUser.username,
           googleId: pendingGoogleUser.googleId,
+          profileImage: pendingGoogleUser.picture,
           isVeterinarian: userTypeSelected === 'veterinarian',
           userType: userTypeSelected === 'seller' ? 'seller' : 'user'
         }),

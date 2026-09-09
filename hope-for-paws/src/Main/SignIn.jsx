@@ -264,6 +264,7 @@ const Login = () => {
           isVeterinarian: userTypeSelected === 'veterinarian',
           userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
           googleId: pendingGoogleUser.googleId,
+          profileImage: pendingGoogleUser.picture,
           ...(userTypeSelected === 'seller' && sellerInfo && {
             sellerName: sellerInfo.businessName,
             cnic: sellerInfo.cnic,
