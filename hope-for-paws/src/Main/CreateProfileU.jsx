@@ -1391,7 +1391,9 @@ const ProfilePage = () => {
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
                   <img
-                    src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
+                    src={profile.profileImage.startsWith('http')
+                      ? profile.profileImage
+                      : `${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
                     onError={(e) => {
