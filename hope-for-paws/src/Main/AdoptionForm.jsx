@@ -70,6 +70,27 @@ const AdoptionForm = () => {
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
 
+  const [effectiveUser, setEffectiveUser] = useState(() => {
+    try {
+      return user || JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      setEffectiveUser(user);
+    } else {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+        if (stored) setEffectiveUser(stored);
+      } catch {
+        // ignore
+      }
+    }
+  }, [user]);
+
   /**
    * Validate a single image file
    * Returns { valid: boolean, error?: string }
@@ -399,11 +420,18 @@ const AdoptionForm = () => {
   }
 
   // Show login prompt if not authenticated
-  if (!isAuthenticated || !user) {
+  if (!effectiveUser) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
         <p className="mb-2 font-medium">Please sign in to create an adoption post.</p>
-        <p className="text-sm">You'll need an account so pet owners can reach you about your listing.</p>
+        <p className="text-sm mb-3">You'll need an account so pet owners can reach you about your listing.</p>
+        <button
+          type="button"
+          onClick={() => requireAuth('create an adoption post')}
+          className="rounded-lg bg-[#6b493d] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5a3c32]"
+        >
+          Sign in
+        </button>
       </div>
     );
   }

@@ -40,7 +40,7 @@ export function useRequireAuth() {
 
     const redirectData = {
       from: location.pathname,
-      openCreate: location.pathname === '/adoption'
+      openCreate: typeof action === 'string' && action.toLowerCase().includes('create')
     };
     sessionStorage.setItem('redirectAfterAuth', JSON.stringify(redirectData));
     showToast(`Please sign in to ${action}.`);

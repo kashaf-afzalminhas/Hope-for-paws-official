@@ -133,6 +133,19 @@ const AdoptionList = ({ filter = 'all' }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveUser]);
 
+  // Auto-open adoption request form if user signed in after requesting
+  useEffect(() => {
+    if (!effectiveUser || !allAdoptionPosts?.length) return;
+    const pendingPostId = sessionStorage.getItem('pendingAdoptionPostId');
+    if (pendingPostId) {
+      const targetPost = allAdoptionPosts.find((p) => String(p._id) === String(pendingPostId));
+      if (targetPost) {
+        setSelectedPost(targetPost);
+        sessionStorage.removeItem('pendingAdoptionPostId');
+      }
+    }
+  }, [effectiveUser, allAdoptionPosts]);
+
   // Robust chat navigation handler (copied from Postnew.jsx)
   const handleStartConversation = async (postCreatorId, postCreatorUsername, event) => {
     if (!requireAuth('start a conversation')) return;
@@ -228,7 +241,10 @@ const AdoptionList = ({ filter = 'all' }) => {
   }
 
   const handleRequestClick = (post) => {
-    if (!requireAuth('request adoption')) return;
+    if (!requireAuth('request adoption')) {
+      sessionStorage.setItem('pendingAdoptionPostId', post._id);
+      return;
+    }
     setSelectedPost(post);
   };
 
