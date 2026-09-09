@@ -424,7 +424,7 @@ export default function ProductDetails() {
 
   function DetailTabs() {
     const [active, setActive] = useState(0);
-    const TABS = ["Description", "Specifications"];
+    const TABS = ["Description", "Additional Information"];
 
     const panels = [
       /* Description */
