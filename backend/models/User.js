@@ -120,6 +120,19 @@ const userSchema = new mongoose.Schema(
     canBuy: {
       type: Boolean,
       default: true
+    },
+    // Email change verification fields
+    pendingEmail: {
+      type: String,
+      default: null
+    },
+    pendingEmailOTP: {
+      type: String,
+      default: null
+    },
+    pendingEmailOTPExpires: {
+      type: Date,
+      default: null
     }
   },
   {
