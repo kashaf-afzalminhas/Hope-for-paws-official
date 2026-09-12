@@ -11,7 +11,7 @@ import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
-import { useRequireAuth } from "../Components/AuthGuard";
+
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -960,8 +960,7 @@ export default function Marketplace() {
   const [toasts,      setToasts]     = useState([]);
   const { addToCart: ctxAddToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const cartNavigate = useNavigate();
-  const requireAuth = useRequireAuth();
+  const navigate = useNavigate();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
@@ -970,6 +969,7 @@ export default function Marketplace() {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authBanner, setAuthBanner] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1036,26 +1036,36 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
-    if (!requireAuth('use the wishlist')) {
-      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: window.location.pathname }));
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: '/wishlist' }));
+      setAuthBanner('Please sign in to use the wishlist.');
+      setTimeout(() => {
+        navigate('/signin', { state: { from: '/wishlist' } });
+      }, 1500);
       return;
     }
     const result = await toggleWishlist(id);
-    if (result.success && result.message.includes('added')) {
+    if (result && result.success) {
       addToast("fav", products.find(x => x.id === id)?.name);
     }
-  }, [requireAuth, toggleWishlist, addToast, products]);
+  }, [navigate, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
-    if (!requireAuth('add items to your cart')) {
-      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: window.location.pathname }));
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: '/cart' }));
+      setAuthBanner('Please sign in to add items to your cart.');
+      setTimeout(() => {
+        navigate('/signin', { state: { from: '/cart' } });
+      }, 1500);
       return;
     }
     const result = await ctxAddToCart(id, 1);
-    if (result.success) {
+    if (result && result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
     }
-  }, [requireAuth, ctxAddToCart, addToast, products]);
+  }, [navigate, ctxAddToCart, addToast, products]);
 
   const clearAll = useCallback(() => {
     setQuery("");
@@ -1195,6 +1205,15 @@ export default function Marketplace() {
 
       <MobileSheet open={filterOpen} onClose={() => setFilterOpen(false)} filters={filters} setFilters={setFilters} brands={BRANDS} sellers={SELLERS} maxPrice={absoluteMaxPrice}/>
       {quickView && <QuickView product={quickView} isFav={isInWishlist(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
+      
+      {/* Centered Auth Toast Banner with Spinner */}
+      {authBanner && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-[#6b493d] text-white px-6 py-3 rounded-xl shadow-2xl font-poppins text-sm flex items-center gap-3 animate-fadeUp">
+          <span>{authBanner}</span>
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
+        </div>
+      )}
+
       <ToastStack toasts={toasts}/>
       <ScrollToTop visible={scrollY > 400}/>
     </div>

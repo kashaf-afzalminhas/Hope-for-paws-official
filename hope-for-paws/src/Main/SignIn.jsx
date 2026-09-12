@@ -21,42 +21,10 @@ const Login = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { updateUser } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist } = useWishlist();
 
-  const handlePostLoginNavigation = async (user) => {
-    const pendingActionStr = localStorage.getItem('pendingAction');
-    let redirected = false;
-    if (pendingActionStr) {
-      try {
-        const pendingAction = JSON.parse(pendingActionStr);
-        localStorage.removeItem('pendingAction');
-        if (pendingAction.action === 'cart') {
-          await addToCart(pendingAction.productId, 1);
-          navigate('/cart');
-        } else if (pendingAction.action === 'wishlist') {
-          await toggleWishlist(pendingAction.productId);
-          navigate('/wishlist');
-        } else {
-          navigate(pendingAction.redirectUrl || '/marketplace');
-        }
-        redirected = true;
-      } catch (e) {
-        console.error("Failed to process pending action", e);
-      }
-    }
-
-    if (!redirected) {
-      if (user.isSeller && user.sellerStatus === 'incomplete') {
-        navigate('/seller/onboard');
-      } else if (!user.phone || !user.phoneVerified) {
-        navigate('/profile');
-      } else {
-        navigate("/");
-      }
-    }
-    window.location.reload();
-  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -83,30 +51,66 @@ const Login = () => {
     }
   }, [location.state]);
 
-  const performPostLoginRedirect = (userObj) => {
-    const savedRedirect = (() => {
-      try {
-        const item = sessionStorage.getItem('redirectAfterAuth');
-        return item ? JSON.parse(item) : null;
-      } catch { return null; }
-    })();
+  const performPostLoginRedirect = async (userObj) => {
+    try {
+      // 1. Check for pending marketplace action (cart / wishlist)
+      const pendingActionStr = localStorage.getItem('pendingAction');
+      let targetPath = null;
 
-    const targetPath = location.state?.from || savedRedirect?.from || "/";
-    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+      if (pendingActionStr) {
+        try {
+          const pendingAction = JSON.parse(pendingActionStr);
+          localStorage.removeItem('pendingAction');
 
-    if (openCreate) {
-      sessionStorage.setItem('openAdoptionCreate', 'true');
-    }
+          if (pendingAction.action === 'cart') {
+            await addToCart(pendingAction.productId, 1);
+            targetPath = '/cart';
+          } else if (pendingAction.action === 'wishlist') {
+            await toggleWishlist(pendingAction.productId);
+            targetPath = '/wishlist';
+          } else if (pendingAction.redirectUrl) {
+            targetPath = pendingAction.redirectUrl;
+          }
+        } catch (e) {
+          console.error("Failed to process pending action", e);
+        }
+      }
 
-    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
-      navigate('/seller/onboard');
-    } else if (!userObj.phone || !userObj.phoneVerified) {
-      navigate('/profile');
-    } else {
+      // 2. If no pending action, use standard redirect targets
+      if (!targetPath) {
+        const savedRedirect = (() => {
+          try {
+            const item = sessionStorage.getItem('redirectAfterAuth');
+            return item ? JSON.parse(item) : null;
+          } catch { return null; }
+        })();
+
+        targetPath = location.state?.from || savedRedirect?.from || "/";
+        const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+        if (openCreate) {
+          sessionStorage.setItem('openAdoptionCreate', 'true');
+        }
+
+        if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+          return;
+        } else if (!userObj.phone || !userObj.phoneVerified) {
+          navigate('/profile');
+          return;
+        }
+
+        sessionStorage.removeItem('redirectAfterAuth');
+        navigate(targetPath, { state: { openCreate } });
+        return;
+      }
+
+      // 3. Navigate directly to the cart or wishlist target
       sessionStorage.removeItem('redirectAfterAuth');
-      navigate(targetPath, { state: { openCreate } });
+      navigate(targetPath);
+    } finally {
+      setLoading(false);
     }
-    window.location.reload();
   };
 
   const togglePasswordVisibility = () => {
@@ -156,7 +160,8 @@ const Login = () => {
             localStorage.removeItem('user');
           }
           
-          performPostLoginRedirect(data.user);
+          updateUser(data.user);
+          await performPostLoginRedirect(data.user);
         } else {
           setLoading(false);
           setError('Login failed: No token received.');
@@ -235,7 +240,8 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        performPostLoginRedirect(data.user);
+        updateUser(data.user);
+        await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
       }
@@ -294,7 +300,8 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        performPostLoginRedirect(data.user);
+        updateUser(data.user);
+        await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
