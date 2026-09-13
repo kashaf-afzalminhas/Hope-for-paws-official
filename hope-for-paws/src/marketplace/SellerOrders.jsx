@@ -420,7 +420,7 @@ function OrderRow({ order, onStatusChange, addToast }) {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Receipt - ${order.orderId || order._id}</title>
+      <title>Invoice - ${order.orderId || order._id}</title>
       <style>
         * { box-sizing: border-box; }
         body {
@@ -468,11 +468,11 @@ function OrderRow({ order, onStatusChange, addToast }) {
       </style>
     </head>
     <body>
-      <button class="print-btn" onclick="window.print()">🖨 Print Receipt</button>
+      <button class="print-btn" onclick="window.print()">🖨 Print Invoice</button>
       <div class="receipt">
         <div class="header">
           <h1>HopeForPaws</h1>
-          <p>Order Receipt</p>
+          <p>Order Invoice</p>
         </div>
         <div class="body">
           <div class="meta-grid">
@@ -513,7 +513,7 @@ function OrderRow({ order, onStatusChange, addToast }) {
       printWindow.document.write(receiptHtml);
       printWindow.document.close();
     } else {
-      addToast("Please allow pop-ups to print receipts.", "error");
+      addToast("Please allow pop-ups to print invoices.", "error");
     }
   }, [order, addToast]);
 
@@ -623,8 +623,8 @@ function OrderRow({ order, onStatusChange, addToast }) {
 
             <button
               onClick={handlePrint}
-              aria-label="Print shipping label"
-              title="Print shipping label"
+              aria-label="Print Invoice"
+              title="Print Invoice"
               className="w-8 h-8 rounded-xl border border-stone-200 bg-white flex items-center justify-center text-stone-500 hover:bg-stone-50 hover:text-[#6b493d] hover:border-[#6b493d]/30 transition-all duration-150 active:scale-95 shadow-sm"
             >
               <Printer size={13} />
