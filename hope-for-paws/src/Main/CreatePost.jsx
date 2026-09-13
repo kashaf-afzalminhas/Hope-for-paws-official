@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useRequireAuth } from '../Components/AuthGuard';
@@ -13,6 +13,25 @@ const CreatePost = () => {
   const [isLoading, setIsLoading] = useState(false);
   const requireAuth = useRequireAuth();
   const navigate = useNavigate();
+
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const user = localStorage.getItem('user') || sessionStorage.getItem('user');
+  const isAuthenticated = Boolean(token && user);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      requireAuth('create a post');
+    }
+  }, [isAuthenticated, requireAuth]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center font-poppins text-[#6b493d]">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6b493d] border-t-transparent mb-4" />
+        <p className="text-sm font-medium">Please sign in to create a post...</p>
+      </div>
+    );
+  }
 
   const handleImageChange = (e) => {
     const selectedFiles = Array.from(e.target.files || []);

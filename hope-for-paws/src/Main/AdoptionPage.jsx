@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import AdoptionList from './AdoptionList';
 import CreateAdoptionAdForm from './AdoptionForm';
+import { useRequireAuth } from '../Components/AuthGuard';
 const AdoptionPage = () => {
   const location = useLocation();
+  const requireAuth = useRequireAuth();
   const [isCreating, setIsCreating] = useState(() => {
     const fromState = location.state?.openCreate;
     const fromStorage = sessionStorage.getItem('openAdoptionCreate') === 'true';
@@ -32,25 +34,19 @@ const AdoptionPage = () => {
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl font-bold mb-4">Find Your Perfect Companion</h1>
             <p className="text-lg mb-8 text-[#e2d6cb]">Connecting loving homes with pets in need</p>
-            {user ? (
-              <button
-                onClick={() => setIsCreating(!isCreating)}
-                className="px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-              >
-                {isCreating ? 'Cancel' : 'Create Adoption Ad'}
-              </button>
-            ) : (
-              <Link
-                to="/signin"
-                state={{ from: '/adoption', openCreate: true }}
-                onClick={() => {
-                  sessionStorage.setItem('redirectAfterAuth', JSON.stringify({ from: '/adoption', openCreate: true }));
-                }}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-              >
-                Sign in to create adoption ad
-              </Link>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (!user) {
+                  requireAuth('create an adoption ad');
+                  return;
+                }
+                setIsCreating(!isCreating);
+              }}
+              className="px-6 py-3 rounded-lg bg-white text-[#6F4C3E] font-medium shadow-md hover:bg-[#e2d6cb] transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+            >
+              {isCreating ? 'Cancel' : 'Create Adoption Ad'}
+            </button>
           </div>
         </div>
       </div>
