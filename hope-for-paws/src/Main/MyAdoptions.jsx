@@ -29,6 +29,7 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
   const [imageError, setImageError] = useState('');
+  const [ageError, setAgeError] = useState('');
   const previewUrlsRef = useRef([]);
 
   useEffect(() => () => {
@@ -39,10 +40,10 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
     const files = Array.from(event.target.files || []);
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     const validFiles = files.filter((file) => allowedTypes.includes(file.type) && file.size <= 5 * 1024 * 1024);
-    if (validFiles.length !== files.length) setImageError('Use JPEG, PNG, or WebP images up to 5MB each.');
-    else if (existingImages.length + newFiles.length + validFiles.length > 20) setImageError('You can have up to 20 photos.');
-    else setImageError('');
-    const filesToAdd = validFiles.slice(0, Math.max(0, 20 - existingImages.length - newFiles.length));
+    if (validFiles.length !== files.length) { setImageError('Use JPEG, PNG, or WebP images up to 5MB each.'); event.target.value = ''; return; }
+    if (existingImages.length + newFiles.length + validFiles.length > 5) { setImageError('You can only upload a maximum of 5 pictures.'); event.target.value = ''; return; }
+    setImageError('');
+    const filesToAdd = validFiles.slice(0, Math.max(0, 5 - existingImages.length - newFiles.length));
     const previewsToAdd = filesToAdd.map((file) => URL.createObjectURL(file));
     previewUrlsRef.current.push(...previewsToAdd);
     setNewFiles((previous) => [...previous, ...filesToAdd]);
@@ -64,6 +65,12 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
       setImageError('Keep at least one photo for this adoption ad.');
       return;
     }
+    const ageNum = Number(formData.age);
+    if (formData.age !== '' && (isNaN(ageNum) || ageNum < 0)) {
+      setAgeError('Age cannot be negative.');
+      return;
+    }
+    setAgeError('');
     const originalImages = getAdoptionImages(post);
     const indicesToRemove = originalImages.map((image, index) => (existingImages.includes(image) ? null : index)).filter((index) => index !== null);
     onSave(post._id, formData, newFiles, indicesToRemove);
@@ -103,7 +110,22 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
           </div>
           {[
             ['name', 'Pet name'], ['age', 'Age'], ['breed', 'Breed'], ['location', 'Location'],
-          ].map(([name, label]) => <div key={name}><label className="mb-1 block text-sm font-medium text-[#4E3B31]">{label}</label><input type="text" value={formData[name]} onChange={(event) => setFormData({ ...formData, [name]: event.target.value })} className="w-full rounded-xl border border-sand px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay" /></div>)}
+          ].map(([name, label]) => (
+            <div key={name}>
+              <label className="mb-1 block text-sm font-medium text-[#4E3B31]">{label}</label>
+              <input
+                type={name === 'age' ? 'number' : 'text'}
+                min={name === 'age' ? '0' : undefined}
+                value={formData[name]}
+                onChange={(event) => {
+                  setFormData({ ...formData, [name]: event.target.value });
+                  if (name === 'age') setAgeError('');
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay ${name === 'age' && ageError ? 'border-red-400' : 'border-sand'}`}
+              />
+              {name === 'age' && ageError && <p className="mt-1 text-xs font-medium text-red-600">{ageError}</p>}
+            </div>
+          ))}
           <div className="grid grid-cols-2 gap-3">
             {['petType', 'vaccinated', 'neuteredSpayed'].map((name) => <div key={name} className={name === 'petType' ? 'col-span-2' : ''}><label className="mb-1 block text-sm font-medium text-[#4E3B31]">{name === 'petType' ? 'Pet type' : name === 'neuteredSpayed' ? 'Neutered / spayed' : 'Vaccinated'}</label><select value={formData[name]} onChange={(event) => setFormData({ ...formData, [name]: event.target.value })} className="w-full rounded-xl border border-sand bg-white px-3 py-2"><option value="">Select</option>{(name === 'petType' ? ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Other'] : ['Yes', 'No']).map((option) => <option key={option} value={option}>{option}</option>)}</select></div>)}
           </div>
