@@ -26,6 +26,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   const { user } = useAuth();
   const requireAuth = useRequireAuth();
   const [selectedPost, setSelectedPost] = useState(null);
+  const selectedPostRef = React.useRef(null);
   const [effectiveUser, setEffectiveUser] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
@@ -125,6 +126,10 @@ const AdoptionList = ({ filter = 'all' }) => {
 
   useEffect(() => {
     const onFocus = () => {
+      // Skip refetch while the adoption request form is open —
+      // the file-picker "close" fires a window focus event which
+      // would otherwise wipe the form state.
+      if (selectedPostRef.current) return;
       fetchAllAdoptionPosts({ forceRefresh: true });
       refreshUserRequestsForPosts();
     };
@@ -230,10 +235,12 @@ const AdoptionList = ({ filter = 'all' }) => {
   const handleRequestClick = (post) => {
     if (!requireAuth('request adoption')) return;
     setSelectedPost(post);
+    selectedPostRef.current = post;
   };
 
   const handleRequestFormClose = () => {
     setSelectedPost(null);
+    selectedPostRef.current = null;
     refreshUserRequestsForPosts();
   };
 

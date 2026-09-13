@@ -241,6 +241,9 @@ const AdoptionRequestForm = ({ postId, onClose }) => {
                 onChange={handleImageChange}
                 className="w-full text-sm text-[#6F4C3E] file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[#6b493d] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#5a3d32]"
               />
+              <p className="mt-1 text-xs text-[#6F4C3E]/50">
+                Accepted formats: PNG, JPG, WebP. Max size: 5MB.
+              </p>
               {imagePreview && (
                 <div className="relative mt-3 inline-block">
                   <img
