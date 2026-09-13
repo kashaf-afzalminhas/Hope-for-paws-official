@@ -517,6 +517,7 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                     onError={e => { e.target.src = `https://placehold.co/230x170/EDE8DF/9B6B45?text=🐾`; }}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
+                  {p.stock <= 0 && <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}><span style={{ padding:"4px 8px", backgroundColor:"#B03A2E", color:C.white, borderRadius:6, fontSize:10, fontWeight:800, textTransform:"uppercase" }}>Out of Stock</span></div>}
                   <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {p.badge && <Badge text={p.badge} />}
                     {discount && <span className="tag-pill" style={{ backgroundColor: C.tanPale, color: C.tanDeep, border: `1px solid ${C.tan}40` }}>-{discount}%</span>}
