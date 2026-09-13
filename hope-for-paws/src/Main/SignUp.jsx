@@ -5,7 +5,7 @@ import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { motion } from "framer-motion";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import UserTypeModal from '../Components/UserTypeModal';
-import { COUNTRY_CODES } from '../utils/constants';
+import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 
 const SignUp = () => {
   const [username, setUsername] = useState('');
@@ -27,9 +27,6 @@ const SignUp = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Country codes data
-  const countryCodes = COUNTRY_CODES;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -86,32 +83,6 @@ const SignUp = () => {
     return errors.length ? errors.join(', ') : '';
   };
 
-  // Phone validation
-  const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber || !code) return 'Phone number is required';
-    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
-
-    const countryRules = {
-      '+92': { min: 10, max: 10, label: 'Pakistan' },
-      '+1': { min: 10, max: 10, label: 'US/Canada' },
-      '+44': { min: 10, max: 10, label: 'United Kingdom' },
-      '+91': { min: 10, max: 10, label: 'India' }
-    };
-    const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
-      if (rule.min === rule.max) {
-        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
-      }
-      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
-    }
-
-    const fullPhone = code + phoneNumber;
-    const phoneRegex = /^\+[1-9]\d{1,14}$/; // International phone number format
-    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be between 7-15 digits';
-    return '';
-  };
-
   // Handlers for live validation
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
@@ -123,34 +94,6 @@ const SignUp = () => {
     setPassword(e.target.value);
     setPasswordTouched(true);
     setPasswordError(validatePassword(e.target.value));
-  };
-
-  const handlePhoneChange = (e) => {
-    let phoneValue = e.target.value;
-
-    // Remove leading zero if country code is selected
-    if (countryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-    }
-
-    setPhone(phoneValue);
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, countryCode));
-  };
-
-  const handleCountryCodeChange = (e) => {
-    const newCountryCode = e.target.value;
-    let phoneValue = phone;
-
-    // Remove leading zero when country code changes
-    if (newCountryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-      setPhone(phoneValue);
-    }
-
-    setCountryCode(newCountryCode);
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
 
   const togglePasswordVisibility = () => {
@@ -181,7 +124,7 @@ const SignUp = () => {
           password,
           isVeterinarian: userType === 'veterinarian',
           userType: userType === 'seller' ? 'seller' : 'user',
-          phone: countryCode + phone
+          phone: getFullPhoneNumber(phone, countryCode)
         }),
       });
       const data = await response.json();
@@ -357,36 +300,21 @@ const SignUp = () => {
               )}
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="phone" className="block text-sm font-medium text-[#4E3B31] mb-1">Phone Number</label>
-              <div className="flex gap-2">
-                <select
-                  value={countryCode}
-                  onChange={handleCountryCodeChange}
-                  className="px-3 py-2 border border-[#a07855] text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm min-w-[120px]"
-                >
-                  {countryCodes.map((country, index) => (
-                    <option key={index} value={country.code}>
-                      {country.flag} {country.code}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  onBlur={() => setPhoneTouched(true)}
-                  className={`flex-1 px-3 py-2 border ${phoneTouched && phoneError ? 'border-red-500' : 'border-[#a07855]'} text-[#4E3B31] rounded-md focus:outline-none focus:ring-1 focus:ring-[#6b493d] focus:border-[#6b493d] sm:text-sm`}
-                  placeholder="XXXXXXXXXX"
-                />
-              </div>
-              {phoneTouched && phoneError && (
-                <p className="text-xs text-red-600 mt-1">{phoneError}</p>
-              )}
-            </div>
+            <PhoneNumberInput
+              phone={phone}
+              countryCode={countryCode}
+              required
+              touched={phoneTouched}
+              error={phoneError}
+              onBlur={() => setPhoneTouched(true)}
+              onChange={({ phone: nextPhone, countryCode: nextCountryCode, error: nextError }) => {
+                setPhone(nextPhone);
+                setCountryCode(nextCountryCode);
+                setPhoneTouched(true);
+                setPhoneError(nextError);
+              }}
+              className="mb-4"
+            />
 
             <div className="mb-4">
               <label htmlFor="password" className="block text-sm font-medium text-[#4E3B31] mb-1">Password</label>

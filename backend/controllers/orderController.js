@@ -671,11 +671,13 @@ exports.getDashboardStats = async (req, res) => {
     const products = await Product.find({ sellerId: seller._id }).select('countInStock lowStockThreshold status').lean();
     const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= (p.lowStockThreshold ?? 5)).length;
+    const outOfStock = products.filter(p => p.countInStock <= 0).length;
 
     const sellerId = seller._id;
+    const sellerMatch = { $or: [{ sellerId: seller._id }, { sellerId: userId }] };
 
     const statsAgg = await Order.aggregate([
-      { $match: { sellerId: sellerId } },
+      { $match: sellerMatch },
       {
         $group: {
           _id: null,
@@ -702,7 +704,7 @@ exports.getDashboardStats = async (req, res) => {
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
     const monthlyAgg = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, sellerId: sellerId, status: 'Delivered' } },
+{ $match: { createdAt: { $gte: sixMonthsAgo }, ...sellerMatch, status: 'Delivered' } },
       {
         $group: {
           _id: {
@@ -735,7 +737,7 @@ exports.getDashboardStats = async (req, res) => {
       }
     });
 
-    const recentOrdersRaw = await Order.find({ sellerId: sellerId })
+    const recentOrdersRaw = await Order.find(sellerMatch)
       .sort({ createdAt: -1 })
       .limit(5)
       .lean();
@@ -756,7 +758,7 @@ exports.getDashboardStats = async (req, res) => {
     });
 
     const topProductsAgg = await Order.aggregate([
-      { $match: { sellerId: sellerId, status: 'Delivered' } },
+{ $match: { ...sellerMatch, status: 'Delivered' } },
       { $unwind: '$items' },
       {
         $group: {
@@ -790,6 +792,7 @@ exports.getDashboardStats = async (req, res) => {
       totalOrders,
       activeProducts,
       lowStock,
+      outOfStock,
       revenueByMonth: revenueByMonth.map(r => ({ month: r.month, value: r.value })),
       recentOrders,
       topProducts

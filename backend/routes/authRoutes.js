@@ -29,7 +29,9 @@ const {
   resetPassword,
   resendResetCode,
   addPhoneNumber,
-  setPassword
+  setPassword,
+  sendEmailChangeOTP,
+  verifyEmailChange
 } = require('../controllers/userController');
 // const { signUp, signIn} = require('./auth')
 router.post('/register', signUp);
@@ -80,6 +82,10 @@ router.post('/resend-reset-code', resendResetCode);
 
 // Phone verification routes
 router.post('/add-phone-number', auth, addPhoneNumber);
+
+// Email change verification routes
+router.post('/send-email-change-otp', auth, sendEmailChangeOTP);
+router.post('/verify-email-change', auth, verifyEmailChange);
 
 module.exports = router;
 
