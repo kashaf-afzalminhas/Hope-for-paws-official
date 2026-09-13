@@ -38,17 +38,19 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
 
   const [skuWarning, setSkuWarning] = useState('');
 
-  const [customFields, setCustomFields] = useState([{ heading: '', description: '' }]);
+  const [customFields, setCustomFields] = useState([{ heading: '', details: '', description: '' }]);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaPreviews, setMediaPreviews] = useState([]);
 
   const addCustomField = () => {
-    setCustomFields(prev => [...prev, { heading: '', description: '' }]);
+    setCustomFields(prev => [...prev, { heading: '', details: '', description: '' }]);
   };
 
   const handleFieldChange = (index, field, value) => {
     const updatedFields = [...customFields];
     updatedFields[index][field] = value;
+    if (field === 'details') updatedFields[index].description = value;
+    if (field === 'description') updatedFields[index].details = value;
     setCustomFields(updatedFields);
   };
 
@@ -74,7 +76,13 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             sku: data.sku || ''
           });
           if (data.additionalInfo && data.additionalInfo.length > 0) {
-            setCustomFields(data.additionalInfo);
+            setCustomFields(data.additionalInfo.map(item => ({
+              heading: item.heading || '',
+              details: item.details || item.description || '',
+              description: item.description || item.details || ''
+            })));
+          } else {
+            setCustomFields([]);
           }
           if (data.images) {
             setExistingImages(data.images);
@@ -101,10 +109,10 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       e.target.value = '';
       return;
     }
-    
+
     setUploadError('');
     setMediaFiles(prev => [...prev, ...files]);
-    
+
     const previews = files.map(file => URL.createObjectURL(file));
     setMediaPreviews(prev => [...prev, ...previews]);
     e.target.value = '';
@@ -177,13 +185,19 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       Object.keys(formData).forEach(key => {
         if (formData[key] !== '') submitData.append(key, formData[key]);
       });
-      
+
       // Attach the custom fields as a JSON string
-      const validFields = customFields.filter(f => f.heading.trim() !== '' && f.description.trim() !== '');
-      if (validFields.length > 0) {
+      const validFields = customFields
+        .map(f => ({
+          heading: (f.heading || '').trim(),
+          details: (f.details || f.description || '').trim()
+        }))
+        .filter(f => f.heading !== '' || f.details !== '');
+
+      if (validFields.length > 0 || isEditMode) {
         submitData.append('additionalInfo', JSON.stringify(validFields));
       }
-      
+
       mediaFiles.forEach(file => {
         submitData.append('media', file);
       });
@@ -227,14 +241,14 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
           </h1>
         </div>
         <div className="flex items-center space-x-4">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={onCancel}
             className="px-6 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
           >
             Cancel
           </button>
-          <button 
+          <button
             type="submit"
             form="add-product-form"
             disabled={isSubmitting}
@@ -257,7 +271,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
       )}
 
       <div className="max-w-7xl mx-auto px-8 py-10 flex items-start space-x-10">
-        
+
         {/* Left Column: 25% Navigation */}
         <div className="w-[25%] sticky top-28 bg-transparent">
           <nav className="space-y-2">
@@ -267,13 +281,13 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               { id: 'media', icon: ImageIcon, label: '3. Product Media' },
               { id: 'additional', icon: List, label: '4. Additional Info' }
             ].map(nav => (
-              <a 
+              <a
                 key={nav.id}
                 href={`#${nav.id}`}
                 onClick={(e) => { e.preventDefault(); setActiveSection(nav.id); document.getElementById(nav.id)?.scrollIntoView({ behavior: 'smooth' }); }}
                 className={`flex items-center space-x-3 px-5 py-3 rounded-xl font-medium transition-all duration-200 ${
-                  activeSection === nav.id 
-                    ? 'bg-[#6b493d]/10 text-[#6b493d] shadow-sm' 
+                  activeSection === nav.id
+                    ? 'bg-[#6b493d]/10 text-[#6b493d] shadow-sm'
                     : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
                 }`}
               >
@@ -286,7 +300,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
 
         {/* Right Column: 75% Form Content */}
         <form id="add-product-form" onSubmit={handleSubmit} className="w-[75%] space-y-8 pb-32">
-          
+
           {/* Card 1: Basic Details */}
           <div id="basic" className="bg-white shadow-sm hover:shadow-md transition-shadow duration-300 border border-stone-100 rounded-2xl p-8" onMouseEnter={() => setActiveSection('basic')}>
             <h2 className="text-2xl font-bold text-[#6b493d] mb-6 tracking-wide">Basic Details</h2>
@@ -344,14 +358,14 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-2">Low Stock Alert Threshold</label>
-                <input 
-                  type="number" 
-                  name="lowStockThreshold" 
-                  value={formData.lowStockThreshold} 
-                  onChange={handleInputChange} 
+                <input
+                  type="number"
+                  name="lowStockThreshold"
+                  value={formData.lowStockThreshold}
+                  onChange={handleInputChange}
                   min="0"
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white" 
-                  placeholder="e.g. 5" 
+                  className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white"
+                  placeholder="e.g. 5"
                 />
               </div>
               <div className="col-span-2">
@@ -360,9 +374,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                   <input type="text" name="sku" value={formData.sku} onChange={handleInputChange} required
                     className="w-full pl-4 pr-28 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-stone-50 focus:bg-white uppercase"
                     placeholder="e.g. RC-DOG-001" />
-                  <button 
-                    type="button" 
-                    onClick={generateSKU} 
+                  <button
+                    type="button"
+                    onClick={generateSKU}
                     className="absolute right-2 top-2 bottom-2 px-3 bg-[#6b493d]/10 hover:bg-[#6b493d] hover:text-white text-[#6b493d] rounded-lg text-xs font-semibold transition-all duration-200"
                   >
                     Auto Generate
@@ -385,10 +399,10 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               <UploadCloud className="w-14 h-14 text-stone-400 mb-4 group-hover:text-[#6b493d] transition-colors duration-300 group-hover:scale-110 transform" />
               <p className="text-stone-800 font-semibold mb-2">Drag & drop your images here</p>
               <p className="text-stone-500 text-sm mb-6">or click to browse from your computer (Max 5 images)</p>
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
+              <input
+                type="file"
+                multiple
+                accept="image/*"
                 onChange={handleMediaChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
@@ -396,22 +410,22 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 Browse Files
               </button>
             </div>
-            
+
             {uploadError && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center text-sm">
                 <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                 {uploadError}
               </div>
             )}
-            
+
             {/* Image Previews */}
             {(existingImages.length > 0 || mediaPreviews.length > 0) && (
               <div className="mt-8 flex flex-wrap gap-5">
                 {existingImages.map((src, idx) => (
                   <div key={`existing-${idx}`} className="relative w-28 h-28 rounded-xl overflow-hidden border border-stone-200 shadow-sm group">
                     <img src={src.startsWith('http') ? src : `http://localhost:3000${src}`} alt="preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => removeExistingMedia(idx)}
                       className="absolute top-2 right-2 bg-white/90 backdrop-blur text-red-500 rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                     >
@@ -422,8 +436,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 {mediaPreviews.map((src, idx) => (
                   <div key={`new-${idx}`} className="relative w-28 h-28 rounded-xl overflow-hidden border border-stone-200 shadow-sm group">
                     <img src={src} alt="preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => removeMedia(idx)}
                       className="absolute top-2 right-2 bg-white/90 backdrop-blur text-red-500 rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                     >
@@ -439,28 +453,34 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
           <div id="additional" className="bg-white shadow-sm hover:shadow-md transition-shadow duration-300 border border-stone-100 rounded-2xl p-8" onMouseEnter={() => setActiveSection('additional')}>
             <h2 className="text-2xl font-bold text-[#6b493d] mb-2 tracking-wide">Additional Info</h2>
             <p className="text-sm text-[#856046] mb-6">Add dynamic custom fields like Material, Dimensions, Expiry Date, or Instructions.</p>
-            
+
             <div className="space-y-4 mb-6">
               {customFields.map((field, index) => (
                 <div key={index} className="flex gap-4 items-start p-4 bg-stone-50 border border-stone-200 rounded-xl relative group">
                   <div className="flex-1 space-y-3">
-                    <input 
-                      type="text" 
-                      value={field.heading} 
-                      onChange={(e) => handleFieldChange(index, 'heading', e.target.value)}
-                      placeholder="e.g., Material, Dimensions, Expiry"
-                      className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm font-semibold text-stone-800"
-                    />
-                    <textarea 
-                      value={field.description} 
-                      onChange={(e) => handleFieldChange(index, 'description', e.target.value)}
-                      placeholder="Enter details..."
-                      rows={2}
-                      className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm text-stone-700 resize-none"
-                    />
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Heading</label>
+                      <input
+                        type="text"
+                        value={field.heading}
+                        onChange={(e) => handleFieldChange(index, 'heading', e.target.value)}
+                        placeholder="e.g., Material, Dimensions, Expiry Date"
+                        className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm font-semibold text-stone-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-600 mb-1">Details</label>
+                      <textarea
+                        value={field.details || field.description || ''}
+                        onChange={(e) => handleFieldChange(index, 'details', e.target.value)}
+                        placeholder="e.g., Cotton, 20 × 30 cm, Keep refrigerated"
+                        rows={2}
+                        className="w-full px-4 py-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white text-sm text-stone-700 resize-none"
+                      />
+                    </div>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => removeCustomField(index)}
                     className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     title="Remove Field"
@@ -470,14 +490,14 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 </div>
               ))}
             </div>
-            
+
             <div className="space-y-2">
               <button
                 type="button"
                 onClick={addCustomField}
-                disabled={customFields.length >= 5}
+                disabled={customFields.length >= 20}
                 className={`w-full py-3 border-2 border-dashed rounded-xl font-medium flex items-center justify-center transition-colors ${
-                  customFields.length >= 5 
+                  customFields.length >= 20
                     ? 'border-gray-200 text-gray-400 opacity-50 cursor-not-allowed bg-gray-50'
                     : 'border-[#c9a280] text-[#856046] hover:bg-[#F8F4ED] hover:border-[#6b493d] hover:text-[#6b493d]'
                 }`}
@@ -485,9 +505,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                 <Plus size={18} className="mr-2" />
                 Add Custom Detail
               </button>
-              {customFields.length >= 5 && (
+              {customFields.length >= 20 && (
                 <p className="text-center text-xs text-gray-400 mt-2">
-                  Maximum of 5 custom fields reached.
+                  Maximum of 20 custom fields reached.
                 </p>
               )}
             </div>
