@@ -177,6 +177,44 @@ const ProfilePage = () => {
     }
   }, [location.state]);
 
+  // Phone validation function
+  const validatePhone = (phoneNumber, code) => {
+    if (!phoneNumber || String(phoneNumber).trim() === '') return '';
+
+    let cleaned = String(phoneNumber).trim();
+    // Strip country code or leading '+' if present
+    if (code && cleaned.startsWith(code)) {
+      cleaned = cleaned.slice(code.length);
+    }
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.replace(/^\+/, '');
+    }
+
+    if (!/^\d+$/.test(cleaned)) return 'Phone number must contain digits only';
+
+    const countryRules = {
+      '+92': { min: 10, max: 10, label: 'Pakistan' },
+      '+1': { min: 10, max: 10, label: 'US/Canada' },
+      '+44': { min: 10, max: 10, label: 'United Kingdom' },
+      '+91': { min: 10, max: 10, label: 'India' }
+    };
+    const rule = countryRules[code];
+    if (rule && (cleaned.length < rule.min || cleaned.length > rule.max)) {
+      if (rule.min === rule.max) {
+        return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
+      }
+      return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
+    }
+
+    if (cleaned.length < 7 || cleaned.length > 15) return 'Phone number must be 7-15 digits';
+
+    const fullPhone = code + cleaned;
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
+
+    return '';
+  };
+
   // Debug function to test token
   const testToken = async () => {
     try {
@@ -201,9 +239,21 @@ const ProfilePage = () => {
         return 'Regular User';
       };
 
-      const parsedPhone = parsePhoneNumber(userData.phone);
-      const phoneNumber = parsedPhone.phone;
-      const phoneCountryCode = parsedPhone.countryCode;
+      // Parse existing phone number to extract country code and phone number
+      let phoneNumber = '';
+      let phoneCountryCode = '+92';
+
+      if (userData.phone) {
+        const rawPhone = String(userData.phone).trim();
+        const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+        const matchingCountry = sortedCodes.find(country => rawPhone.startsWith(country.code));
+        if (matchingCountry) {
+          phoneCountryCode = matchingCountry.code;
+          phoneNumber = rawPhone.substring(matchingCountry.code.length).replace(/\D/g, '');
+        } else {
+          phoneNumber = rawPhone.replace(/\D/g, '');
+        }
+      }
 
       setProfile({
         id: userData.id || userData._id || '',
@@ -453,33 +503,23 @@ const ProfilePage = () => {
       return 'Regular User';
     };
 
-    const parsedPhone = parsePhoneNumber(updatedUser.phone);
-    const phoneNumber = parsedPhone.phone;
-    const phoneCountryCode = parsedPhone.countryCode;
+    const { id } = profile;
+    const { name, email, city, about } = formData;
+    const fullPhone = formData.phone && formData.phone.trim() !== '' 
+      ? formData.countryCode + formData.phone.trim() 
+      : (profile.phone || '');
 
-    const resolvedUserId = updatedUser.id || updatedUser._id || profile.id;
-
-    setProfile({
-      id: resolvedUserId,
-      name: updatedUser.username,
-      email: updatedUser.email,
-      phone: updatedUser.phone,
-      city: updatedUser.city || '',
-      about: updatedUser.about || '',
-      userType: getUserType(updatedUser),
-      profileImage: profile.profileImage,
-      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-    });
-
-    setFormData({
-      name: updatedUser.username || '',
-      email: updatedUser.email || '',
-      phone: phoneNumber,
-      city: updatedUser.city || '',
-      about: updatedUser.about || '',
-      countryCode: phoneCountryCode,
-      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-    });
+    // Validate phone number only if provided
+    if (formData.phone && formData.phone.trim() !== '') {
+      const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
+      if (phoneValidationError) {
+        setPhoneError(phoneValidationError);
+        setPhoneTouched(true);
+        setLoading(false);
+        addToast(phoneValidationError, 'error');
+        return;
+      }
+    }
 
     setOriginalProfile({
       name: updatedUser.username || '',
