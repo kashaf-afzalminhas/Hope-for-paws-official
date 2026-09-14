@@ -378,7 +378,7 @@ const googleLogins = async (req, res) => {
     }
 
     // If user doesn't exist, ask frontend to get UserType.
-    return res.status(200).json({ needsUserType: true, email, username: name, googleId });
+    return res.status(200).json({ needsUserType: true, email, username: name, googleId, picture: payload.picture || '' });
 
   } catch (error) {
     console.error("Google Login Error:", error);
@@ -388,10 +388,21 @@ const googleLogins = async (req, res) => {
 
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian, userType, googleId } = req.body;
+    const { email, username, isVeterinarian, userType, googleId, profileImage: profileImageUrl } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !username) return res.status(400).json({ message: 'Missing fields' });
+
+    let profileImage = '';
+    if (typeof profileImageUrl === 'string' && profileImageUrl.trim()) {
+      try {
+        const imageUrl = new URL(profileImageUrl.trim());
+        if (imageUrl.protocol === 'http:' || imageUrl.protocol === 'https:') {
+          profileImage = profileImageUrl.trim();
+        }
+      } catch {
+      }
+    }
 
     const resolvedUserType =
       userType === 'seller' || userType === 'veterinarian' || userType === 'user'
@@ -426,6 +437,7 @@ const completeGoogleRegistration = async (req, res) => {
         sellerStatus: isSeller ? 'incomplete' : undefined,
         phone: "",
         phoneVerified: false,
+        profileImage,
         authProviders: [{ provider: 'google', providerId: googleId || null }]
       });
     }
