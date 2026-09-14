@@ -942,7 +942,7 @@ export default function SellerOrderDashboard({ embedded = false, onNavigateAnaly
   const toShipCount = orders.filter(o => ["Confirmed", "Processing"].includes(o.status)).length;
   const completedCount = orders.filter(o => o.status === "Delivered").length;
   const totalRevenue = orders
-    .filter(o => o.status !== "Cancelled")
+    .filter(o => o.status === "Delivered")
     .reduce((s, o) => s + (o.totals?.finalTotal || 0), 0);
 
   return (

@@ -80,7 +80,7 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
   const stats = useMemo(() => {
     const totalOrders = filteredOrders.length;
     const totalRevenue = filteredOrders
-      .filter((o) => o.status !== 'Cancelled')
+      .filter((o) => o.status === 'Delivered')
       .reduce((sum, o) => sum + (o.totals?.finalTotal || 0), 0);
 
     const pending = filteredOrders.filter((o) => o.status === 'Pending').length;
@@ -96,7 +96,7 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
 
   // Revenue trend chart data
   const hasRevenueData = useMemo(() => {
-    return filteredOrders.some((o) => o.status !== 'Cancelled' && (o.totals?.finalTotal || 0) > 0);
+    return filteredOrders.some((o) => o.status === 'Delivered' && (o.totals?.finalTotal || 0) > 0);
   }, [filteredOrders]);
 
   const salesTrendData = useMemo(() => {
@@ -105,8 +105,9 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
       .filter((o) => o.status !== 'Cancelled')
       .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
-    const dateMap = {};
+const dateMap = {};
     sortedOrders.forEach((o) => {
+      if (o.status !== 'Delivered') return;
       const date = new Date(o.createdAt || Date.now());
       const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       dateMap[label] = (dateMap[label] || 0) + (o.totals?.finalTotal || 0);
