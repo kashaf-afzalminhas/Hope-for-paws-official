@@ -1,6 +1,8 @@
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Review = require('../models/Review');
 const mongoose = require('mongoose');
 
 // 1. Create Product
@@ -149,7 +151,50 @@ exports.getProductById = async (req, res) => {
       .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json(product);
+
+    const sellerId = product.sellerId?._id || product.sellerId;
+    const sellerProducts = await Product.find({ sellerId }).select('_id').lean();
+    const sellerProductIds = sellerProducts.map(({ _id }) => _id);
+
+    const [salesStats, productSalesStats, reviewStats] = await Promise.all([
+      Order.aggregate([
+        { $match: { sellerId, status: 'Delivered' } },
+        { $unwind: '$items' },
+        { $group: { _id: null, totalSales: { $sum: '$items.quantity' } } }
+      ]),
+      Order.aggregate([
+        { $match: { sellerId, status: 'Delivered', 'items.productId': product._id } },
+        { $unwind: '$items' },
+        { $match: { 'items.productId': product._id } },
+        { $group: { _id: null, totalSales: { $sum: '$items.quantity' } } }
+      ]),
+      Review.aggregate([
+        {
+          $match: {
+            product: { $in: sellerProductIds },
+            rating: { $gte: 1, $lte: 5 }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' },
+            reviewCount: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    const sellerReviewStats = reviewStats[0];
+    const response = product.toObject();
+    response.sellerRating = sellerReviewStats
+      ? Math.round(sellerReviewStats.averageRating * 10) / 10
+      : 0;
+    response.sellerReviewCount = sellerReviewStats?.reviewCount || 0;
+    response.sellerTotalSales = salesStats[0]?.totalSales || 0;
+    response.productTotalSales = productSalesStats[0]?.totalSales || 0;
+
+    res.json(response);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
