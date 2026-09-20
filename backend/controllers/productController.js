@@ -48,7 +48,15 @@ exports.createProduct = async (req, res) => {
     let parsedAdditionalInfo = [];
     if (additionalInfo) {
       try {
-        parsedAdditionalInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        const rawInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        if (Array.isArray(rawInfo)) {
+          parsedAdditionalInfo = rawInfo
+            .map(item => ({
+              heading: (item.heading || '').trim(),
+              details: (item.details || item.description || '').trim()
+            }))
+            .filter(item => item.heading !== '' || item.details !== '');
+        }
       } catch (e) {
         console.error('Error parsing additionalInfo:', e);
       }
@@ -143,58 +151,118 @@ exports.listMyProducts = async (req, res) => {
   }
 };
 
-// 4. Get Single Product (Updated to prevent Detail Page Crash)
+
+// 4. Get Single Product (Updated with dynamic sales and seller rating)
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
       .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const sellerId = product.sellerId?._id || product.sellerId;
-    const sellerProducts = await Product.find({ sellerId }).select('_id').lean();
-    const sellerProductIds = sellerProducts.map(({ _id }) => _id);
+    // Sales are counted only after successful delivery.
+    const productSalesAgg = await Order.aggregate([
+      {
+        $match: {
+          status: 'Delivered',
+          'items.productId': product._id
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.productId': product._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$items.quantity' }
+        }
+      }
+    ]);
 
-    const [salesStats, productSalesStats, reviewStats] = await Promise.all([
-      Order.aggregate([
-        { $match: { sellerId, status: 'Delivered' } },
-        { $unwind: '$items' },
-        { $group: { _id: null, totalSales: { $sum: '$items.quantity' } } }
-      ]),
-      Order.aggregate([
-        { $match: { sellerId, status: 'Delivered', 'items.productId': product._id } },
-        { $unwind: '$items' },
-        { $match: { 'items.productId': product._id } },
-        { $group: { _id: null, totalSales: { $sum: '$items.quantity' } } }
-      ]),
-      Review.aggregate([
+    const productTotalSales = productSalesAgg[0]?.totalSales || 0;
+
+    let sellerTotalSales = 0;
+    let sellerRating = 0;
+    let sellerReviewCount = 0;
+
+    if (product.sellerId) {
+      const sellerObjId = product.sellerId._id;
+
+      // Count only delivered quantities across the seller's products.
+      const sellerSalesAgg = await Order.aggregate([
         {
           $match: {
-            product: { $in: sellerProductIds },
-            rating: { $gte: 1, $lte: 5 }
+            sellerId: sellerObjId,
+            status: 'Delivered'
           }
         },
+        { $unwind: '$items' },
         {
           $group: {
             _id: null,
-            averageRating: { $avg: '$rating' },
-            reviewCount: { $sum: 1 }
+            totalSales: { $sum: '$items.quantity' }
           }
         }
-      ])
-    ]);
+      ]);
 
-    const sellerReviewStats = reviewStats[0];
-    const response = product.toObject();
-    response.sellerRating = sellerReviewStats
-      ? Math.round(sellerReviewStats.averageRating * 10) / 10
-      : 0;
-    response.sellerReviewCount = sellerReviewStats?.reviewCount || 0;
-    response.sellerTotalSales = salesStats[0]?.totalSales || 0;
-    response.productTotalSales = productSalesStats[0]?.totalSales || 0;
+      sellerTotalSales = sellerSalesAgg[0]?.totalSales || 0;
 
-    res.json(response);
+      // Calculate the seller/store rating from reviews on all of the
+      // seller's products.
+      const sellerProducts = await Product.find({ sellerId: sellerObjId })
+        .select('_id')
+        .lean();
+
+      const sellerProductIds = sellerProducts.map(({ _id }) => _id);
+
+      if (sellerProductIds.length > 0) {
+        const reviewStats = await Review.aggregate([
+          {
+            $match: {
+              product: { $in: sellerProductIds },
+              rating: { $gte: 1, $lte: 5 }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              averageRating: { $avg: '$rating' },
+              reviewCount: { $sum: 1 }
+            }
+          }
+        ]);
+
+        const sellerReviewStats = reviewStats[0];
+
+        if (sellerReviewStats) {
+          sellerRating =
+            Math.round(sellerReviewStats.averageRating * 10) / 10;
+          sellerReviewCount = sellerReviewStats.reviewCount || 0;
+        }
+      }
+    }
+
+    const productObj = product.toObject();
+
+    // Product-level sales.
+    productObj.totalSales = productTotalSales;
+    productObj.productTotalSales = productTotalSales;
+
+    // Seller/store-level statistics.
+    productObj.sellerTotalSales = sellerTotalSales;
+    productObj.sellerRating = sellerRating;
+    productObj.sellerReviewCount = sellerReviewCount;
+
+    // Preserve the response shape used by the sahab branch.
+    if (productObj.sellerId && typeof productObj.sellerId === 'object') {
+      productObj.sellerId.totalSales = sellerTotalSales;
+      productObj.sellerId.rating = sellerRating;
+    }
+
+    res.json(productObj);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -264,15 +332,24 @@ exports.updateProduct = async (req, res) => {
 
     let parsedAdditionalInfo;
     if (additionalInfo !== undefined) {
+      let rawInfo = additionalInfo;
       if (typeof additionalInfo === 'string') {
         try {
-          parsedAdditionalInfo = JSON.parse(additionalInfo);
+          rawInfo = JSON.parse(additionalInfo);
         } catch (e) {
           console.error('Error parsing additionalInfo:', e);
-          parsedAdditionalInfo = [];
+          rawInfo = [];
         }
+      }
+      if (Array.isArray(rawInfo)) {
+        parsedAdditionalInfo = rawInfo
+          .map(item => ({
+            heading: (item.heading || '').trim(),
+            details: (item.details || item.description || '').trim()
+          }))
+          .filter(item => item.heading !== '' || item.details !== '');
       } else {
-        parsedAdditionalInfo = additionalInfo;
+        parsedAdditionalInfo = [];
       }
     }
 
@@ -412,6 +489,26 @@ exports.shareProduct = async (req, res) => {
     res.json({ shareCount: product.shareCount });
   } catch (err) {
     console.error('Error recording product share:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Seller-specific custom categories for product creation.
+exports.listMyProductCategories = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId }).select('_id').lean();
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+
+    const products = await Product.find({ sellerId: seller._id }).select('category').lean();
+    const categories = [...new Set(
+      products
+        .map(product => product.category?.trim())
+        .filter(category => category)
+    )].sort((first, second) => first.localeCompare(second));
+
+    return res.json(categories);
+  } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 };

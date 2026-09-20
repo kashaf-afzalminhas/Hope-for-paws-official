@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import DOMPurify from "dompurify";
 import { Heart, MessageCircle, UserCircle, Trash2, PlusCircle, MessageSquare, PawPrint } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { API_BASE_URL } from '../config';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
@@ -20,6 +20,7 @@ const Postnew = () => {
   // const { userd } = useAuth();
   const [expandedComments, setExpandedComments] = useState({});
   const navigate = useNavigate();
+  const location = useLocation();
   const [userProfileImages, setUserProfileImages] = useState({});
   const [conversations, setConversations] = useState([]); // Add this if not already present
   const [showPostForm, setShowPostForm] = useState(false);
@@ -35,6 +36,22 @@ const Postnew = () => {
     JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) ||
     null;
   const currentUserId = getCurrentUserId(user);
+  // Auto-open create post form if user just logged in from this flow
+  useEffect(() => {
+    const shouldOpenCreate =
+      location.state?.openCreate ||
+      sessionStorage.getItem('openAdoptionCreate') === 'true';
+
+    if (shouldOpenCreate && user) {
+      setShowPostForm(true);
+      sessionStorage.removeItem('openAdoptionCreate');
+    }
+  }, [location.state, user]);
+
+  const handleCreatePostClick = () => {
+    if (!requireAuth('create a post')) return;
+    setShowPostForm(true);
+  };
 
     
   const toggleComments = (postId) => {
@@ -616,29 +633,20 @@ const Postnew = () => {
           {/* Action Bar */}
           {!showPostForm && (
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-6">
-              {user ? (
-                <>
-                  <button
-                    onClick={() => setShowPostForm(true)}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-clay text-cream rounded-full hover:bg-clay-deep transition-all shadow-warm-sm font-body text-sm font-semibold"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    <span>Create Post</span>
-                  </button>
-                  <Link
-                    to="/my-posts"
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-ink rounded-full hover:bg-sand-light transition-all border border-sand shadow-warm-sm font-body text-sm font-semibold"
-                  >
-                    <UserCircle className="h-4 w-4 text-clay" />
-                    <span>My Posts</span>
-                  </Link>
-                </>
-              ) : (
+              <button
+                onClick={handleCreatePostClick}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-clay text-cream rounded-full hover:bg-clay-deep transition-all shadow-warm-sm font-body text-sm font-semibold"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>Create Post</span>
+              </button>
+              {user && (
                 <Link
-                  to="/signin"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-clay text-cream rounded-full hover:bg-clay-deep transition-all shadow-warm-sm font-body text-sm font-semibold"
+                  to="/my-posts"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-ink rounded-full hover:bg-sand-light transition-all border border-sand shadow-warm-sm font-body text-sm font-semibold"
                 >
-                  Sign in to Post
+                  <UserCircle className="h-4 w-4 text-clay" />
+                  <span>My Posts</span>
                 </Link>
               )}
             </div>

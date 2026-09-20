@@ -19,7 +19,7 @@ import SellerOrders from '../marketplace/SellerOrders';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
-import { COUNTRY_CODES } from '../utils/constants';
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -179,8 +179,18 @@ const ProfilePage = () => {
 
   // Phone validation function
   const validatePhone = (phoneNumber, code) => {
-    if (!phoneNumber) return 'Phone number is required';
-    if (!/^\d+$/.test(phoneNumber)) return 'Phone number must contain digits only';
+    if (!phoneNumber || String(phoneNumber).trim() === '') return '';
+
+    let cleaned = String(phoneNumber).trim();
+    // Strip country code or leading '+' if present
+    if (code && cleaned.startsWith(code)) {
+      cleaned = cleaned.slice(code.length);
+    }
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.replace(/^\+/, '');
+    }
+
+    if (!/^\d+$/.test(cleaned)) return 'Phone number must contain digits only';
 
     const countryRules = {
       '+92': { min: 10, max: 10, label: 'Pakistan' },
@@ -189,16 +199,16 @@ const ProfilePage = () => {
       '+91': { min: 10, max: 10, label: 'India' }
     };
     const rule = countryRules[code];
-    if (rule && (phoneNumber.length < rule.min || phoneNumber.length > rule.max)) {
+    if (rule && (cleaned.length < rule.min || cleaned.length > rule.max)) {
       if (rule.min === rule.max) {
         return `${rule.label} numbers must be exactly ${rule.min} digits after ${code}`;
       }
       return `${rule.label} numbers must be ${rule.min}-${rule.max} digits after ${code}`;
     }
 
-    if (phoneNumber.length < 7 || phoneNumber.length > 15) return 'Phone number must be 7-15 digits';
+    if (cleaned.length < 7 || cleaned.length > 15) return 'Phone number must be 7-15 digits';
 
-    const fullPhone = code + phoneNumber;
+    const fullPhone = code + cleaned;
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
     if (!phoneRegex.test(fullPhone)) return 'Please enter a valid phone number';
 
@@ -234,13 +244,14 @@ const ProfilePage = () => {
       let phoneCountryCode = '+92';
 
       if (userData.phone) {
-        // Find matching country code
-        const matchingCountry = COUNTRY_CODES.find(country => userData.phone.startsWith(country.code));
+        const rawPhone = String(userData.phone).trim();
+        const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+        const matchingCountry = sortedCodes.find(country => rawPhone.startsWith(country.code));
         if (matchingCountry) {
           phoneCountryCode = matchingCountry.code;
-          phoneNumber = userData.phone.substring(matchingCountry.code.length);
+          phoneNumber = rawPhone.substring(matchingCountry.code.length).replace(/\D/g, '');
         } else {
-          phoneNumber = userData.phone;
+          phoneNumber = rawPhone.replace(/\D/g, '');
         }
       }
 
@@ -338,35 +349,6 @@ const ProfilePage = () => {
         [key]: value
       }
     });
-  };
-
-  const handlePhoneChange = (e) => {
-    let phoneValue = e.target.value;
-
-    // Remove leading zero if country code is selected
-    if (formData.countryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-    }
-
-    setFormData({ ...formData, phone: phoneValue });
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, formData.countryCode));
-  };
-
-  const handleCountryCodeChange = (e) => {
-    const newCountryCode = e.target.value;
-    let phoneValue = formData.phone;
-
-    // Remove leading zero when country code changes
-    if (newCountryCode && phoneValue.startsWith('0')) {
-      phoneValue = phoneValue.substring(1);
-      setFormData({ ...formData, phone: phoneValue, countryCode: newCountryCode });
-    } else {
-      setFormData({ ...formData, countryCode: newCountryCode });
-    }
-
-    setPhoneTouched(true);
-    setPhoneError(validatePhone(phoneValue, newCountryCode));
   };
 
   // Function to detect if there are changes
@@ -521,43 +503,23 @@ const ProfilePage = () => {
       return 'Regular User';
     };
 
-    // Parse the updated phone number
-    let phoneNumber = '';
-    let phoneCountryCode = '+92';
+    const { id } = profile;
+    const { name, email, city, about } = formData;
+    const fullPhone = formData.phone && formData.phone.trim() !== '' 
+      ? formData.countryCode + formData.phone.trim() 
+      : (profile.phone || '');
 
-    if (updatedUser.phone) {
-      const matchingCountry = COUNTRY_CODES.find(country => updatedUser.phone.startsWith(country.code));
-      if (matchingCountry) {
-        phoneCountryCode = matchingCountry.code;
-        phoneNumber = updatedUser.phone.substring(matchingCountry.code.length);
-      } else {
-        phoneNumber = updatedUser.phone;
+    // Validate phone number only if provided
+    if (formData.phone && formData.phone.trim() !== '') {
+      const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
+      if (phoneValidationError) {
+        setPhoneError(phoneValidationError);
+        setPhoneTouched(true);
+        setLoading(false);
+        addToast(phoneValidationError, 'error');
+        return;
       }
     }
-
-    const resolvedUserId = updatedUser.id || updatedUser._id || profile.id;
-
-    setProfile({
-      id: resolvedUserId,
-      name: updatedUser.username,
-      email: updatedUser.email,
-      phone: updatedUser.phone,
-      city: updatedUser.city || '',
-      about: updatedUser.about || '',
-      userType: getUserType(updatedUser),
-      profileImage: profile.profileImage,
-      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-    });
-
-    setFormData({
-      name: updatedUser.username || '',
-      email: updatedUser.email || '',
-      phone: phoneNumber,
-      city: updatedUser.city || '',
-      about: updatedUser.about || '',
-      countryCode: phoneCountryCode,
-      notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
-    });
 
     setOriginalProfile({
       name: updatedUser.username || '',
@@ -577,7 +539,7 @@ const ProfilePage = () => {
   const saveProfileFields = async (emailOverride) => {
     const { id } = profile;
     const { name, city, about } = formData;
-    const fullPhone = formData.countryCode + formData.phone;
+    const fullPhone = getFullPhoneNumber(formData.phone, formData.countryCode);
     const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
     try {
@@ -650,7 +612,7 @@ const ProfilePage = () => {
     setError('');
 
     const { id } = profile;
-    const fullPhone = formData.countryCode + formData.phone;
+    const fullPhone = getFullPhoneNumber(formData.phone, formData.countryCode);
 
     // Validate phone number
     const phoneValidationError = validatePhone(formData.phone, formData.countryCode);
@@ -1021,6 +983,9 @@ const ProfilePage = () => {
   const [adoptionImagePreviews, setAdoptionImagePreviews] = useState({}); // Store previews per post ID
   const [adoptionsStoredUser, setAdoptionsStoredUser] = useState(null);
   const [adoptionSavingStates, setAdoptionSavingStates] = useState({}); // Track saving state per adoption post
+  const [isAdoptionDeleteModalOpen, setIsAdoptionDeleteModalOpen] = useState(false);
+  const [adoptionPostToDelete, setAdoptionPostToDelete] = useState(null);
+  const [isDeletingAdoption, setIsDeletingAdoption] = useState(false);
 
   // MyPosts state
   const [editingPost, setEditingPost] = useState(null);
@@ -1127,11 +1092,16 @@ const ProfilePage = () => {
       setAdoptionsLoading(false);
     }
   };
-  const handleDeleteAdoption = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
+  const handleDeleteAdoption = (postId) => {
+    setAdoptionPostToDelete(postId);
+    setIsAdoptionDeleteModalOpen(true);
+  };
+  const confirmDeleteAdoption = async () => {
+    if (!adoptionPostToDelete) return;
     try {
+      setIsDeletingAdoption(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await fetch(`${API_BASE_URL}/adoptions/${postId}`, {
+      await fetch(`${API_BASE_URL}/adoptions/${adoptionPostToDelete}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -1140,7 +1110,15 @@ const ProfilePage = () => {
       if (uid) fetchUserAdoptions(uid);
     } catch (err) {
       setAdoptionsError(err.message || 'Failed to delete post');
+    } finally {
+      setIsDeletingAdoption(false);
+      setIsAdoptionDeleteModalOpen(false);
+      setAdoptionPostToDelete(null);
     }
+  };
+  const cancelDeleteAdoption = () => {
+    setIsAdoptionDeleteModalOpen(false);
+    setAdoptionPostToDelete(null);
   };
   const handleEditAdoption = (post) => {
     setEditingAdoptionPost(post._id);
@@ -1469,7 +1447,9 @@ const ProfilePage = () => {
               <div className="relative w-20 h-20 mx-auto mb-3">
                 {profile.profileImage ? (
                   <img
-                    src={`${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
+                    src={profile.profileImage.startsWith('http')
+                      ? profile.profileImage
+                      : `${AUTH_BASE_URL.replace('/auth', '')}${profile.profileImage}`}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover border-2 border-[#6b493d]"
                     onError={(e) => {
@@ -1792,32 +1772,20 @@ const ProfilePage = () => {
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Phone number</label>
-                        <div className="flex gap-2">
-                          <select
-                            value={formData.countryCode}
-                            onChange={handleCountryCodeChange}
-                            className="min-w-[120px] rounded-2xl border border-gray-300 px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm"
-                          >
-                            {COUNTRY_CODES.map((country, index) => (
-                              <option key={index} value={country.code}>
-                                {country.flag} {country.code}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handlePhoneChange}
-                            onBlur={() => setPhoneTouched(true)}
-                            className={`flex-1 rounded-2xl border px-3 py-2.5 text-gray-700 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d] sm:text-sm ${phoneTouched && phoneError ? 'border-red-500' : 'border-gray-300'}`}
-                            placeholder="XXXXXXXXXX"
-                          />
-                        </div>
-                        {phoneTouched && phoneError && (
-                          <p className="mt-1 text-xs text-red-600">{phoneError}</p>
-                        )}
+                        <PhoneNumberInput
+                          phone={formData.phone}
+                          countryCode={formData.countryCode}
+                          touched={phoneTouched}
+                          error={phoneError}
+                          label="Phone number"
+                          onBlur={() => setPhoneTouched(true)}
+                          onChange={({ phone, countryCode, error }) => {
+                            setFormData((prev) => ({ ...prev, phone, countryCode }));
+                            setPhoneTouched(true);
+                            setPhoneError(error);
+                          }}
+                          className="[&>div>select]:!rounded-2xl [&>div>select]:!border-gray-300 [&>div>select]:!py-2.5 [&>div>input]:!rounded-2xl [&>div>input]:!border-gray-300 [&>div>input]:!py-2.5"
+                        />
                       </div>
 
                       <div>

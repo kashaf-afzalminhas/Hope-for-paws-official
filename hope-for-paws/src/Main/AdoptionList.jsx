@@ -26,6 +26,7 @@ const AdoptionList = ({ filter = 'all' }) => {
   const { user } = useAuth();
   const requireAuth = useRequireAuth();
   const [selectedPost, setSelectedPost] = useState(null);
+  const selectedPostRef = React.useRef(null);
   const [effectiveUser, setEffectiveUser] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
   const [viewDetailsPost, setViewDetailsPost] = useState(null);
@@ -125,6 +126,10 @@ const AdoptionList = ({ filter = 'all' }) => {
 
   useEffect(() => {
     const onFocus = () => {
+      // Skip refetch while the adoption request form is open —
+      // the file-picker "close" fires a window focus event which
+      // would otherwise wipe the form state.
+      if (selectedPostRef.current) return;
       fetchAllAdoptionPosts({ forceRefresh: true });
       refreshUserRequestsForPosts();
     };
@@ -132,6 +137,19 @@ const AdoptionList = ({ filter = 'all' }) => {
     return () => window.removeEventListener('focus', onFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveUser]);
+
+  // Auto-open adoption request form if user signed in after requesting
+  useEffect(() => {
+    if (!effectiveUser || !allAdoptionPosts?.length) return;
+    const pendingPostId = sessionStorage.getItem('pendingAdoptionPostId');
+    if (pendingPostId) {
+      const targetPost = allAdoptionPosts.find((p) => String(p._id) === String(pendingPostId));
+      if (targetPost) {
+        setSelectedPost(targetPost);
+        sessionStorage.removeItem('pendingAdoptionPostId');
+      }
+    }
+  }, [effectiveUser, allAdoptionPosts]);
 
   // Robust chat navigation handler (copied from Postnew.jsx)
   const handleStartConversation = async (postCreatorId, postCreatorUsername, event) => {
@@ -228,12 +246,17 @@ const AdoptionList = ({ filter = 'all' }) => {
   }
 
   const handleRequestClick = (post) => {
-    if (!requireAuth('request adoption')) return;
+    if (!requireAuth('request adoption')) {
+      sessionStorage.setItem('pendingAdoptionPostId', post._id);
+      return;
+    }
     setSelectedPost(post);
+    selectedPostRef.current = post;
   };
 
   const handleRequestFormClose = () => {
     setSelectedPost(null);
+    selectedPostRef.current = null;
     refreshUserRequestsForPosts();
   };
 

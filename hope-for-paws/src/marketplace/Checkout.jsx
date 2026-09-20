@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
+import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 
 function ToastStack({ toasts, dismissToast }) {
   if (toasts.length === 0) return null;
@@ -79,7 +80,7 @@ export default function Checkout() {
     setToasts(t => t.filter(x => x.id !== id));
   }, []);
   
-  const [contact, setContact] = useState({ email: '', phone: '' });
+  const [contact, setContact] = useState({ email: '', phone: '', countryCode: '+92' });
   const [shippingAddress, setShippingAddress] = useState({
     fullName: '',
     street: '',
@@ -99,14 +100,8 @@ export default function Checkout() {
 
     // Validation for contact and delivery address
     const errors = {};
-    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
-    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
-
-    if (!contact.phone || !contact.phone.trim()) {
-      errors.phone = 'Phone number is required to complete your order.';
-    } else if (!phoneRegex.test(cleanPhone)) {
-      errors.phone = 'Please enter a valid phone number.';
-    }
+    const phoneError = validatePhone(contact.phone, contact.countryCode);
+    if (phoneError) errors.phone = phoneError;
 
     if (!shippingAddress.street || !shippingAddress.street.trim()) {
       errors.street = 'Delivery address is required to complete your order.';
@@ -147,7 +142,11 @@ export default function Checkout() {
           quantity: it.quantity,
           price: it.price
         })),
-        shippingAddress: { ...contact, ...shippingAddress },
+        shippingAddress: {
+          email: contact.email,
+          phone: getFullPhoneNumber(contact.phone, contact.countryCode),
+          ...shippingAddress
+        },
         paymentMethod,
         totals: {
           subtotal: cartTotal,
@@ -234,24 +233,25 @@ export default function Checkout() {
                 {fieldErrors.email && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.email}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number <span className="text-red-400">*</span></label>
-                <input 
-                  type="tel" 
-                  value={contact.phone}
-                  onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
-                  onBlur={() => {
-                    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
-                    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
-                    if (!contact.phone || !contact.phone.trim()) {
-                      setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required to complete your order.' }));
-                    } else if (!phoneRegex.test(cleanPhone)) {
-                      setFieldErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number (e.g. 03001234567).' }));
-                    }
+                <PhoneNumberInput
+                  phone={contact.phone}
+                  countryCode={contact.countryCode}
+                  required
+                  label="Phone Number"
+                  touched={Boolean(fieldErrors.phone)}
+                  error={fieldErrors.phone}
+                  onChange={({ phone, countryCode, error }) => {
+                    setContact((prev) => ({ ...prev, phone, countryCode }));
+                    setFieldErrors((prev) => ({ ...prev, phone: error || undefined }));
                   }}
-                  placeholder="0300 1234567 or +923001234567"
-                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
+                  onBlur={() => {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      phone: validatePhone(contact.phone, contact.countryCode) || undefined
+                    }));
+                  }}
+                  className="min-w-0 w-full [&>div]:min-w-0 [&>div>select]:!min-w-[96px] [&>div>select]:!w-[96px] [&>div>select]:!rounded-xl [&>div>select]:!border-[#d4c5c1] [&>div>select]:!py-3 [&>div>input]:!rounded-xl [&>div>input]:!border-[#d4c5c1] [&>div>input]:!py-3"
                 />
-                {fieldErrors.phone && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.phone}</p>}
               </div>
             </div>
           </section >

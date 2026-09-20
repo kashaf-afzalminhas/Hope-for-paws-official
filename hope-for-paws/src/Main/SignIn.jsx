@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { motion } from "framer-motion";
 import Paws from '/Hopeforpaws.jpg';
-import UserTypeModal from '../Components/UserTypeModal';
+import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -21,47 +21,15 @@ const Login = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { updateUser } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist } = useWishlist();
 
-  const handlePostLoginNavigation = async (user) => {
-    const pendingActionStr = localStorage.getItem('pendingAction');
-    let redirected = false;
-    if (pendingActionStr) {
-      try {
-        const pendingAction = JSON.parse(pendingActionStr);
-        localStorage.removeItem('pendingAction');
-        if (pendingAction.action === 'cart') {
-          await addToCart(pendingAction.productId, 1);
-          navigate('/cart');
-        } else if (pendingAction.action === 'wishlist') {
-          await toggleWishlist(pendingAction.productId);
-          navigate('/wishlist');
-        } else {
-          navigate(pendingAction.redirectUrl || '/marketplace');
-        }
-        redirected = true;
-      } catch (e) {
-        console.error("Failed to process pending action", e);
-      }
-    }
-
-    if (!redirected) {
-      if (user.isSeller && user.sellerStatus === 'incomplete') {
-        navigate('/seller/onboard');
-      } else if (!user.phone || !user.phoneVerified) {
-        navigate('/profile');
-      } else {
-        navigate("/");
-      }
-    }
-    window.location.reload();
-  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { type: "spring", stiffness: 120 }
     }
@@ -83,30 +51,66 @@ const Login = () => {
     }
   }, [location.state]);
 
-  const performPostLoginRedirect = (userObj) => {
-    const savedRedirect = (() => {
-      try {
-        const item = sessionStorage.getItem('redirectAfterAuth');
-        return item ? JSON.parse(item) : null;
-      } catch { return null; }
-    })();
+  const performPostLoginRedirect = async (userObj) => {
+    try {
+      // 1. Check for pending marketplace action (cart / wishlist)
+      const pendingActionStr = localStorage.getItem('pendingAction');
+      let targetPath = null;
 
-    const targetPath = location.state?.from || savedRedirect?.from || "/";
-    const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+      if (pendingActionStr) {
+        try {
+          const pendingAction = JSON.parse(pendingActionStr);
+          localStorage.removeItem('pendingAction');
 
-    if (openCreate) {
-      sessionStorage.setItem('openAdoptionCreate', 'true');
-    }
+          if (pendingAction.action === 'cart') {
+            await addToCart(pendingAction.productId, 1);
+            targetPath = '/cart';
+          } else if (pendingAction.action === 'wishlist') {
+            await toggleWishlist(pendingAction.productId);
+            targetPath = '/wishlist';
+          } else if (pendingAction.redirectUrl) {
+            targetPath = pendingAction.redirectUrl;
+          }
+        } catch (e) {
+          console.error("Failed to process pending action", e);
+        }
+      }
 
-    if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
-      navigate('/seller/onboard');
-    } else if (!userObj.phone || !userObj.phoneVerified) {
-      navigate('/profile');
-    } else {
+      // 2. If no pending action, use standard redirect targets
+      if (!targetPath) {
+        const savedRedirect = (() => {
+          try {
+            const item = sessionStorage.getItem('redirectAfterAuth');
+            return item ? JSON.parse(item) : null;
+          } catch { return null; }
+        })();
+
+        targetPath = location.state?.from || savedRedirect?.from || "/";
+        const openCreate = location.state?.openCreate || savedRedirect?.openCreate || false;
+
+        if (openCreate) {
+          sessionStorage.setItem('openAdoptionCreate', 'true');
+        }
+
+        if (userObj.isSeller && userObj.sellerStatus === 'incomplete') {
+          navigate('/seller/onboard');
+          return;
+        } else if (!userObj.phone || !userObj.phoneVerified) {
+          navigate('/profile');
+          return;
+        }
+
+        sessionStorage.removeItem('redirectAfterAuth');
+        navigate(targetPath, { state: { openCreate } });
+        return;
+      }
+
+      // 3. Navigate directly to the cart or wishlist target
       sessionStorage.removeItem('redirectAfterAuth');
-      navigate(targetPath, { state: { openCreate } });
+      navigate(targetPath);
+    } finally {
+      setLoading(false);
     }
-    window.location.reload();
   };
 
   const togglePasswordVisibility = () => {
@@ -156,7 +160,8 @@ const Login = () => {
             localStorage.removeItem('user');
           }
           
-          performPostLoginRedirect(data.user);
+          updateUser(data.user);
+          await performPostLoginRedirect(data.user);
         } else {
           setLoading(false);
           setError('Login failed: No token received.');
@@ -170,7 +175,7 @@ const Login = () => {
     } catch {
       setLoading(false);
       setError('An error occurred while signing in');
-    }    
+    }
   };
 
   const googleLoginHandler = async (googleResponse) => {
@@ -208,7 +213,12 @@ const Login = () => {
       setLoading(false);
       if (response.ok) {
         if (data.needsUserType) {
-          setPendingGoogleUser({ email: data.email, username: data.username, googleId: data.googleId });
+          setPendingGoogleUser({
+            email: data.email,
+            username: data.username,
+            googleId: data.googleId,
+            picture: data.picture
+          });
           setShowUserTypeModal(true);
           return;
         }
@@ -235,7 +245,8 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        performPostLoginRedirect(data.user);
+        updateUser(data.user);
+        await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
       }
@@ -259,6 +270,7 @@ const Login = () => {
           isVeterinarian: userTypeSelected === 'veterinarian',
           userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
           googleId: pendingGoogleUser.googleId,
+          profileImage: pendingGoogleUser.picture,
           ...(userTypeSelected === 'seller' && sellerInfo && {
             sellerName: sellerInfo.businessName,
             cnic: sellerInfo.cnic,
@@ -294,7 +306,8 @@ const Login = () => {
         localStorage.removeItem('savedEmail');
         localStorage.removeItem('savedPassword');
         
-        performPostLoginRedirect(data.user);
+        updateUser(data.user);
+        await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");
       }
@@ -336,9 +349,9 @@ const Login = () => {
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
         {/* Image Section - Visible on both mobile and desktop */}
         <div className="w-full sm:h-72 md:w-1/2 h-64 md:h-auto bg-[#F8F4ED] relative">
-          <img 
-            src={Paws} 
-            alt="Hope For Paws" 
+          <img
+            src={Paws}
+            alt="Hope For Paws"
             className="absolute h-72 inset-0 w-full md:h-full object-cover"
             style={{ objectFit: 'cover' }}
           />
@@ -450,7 +463,7 @@ const Login = () => {
             </form>
             <motion.div variants={itemVariants} className="flex justify-center">
               <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                <GoogleLogin 
+                <GoogleLogin
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={(error) => console.log(error)}
                   theme="filled_blue"
@@ -463,11 +476,11 @@ const Login = () => {
                 />
               </GoogleOAuthProvider>
             </motion.div>
-            <UserTypeModal
+            <GoogleAccountTypeOnboarding
               open={showUserTypeModal}
               onClose={() => setShowUserTypeModal(false)}
               onSelect={handleUserTypeSelect}
-              username={pendingGoogleUser?.username}
+              googleUser={pendingGoogleUser}
             />
 
             <p className="text-sm text-[#4E3B31] text-center pt-4 border-t border-gray-100">
