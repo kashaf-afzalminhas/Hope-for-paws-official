@@ -69,6 +69,10 @@ export default function Checkout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 
   const addToast = useCallback((type, message) => {
     const id = Date.now() + Math.random();
@@ -89,8 +93,59 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = 0;
-  const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
+  const defaultShipping = items.length > 0 ? (SHIPPING_FEE || 0) : 0;
+  const shippingFee = appliedPromo?.waivedShipping ? 0 : defaultShipping;
+  const discountAmount = appliedPromo?.discountAmount || 0;
+  const finalTotal = items.length > 0 ? Math.max(0, cartTotal - discountAmount + shippingFee) : 0;
+
+  const handleApplyPromo = async () => {
+    if (!promoCodeInput.trim()) return;
+    setIsApplyingPromo(true);
+    setPromoError(null);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/promos/apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code: promoCodeInput.trim().toUpperCase(),
+          cartItems: items.map(item => ({
+            productId: item.productId || item.product?._id || item._id,
+            sellerId:
+              item.sellerId?._id ||
+              item.sellerId ||
+              item.product?.sellerId?._id ||
+              item.product?.sellerId ||
+              item.seller?._id ||
+              item.seller,
+            category: item.category || item.product?.category,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          currentShippingFee: shippingFee
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setAppliedPromo(null);
+        setPromoError(data);
+        addToast('error', data.message || 'Invalid promo code');
+      } else {
+        setAppliedPromo(data);
+        setPromoError(null);
+        addToast('success', data.message);
+      }
+    } catch (err) {
+      addToast('error', 'Network error while checking promo code.');
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
 
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
@@ -148,6 +203,7 @@ export default function Checkout() {
           ...shippingAddress
         },
         paymentMethod,
+        appliedPromo,
         totals: {
           subtotal: cartTotal,
           shippingFee,
@@ -414,9 +470,21 @@ export default function Checkout() {
             <span>Subtotal</span>
             <span className="text-[#3d2a24] font-bold">Rs {cartTotal.toLocaleString()}</span>
           </div>
+          {appliedPromo && discountAmount > 0 && (
+            <div className="flex justify-between text-[14px] text-emerald-700 font-medium">
+              <span>Discount ({appliedPromo.code})</span>
+              <span className="font-bold">-Rs {discountAmount.toLocaleString()}</span>
+            </div>
+          )}
+          {appliedPromo?.customReward && (
+            <div className="flex justify-between text-[13px] text-[#6b493d] font-semibold">
+              <span>Reward</span>
+              <span>{appliedPromo.customReward}</span>
+            </div>
+          )}
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
-            <span className="text-[#3d2a24] font-bold">Rs 0</span>
+            <span className="text-[#3d2a24] font-bold">Rs {shippingFee.toLocaleString()}</span>
           </div>
         </div>
 
@@ -427,16 +495,52 @@ export default function Checkout() {
           </div>
         </div>
 
-        {/* Promo Code */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Promo code"
-            className="flex-1 bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 text-[13px] focus:outline-none focus:border-[#6b493d] transition-colors"
-          />
-          <button className="bg-[#6b493d] hover:bg-[#5a3c31] text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors">
-            Apply
-          </button>
+        {/* Promo Code with Evaluation Feedback */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Promo code"
+              value={promoCodeInput}
+              onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+              className="flex-1 bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 text-[13px] uppercase focus:outline-none focus:border-[#6b493d] transition-colors"
+            />
+            <button 
+              type="button"
+              onClick={handleApplyPromo}
+              disabled={isApplyingPromo || !promoCodeInput.trim()}
+              className="bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors"
+            >
+              {isApplyingPromo ? 'Checking...' : 'Apply'}
+            </button>
+          </div>
+
+          {appliedPromo && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-[12px] font-semibold text-emerald-800 flex justify-between items-center">
+              <span>{appliedPromo.message}</span>
+              <button 
+                type="button" 
+                onClick={() => { setAppliedPromo(null); setPromoCodeInput(''); }} 
+                className="text-emerald-900 underline text-[11px]"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
+          {promoError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[12px] text-red-700 space-y-1">
+              <p className="font-semibold">{promoError.message}</p>
+              {promoError.qualifyingCategories && promoError.qualifyingCategories.length > 0 && (
+                <a 
+                  href={`/shop?category=${promoError.qualifyingCategories[0]}`}
+                  className="block underline font-bold text-[#6b493d] text-[11px]"
+                >
+                  Explore qualifying {promoError.qualifyingCategories.join(', ')} items →
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

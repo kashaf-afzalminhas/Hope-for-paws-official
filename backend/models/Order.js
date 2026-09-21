@@ -26,8 +26,11 @@ const orderSchema = new mongoose.Schema({
   totals: {
     subtotal: { type: Number, required: true },
     shippingFee: { type: Number, required: true },
+    discountAmount: { type: Number, default: 0 },
     finalTotal: { type: Number, required: true },
   },
+  promoCode: { type: String, default: null },
+  customReward: { type: String, default: null },
   status: {
     type: String,
     enum: ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
