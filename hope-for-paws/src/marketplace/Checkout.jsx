@@ -89,9 +89,63 @@ export default function Checkout() {
     postalCode: ''
   });
 
-  const shippingFee = 0;
+  const [shippingQuote, setShippingQuote] = useState(null);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState('');
+
+  const shippingFee = shippingQuote?.shippingFee ?? 0;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
+  const calculateShipping = async () => {
+    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+      setFieldErrors(prev => ({ ...prev, city: undefined }));
+      setShippingError('City is required to calculate shipping.');
+      addToast('error', 'Please enter your delivery city first.');
+      return;
+    }
+
+    setIsCalculatingShipping(true);
+    setShippingError('');
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+      const payload = {
+        items: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity
+        })),
+        shippingAddress: {
+          ...shippingAddress,
+          country: 'Pakistan'
+        }
+      };
+
+      const res = await fetch(`${API_BASE_URL}/orders/shipping-quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to calculate shipping.');
+      }
+
+      setShippingQuote(data);
+    } catch (err) {
+      console.error('Shipping calculation error:', err);
+      setShippingQuote(null);
+      setShippingError(err.message || 'Failed to calculate shipping.');
+      addToast('error', err.message || 'Failed to calculate shipping.');
+    } finally {
+      setIsCalculatingShipping(false);
+    }
+  };
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
       addToast('error', 'Your cart is empty');
@@ -318,7 +372,40 @@ export default function Checkout() {
             </div>
           </section >
 
-    {/* Payment Section */ }
+    {/* Shipping Section */ }
+    <section className='bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]'>
+      <div className='flex items-center justify-between gap-4'>
+        <div>
+          <h2 className='text-xl font-extrabold text-[#3d2a24] tracking-tight'>Shipping</h2>
+          <p className='text-[12px] text-[#a07f77] mt-1'>Calculate delivery charges for your address.</p>
+        </div>
+        <button
+          type='button'
+          onClick={calculateShipping}
+          disabled={isCalculatingShipping || items.length === 0}
+          className='bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors whitespace-nowrap'
+        >
+          {isCalculatingShipping ? 'Calculating...' : 'Calculate Shipping'}
+        </button>
+      </div>
+      {shippingError && (
+        <p className='text-red-500 text-[12px] mt-3 font-medium'>{shippingError}</p>
+      )}
+      {shippingQuote?.sellers?.length > 0 && (
+        <div className='mt-4 space-y-3'>
+          {shippingQuote.sellers.map((seller) => (
+            <div key={seller.sellerId} className='flex items-center justify-between gap-4 bg-[#f7f1ee] rounded-xl px-4 py-3'>
+              <div>
+                <p className='text-[13px] font-bold text-[#3d2a24]'>{seller.sellerName}</p>
+                {seller.freeShipping && <p className='text-[11px] text-[#6b493d] font-semibold mt-1'>Free shipping</p>}
+              </div>
+              <span className='text-[13px] font-bold text-[#3d2a24]'>Rs {seller.shippingFee.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+ {/* Payment Section */ }
     < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Payment Method</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -416,7 +503,7 @@ export default function Checkout() {
           </div>
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
-            <span className="text-[#3d2a24] font-bold">Rs 0</span>
+            <span className="text-[#3d2a24] font-bold">Rs {shippingFee.toLocaleString()}</span>
           </div>
         </div>
 

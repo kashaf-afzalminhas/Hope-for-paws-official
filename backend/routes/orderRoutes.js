@@ -8,6 +8,7 @@ const orderController = require('../controllers/orderController');
 router.use(auth);
 
 // Buyer Routes
+router.post('/shipping-quote', preventSellerAccess, orderController.getShippingQuote);
 router.post('/', preventSellerAccess, orderController.createOrder);
 router.get('/buyer', preventSellerAccess, orderController.getBuyerOrders);
 router.put('/:id/cancel', preventSellerAccess, orderController.cancelOrder);
