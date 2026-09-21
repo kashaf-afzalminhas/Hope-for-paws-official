@@ -23,11 +23,12 @@ ChartJS.register(
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play, ArrowUpRight,
-  BadgeCheck, Clock, Star, ArrowLeft
+  BadgeCheck, Clock, Star, ArrowLeft, Tag
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
+import PromoModal from '../Components/PromoModal';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -46,6 +47,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
   const [editingProductId, setEditingProductId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   
   // Data States
   const [stats, setStats] = useState({
@@ -597,13 +599,23 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-[#fcfaf8]">
               <h2 className="text-2xl font-bold text-[#6b493d]">Product Catalog</h2>
-              <button
-                onClick={() => setActiveTab('add-product')}
-                className="flex items-center space-x-2 bg-[#6b493d] hover:bg-[#8c6b5d] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Product</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPromoModalOpen(true)}
+                  className="flex items-center space-x-2 bg-[#6b493d] hover:bg-[#8c6b5d] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium cursor-pointer"
+                >
+                  <Tag className="w-4 h-4" />
+                  <span>Add Promo Code</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('add-product')}
+                  className="flex items-center space-x-2 bg-[#6b493d] hover:bg-[#8c6b5d] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Product</span>
+                </button>
+              </div>
             </div>
             
             <div className="overflow-x-auto">
@@ -748,6 +760,12 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
           </div>
         </div>
       )}
+
+      {/* Promo Management Modal */}
+      <PromoModal
+        isOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+      />
       </div>
     </div>
   );

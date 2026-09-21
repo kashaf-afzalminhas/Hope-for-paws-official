@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle, Trash2, Plus, ChevronDown } from 'lucide-react';
-import PromoModal from '../Components/PromoModal';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -18,7 +17,6 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const isEditMode = !!productId;
   const [activeSection, setActiveSection] = useState('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [error, setError] = useState('');
   const [uploadError, setUploadError] = useState('');
@@ -308,13 +306,6 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
           </h1>
         </div>
         <div className="flex items-center space-x-4">
-          <button
-            type="button"
-            onClick={() => setIsPromoModalOpen(true)}
-            className="px-4 py-2 border border-[#6b493d] text-[#6b493d] hover:bg-[#6b493d]/10 font-medium rounded-lg transition-colors flex items-center text-sm cursor-pointer"
-          >
-            <Tag className="w-4 h-4 mr-2" /> Manage Promo Codes
-          </button>
           <button
             type="button"
             onClick={onCancel}
@@ -660,12 +651,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
         </form>
       </div>
 
-      {/* Promo Modal Overlay */}
-      <PromoModal
-        isOpen={isPromoModalOpen}
-        onClose={() => setIsPromoModalOpen(false)}
-      />
-    </div>
+      </div>
   );
 };
 

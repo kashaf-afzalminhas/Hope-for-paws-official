@@ -1,10 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const promoController = require('../controllers/promoController');
-const { verifyToken, optionalAuth } = require('../middlewares/authMiddleware');
+const auth = require('../middleware/auth');
 
-router.post('/create', verifyToken, promoController.createPromoCode);
-router.get('/seller', verifyToken, promoController.getSellerPromos);
-router.post('/apply', optionalAuth || verifyToken, promoController.applyPromoCode);
+// Seller endpoints require auth
+router.post('/create', auth, promoController.createPromoCode);
+router.get('/seller', auth, promoController.getSellerPromos);
+
+// Apply promo route (can be used during checkout)
+router.post('/apply', (req, res, next) => {
+  // If authorization header exists, authenticate; otherwise allow guest checkout evaluation
+  if (req.headers.authorization) {
+    return auth(req, res, next);
+  }
+  next();
+}, promoController.applyPromoCode);
 
 module.exports = router;
