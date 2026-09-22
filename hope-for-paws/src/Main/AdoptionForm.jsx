@@ -23,6 +23,7 @@ const AdoptionForm = () => {
   const [neuteredSpayed, setNeuteredSpayed] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [locationDetails, setLocationDetails] = useState(null);
   const [images, setImages] = useState([]); // Array of File objects
   const [imagePreviews, setImagePreviews] = useState([]); // Array of data URLs
   const [imageErrors, setImageErrors] = useState([]); // Array of error messages for each image
@@ -42,16 +43,25 @@ const AdoptionForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const [cities, setCities] = useState([]);
+  const [locationOptions, setLocationOptions] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
 
   // Fetch cities dynamically from the backend on mount
   useEffect(() => {
     const fetchCities = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/adoptions/cities`);
+        const response = await fetch(`${API_BASE_URL}/adoptions/cities?hierarchy=true`);
         if (!response.ok) throw new Error('Failed to fetch cities');
         const data = await response.json();
-        setCities(data);
+        const options = (data.provinces || []).flatMap((province) => province.cities.map((city) => ({
+          ...city,
+          countryCode: 'PK',
+          countryName: 'Pakistan',
+          provinceCode: province.code,
+          provinceName: province.name,
+        })));
+        setLocationOptions(options);
+        setCities(options.map((city) => city.name));
       } catch (err) {
         console.error('Error fetching cities:', err);
       } finally {
@@ -374,6 +384,7 @@ const AdoptionForm = () => {
     formData.append('neuteredSpayed', neuteredSpayed);
     formData.append('description', description);
     formData.append('location', location);
+    if (locationDetails) formData.append('locationDetails', JSON.stringify(locationDetails));
 
     // Append all images
     for (const image of images) {
@@ -640,6 +651,7 @@ const AdoptionForm = () => {
                 const exactMatch = cities.find(c => c.toLowerCase() === val.trim().toLowerCase());
                 if (exactMatch) {
                   setLocation(exactMatch);
+                  setLocationDetails(locationOptions.find((city) => city.name === exactMatch) || null);
                   setLocationError('');
                   setShowCitySuggestions(false);
                 } else {
@@ -667,6 +679,7 @@ const AdoptionForm = () => {
                     key={city}
                     onMouseDown={() => {
                       setLocation(city);
+                      setLocationDetails(locationOptions.find((option) => option.name === city) || null);
                       setLocationQuery(city);
                       setLocationError('');
                       setShowCitySuggestions(false);

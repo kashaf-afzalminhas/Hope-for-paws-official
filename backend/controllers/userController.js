@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const TempUser = require('../models/TempUser');
 const Seller = require('../models/Seller');
+const { toLocationSnapshot } = require('../utils/pakistanLocations');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const transporter = require('../config/emailTransporter');
@@ -527,7 +528,7 @@ const getUserProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { id, username, email, phone, city, about, notificationPreferences } = req.body;
+    const { id, username, email, phone, city, location, about, notificationPreferences } = req.body;
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -559,6 +560,24 @@ const updateProfile = async (req, res) => {
     }
 
     user.city = city || user.city;
+
+    if (location !== undefined) {
+     const locationSnapshot = toLocationSnapshot(location);
+    if (!locationSnapshot) {
+    return res.status(400).json({
+      message: 'Select a valid country, province, and city.'
+    });
+  }
+
+  user.location = locationSnapshot;
+
+  if (user.isSeller) {
+    await Seller.findOneAndUpdate(
+      { userId: user._id },
+      { $set: { location: locationSnapshot } }
+    );
+  }
+}
     user.about = about || user.about;
 
     if (notificationPreferences && typeof notificationPreferences === 'object') {

@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const Seller = require('../models/Seller');
 const { resolveEffectiveShippingPolicy } = require('./policyService');
 
 class ShippingCalculationError extends Error {
@@ -13,7 +14,7 @@ const normalize = (value) => String(value || '').trim().toLocaleLowerCase();
 const normalizeZone = (value) => normalize(value).toUpperCase();
 const isPakistan = (value) => ['pakistan', 'pk', 'pkr'].includes(normalize(value));
 
-const resolveZone = (policy, destination = {}) => {
+const resolveZone = (policy, destination = {}, sellerLocation = {}) => {
   const mode = normalizeZone(policy.coverage?.mode);
   const requestedPickup = normalize(destination.fulfillmentMethod) === 'pickup';
 
@@ -28,8 +29,6 @@ const resolveZone = (policy, destination = {}) => {
     throw new ShippingCalculationError('PICKUP_UNAVAILABLE', 'Pickup is not available for this seller.');
   }
 
-  if (mode === 'LOCAL_DELIVERY') return 'LOCAL';
-
   if (mode === 'SELECTED_AREAS') {
     const destinationAreas = [destination.city, destination.province, destination.region, destination.state]
       .map(normalize)
@@ -38,6 +37,14 @@ const resolveZone = (policy, destination = {}) => {
     if (destinationAreas.length === 0 || !destinationAreas.some(area => areas.includes(area))) {
       throw new ShippingCalculationError('DESTINATION_UNSUPPORTED', 'This seller does not ship to the selected city or area.');
     }
+  }
+
+  if (sellerLocation?.cityCode && destination.cityCode && sellerLocation.cityCode === destination.cityCode) {
+    return 'LOCAL';
+  }
+
+  if (mode === 'LOCAL_DELIVERY') {
+    throw new ShippingCalculationError('DESTINATION_UNSUPPORTED', 'This seller only delivers within the seller\'s local area.');
   }
 
   return 'NATIONWIDE';
@@ -91,8 +98,9 @@ const calculateSellerShipping = async ({ sellerId, items, destination, qualifyin
   }
 
   const policy = policies[0];
+  const seller = await Seller.findById(sellerId).select('location').lean();
 
-  const zone = resolveZone(policy, destination);
+  const zone = resolveZone(policy, destination, seller?.location);
   const baseFee = getRate(policy, zone);
   const subtotal = Number(qualifyingSubtotal);
   const freeShipping = policy.freeShippingThreshold !== null

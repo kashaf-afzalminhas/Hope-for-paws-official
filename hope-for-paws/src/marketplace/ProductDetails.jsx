@@ -612,6 +612,94 @@ export default function ProductDetails() {
           {/* LEFT — Gallery (sticky on desktop) */}
           <div className="lg:sticky lg:top-8">
             <ImageGallery images={PRODUCT.images} />
+
+            {/* Shipping & Guarantee */}
+            {(PRODUCT.shippingPolicy || PRODUCT.guaranteePolicy) && (
+              <div
+                className="mt-4 rounded-2xl p-4 sm:p-5 border space-y-5"
+                style={{ backgroundColor: "#fff", borderColor: BRAND.softBorder }}
+              >
+                <h2 className="text-sm font-bold text-stone-900">Shipping & Guarantee</h2>
+
+                {PRODUCT.shippingPolicy && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} style={{ color: BRAND.dark }} />
+                      <h3 className="text-sm font-semibold text-stone-800">
+                        {PRODUCT.shippingPolicy.name}
+                      </h3>
+                    </div>
+
+                    <div className="space-y-2 text-xs text-stone-600">
+                      {PRODUCT.shippingPolicy.coverage?.mode && (
+                        <div className="flex justify-between gap-4">
+                          <span>Coverage</span>
+                          <span className="font-medium text-stone-800 text-right">
+                            {PRODUCT.shippingPolicy.coverage.mode.replaceAll('_', ' ')}
+                            {PRODUCT.shippingPolicy.coverage?.areas?.length > 0
+                              ? `: ${PRODUCT.shippingPolicy.coverage.areas.join(', ')}`
+                              : ''}
+                          </span>
+                        </div>
+                      )}
+
+                      {PRODUCT.shippingPolicy.freeShippingThreshold !== null &&
+                        PRODUCT.shippingPolicy.freeShippingThreshold !== undefined && (
+                          <div className="flex justify-between gap-4">
+                            <span>Free shipping</span>
+                            <span className="font-medium text-stone-800 text-right">
+                              On orders of {fmt(PRODUCT.shippingPolicy.freeShippingThreshold)}+
+                            </span>
+                          </div>
+                        )}
+
+                      {PRODUCT.shippingPolicy.processingTime && (
+                        <div className="flex justify-between gap-4">
+                          <span>Processing</span>
+                          <span className="font-medium text-stone-800 text-right">
+                            {PRODUCT.shippingPolicy.processingTime.minDays}–{PRODUCT.shippingPolicy.processingTime.maxDays} days
+                          </span>
+                        </div>
+                      )}
+
+                      {PRODUCT.shippingPolicy.transitTime && (
+                        <div className="flex justify-between gap-4">
+                          <span>Transit</span>
+                          <span className="font-medium text-stone-800 text-right">
+                            {PRODUCT.shippingPolicy.transitTime.minDays}–{PRODUCT.shippingPolicy.transitTime.maxDays} days
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {PRODUCT.shippingPolicy && PRODUCT.guaranteePolicy && (
+                  <div className="border-t" style={{ borderColor: BRAND.softBorder }} />
+                )}
+
+                {PRODUCT.guaranteePolicy && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} style={{ color: BRAND.dark }} />
+                      <h3 className="text-sm font-semibold text-stone-800">
+                        {PRODUCT.guaranteePolicy.type === 'OTHER'
+                          ? PRODUCT.guaranteePolicy.customType || 'Guarantee'
+                          : PRODUCT.guaranteePolicy.type.replaceAll('_', ' ')}
+                      </h3>
+                    </div>
+
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      {PRODUCT.guaranteePolicy.duration} {PRODUCT.guaranteePolicy.durationUnit}
+                    </p>
+
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      {PRODUCT.guaranteePolicy.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* RIGHT — Product Info + Buy Box */}
@@ -724,94 +812,6 @@ export default function ProductDetails() {
                 {isWishlisted ? "Saved to Wishlist" : "Add to Wishlist"}
               </button>
             </div>
-
-            {/* Shipping & Guarantee */}
-            {(PRODUCT.shippingPolicy || PRODUCT.guaranteePolicy) && (
-              <div
-                className="rounded-2xl p-4 sm:p-5 border space-y-5"
-                style={{ backgroundColor: "#fff", borderColor: BRAND.softBorder }}
-              >
-                <h2 className="text-sm font-bold text-stone-900">Shipping & Guarantee</h2>
-
-                {PRODUCT.shippingPolicy && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={16} style={{ color: BRAND.dark }} />
-                      <h3 className="text-sm font-semibold text-stone-800">
-                        {PRODUCT.shippingPolicy.name}
-                      </h3>
-                    </div>
-
-                    <div className="space-y-2 text-xs text-stone-600">
-                      {PRODUCT.shippingPolicy.coverage?.mode && (
-                        <div className="flex justify-between gap-4">
-                          <span>Coverage</span>
-                          <span className="font-medium text-stone-800 text-right">
-                            {PRODUCT.shippingPolicy.coverage.mode.replaceAll('_', ' ')}
-                            {PRODUCT.shippingPolicy.coverage?.areas?.length > 0
-                              ? `: ${PRODUCT.shippingPolicy.coverage.areas.join(', ')}`
-                              : ''}
-                          </span>
-                        </div>
-                      )}
-
-                      {PRODUCT.shippingPolicy.freeShippingThreshold !== null &&
-                        PRODUCT.shippingPolicy.freeShippingThreshold !== undefined && (
-                          <div className="flex justify-between gap-4">
-                            <span>Free shipping</span>
-                            <span className="font-medium text-stone-800 text-right">
-                              On orders of {fmt(PRODUCT.shippingPolicy.freeShippingThreshold)}+
-                            </span>
-                          </div>
-                        )}
-
-                      {PRODUCT.shippingPolicy.processingTime && (
-                        <div className="flex justify-between gap-4">
-                          <span>Processing</span>
-                          <span className="font-medium text-stone-800 text-right">
-                            {PRODUCT.shippingPolicy.processingTime.minDays}–{PRODUCT.shippingPolicy.processingTime.maxDays} days
-                          </span>
-                        </div>
-                      )}
-
-                      {PRODUCT.shippingPolicy.transitTime && (
-                        <div className="flex justify-between gap-4">
-                          <span>Transit</span>
-                          <span className="font-medium text-stone-800 text-right">
-                            {PRODUCT.shippingPolicy.transitTime.minDays}–{PRODUCT.shippingPolicy.transitTime.maxDays} days
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {PRODUCT.shippingPolicy && PRODUCT.guaranteePolicy && (
-                  <div className="border-t" style={{ borderColor: BRAND.softBorder }} />
-                )}
-
-                {PRODUCT.guaranteePolicy && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={16} style={{ color: BRAND.dark }} />
-                      <h3 className="text-sm font-semibold text-stone-800">
-                        {PRODUCT.guaranteePolicy.type === 'OTHER'
-                          ? PRODUCT.guaranteePolicy.customType || 'Guarantee'
-                          : PRODUCT.guaranteePolicy.type.replaceAll('_', ' ')}
-                      </h3>
-                    </div>
-
-                    <p className="text-xs text-stone-600 leading-relaxed">
-                      {PRODUCT.guaranteePolicy.duration} {PRODUCT.guaranteePolicy.durationUnit}
-                    </p>
-
-                    <p className="text-xs text-stone-600 leading-relaxed">
-                      {PRODUCT.guaranteePolicy.description}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Seller card */}
             <SellerCard seller={PRODUCT.seller} navigate={navigate} />

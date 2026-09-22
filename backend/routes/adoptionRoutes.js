@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { PAKISTAN_CITIES, PAKISTAN_LOCATIONS, toLocationSnapshot } = require('../utils/pakistanLocations');
 const Adoption = require('../models/adoptionModel');
 const AdoptionRequest = require('../models/adoptionRequestModel'); // You'll need to create this model
 const auth = require('../middleware/auth');
@@ -84,23 +85,14 @@ async function reopenListingRequestsForAvailability(adId, adoptionName) {
   return { reopenedCount: requestsToReopen.length, requesterIds };
 }
 
-// ── City list served from the backend so the frontend is not hardcoded ──
-const PAKISTAN_CITIES = [
-  'Abbottabad', 'Attock', 'Bahawalpur', 'Bahawalnagar', 'Bannu', 'Battagram',
-  'Bhakkar', 'Chakwal', 'Chaman', 'Chiniot', 'Chishtian', 'Dadu', 'Dera Ghazi Khan',
-  'Dera Ismail Khan', 'Faisalabad', 'Ghotki', 'Gilgit', 'Gojra', 'Gujranwala',
-  'Gujrat', 'Hafizabad', 'Haripur', 'Hyderabad', 'Islamabad', 'Jacobabad',
-  'Jhelum', 'Kamalia', 'Karachi', 'Kasur', 'Khanewal', 'Khushab', 'Khuzdar',
-  'Kohat', 'Kot Addu', 'Lahore', 'Larkana', 'Layyah', 'Lodhran', 'Mansehra',
-  'Mardan', 'Mirpur', 'Mirpur Khas', 'Multan', 'Muzaffarabad', 'Muzaffargarh',
-  'Narowal', 'Nawabshah', 'Nowshera', 'Okara', 'Pakpattan', 'Peshawar',
-  'Quetta', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha',
-  'Sheikhupura', 'Sialkot', 'Sibi', 'Sukkur', 'Swabi', 'Swat', 'Tando Adam',
-  'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
-];
-
 // GET /api/adoptions/cities — public endpoint, no auth required
 router.get('/cities', (req, res) => {
+  if (req.query.hierarchy === 'true') {
+    return res.json({
+      countries: [{ code: 'PK', name: 'Pakistan' }],
+      provinces: PAKISTAN_LOCATIONS,
+    });
+  }
   res.json(PAKISTAN_CITIES);
 });
 
@@ -112,7 +104,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
   console.log('Request headers:', req.headers);
   
   try {
-    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, location } = req.body;
+    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, location, locationDetails } = req.body;
     
     // Debug logging
     console.log('Received adoption post data:');
@@ -147,6 +139,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
     const sanitizedBreed = breed ? sanitizeHtml(breed, { allowedTags: [], allowedAttributes: {} }) : '';
     const sanitizedDescription = description ? sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) : '';
     const sanitizedLocation = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : 'Location not specified';
+    const structuredLocation = locationDetails ? toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails) : null;
     
     // Strictly validate age as a positive Number
     const parsedAge = Number(age);
@@ -208,6 +201,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
       neuteredSpayed,
       description: sanitizedDescription,
       location: sanitizedLocation,
+      ...(structuredLocation ? { locationDetails: structuredLocation } : {}),
       imageUrls: uploadedUrls,
       status: 'available' // Default status
     });
@@ -456,7 +450,7 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location } = req.body;
+    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location, locationDetails } = req.body;
 
     if (status && !['available', 'pending', 'adopted'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -483,6 +477,7 @@ router.put('/:id', auth, async (req, res) => {
     if (description !== undefined) updatePayload.description = description;
     if (status !== undefined) updatePayload.status = status;
     if (location !== undefined) updatePayload.location = location;
+    if (locationDetails !== undefined) updatePayload.locationDetails = toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails);
 
     // Sanitize input to prevent Stored XSS
     const sanitizedName = name ? sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} }) : undefined;

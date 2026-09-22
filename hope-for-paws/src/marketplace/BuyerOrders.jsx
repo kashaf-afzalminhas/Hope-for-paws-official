@@ -358,7 +358,7 @@ function TrackingTimeline({ currentStep, status, timestamps = {} }) {
 
 // ORDER ITEM ROW
 
-function OrderItem({ item }) {
+function OrderItem({ item, seller }) {
   const [imgError, setImgError] = useState(false);
   const qty = item.quantity || item.qty || 1;
 
@@ -386,7 +386,7 @@ function OrderItem({ item }) {
         <p className="text-sm font-semibold text-stone-800 leading-snug line-clamp-2">{item.title}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-stone-500">
-            by <span className="text-[#6b493d] font-semibold">{item.seller || "Marketplace Seller"}</span>
+            by <span className="text-[#6b493d] font-semibold">{item.seller || seller?.storeName || seller?.name || "Marketplace Seller"}</span>
           </span>
           {item.sellerRating && <SellerStars rating={item.sellerRating} />}
         </div>
@@ -502,7 +502,7 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
           {/* Items */}
           <div className="px-5 pt-3 pb-1">
             {order.items.map((item, idx) => (
-              <OrderItem key={item.productId || item.id || idx} item={item} />
+              <OrderItem key={item.productId || item.id || idx} item={item} seller={order.sellerId} />
             ))}
           </div>
 

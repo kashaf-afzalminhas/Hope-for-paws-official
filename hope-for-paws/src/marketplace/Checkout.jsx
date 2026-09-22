@@ -13,6 +13,7 @@ import {
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
 import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 function ToastStack({ toasts, dismissToast }) {
   if (toasts.length === 0) return null;
@@ -88,16 +89,16 @@ export default function Checkout() {
     province: '',
     postalCode: ''
   });
+  const [shippingLocation, setShippingLocation] = useState(emptyPakistanLocation);
 
   const [shippingQuote, setShippingQuote] = useState(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
   const [shippingError, setShippingError] = useState('');
-
   const shippingFee = shippingQuote?.shippingFee ?? 0;
   const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
 
   const calculateShipping = async () => {
-    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+    if (!shippingLocation.cityCode) {
       setFieldErrors(prev => ({ ...prev, city: undefined }));
       setShippingError('City is required to calculate shipping.');
       addToast('error', 'Please enter your delivery city first.');
@@ -117,7 +118,8 @@ export default function Checkout() {
         })),
         shippingAddress: {
           ...shippingAddress,
-          country: 'Pakistan'
+          country: shippingLocation.countryName,
+          ...shippingLocation,
         }
       };
 
@@ -160,7 +162,7 @@ export default function Checkout() {
     if (!shippingAddress.street || !shippingAddress.street.trim()) {
       errors.street = 'Delivery address is required to complete your order.';
     }
-    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+    if (!shippingLocation.cityCode) {
       errors.city = 'City is required.';
     }
     if (!contact.email || !contact.email.trim()) {
@@ -199,7 +201,11 @@ export default function Checkout() {
         shippingAddress: {
           email: contact.email,
           phone: getFullPhoneNumber(contact.phone, contact.countryCode),
-          ...shippingAddress
+          ...shippingAddress,
+          city: shippingLocation.cityName,
+          province: shippingLocation.provinceName,
+          country: shippingLocation.countryName,
+          ...shippingLocation
         },
         paymentMethod,
         totals: {
@@ -336,28 +342,19 @@ export default function Checkout() {
                 />
                 {fieldErrors.street && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.street}</p>}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City <span className="text-red-400">*</span></label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.city}
-                    onChange={(e) => { setShippingAddress({...shippingAddress, city: e.target.value}); setFieldErrors(prev => ({ ...prev, city: undefined })); }}
-                    placeholder="Lahore"
-                    className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.city ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
-                  />
-                  {fieldErrors.city && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.city}</p>}
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.province}
-                    onChange={(e) => setShippingAddress({...shippingAddress, province: e.target.value})}
-                    placeholder="NY"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                  />
-                </div>
+              <div className="mb-5">
+                <PakistanLocationSelector
+                  value={shippingLocation}
+                  required
+                  onChange={(location) => {
+                    setShippingLocation(location);
+                    setShippingAddress((previous) => ({ ...previous, city: location.cityName, province: location.provinceName }));
+                    setShippingQuote(null);
+                    setShippingError('');
+                  }}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Postal Code</label>
                   <input 
