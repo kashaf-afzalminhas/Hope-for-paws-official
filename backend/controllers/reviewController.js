@@ -9,7 +9,12 @@ const Seller = require('../models/Seller');
  */
 const recalcProductReviewStats = async (productId) => {
   const [stats] = await Review.aggregate([
-    { $match: { product: productId } },
+    {
+      $match: {
+        product: productId,
+        rating: { $gte: 1, $lte: 5 }
+      }
+    },
     {
       $group: {
         _id: '$product',
@@ -37,12 +42,17 @@ exports.createReview = async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId;
     const { orderId, productId, rating, comment, images } = req.body;
+    const numericRating = Number(rating);
 
     // ── Validate required fields ──
     if (!orderId || !productId || !rating || !comment) {
       return res.status(400).json({
         message: 'orderId, productId, rating, and comment are all required'
       });
+    }
+
+    if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({ message: 'Rating must be a number between 1 and 5.' });
     }
 
     // ── Security Gate 1: Ownership & Delivery Status ──
@@ -82,7 +92,7 @@ exports.createReview = async (req, res) => {
       user: userId,
       product: productId,
       order: orderId,
-      rating: Number(rating),
+      rating: numericRating,
       comment: comment.trim(),
       images: images || []
     });
