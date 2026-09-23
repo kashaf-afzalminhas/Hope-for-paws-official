@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
+import { ChevronDown } from 'lucide-react';
 
 
 
@@ -14,6 +17,54 @@ const MAX_IMAGES = 5;
 const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
+const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectRef = useRef(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick, true);
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick, true);
+  }, []);
+
+  return (
+    <div ref={selectRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`flex w-full items-center justify-between rounded-xl border bg-white px-4 py-2.5 text-left text-[#4E3B31] transition-colors focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${error ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8]'}`}
+      >
+        <span>{options.find((option) => option.value === value)?.label || placeholder}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#e8dcc8] bg-white py-1 text-[#4E3B31] shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+            {placeholder}
+          </button>
+          {options.map((option) => (
+            <button type="button" role="option" aria-selected={value === option.value} key={option.value} onClick={() => { onChange(option.value); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+AdoptionSelect.propTypes = {
+  value: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(PropTypes.shape({ value: PropTypes.string.isRequired, label: PropTypes.string.isRequired })).isRequired,
+  placeholder: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string
+};
+
 const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -23,7 +74,7 @@ const AdoptionForm = () => {
   const [neuteredSpayed, setNeuteredSpayed] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [locationDetails, setLocationDetails] = useState(null);
+  const [locationDetails, setLocationDetails] = useState(emptyPakistanLocation);
   const [images, setImages] = useState([]); // Array of File objects
   const [imagePreviews, setImagePreviews] = useState([]); // Array of data URLs
   const [imageErrors, setImageErrors] = useState([]); // Array of error messages for each image
@@ -37,45 +88,8 @@ const AdoptionForm = () => {
   const [descriptionError, setDescriptionError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [imagesError, setImagesError] = useState('');
-  const [locationQuery, setLocationQuery] = useState('');
-  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-  const locationRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
-  const [cities, setCities] = useState([]);
-  const [locationOptions, setLocationOptions] = useState([]);
-  const [citiesLoading, setCitiesLoading] = useState(true);
-
-  // Fetch cities dynamically from the backend on mount
-  useEffect(() => {
-    const fetchCities = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/adoptions/cities?hierarchy=true`);
-        if (!response.ok) throw new Error('Failed to fetch cities');
-        const data = await response.json();
-        const options = (data.provinces || []).flatMap((province) => province.cities.map((city) => ({
-          ...city,
-          countryCode: 'PK',
-          countryName: 'Pakistan',
-          provinceCode: province.code,
-          provinceName: province.name,
-        })));
-        setLocationOptions(options);
-        setCities(options.map((city) => city.name));
-      } catch (err) {
-        console.error('Error fetching cities:', err);
-      } finally {
-        setCitiesLoading(false);
-      }
-    };
-    fetchCities();
-  }, []);
-
-  const filteredCities = locationQuery.length > 0
-    ? cities.filter(c =>
-        c.toLowerCase().includes(locationQuery.toLowerCase())
-      )
-    : cities;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
@@ -335,8 +349,8 @@ const AdoptionForm = () => {
     }
 
     // Location
-    if (!location || location.trim() === '') {
-      setLocationError('Please select a valid city from the list');
+    if (!locationDetails?.cityCode) {
+      setLocationError('Please select a valid country, province, and city');
       hasValidationError = true;
     } else {
       setLocationError('');
@@ -474,8 +488,8 @@ const AdoptionForm = () => {
                 setName(val);
                 setNameError(val.trim() === '' ? nameError : '');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                nameError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                nameError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {nameError && (
@@ -512,8 +526,8 @@ const AdoptionForm = () => {
                 // Block minus sign from being typed
                 if (e.key === '-') e.preventDefault();
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                ageError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                ageError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {ageError && (
@@ -538,8 +552,8 @@ const AdoptionForm = () => {
                 setBreed(val);
                 setBreedError(validateBreedValue(val));
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                breedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                breedError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {breedError && (
@@ -553,25 +567,23 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Pet Type
             </label>
-            <select
+            <AdoptionSelect
               value={petType}
-              onChange={(e) => {
-                const val = e.target.value;
-                setPetType(val);
-                if (val.trim() !== '') setPetTypeError('');
+              placeholder="Select pet type"
+              error={petTypeError}
+              options={[
+                { value: 'Dog', label: 'Dog' },
+                { value: 'Cat', label: 'Cat' },
+                { value: 'Bird', label: 'Bird' },
+                { value: 'Rabbit', label: 'Rabbit' },
+                { value: 'Hamster', label: 'Hamster' },
+                { value: 'Other', label: 'Other' }
+              ]}
+              onChange={(value) => {
+                setPetType(value);
+                if (value.trim() !== '') setPetTypeError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                petTypeError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select pet type</option>
-              <option value="Dog">Dog</option>
-              <option value="Cat">Cat</option>
-              <option value="Bird">Bird</option>
-              <option value="Rabbit">Rabbit</option>
-              <option value="Hamster">Hamster</option>
-              <option value="Other">Other</option>
-            </select>
+            />
             {petTypeError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {petTypeError}
@@ -585,21 +597,16 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Vaccinated
             </label>
-            <select
+            <AdoptionSelect
               value={vaccinated}
-              onChange={(e) => {
-                const val = e.target.value;
-                setVaccinated(val);
-                if (val.trim() !== '') setVaccinatedError('');
+              placeholder="Select vaccination status"
+              error={vaccinatedError}
+              options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+              onChange={(value) => {
+                setVaccinated(value);
+                if (value.trim() !== '') setVaccinatedError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                vaccinatedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select vaccination status</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
+            />
             {vaccinatedError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {vaccinatedError}
@@ -611,21 +618,16 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Neutered/Spayed
             </label>
-            <select
+            <AdoptionSelect
               value={neuteredSpayed}
-              onChange={(e) => {
-                const val = e.target.value;
-                setNeuteredSpayed(val);
-                if (val.trim() !== '') setNeuteredSpayedError('');
+              placeholder="Select neutering status"
+              error={neuteredSpayedError}
+              options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+              onChange={(value) => {
+                setNeuteredSpayed(value);
+                if (value.trim() !== '') setNeuteredSpayedError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                neuteredSpayedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select neutering status</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
+            />
             {neuteredSpayedError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {neuteredSpayedError}
@@ -634,69 +636,19 @@ const AdoptionForm = () => {
           </div>
         </div>
 
-        <div className="space-y-2" ref={locationRef}>
+        <div className="space-y-2">
           <label className="block text-sm font-medium text-[#4E3B31]">
             Location <span className="text-xs text-[#8d6e63] font-normal">(Pakistan only)</span>
           </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search city, e.g. Lahore"
-              value={locationQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                setLocationQuery(val);
-                setShowCitySuggestions(true);
-                // Auto-accept if the typed text exactly matches a city (case-insensitive)
-                const exactMatch = cities.find(c => c.toLowerCase() === val.trim().toLowerCase());
-                if (exactMatch) {
-                  setLocation(exactMatch);
-                  setLocationDetails(locationOptions.find((city) => city.name === exactMatch) || null);
-                  setLocationError('');
-                  setShowCitySuggestions(false);
-                } else {
-                  setLocation('');
-                  if (val.trim() === '') {
-                    setLocationError('Please select a valid city from the list');
-                  } else {
-                    setLocationError('Please select a city from the list');
-                  }
-                }
-              }}
-              onFocus={() => setShowCitySuggestions(true)}
-              onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-              autoComplete="off"
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                locationError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            />
-
-            {/* Dropdown suggestions */}
-            {showCitySuggestions && filteredCities.length > 0 && (
-              <ul className="absolute z-50 w-full mt-1 bg-white border border-[#bca18a] rounded-md shadow-lg max-h-52 overflow-y-auto">
-                {filteredCities.map((city) => (
-                  <li
-                    key={city}
-                    onMouseDown={() => {
-                      setLocation(city);
-                      setLocationDetails(locationOptions.find((option) => option.name === city) || null);
-                      setLocationQuery(city);
-                      setLocationError('');
-                      setShowCitySuggestions(false);
-                    }}
-                    className="px-4 py-2 text-sm text-[#4E3B31] hover:bg-[#f3ede7] cursor-pointer transition-colors"
-                  >
-                    {city}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {showCitySuggestions && locationQuery.length > 0 && filteredCities.length === 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-red-200 rounded-md shadow-lg px-4 py-3 text-sm text-red-600">
-                No Pakistani city found matching "{locationQuery}"
-              </div>
-            )}
-          </div>
+          <PakistanLocationSelector
+            value={locationDetails}
+            required
+            onChange={(nextLocation) => {
+              setLocationDetails(nextLocation);
+              setLocation(nextLocation.cityName || '');
+              setLocationError('');
+            }}
+          />
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
               <span>⚠️</span> {locationError}
@@ -717,8 +669,8 @@ const AdoptionForm = () => {
               if (val.trim() !== '') setDescriptionError('');
             }}
             rows="4"
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent resize-y ${
-              descriptionError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+            className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 resize-y ${
+              descriptionError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
             }`}
           />
           {descriptionError && (

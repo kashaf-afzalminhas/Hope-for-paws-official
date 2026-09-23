@@ -138,8 +138,18 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
     const sanitizedPetType = petType ? sanitizeHtml(petType, { allowedTags: [], allowedAttributes: {} }) : '';
     const sanitizedBreed = breed ? sanitizeHtml(breed, { allowedTags: [], allowedAttributes: {} }) : '';
     const sanitizedDescription = description ? sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) : '';
-    const sanitizedLocation = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : 'Location not specified';
-    const structuredLocation = locationDetails ? toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails) : null;
+    let structuredLocation = null;
+    try {
+      structuredLocation = locationDetails
+        ? toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails)
+        : null;
+    } catch (parseError) {
+      structuredLocation = null;
+    }
+    if (!structuredLocation) {
+      return res.status(400).json({ message: 'Select a valid country, province, and city.' });
+    }
+    const sanitizedLocation = structuredLocation.cityName;
     
     // Strictly validate age as a positive Number
     const parsedAge = Number(age);
@@ -476,15 +486,30 @@ router.put('/:id', auth, async (req, res) => {
     if (neuteredSpayed !== undefined) updatePayload.neuteredSpayed = neuteredSpayed;
     if (description !== undefined) updatePayload.description = description;
     if (status !== undefined) updatePayload.status = status;
-    if (location !== undefined) updatePayload.location = location;
-    if (locationDetails !== undefined) updatePayload.locationDetails = toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails);
+    if (locationDetails !== undefined) {
+      let structuredLocation = null;
+      try {
+        structuredLocation = toLocationSnapshot(typeof locationDetails === 'string' ? JSON.parse(locationDetails) : locationDetails);
+      } catch (parseError) {
+        structuredLocation = null;
+      }
+      if (!structuredLocation) {
+        return res.status(400).json({ message: 'Select a valid country, province, and city.' });
+      }
+      updatePayload.locationDetails = structuredLocation;
+      updatePayload.location = structuredLocation.cityName;
+    } else if (location !== undefined) {
+      updatePayload.location = location;
+    }
 
     // Sanitize input to prevent Stored XSS
     const sanitizedName = name ? sanitizeHtml(name, { allowedTags: [], allowedAttributes: {} }) : undefined;
     const sanitizedPetType = petType ? sanitizeHtml(petType, { allowedTags: [], allowedAttributes: {} }) : undefined;
     const sanitizedBreed = breed ? sanitizeHtml(breed, { allowedTags: [], allowedAttributes: {} }) : undefined;
     const sanitizedDescription = description ? sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) : undefined;
-    const sanitizedLocation = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    if (locationDetails === undefined && location !== undefined) {
+      updatePayload.location = location ? sanitizeHtml(location, { allowedTags: [], allowedAttributes: {} }) : undefined;
+    }
 
     // Strictly validate age if provided
     let parsedAge;
@@ -495,19 +520,19 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
 
+    Object.assign(updatePayload, {
+      name: sanitizedName,
+      age: parsedAge,
+      petType: sanitizedPetType,
+      breed: sanitizedBreed,
+      vaccinated,
+      neuteredSpayed,
+      description: sanitizedDescription,
+      status,
+    });
+
     const adoptionPost = await Adoption.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
-      { 
-        name: sanitizedName, 
-        age: parsedAge, 
-        petType: sanitizedPetType, 
-        breed: sanitizedBreed, 
-        vaccinated, 
-        neuteredSpayed, 
-        description: sanitizedDescription, 
-        status, 
-        location: sanitizedLocation 
-      },
       updatePayload,
       { new: true }
     );
