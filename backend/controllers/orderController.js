@@ -7,6 +7,8 @@ const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
 const { processCheckoutInventory } = require('../services/inventoryService');
+const { calculateSellerShipping, ShippingCalculationError } = require('../services/shippingService');
+const { toLocationSnapshot } = require('../utils/pakistanLocations');
 
 
 function getNotificationService() {
@@ -27,9 +29,12 @@ exports.createOrder = async (req, res) => {
     }
 
     // ── Phone, City & Address Validation ─────────────────────────────
-    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city) {
+    const locationSnapshot = toLocationSnapshot(shippingAddress?.location || shippingAddress);
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || !locationSnapshot) {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
 
     // Strip spaces, dashes, parentheses, and dots while keeping leading '+'
     const rawPhone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
@@ -84,18 +89,24 @@ exports.createOrder = async (req, res) => {
 
     const ordersToCreate = [];
 
-    // Reserved for future seller shipping fee logic.
-    // Do not include in finalTotal calculation.
-    const sellerShippingFee = 15;
-
     for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
       const subtotal = sellerItems.reduce(
-        (acc, item) => acc + item.price * item.quantity,
-        0
-      );
+      (acc, item) => acc + item.price * item.quantity,
+       0
+  );
 
-      const shippingFee = 0;
-      const finalTotal = subtotal + shippingFee;
+    const shippingQuote = await calculateSellerShipping({
+      sellerId,
+      items: sellerItems,
+      destination: {
+        ...shippingAddress,
+        country: shippingAddress.country || 'Pakistan'
+    },
+    qualifyingSubtotal: subtotal
+  });
+
+  const shippingFee = shippingQuote.shippingFee;
+  const finalTotal = subtotal + shippingFee;
       ordersToCreate.push({
         buyerId,
         sellerId,
@@ -294,7 +305,127 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to place order', error: error.message });
   }
 };
+exports.getShippingQuote = async (req, res) => {
+  try {
+    const { items, shippingAddress } = req.body;
 
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        message: 'No items provided for shipping calculation.'
+      });
+    }
+
+    const locationSnapshot = toLocationSnapshot(shippingAddress);
+    if (!shippingAddress?.city || !locationSnapshot) {
+      return res.status(400).json({
+        message: 'A delivery city is required to calculate shipping.'
+      });
+    }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
+
+    const itemsBySeller = {};
+
+    for (const item of items) {
+      const productId = item.productId || item.product?._id;
+      const quantity = Number(item.quantity);
+
+      if (!productId || !Number.isInteger(quantity) || quantity < 1) {
+        return res.status(400).json({
+          message: 'Invalid product or quantity.'
+        });
+      }
+
+      const product = await Product.findById(productId)
+        .select('title price discountPercentage sellerId')
+        .lean();
+
+      if (!product) {
+        return res.status(400).json({
+          message: 'One or more selected products are no longer available.'
+        });
+      }
+
+      const sellerId = product.sellerId.toString();
+
+      if (!itemsBySeller[sellerId]) {
+        itemsBySeller[sellerId] = [];
+      }
+
+      const discountedPrice =
+        product.discountPercentage > 0
+          ? product.price * (1 - product.discountPercentage / 100)
+          : product.price;
+
+      itemsBySeller[sellerId].push({
+        productId: product._id,
+        quantity,
+        price: discountedPrice
+      });
+    }
+
+    const quotes = [];
+
+    for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
+      const subtotal = sellerItems.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+      );
+
+      const quote = await calculateSellerShipping({
+        sellerId,
+        items: sellerItems,
+        destination: {
+          ...shippingAddress,
+          country: shippingAddress.country || 'Pakistan'
+        },
+        qualifyingSubtotal: subtotal
+      });
+
+      const seller = await Seller.findById(sellerId)
+        .select('storeName name')
+        .lean();
+
+      quotes.push({
+        sellerId,
+        sellerName: seller?.storeName || seller?.name || 'Seller',
+        ...quote
+      });
+    }
+
+    const shippingFee = quotes.reduce(
+      (total, quote) => total + quote.shippingFee,
+      0
+    );
+
+    const subtotal = quotes.reduce(
+      (total, quote) => total + quote.subtotal,
+      0
+    );
+
+    res.json({
+      success: true,
+      subtotal,
+      shippingFee,
+      finalTotal: subtotal + shippingFee,
+      sellers: quotes
+    });
+  } catch (error) {
+    console.error('getShippingQuote error:', error);
+
+    if (error instanceof ShippingCalculationError) {
+      return res.status(error.status || 400).json({
+        message: error.message,
+        code: error.code
+      });
+    }
+
+    res.status(500).json({
+      message: 'Failed to calculate shipping.',
+      error: error.message
+    });
+  }
+};
 exports.getBuyerOrders = async (req, res) => {
   try {
     const buyerId = req.user?.id || req.user?.userId;

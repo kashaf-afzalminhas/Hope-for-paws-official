@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const structuredLocationFields = require('./locationFields');
 
 const userSchema = new mongoose.Schema(
   {
@@ -59,6 +60,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    location: structuredLocationFields,
     about: {
       type: String,
       default: ""

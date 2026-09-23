@@ -8,6 +8,7 @@ import { MdPets } from 'react-icons/md';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
 import { API_BASE_URL } from '../config';
+import { COUNTRY_CODES } from '../utils/constants';
 import { uploadProfileImage, getUserProfile, removeProfileImage, debugToken } from './api';
 import { useAuth } from '../context/AuthContext';
 import AdoptionRequestsModal from './AdoptionRequestsModal';
@@ -20,6 +21,7 @@ import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
 import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 // Simple Toast component
 const Toast = ({ toasts }) => (
@@ -94,6 +96,7 @@ const ProfilePage = () => {
     email: '',
     phone: '',
     city: '',
+    location: emptyPakistanLocation,
     about: '',
     userType: '',
     id: '',
@@ -111,6 +114,7 @@ const ProfilePage = () => {
     email: '',
     phone: '',
     city: '',
+    location: emptyPakistanLocation,
     about: '',
     countryCode: '+92',
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
@@ -122,6 +126,7 @@ const ProfilePage = () => {
     email: '',
     phone: '',
     city: '',
+    location: emptyPakistanLocation,
     about: '',
     countryCode: '+92',
     notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
@@ -255,12 +260,15 @@ const ProfilePage = () => {
         }
       }
 
+      const savedLocation = userData.sellerDetails?.location || userData.location || emptyPakistanLocation;
+
       setProfile({
         id: userData.id || userData._id || '',
         name: userData.username,
         email: userData.email,
         phone: userData.phone, // Store the full phone number with country code for display
         city: userData.city || '',
+        location: savedLocation,
         about: userData.about || '',
         userType: getUserType(userData),
         // userType: userData.userType,
@@ -274,6 +282,7 @@ const ProfilePage = () => {
         email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
+        location: savedLocation,
         about: userData.about || '',
         countryCode: phoneCountryCode,
         notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
@@ -285,6 +294,7 @@ const ProfilePage = () => {
         email: userData.email || '',
         phone: phoneNumber,
         city: userData.city || '',
+        location: savedLocation,
         about: userData.about || '',
         countryCode: phoneCountryCode,
         notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
@@ -315,17 +325,20 @@ const ProfilePage = () => {
           ...prev,
           profileImage: userData.profileImage || '',
           isVerified: userData.sellerDetails?.isVerified || false,
-          notificationPreferences
+          notificationPreferences,
+          location: userData.sellerDetails?.location || userData.location || prev.location
         }));
 
         setFormData(prev => ({
           ...prev,
-          notificationPreferences
+          notificationPreferences,
+          location: userData.sellerDetails?.location || userData.location || prev.location
         }));
 
         setOriginalProfile(prev => ({
           ...prev,
-          notificationPreferences
+          notificationPreferences,
+          location: userData.sellerDetails?.location || userData.location || prev.location
         }));
       }
     } catch (error) {
@@ -358,6 +371,7 @@ const ProfilePage = () => {
       formData.email !== originalProfile.email ||
       formData.phone !== originalProfile.phone ||
       formData.city !== originalProfile.city ||
+      JSON.stringify(formData.location) !== JSON.stringify(originalProfile.location) ||
       formData.about !== originalProfile.about ||
       formData.countryCode !== originalProfile.countryCode ||
       JSON.stringify(formData.notificationPreferences) !== JSON.stringify(originalProfile.notificationPreferences)
@@ -399,6 +413,7 @@ const ProfilePage = () => {
       email: originalProfile.email,
       phone: originalProfile.phone,
       city: originalProfile.city,
+      location: originalProfile.location,
       about: originalProfile.about,
       countryCode: originalProfile.countryCode,
       notificationPreferences: originalProfile.notificationPreferences
@@ -526,6 +541,7 @@ const ProfilePage = () => {
       email: updatedUser.email || '',
       phone: phoneNumber,
       city: updatedUser.city || '',
+      location: updatedUser.location || formData.location || emptyPakistanLocation,
       about: updatedUser.about || '',
       countryCode: phoneCountryCode,
       notificationPreferences: updatedUser.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
@@ -538,7 +554,8 @@ const ProfilePage = () => {
   // Save the non-email profile fields to the backend
   const saveProfileFields = async (emailOverride) => {
     const { id } = profile;
-    const { name, city, about } = formData;
+    const { name, about } = formData;
+    const city = formData.location?.cityName || formData.city;
     const fullPhone = getFullPhoneNumber(formData.phone, formData.countryCode);
     const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
@@ -552,6 +569,7 @@ const ProfilePage = () => {
           email: emailToSend,
           phone: fullPhone,
           city,
+          ...(formData.location?.cityCode ? { location: formData.location } : {}),
           about,
           notificationPreferences: formData.notificationPreferences
         })
@@ -1788,14 +1806,15 @@ const ProfilePage = () => {
                         />
                       </div>
 
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
-                        <input
-                          type="text"
-                          name="city"
-                          value={formData.city}
-                          onChange={handleProfileChange}
-                          className="w-full rounded-2xl border border-gray-300 px-3 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-1 focus:ring-[#6b493d]"
+                      <div className="md:col-span-2">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <label className="block text-sm font-medium text-gray-700">Location</label>
+                          {formData.city && !formData.location?.cityCode && <span className="text-xs text-[#8d7565]">Legacy city: {formData.city}. Select a canonical location to update it.</span>}
+                        </div>
+                        <PakistanLocationSelector
+                          value={formData.location}
+                          required={Boolean(user?.isSeller)}
+                          onChange={(location) => setFormData((prev) => ({ ...prev, location, city: location.cityName || prev.city }))}
                         />
                       </div>
                     </div>

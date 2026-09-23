@@ -3,7 +3,49 @@ const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Review = require('../models/Review');
+const ShippingPolicy = require('../models/ShippingPolicy');
+const GuaranteePolicy = require('../models/GuaranteePolicy');
+const {
+  resolveEffectiveShippingPolicy,
+  resolveEffectiveGuaranteePolicy
+} = require('../services/policyService');
 const mongoose = require('mongoose');
+
+const validatePolicyReferences = async (sellerId, shippingPolicyId, guaranteePolicyId) => {
+  const references = {};
+
+  if (shippingPolicyId) {
+    const policy = await ShippingPolicy.findOne({
+      _id: shippingPolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Shipping policy was not found for this seller.');
+    }
+
+    references.shippingPolicyId = policy._id;
+  } else if (shippingPolicyId === '') {
+    references.shippingPolicyId = null;
+  }
+
+  if (guaranteePolicyId) {
+    const policy = await GuaranteePolicy.findOne({
+      _id: guaranteePolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Guarantee policy was not found for this seller.');
+    }
+
+    references.guaranteePolicyId = policy._id;
+  } else if (guaranteePolicyId === '') {
+    references.guaranteePolicyId = null;
+  }
+
+  return references;
+};
 
 // 1. Create Product
 exports.createProduct = async (req, res) => {
@@ -22,11 +64,22 @@ exports.createProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
       return res.status(400).json({ message: 'Title, brand, sku, price, and category are required' });
+    }
+
+    let policyReferences;
+    try {
+      policyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
     }
 
     // Strict Validations
@@ -83,6 +136,7 @@ exports.createProduct = async (req, res) => {
       discountPercentage:
         discountPercentage !== undefined ? Number(discountPercentage) : 0,
       additionalInfo: parsedAdditionalInfo,
+      ...policyReferences,
       images,
       status: 'active',
       isVisible: true
@@ -247,6 +301,13 @@ exports.getProductById = async (req, res) => {
 
     const productObj = product.toObject();
 
+    const [effectiveShipping, effectiveGuarantee] = await Promise.all([
+      resolveEffectiveShippingPolicy(productObj),
+      resolveEffectiveGuaranteePolicy(productObj)
+    ]);
+
+    productObj.shippingPolicy = effectiveShipping.policy;
+    productObj.guaranteePolicy = effectiveGuarantee.policy;
     // Product-level sales.
     productObj.totalSales = productTotalSales;
     productObj.productTotalSales = productTotalSales;
@@ -311,8 +372,19 @@ exports.updateProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
+
+    let updatePolicyReferences;
+    try {
+      updatePolicyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
@@ -383,6 +455,14 @@ exports.updateProduct = async (req, res) => {
         ? Number(discountPercentage)
         : product.discountPercentage;
     if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'shippingPolicyId')) {
+      product.shippingPolicyId = updatePolicyReferences.shippingPolicyId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'guaranteePolicyId')) {
+      product.guaranteePolicyId = updatePolicyReferences.guaranteePolicyId;
+    }
 
     // Media Sync Logic
     let imagesToDelete = [];

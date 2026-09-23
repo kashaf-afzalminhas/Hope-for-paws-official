@@ -20,6 +20,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [error, setError] = useState('');
   const [uploadError, setUploadError] = useState('');
+  const [guaranteePolicies, setGuaranteePolicies] = useState([]);
+  const [shippingPolicies, setShippingPolicies] = useState([]);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryMenuRef = React.useRef(null);
   const [customCategories, setCustomCategories] = useState([]);
@@ -36,7 +38,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
     discountPercentage: '',
     countInStock: '',
     lowStockThreshold: 5,
-    sku: ''
+    sku: '',
+    guaranteePolicyId: '',
+    shippingPolicyId: ''
   });
   const [customCategory, setCustomCategory] = useState('');
 
@@ -63,6 +67,24 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
   };
 
   React.useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const [guarantees, shipping] = await Promise.all([
+          axios.get(`${API_URL}/policies/guarantees`, getAxiosConfig()),
+          axios.get(`${API_URL}/policies/shipping`, getAxiosConfig())
+        ]);
+
+        setGuaranteePolicies(Array.isArray(guarantees.data) ? guarantees.data : []);
+        setShippingPolicies(Array.isArray(shipping.data) ? shipping.data : []);
+      } catch (err) {
+        console.error('Failed to fetch seller policies:', err);
+      }
+    };
+
+    fetchPolicies();
+  }, []);
+
+  React.useEffect(() => {
     if (isEditMode) {
       const fetchProductData = async () => {
         setIsFetchingData(true);
@@ -79,7 +101,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
             discountPercentage: data.discountPercentage !== undefined ? data.discountPercentage : '',
             countInStock: data.countInStock !== undefined ? data.countInStock : '',
             lowStockThreshold: data.lowStockThreshold ?? 5,
-            sku: data.sku || ''
+            sku: data.sku || '',
+            guaranteePolicyId: data.guaranteePolicyId || '',
+            shippingPolicyId: data.shippingPolicyId || ''
           });
           setCustomCategory(isPredefinedCategory ? '' : category);
           if (data.additionalInfo && data.additionalInfo.length > 0) {
@@ -247,6 +271,9 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
           submitData.append(key, formData[key]);
         }
       });
+
+      submitData.append('guaranteePolicyId', formData.guaranteePolicyId || '');
+      submitData.append('shippingPolicyId', formData.shippingPolicyId || '');
 
       // Attach the custom fields as a JSON string
       const validFields = customFields
@@ -523,6 +550,57 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
                     {skuWarning}
                   </p>
                 )}
+              </div>
+
+              <div className="col-span-2 grid grid-cols-1 gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-2">
+                    Guarantee Policy
+                  </label>
+                  <select
+                    name="guaranteePolicyId"
+                    value={formData.guaranteePolicyId}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white"
+                  >
+                    <option value="">Use seller default guarantee policy</option>
+                    {guaranteePolicies.map(policy => (
+                      <option
+                        key={policy._id}
+                        value={policy._id}
+                        disabled={!policy.isActive}
+                      >
+                        {policy.type === 'OTHER'
+                          ? policy.customType
+                          : policy.type.replaceAll('_', ' ')}
+                        {!policy.isActive ? ' (Inactive)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-2">
+                    Shipping Policy
+                  </label>
+                  <select
+                    name="shippingPolicyId"
+                    value={formData.shippingPolicyId}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-4 focus:ring-[#6b493d]/20 focus:border-[#6b493d] outline-none transition-all bg-white"
+                  >
+                    <option value="">Use seller default shipping policy</option>
+                    {shippingPolicies.map(policy => (
+                      <option
+                        key={policy._id}
+                        value={policy._id}
+                        disabled={!policy.isActive}
+                      >
+                        {policy.name}{!policy.isActive ? ' (Inactive)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
