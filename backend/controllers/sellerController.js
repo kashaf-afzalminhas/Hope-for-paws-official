@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const nodemailer = require('nodemailer');
 const emailTemplates = require('../utils/emailTemplates');
+const { toLocationSnapshot } = require('../utils/pakistanLocations');
 
 // Email Transporter Setup (matches codebase pattern in userController/contactController)
 const transporter = nodemailer.createTransport({
@@ -32,6 +33,13 @@ const ensureAdmin = async (userId) => {
 exports.onboardSeller = async (req, res) => {
   try {
     const { fullName, storeName, email, phone, address } = req.body;
+    let location;
+    try {
+      location = toLocationSnapshot(typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location);
+    } catch (parseError) {
+      location = null;
+    }
+    if (!location) return res.status(400).json({ message: 'Select a valid country, province, and city.' });
     const userId = req.user?.id || req.user?.userId;
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -60,6 +68,7 @@ exports.onboardSeller = async (req, res) => {
       email,
       phone,
       address,
+      location,
       profileImage,
       status: 'pending',
       isVerified: false

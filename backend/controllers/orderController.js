@@ -8,6 +8,7 @@ const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
 const { processCheckoutInventory } = require('../services/inventoryService');
 const { calculateSellerShipping, ShippingCalculationError } = require('../services/shippingService');
+const { toLocationSnapshot } = require('../utils/pakistanLocations');
 
 
 function getNotificationService() {
@@ -28,9 +29,12 @@ exports.createOrder = async (req, res) => {
     }
 
     // ── Phone, City & Address Validation ─────────────────────────────
-    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city) {
+    const locationSnapshot = toLocationSnapshot(shippingAddress?.location || shippingAddress);
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || !locationSnapshot) {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
 
     // Strip spaces, dashes, parentheses, and dots while keeping leading '+'
     const rawPhone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
@@ -311,11 +315,14 @@ exports.getShippingQuote = async (req, res) => {
       });
     }
 
-    if (!shippingAddress?.city) {
+    const locationSnapshot = toLocationSnapshot(shippingAddress);
+    if (!shippingAddress?.city || !locationSnapshot) {
       return res.status(400).json({
         message: 'A delivery city is required to calculate shipping.'
       });
     }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
 
     const itemsBySeller = {};
 
