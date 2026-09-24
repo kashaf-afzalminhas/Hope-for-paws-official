@@ -33,7 +33,7 @@ const PromoModal = ({ isOpen, onClose }) => {
     hasMaxDiscountCap: false,
     maxDiscountCap: '',
     customRewardText: '',
-    minSpend: '',
+    minSpend: '', // Empty string by default so 0 isn't stuck
     startDate: todayStr,
     endDate: '',
     totalUsageLimit: '',
@@ -100,14 +100,14 @@ const PromoModal = ({ isOpen, onClose }) => {
       scope: promo.scope || 'WHOLE_STORE',
       selectedCategories: promo.applicableCategories || [],
       mechanism: promo.discountMechanism || 'PERCENTAGE',
-      discountValue: promo.discountValue || '',
+      discountValue: promo.discountValue !== undefined && promo.discountValue !== null ? String(promo.discountValue) : '',
       hasMaxDiscountCap: Boolean(promo.maxDiscountCap),
-      maxDiscountCap: promo.maxDiscountCap || '',
+      maxDiscountCap: promo.maxDiscountCap ? String(promo.maxDiscountCap) : '',
       customRewardText: promo.customRewardText || '',
-      minSpend: promo.minSpend || '',
+      minSpend: promo.minSpend !== undefined && promo.minSpend !== null && promo.minSpend > 0 ? String(promo.minSpend) : '',
       startDate: promo.startDatetime ? new Date(promo.startDatetime).toISOString().split('T')[0] : todayStr,
       endDate: promo.endDatetime ? new Date(promo.endDatetime).toISOString().split('T')[0] : '',
-      totalUsageLimit: promo.totalUsageLimit || '',
+      totalUsageLimit: promo.totalUsageLimit ? String(promo.totalUsageLimit) : '',
       perBuyerLimit: promo.perBuyerLimit || 1
     });
     setActiveTab('create');
@@ -125,6 +125,27 @@ const PromoModal = ({ isOpen, onClose }) => {
     }
   };
 
+  // Field-level validation flags
+  const isPercentageInvalid =
+    formData.mechanism === 'PERCENTAGE' &&
+    (formData.discountValue !== '' &&
+      (Number(formData.discountValue) < 1 || Number(formData.discountValue) > 100));
+
+  const isFixedAmountInvalid =
+    formData.mechanism === 'FIXED_AMOUNT' &&
+    (formData.discountValue !== '' && Number(formData.discountValue) <= 0);
+
+  const isMinSpendInvalid =
+    formData.minSpend !== '' && Number(formData.minSpend) < 0;
+
+  const isCapInvalid =
+    formData.hasMaxDiscountCap &&
+    formData.maxDiscountCap !== '' &&
+    Number(formData.maxDiscountCap) <= 0;
+
+  const isPerBuyerLimitInvalid =
+    formData.perBuyerLimit !== '' && Number(formData.perBuyerLimit) < 1;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -134,24 +155,54 @@ const PromoModal = ({ isOpen, onClose }) => {
       setErrorMsg('Promo code must be 4–16 alphanumeric characters.');
       return;
     }
+
     if (formData.scope === 'SPECIFIC_CATEGORY' && formData.selectedCategories.length === 0) {
       setErrorMsg('Please select at least one qualifying category.');
       return;
     }
-    if (
-      formData.mechanism !== 'FREE_SHIPPING' &&
-      formData.mechanism !== 'CUSTOM_REWARD' &&
-      (!formData.discountValue || Number(formData.discountValue) <= 0)
-    ) {
-      setErrorMsg('Please enter a valid discount value greater than 0.');
+
+    // Mechanism validations
+    if (formData.mechanism === 'PERCENTAGE') {
+      const val = Number(formData.discountValue);
+      if (!formData.discountValue || val < 1 || val > 100) {
+        setErrorMsg('Discount percentage must be between 1% and 100%.');
+        return;
+      }
+    } else if (formData.mechanism === 'FIXED_AMOUNT') {
+      const val = Number(formData.discountValue);
+      if (!formData.discountValue || val <= 0) {
+        setErrorMsg('Discount amount must be greater than Rs. 0.');
+        return;
+      }
+    } else if (formData.mechanism === 'CUSTOM_REWARD') {
+      if (!formData.customRewardText || !formData.customRewardText.trim()) {
+        setErrorMsg('Please enter a custom reward description.');
+        return;
+      }
+    }
+
+    if (isMinSpendInvalid) {
+      setErrorMsg('Minimum spend must be 0 or greater.');
       return;
     }
+
+    if (formData.hasMaxDiscountCap && (!formData.maxDiscountCap || Number(formData.maxDiscountCap) <= 0)) {
+      setErrorMsg('Please enter a valid maximum discount ceiling greater than Rs. 0.');
+      return;
+    }
+
     if (!formData.startDate || !formData.endDate) {
       setErrorMsg('Please specify validity dates.');
       return;
     }
+
     if (formData.endDate < formData.startDate) {
       setErrorMsg('End expiry date cannot be earlier than start date.');
+      return;
+    }
+
+    if (isPerBuyerLimitInvalid) {
+      setErrorMsg('Per-buyer usage limit must be at least 1.');
       return;
     }
 
@@ -163,10 +214,10 @@ const PromoModal = ({ isOpen, onClose }) => {
         selectedCategories: formData.scope === 'SPECIFIC_CATEGORY' ? formData.selectedCategories : [],
         mechanism: formData.mechanism,
         discountValue: ['FREE_SHIPPING', 'CUSTOM_REWARD'].includes(formData.mechanism) ? 0 : Number(formData.discountValue),
-        customRewardText: formData.mechanism === 'CUSTOM_REWARD' ? formData.customRewardText : null,
+        customRewardText: formData.mechanism === 'CUSTOM_REWARD' ? formData.customRewardText.trim() : null,
         hasMaxDiscountCap: formData.hasMaxDiscountCap,
         maxDiscountCap: formData.hasMaxDiscountCap && formData.maxDiscountCap ? Number(formData.maxDiscountCap) : null,
-        minSpend: Number(formData.minSpend) || 0,
+        minSpend: formData.minSpend !== '' ? Number(formData.minSpend) : 0,
         startDate: formData.startDate,
         endDate: formData.endDate,
         totalUsageLimit: formData.totalUsageLimit ? Number(formData.totalUsageLimit) : null,
@@ -238,7 +289,6 @@ const PromoModal = ({ isOpen, onClose }) => {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Tab Switcher */}
               <div className="flex items-center gap-1.5 rounded-xl bg-[#ede5db] p-1 text-xs font-bold">
                 <button
                   type="button"
@@ -268,7 +318,6 @@ const PromoModal = ({ isOpen, onClose }) => {
                 </button>
               </div>
 
-              {/* Close button (always visible in manage view) */}
               {isManage && (
                 <button
                   type="button"
@@ -296,7 +345,7 @@ const PromoModal = ({ isOpen, onClose }) => {
             )}
 
             {isManage ? (
-              /* ================= MANAGE EXISTING PROMOS VIEW (FULL WIDTH) ================= */
+              /* ================= MANAGE EXISTING PROMOS VIEW ================= */
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#a07855]">
@@ -416,7 +465,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                 {/* 1. Code Name & Generator */}
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1.5">
-                    Promo Code Name
+                    Promo Code Name <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -444,6 +493,9 @@ const PromoModal = ({ isOpen, onClose }) => {
                       </button>
                     )}
                   </div>
+                  <p className="mt-1.5 text-[11px] text-[#8d7565]">
+                    Must be 4–16 alphanumeric characters without spaces.
+                  </p>
                 </div>
 
                 <hr className="border-[#eee5d8]" />
@@ -469,7 +521,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-[#4E3B31]">Entire Store Catalog</p>
-                        <p className="text-xs text-[#a07855]">Applicable store-wide</p>
+                        <p className="text-xs text-[#a07855]">Applicable to all products in your store</p>
                       </div>
                     </div>
 
@@ -488,7 +540,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-[#4E3B31]">Specific Categories</p>
-                        <p className="text-xs text-[#a07855]">Apply to chosen item categories</p>
+                        <p className="text-xs text-[#a07855]">Apply only to selected category items</p>
                       </div>
                     </div>
                   </div>
@@ -496,7 +548,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                   {formData.scope === 'SPECIFIC_CATEGORY' && (
                     <div className="mt-3 rounded-2xl border border-[#ded5c8] bg-[#f8f4ed] p-4">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-3">
-                        Choose Qualifying Categories
+                        Choose Qualifying Categories <span className="text-red-500">*</span>
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {STORE_CATEGORIES.map((cat) => {
@@ -517,6 +569,11 @@ const PromoModal = ({ isOpen, onClose }) => {
                           );
                         })}
                       </div>
+                      {formData.selectedCategories.length === 0 && (
+                        <p className="mt-2 text-xs font-semibold text-red-600">
+                          Please select at least one qualifying category.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -557,6 +614,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Discount Value Input */}
                     <div>
                       <label className="block text-xs font-bold text-[#4E3B31] mb-1">
                         {formData.mechanism === 'PERCENTAGE'
@@ -566,6 +624,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                           : formData.mechanism === 'FREE_SHIPPING'
                           ? 'Shipping Benefit'
                           : 'Reward Description'}
+                        <span className="text-red-500"> *</span>
                       </label>
 
                       {formData.mechanism === 'PERCENTAGE' && (
@@ -581,10 +640,14 @@ const PromoModal = ({ isOpen, onClose }) => {
                             onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                discountValue: Math.max(1, parseInt(e.target.value) || '')
+                                discountValue: e.target.value
                               })
                             }
-                            className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 pr-8 text-sm focus:border-[#6b493d] focus:outline-none"
+                            className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-8 text-sm focus:outline-none ${
+                              isPercentageInvalid
+                                ? 'border-red-400 focus:border-red-500'
+                                : 'border-[#ded5c8] focus:border-[#6b493d]'
+                            }`}
                           />
                           <span className="absolute right-3 top-2.5 text-sm text-gray-400 font-bold">%</span>
                         </div>
@@ -601,10 +664,14 @@ const PromoModal = ({ isOpen, onClose }) => {
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              discountValue: Math.max(1, parseInt(e.target.value) || '')
+                              discountValue: e.target.value
                             })
                           }
-                          className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
+                          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
+                            isFixedAmountInvalid
+                              ? 'border-red-400 focus:border-red-500'
+                              : 'border-[#ded5c8] focus:border-[#6b493d]'
+                          }`}
                         />
                       )}
 
@@ -621,7 +688,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Free Grooming Comb"
+                          placeholder="e.g. Free Grooming Brush"
                           value={formData.customRewardText}
                           onChange={(e) =>
                             setFormData({ ...formData, customRewardText: e.target.value })
@@ -629,8 +696,38 @@ const PromoModal = ({ isOpen, onClose }) => {
                           className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
                         />
                       )}
+
+                      {/* Dynamic helper/error note for discount */}
+                      {formData.mechanism === 'PERCENTAGE' && (
+                        <p className={`mt-1 text-[11px] ${isPercentageInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                          {isPercentageInvalid
+                            ? 'Discount percentage must be between 1% and 100%.'
+                            : 'Percentage discount must be between 1% and 100%.'}
+                        </p>
+                      )}
+
+                      {formData.mechanism === 'FIXED_AMOUNT' && (
+                        <p className={`mt-1 text-[11px] ${isFixedAmountInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                          {isFixedAmountInvalid
+                            ? 'Discount amount must be greater than Rs. 0.'
+                            : 'Enter flat amount deducted in Rs. (must be greater than 0).'}
+                        </p>
+                      )}
+
+                      {formData.mechanism === 'FREE_SHIPPING' && (
+                        <p className="mt-1 text-[11px] text-[#8d7565]">
+                          Fully waives shipping fees for orders containing your products.
+                        </p>
+                      )}
+
+                      {formData.mechanism === 'CUSTOM_REWARD' && (
+                        <p className="mt-1 text-[11px] text-[#8d7565]">
+                          Specify the complimentary item or gift to include with the order.
+                        </p>
+                      )}
                     </div>
 
+                    {/* Minimum Spend Req Input */}
                     <div>
                       <label className="block text-xs font-bold text-[#4E3B31] mb-1">
                         Minimum Spend Req. (Rs.)
@@ -639,21 +736,31 @@ const PromoModal = ({ isOpen, onClose }) => {
                         type="number"
                         min="0"
                         onKeyDown={blockInvalidNumberKeys}
-                        placeholder="0 for none"
+                        placeholder="Optional (e.g. 500)"
                         value={formData.minSpend}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            minSpend: Math.max(0, parseInt(e.target.value) || '')
+                            minSpend: e.target.value
                           })
                         }
-                        className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
+                        className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
+                          isMinSpendInvalid
+                            ? 'border-red-400 focus:border-red-500'
+                            : 'border-[#ded5c8] focus:border-[#6b493d]'
+                        }`}
                       />
+                      <p className={`mt-1 text-[11px] ${isMinSpendInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                        {isMinSpendInvalid
+                          ? 'Minimum spend cannot be negative.'
+                          : 'Order subtotal required to unlock this code (leave blank for no minimum).'}
+                      </p>
                     </div>
                   </div>
 
+                  {/* Ceiling Cap Checkbox for Percentage */}
                   {formData.mechanism === 'PERCENTAGE' && (
-                    <div className="mt-3">
+                    <div className="mt-4 pt-3 border-t border-[#f0e9df]">
                       <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-[#4E3B31]">
                         <input
                           type="checkbox"
@@ -663,24 +770,35 @@ const PromoModal = ({ isOpen, onClose }) => {
                           }
                           className="h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-0"
                         />
-                        <span>Apply Max Discount Ceiling Cap</span>
+                        <span>Apply Maximum Discount Ceiling Cap</span>
                       </label>
 
                       {formData.hasMaxDiscountCap && (
-                        <input
-                          type="number"
-                          min="1"
-                          onKeyDown={blockInvalidNumberKeys}
-                          placeholder="Max discount amount in Rs."
-                          value={formData.maxDiscountCap}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              maxDiscountCap: Math.max(1, parseInt(e.target.value) || '')
-                            })
-                          }
-                          className="mt-2 w-full sm:w-1/2 block rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2 text-sm focus:border-[#6b493d] focus:outline-none"
-                        />
+                        <div className="mt-2 w-full sm:w-1/2">
+                          <input
+                            type="number"
+                            min="1"
+                            onKeyDown={blockInvalidNumberKeys}
+                            placeholder="e.g. 1000"
+                            value={formData.maxDiscountCap}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                maxDiscountCap: e.target.value
+                              })
+                            }
+                            className={`w-full rounded-xl border bg-white px-3.5 py-2 text-sm focus:outline-none ${
+                              isCapInvalid
+                                ? 'border-red-400 focus:border-red-500'
+                                : 'border-[#ded5c8] focus:border-[#6b493d]'
+                            }`}
+                          />
+                          <p className={`mt-1 text-[11px] ${isCapInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                            {isCapInvalid
+                              ? 'Ceiling cap must be greater than Rs. 0.'
+                              : 'Caps total percentage discount up to this maximum amount in Rs.'}
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
@@ -692,7 +810,7 @@ const PromoModal = ({ isOpen, onClose }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                      Start Date
+                      Start Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -709,10 +827,13 @@ const PromoModal = ({ isOpen, onClose }) => {
                       }}
                       className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
                     />
+                    <p className="mt-1 text-[11px] text-[#8d7565]">
+                      Campaign begins at 00:00:00 on this date.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                      End Date
+                      End Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -722,8 +843,13 @@ const PromoModal = ({ isOpen, onClose }) => {
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
                     />
+                    <p className="mt-1 text-[11px] text-[#8d7565]">
+                      Campaign ends at 23:59:59 on this date.
+                    </p>
                   </div>
                 </div>
+
+                <hr className="border-[#eee5d8]" />
 
                 {/* 5. Limits */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -735,20 +861,23 @@ const PromoModal = ({ isOpen, onClose }) => {
                       type="number"
                       min="1"
                       onKeyDown={blockInvalidNumberKeys}
-                      placeholder="Blank for unlimited"
+                      placeholder="Leave blank for unlimited"
                       value={formData.totalUsageLimit}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          totalUsageLimit: e.target.value ? Math.max(1, parseInt(e.target.value) || 1) : ''
+                          totalUsageLimit: e.target.value
                         })
                       }
                       className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
                     />
+                    <p className="mt-1 text-[11px] text-[#8d7565]">
+                      Max overall uses across all buyers (blank = unlimited).
+                    </p>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                      Per-Buyer Limit
+                      Per-Buyer Usage Limit <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -759,11 +888,20 @@ const PromoModal = ({ isOpen, onClose }) => {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          perBuyerLimit: Math.max(1, parseInt(e.target.value) || 1)
+                          perBuyerLimit: e.target.value
                         })
                       }
-                      className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                      className={`w-full rounded-xl border bg-white px-3 py-2 text-sm text-[#4E3B31] focus:outline-none ${
+                        isPerBuyerLimitInvalid
+                          ? 'border-red-400 focus:border-red-500'
+                          : 'border-[#ded5c8] focus:border-[#6b493d]'
+                      }`}
                     />
+                    <p className={`mt-1 text-[11px] ${isPerBuyerLimitInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                      {isPerBuyerLimitInvalid
+                        ? 'Must allow at least 1 redemption per customer.'
+                        : 'How many times each buyer account can redeem this code.'}
+                    </p>
                   </div>
                 </div>
               </form>
@@ -771,7 +909,7 @@ const PromoModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Right Column: Live Preview Card (ONLY rendered in Create/Edit mode) */}
+        {/* Right Column: Live Preview Card (ONLY in Create/Edit mode) */}
         {!isManage && (
           <div className="w-[310px] shrink-0 bg-[#f7f2ea] border-l border-[#eee7dc] p-6 flex flex-col justify-between">
             <div>
@@ -814,8 +952,8 @@ const PromoModal = ({ isOpen, onClose }) => {
               <button
                 type="submit"
                 form="promoForm"
-                disabled={loading}
-                className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50"
+                disabled={loading || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
+                className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading
                   ? 'Processing...'
