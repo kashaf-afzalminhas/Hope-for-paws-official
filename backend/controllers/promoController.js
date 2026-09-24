@@ -296,17 +296,22 @@ exports.updatePromoCode = async (req, res) => {
 // DELETE /api/promos/:id - Delete or deactivate a promo code
 exports.deletePromoCode = async (req, res) => {
   try {
-    const sellerId = req.user.id || req.user.userId;
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId });
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found or unauthorized.' });
+    }
+
     const { id } = req.params;
 
-    const promo = await PromoCode.findOneAndDelete({ _id: id, sellerId });
+    const promo = await PromoCode.findOneAndDelete({ _id: id, sellerId: seller._id });
     if (!promo) {
       return res.status(404).json({ message: 'Promo code not found or unauthorized' });
     }
 
-    res.status(200).json({ message: 'Promo code deleted successfully' });
+    return res.status(200).json({ success: true, message: 'Promo code deleted successfully' });
   } catch (error) {
     console.error('Error deleting promo code:', error);
-    res.status(500).json({ message: 'Failed to delete promo code' });
+    return res.status(500).json({ message: 'Failed to delete promo code' });
   }
 };
