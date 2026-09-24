@@ -218,3 +218,95 @@ exports.applyPromoCode = async (req, res) => {
     return res.status(500).json({ message: error.message || 'Server error' });
   }
 };
+
+
+// PUT /api/promos/:id - Update an existing promo code
+exports.updatePromoCode = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId });
+    if (!seller) {
+      return res.status(404).json({ message: 'Seller not found.' });
+    }
+
+    const { id } = req.params;
+    const {
+      scope,
+      selectedCategories,
+      mechanism,
+      discountValue,
+      customRewardText,
+      hasMaxDiscountCap,
+      maxDiscountCap,
+      minSpend,
+      startDate,
+      endDate,
+      totalUsageLimit,
+      perBuyerLimit,
+    } = req.body;
+
+    const promo = await PromoCode.findOne({ _id: id, sellerId: seller._id });
+    if (!promo) {
+      return res.status(404).json({ message: 'Promo code not found or unauthorized.' });
+    }
+
+    if (startDate) {
+      const startDatetime = new Date(startDate);
+      startDatetime.setHours(0, 0, 0, 0);
+      promo.startDatetime = startDatetime;
+    }
+
+    if (endDate) {
+      const endDatetime = new Date(endDate);
+      endDatetime.setHours(23, 59, 59, 999);
+      if (promo.startDatetime && endDatetime <= promo.startDatetime) {
+        return res.status(400).json({ message: 'End date must be after Start date.' });
+      }
+      promo.endDatetime = endDatetime;
+    }
+
+    if (scope) {
+      promo.scope = scope;
+      promo.applicableCategories = scope === 'SPECIFIC_CATEGORY' ? selectedCategories || [] : [];
+    }
+
+    if (mechanism) {
+      promo.discountMechanism = mechanism;
+      promo.discountValue = (mechanism === 'FREE_SHIPPING' || mechanism === 'CUSTOM_REWARD')
+        ? 0
+        : parseFloat(discountValue) || 0;
+      promo.customRewardText = mechanism === 'CUSTOM_REWARD' ? customRewardText : null;
+      promo.maxDiscountCap = (hasMaxDiscountCap && mechanism === 'PERCENTAGE')
+        ? parseFloat(maxDiscountCap)
+        : null;
+    }
+
+    if (minSpend !== undefined) promo.minSpend = parseFloat(minSpend) || 0;
+    if (totalUsageLimit !== undefined) promo.totalUsageLimit = totalUsageLimit ? parseInt(totalUsageLimit, 10) : null;
+    if (perBuyerLimit !== undefined) promo.perBuyerLimit = perBuyerLimit ? parseInt(perBuyerLimit, 10) : 1;
+
+    await promo.save();
+    return res.status(200).json({ success: true, message: 'Promo code updated successfully.', promo });
+  } catch (error) {
+    console.error('Error updating promo code:', error);
+    return res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+// DELETE /api/promos/:id - Delete or deactivate a promo code
+exports.deletePromoCode = async (req, res) => {
+  try {
+    const sellerId = req.user.id || req.user.userId;
+    const { id } = req.params;
+
+    const promo = await PromoCode.findOneAndDelete({ _id: id, sellerId });
+    if (!promo) {
+      return res.status(404).json({ message: 'Promo code not found or unauthorized' });
+    }
+
+    res.status(200).json({ message: 'Promo code deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting promo code:', error);
+    res.status(500).json({ message: 'Failed to delete promo code' });
+  }
+};

@@ -606,7 +606,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                   className="flex items-center space-x-2 bg-[#6b493d] hover:bg-[#8c6b5d] text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium cursor-pointer"
                 >
                   <Tag className="w-4 h-4" />
-                  <span>Add Promo Code</span>
+                  <span>Manage Promo Code</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('add-product')}

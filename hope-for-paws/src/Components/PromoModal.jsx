@@ -1,432 +1,842 @@
-import React, { useState, useMemo } from 'react';
-import { X, Percent, DollarSign, Truck, Gift, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, Zap, Trash2, Edit2, Tag, Calendar, AlertCircle, RefreshCw, Plus 
+} from 'lucide-react';
 import axios from 'axios';
-import { API_BASE_URL } from "../config";
+import { API_BASE_URL } from '../config';
 
 const STORE_CATEGORIES = [
   'Grooming',
   'Food & Treats',
   'Beds & Furniture',
   'Toys',
-  'Health & Wellness',
+  'Health & Wellness'
 ];
 
-export default function PromoModal({ isOpen, onClose, onCreated }) {
-  const [code, setCode] = useState('');
-  const [scope, setScope] = useState('WHOLE_STORE');
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [mechanism, setMechanism] = useState('PERCENTAGE');
-  const [discountValue, setDiscountValue] = useState('');
-  const [customRewardText, setCustomRewardText] = useState('');
-  const [hasMaxDiscountCap, setHasMaxDiscountCap] = useState(false);
-  const [maxDiscountCap, setMaxDiscountCap] = useState('');
-  const [minSpend, setMinSpend] = useState('0');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [totalUsageLimit, setTotalUsageLimit] = useState('');
-  const [perBuyerLimit, setPerBuyerLimit] = useState('1');
+const PromoModal = ({ isOpen, onClose }) => {
+  const [activeTab, setActiveTab] = useState('create'); // 'create' | 'manage'
+  const [promos, setPromos] = useState([]);
+  const [fetchLoading, setFetchLoading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
+  const [editingPromoId, setEditingPromoId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const handleAutoGenerate = () => {
-    const prefixes = ['PAW', 'BARK', 'MIAW', 'LOVE', 'SAVE'];
-    const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const randomNum = Math.floor(10 + Math.random() * 90);
-    setCode(`${randomPrefix}${randomNum}`);
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const defaultFormState = {
+    code: '',
+    scope: 'WHOLE_STORE',
+    selectedCategories: [],
+    mechanism: 'PERCENTAGE',
+    discountValue: '',
+    hasMaxDiscountCap: false,
+    maxDiscountCap: '',
+    customRewardText: '',
+    minSpend: '',
+    startDate: todayStr,
+    endDate: '',
+    totalUsageLimit: '',
+    perBuyerLimit: 1
   };
 
-  const toggleCategory = (cat) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
+  const [formData, setFormData] = useState(defaultFormState);
+
+  const getAuthHeader = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    return { headers: { Authorization: `Bearer ${token}` } };
   };
 
-  const errors = useMemo(() => {
-    const errs = {};
-    const codeRegex = /^[A-Z0-9]{4,16}$/;
-    if (!code) errs.code = 'Promo code is required.';
-    else if (!codeRegex.test(code)) errs.code = 'Must be 4–16 uppercase alphanumeric characters.';
-
-    if (scope === 'SPECIFIC_CATEGORY' && selectedCategories.length === 0) {
-      errs.scope = 'Select at least one qualifying category.';
-    }
-
-    if (mechanism === 'PERCENTAGE') {
-      const val = parseFloat(discountValue);
-      if (isNaN(val) || val <= 0 || val > 100) errs.discountValue = 'Percentage must be between 1% and 100%.';
-      if (hasMaxDiscountCap) {
-        const cap = parseFloat(maxDiscountCap);
-        if (isNaN(cap) || cap <= 0) errs.maxDiscountCap = 'Cap must be greater than 0.';
-      }
-    } else if (mechanism === 'FIXED_AMOUNT') {
-      const val = parseFloat(discountValue);
-      if (isNaN(val) || val <= 0) errs.discountValue = 'Fixed discount must be greater than 0.';
-    } else if (mechanism === 'CUSTOM_REWARD') {
-      if (!customRewardText.trim()) errs.customRewardText = 'Please enter a description.';
-    }
-
-    const min = parseFloat(minSpend);
-    if (isNaN(min) || min < 0) errs.minSpend = 'Minimum spend must be 0 or greater.';
-
-    if (!startDate) errs.startDate = 'Required';
-    if (!endDate) errs.endDate = 'Required';
-    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
-      errs.endDate = 'Must be after Start Date.';
-    }
-
-    return errs;
-  }, [code, scope, selectedCategories, mechanism, discountValue, hasMaxDiscountCap, maxDiscountCap, minSpend, startDate, endDate, customRewardText]);
-
-  const isValid = Object.keys(errors).length === 0;
-
-  const handlePublish = async () => {
-    if (!isValid) return;
-    setLoading(true);
-    setApiError('');
-
+  const fetchSellerPromos = async () => {
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      await axios.post(
-        `${API_BASE_URL}/promos/create`,
-        {
-          code,
-          scope,
-          selectedCategories,
-          mechanism,
-          discountValue,
-          customRewardText,
-          hasMaxDiscountCap,
-          maxDiscountCap,
-          minSpend,
-          startDate,
-          endDate,
-          totalUsageLimit,
-          perBuyerLimit,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (onCreated) onCreated();
-      onClose();
+      setFetchLoading(true);
+      const res = await axios.get(`${API_BASE_URL}/promos/seller`, getAuthHeader());
+      setPromos(res.data || []);
     } catch (err) {
-      setApiError(err.response?.data?.message || 'Failed to publish promo code.');
+      console.error('Error fetching promos:', err);
+    } finally {
+      setFetchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchSellerPromos();
+      setErrorMsg('');
+      setSuccessMsg('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const blockInvalidNumberKeys = (e) => {
+    if (['-', '+', 'e', 'E'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleGenerateCode = () => {
+    const prefix = 'PAW';
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    setFormData((prev) => ({ ...prev, code: `${prefix}${rand}` }));
+  };
+
+  const handleCategoryToggle = (cat) => {
+    setFormData((prev) => {
+      const exists = prev.selectedCategories.includes(cat);
+      return {
+        ...prev,
+        selectedCategories: exists
+          ? prev.selectedCategories.filter((c) => c !== cat)
+          : [...prev.selectedCategories, cat]
+      };
+    });
+  };
+
+  const handleStartEdit = (promo) => {
+    setEditingPromoId(promo._id);
+    setFormData({
+      code: promo.code,
+      scope: promo.scope || 'WHOLE_STORE',
+      selectedCategories: promo.applicableCategories || [],
+      mechanism: promo.discountMechanism || 'PERCENTAGE',
+      discountValue: promo.discountValue || '',
+      hasMaxDiscountCap: Boolean(promo.maxDiscountCap),
+      maxDiscountCap: promo.maxDiscountCap || '',
+      customRewardText: promo.customRewardText || '',
+      minSpend: promo.minSpend || '',
+      startDate: promo.startDatetime ? new Date(promo.startDatetime).toISOString().split('T')[0] : todayStr,
+      endDate: promo.endDatetime ? new Date(promo.endDatetime).toISOString().split('T')[0] : '',
+      totalUsageLimit: promo.totalUsageLimit || '',
+      perBuyerLimit: promo.perBuyerLimit || 1
+    });
+    setActiveTab('create');
+  };
+
+  const handleDeletePromo = async (promoId) => {
+    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/promos/${promoId}`, getAuthHeader());
+      setPromos((prev) => prev.filter((p) => p._id !== promoId));
+      setSuccessMsg('Promo code deleted successfully.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete promo code');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!formData.code || formData.code.length < 4 || formData.code.length > 16) {
+      setErrorMsg('Promo code must be 4–16 alphanumeric characters.');
+      return;
+    }
+    if (formData.scope === 'SPECIFIC_CATEGORY' && formData.selectedCategories.length === 0) {
+      setErrorMsg('Please select at least one qualifying category.');
+      return;
+    }
+    if (
+      formData.mechanism !== 'FREE_SHIPPING' &&
+      formData.mechanism !== 'CUSTOM_REWARD' &&
+      (!formData.discountValue || Number(formData.discountValue) <= 0)
+    ) {
+      setErrorMsg('Please enter a valid discount value greater than 0.');
+      return;
+    }
+    if (!formData.startDate || !formData.endDate) {
+      setErrorMsg('Please specify validity dates.');
+      return;
+    }
+    if (formData.endDate < formData.startDate) {
+      setErrorMsg('End expiry date cannot be earlier than start date.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        code: formData.code.trim().toUpperCase(),
+        scope: formData.scope,
+        selectedCategories: formData.scope === 'SPECIFIC_CATEGORY' ? formData.selectedCategories : [],
+        mechanism: formData.mechanism,
+        discountValue: ['FREE_SHIPPING', 'CUSTOM_REWARD'].includes(formData.mechanism) ? 0 : Number(formData.discountValue),
+        customRewardText: formData.mechanism === 'CUSTOM_REWARD' ? formData.customRewardText : null,
+        hasMaxDiscountCap: formData.hasMaxDiscountCap,
+        maxDiscountCap: formData.hasMaxDiscountCap && formData.maxDiscountCap ? Number(formData.maxDiscountCap) : null,
+        minSpend: Number(formData.minSpend) || 0,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        totalUsageLimit: formData.totalUsageLimit ? Number(formData.totalUsageLimit) : null,
+        perBuyerLimit: formData.perBuyerLimit ? Number(formData.perBuyerLimit) : 1
+      };
+
+      if (editingPromoId) {
+        await axios.put(`${API_BASE_URL}/promos/${editingPromoId}`, payload, getAuthHeader());
+        setSuccessMsg(`Promo code "${payload.code}" updated successfully!`);
+      } else {
+        await axios.post(`${API_BASE_URL}/promos/create`, payload, getAuthHeader());
+        setSuccessMsg(`Promo code "${payload.code}" published successfully!`);
+      }
+
+      setEditingPromoId(null);
+      setFormData(defaultFormState);
+      fetchSellerPromos();
+      setActiveTab('manage');
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || 'Failed to save promo code.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  const getPreviewDiscountText = () => {
+    if (formData.mechanism === 'PERCENTAGE') {
+      return `${formData.discountValue || 0}% OFF`;
+    }
+    if (formData.mechanism === 'FIXED_AMOUNT') {
+      return `Rs. ${formData.discountValue || 0} OFF`;
+    }
+    if (formData.mechanism === 'FREE_SHIPPING') {
+      return 'FREE SHIPPING';
+    }
+    return formData.customRewardText || 'SPECIAL REWARD';
+  };
+
+  const isManage = activeTab === 'manage';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center px-4 py-8">
-      <div className="fixed inset-0 bg-[#3a2c25]/40 backdrop-blur-md" onClick={onClose} />
-      <div className="relative bg-[#FAF8F5] w-full max-w-4xl rounded-2xl shadow-2xl border border-[#E8DFD8] overflow-hidden grid grid-cols-1 md:grid-cols-3 z-10">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-[#5c3d2e]/70 hover:text-[#5c3d2e] bg-[#F5EFEB] hover:bg-[#E8DFD8] p-1.5 rounded-full transition z-20"
-        >
-          <X size={16} />
-        </button>
-
-        <div className="md:col-span-2 p-6 md:p-8 space-y-5 max-h-[85vh] overflow-y-auto">
-          <div>
-            <span className="text-[#8B7A72] text-[10px] uppercase font-bold tracking-wider">New Promotion</span>
-            <h2 className="text-xl font-bold tracking-tight text-[#5c3d2e]">Create Promo Code</h2>
-          </div>
-
-          {apiError && <div className="p-3 bg-red-100 text-red-700 text-xs rounded-lg">{apiError}</div>}
-
-          <div className="space-y-1">
-            <label className="block text-xs font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Promo Code Name</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                maxLength={16}
-                placeholder="e.g. SUMMER20"
-                className="flex-1 px-3 py-2 border rounded-lg text-sm uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-[#5c3d2e] bg-white border-[#E8DFD8]"
-              />
-              <button
-                type="button"
-                onClick={handleAutoGenerate}
-                className="bg-[#F5EFEB] border border-[#E8DFD8] text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition text-[#5c3d2e]"
-              >
-                <Zap size={13} /> Generate
-              </button>
-            </div>
-            {errors.code && <p className="text-[10px] text-red-600 font-semibold">{errors.code}</p>}
-          </div>
-
-          <div className="space-y-2 border-t border-[#E8DFD8]/40 pt-4">
-            <label className="block text-xs font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Applicability Scope</label>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <label className="flex-1 flex items-center gap-2 p-3 border border-[#E8DFD8] rounded-lg bg-white cursor-pointer text-xs font-medium">
-                <input
-                  type="radio"
-                  name="scope"
-                  checked={scope === 'WHOLE_STORE'}
-                  onChange={() => setScope('WHOLE_STORE')}
-                  className="accent-[#5c3d2e]"
-                />
-                <div>
-                  <p className="font-bold">Entire Store Catalog</p>
-                  <p className="text-[10px] text-[#8B7A72]">Applicable store-wide</p>
-                </div>
-              </label>
-              <label className="flex-1 flex items-center gap-2 p-3 border border-[#E8DFD8] rounded-lg bg-white cursor-pointer text-xs font-medium">
-                <input
-                  type="radio"
-                  name="scope"
-                  checked={scope === 'SPECIFIC_CATEGORY'}
-                  onChange={() => setScope('SPECIFIC_CATEGORY')}
-                  className="accent-[#5c3d2e]"
-                />
-                <div>
-                  <p className="font-bold">Specific Categories</p>
-                  <p className="text-[10px] text-[#8B7A72]">Apply to items in selected categories</p>
-                </div>
-              </label>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-5 backdrop-blur-sm font-sans">
+      <div 
+        className={`relative flex max-h-[94vh] w-full ${
+          isManage ? 'max-w-3xl' : 'max-w-5xl'
+        } overflow-hidden rounded-[26px] bg-[#fbf9f6] text-[#3d2a24] shadow-2xl border border-[#ebe3d7] transition-all duration-300`}
+      >
+        
+        {/* Main Column */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[#eee7dc] bg-[#faf6f0] px-6 sm:px-8 pt-6 pb-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#a07855]">
+                {isManage 
+                  ? 'PROMOTION CAMPAIGNS' 
+                  : editingPromoId 
+                  ? 'UPDATE CAMPAIGN' 
+                  : 'NEW CAMPAIGN'}
+              </p>
+              <h2 className="text-xl sm:text-2xl font-black text-[#4E3B31] tracking-tight">
+                {isManage 
+                  ? 'Store Promo Codes' 
+                  : editingPromoId 
+                  ? 'Edit Promo Code' 
+                  : 'Create Promo Code'}
+              </h2>
             </div>
 
-            {scope === 'SPECIFIC_CATEGORY' && (
-              <div className="bg-[#F5EFEB]/50 border border-[#E8DFD8] rounded-lg p-3 space-y-2">
-                <p className="text-[10px] font-extrabold uppercase text-[#8B7A72] tracking-wider">Product Categories Mapping</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {STORE_CATEGORIES.map((cat) => (
-                    <label key={cat} className="flex items-center gap-2 bg-white px-2 py-1.5 rounded-md text-xs border border-[#E8DFD8]/60 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(cat)}
-                        onChange={() => toggleCategory(cat)}
-                        className="rounded accent-[#5c3d2e]"
-                      />
-                      <span>{cat}</span>
-                    </label>
-                  ))}
-                </div>
-                {errors.scope && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.scope}</p>}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 border-t border-[#E8DFD8]/40 pt-4">
-            <label className="block text-xs font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Discount Mechanism</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { key: 'PERCENTAGE', label: 'Percentage', Icon: Percent },
-                { key: 'FIXED_AMOUNT', label: 'Fixed Amt', Icon: DollarSign },
-                { key: 'FREE_SHIPPING', label: 'Free Ship', Icon: Truck },
-                { key: 'CUSTOM_REWARD', label: 'Reward', Icon: Gift },
-              ].map(({ key, label, Icon }) => (
+            <div className="flex items-center gap-3">
+              {/* Tab Switcher */}
+              <div className="flex items-center gap-1.5 rounded-xl bg-[#ede5db] p-1 text-xs font-bold">
                 <button
-                  key={key}
                   type="button"
-                  onClick={() => setMechanism(key)}
-                  className={`py-2 px-1 rounded-lg border text-center transition ${
-                    mechanism === key
-                      ? 'bg-[#5c3d2e] text-white border-[#5c3d2e] font-bold'
-                      : 'bg-white border-[#E8DFD8] text-[#5c3d2e]/80 hover:bg-[#F5EFEB]'
+                  onClick={() => {
+                    setEditingPromoId(null);
+                    setFormData(defaultFormState);
+                    setActiveTab('create');
+                  }}
+                  className={`rounded-lg px-3 py-1.5 transition ${
+                    !isManage
+                      ? 'bg-white text-[#4E3B31] shadow-sm'
+                      : 'text-[#7a6554] hover:text-[#4E3B31]'
                   }`}
                 >
-                  <Icon size={14} className="mx-auto mb-1" />
-                  <p className="text-[10px]">{label}</p>
+                  Create
                 </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              {mechanism === 'PERCENTAGE' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-[#5c3d2e]/70">Discount Percentage</label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      placeholder="e.g. 15"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-[#E8DFD8] rounded-lg text-xs bg-white focus:outline-none"
-                    />
-                    <span className="absolute inset-y-0 right-3 flex items-center text-[#8B7A72] text-xs font-bold">%</span>
-                  </div>
-                  {errors.discountValue && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.discountValue}</p>}
-                </div>
-              )}
-
-              {mechanism === 'FIXED_AMOUNT' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-[#5c3d2e]/70">Fixed Discount (Rs.)</label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      placeholder="e.g. 500"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 border border-[#E8DFD8] rounded-lg text-xs bg-white focus:outline-none"
-                    />
-                    <span className="absolute inset-y-0 left-3 flex items-center text-[#8B7A72] text-[10px] font-bold">Rs.</span>
-                  </div>
-                  {errors.discountValue && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.discountValue}</p>}
-                </div>
-              )}
-
-              {mechanism === 'CUSTOM_REWARD' && (
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-[#5c3d2e]/70">Describe Custom Reward</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Free branded toy on adoption of older dog"
-                    value={customRewardText}
-                    onChange={(e) => setCustomRewardText(e.target.value)}
-                    className="w-full mt-1 px-3 py-1.5 border border-[#E8DFD8] rounded-lg text-xs bg-white focus:outline-none"
-                  />
-                  {errors.customRewardText && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.customRewardText}</p>}
-                </div>
-              )}
-
-              {mechanism === 'FREE_SHIPPING' && (
-                <div className="sm:col-span-2 bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex items-center gap-2">
-                  <span className="text-emerald-700 text-xs font-medium">🐾 Delivery charges attributed to your items will be automatically waived.</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[11px] font-bold text-[#5c3d2e]/70">Minimum Spend Req. (Rs.)</label>
-                <div className="relative mt-1">
-                  <input
-                    type="number"
-                    value={minSpend}
-                    onChange={(e) => setMinSpend(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 border border-[#E8DFD8] rounded-lg text-xs bg-white focus:outline-none"
-                  />
-                  <span className="absolute inset-y-0 left-3 flex items-center text-[#8B7A72] text-[10px] font-bold">Rs.</span>
-                </div>
-                {errors.minSpend && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.minSpend}</p>}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('manage')}
+                  className={`rounded-lg px-3 py-1.5 transition ${
+                    isManage
+                      ? 'bg-white text-[#4E3B31] shadow-sm'
+                      : 'text-[#7a6554] hover:text-[#4E3B31]'
+                  }`}
+                >
+                  Manage ({promos.length})
+                </button>
               </div>
 
-              {mechanism === 'PERCENTAGE' && (
-                <div className="sm:col-span-2 border-t border-[#E8DFD8]/20 pt-3">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={hasMaxDiscountCap}
-                      onChange={(e) => setHasMaxDiscountCap(e.target.checked)}
-                      className="accent-[#5c3d2e]"
-                    />
-                    Apply Max Discount Ceiling CAP
+              {/* Close button (always visible in manage view) */}
+              {isManage && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full p-1.5 text-stone-400 hover:bg-stone-200/50 hover:text-stone-700 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Body Content */}
+          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
+            {errorMsg && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+            {successMsg && (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-xs font-semibold text-green-700">
+                {successMsg}
+              </div>
+            )}
+
+            {isManage ? (
+              /* ================= MANAGE EXISTING PROMOS VIEW (FULL WIDTH) ================= */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#a07855]">
+                    Active & Previous Codes ({promos.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPromoId(null);
+                      setFormData(defaultFormState);
+                      setActiveTab('create');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6b493d] hover:text-[#4E3B31] transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> New Code
+                  </button>
+                </div>
+
+                {fetchLoading ? (
+                  <div className="py-16 text-center text-[#8c6b5d]">
+                    <RefreshCw className="mx-auto h-6 w-6 animate-spin mb-2" />
+                    <p className="text-sm font-medium">Loading promotions...</p>
+                  </div>
+                ) : promos.length === 0 ? (
+                  <div className="py-16 text-center border-2 border-dashed border-[#e8dfd3] rounded-2xl bg-white p-6">
+                    <Tag className="w-10 h-10 text-stone-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-[#4E3B31]">No promo codes created yet</p>
+                    <p className="text-xs text-[#a07855] mt-1 mb-4">Launch campaigns to reward your loyal shoppers.</p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('create')}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#6b493d] px-4 py-2 text-xs font-bold text-white shadow hover:bg-[#57392f] transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Create First Code
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {promos.map((p) => {
+                      const isExpired = new Date(p.endDatetime || p.endDate) < new Date();
+                      return (
+                        <div
+                          key={p._id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-[#e8dfd3] bg-white shadow-sm hover:shadow transition-shadow gap-4"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-[#6b493d] text-base tracking-wider">
+                                {p.code}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                  isExpired ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                {isExpired ? 'Expired' : 'Active'}
+                              </span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-[#f8f4ed] text-[#a07855] px-2 py-0.5 rounded-full border border-[#ede5db]">
+                                {p.scope === 'WHOLE_STORE' ? 'Storewide' : 'Category'}
+                              </span>
+                            </div>
+
+                            <p className="text-sm font-semibold text-[#4E3B31] mt-1.5">
+                              {p.discountMechanism === 'PERCENTAGE'
+                                ? `${p.discountValue}% OFF`
+                                : p.discountMechanism === 'FIXED_AMOUNT'
+                                ? `Rs. ${p.discountValue} OFF`
+                                : p.discountMechanism === 'FREE_SHIPPING'
+                                ? 'Free Shipping'
+                                : p.customRewardText}
+                              {p.minSpend > 0 && (
+                                <span className="text-xs font-normal text-[#7a6554]">
+                                  {' '}• Min Spend Rs. {p.minSpend.toLocaleString()}
+                                </span>
+                              )}
+                              {p.maxDiscountCap && (
+                                <span className="text-xs font-normal text-[#7a6554]">
+                                  {' '}• Max Cap Rs. {p.maxDiscountCap.toLocaleString()}
+                                </span>
+                              )}
+                            </p>
+
+                            <p className="text-[11px] text-[#a07855] mt-1">
+                              Validity: {new Date(p.startDatetime || p.startDate).toLocaleDateString()} – {new Date(p.endDatetime || p.endDate).toLocaleDateString()}
+                              {' '}• Redemptions: <span className="font-bold text-[#4E3B31]">{p.totalRedemptions || 0}</span>{p.totalUsageLimit ? ` / ${p.totalUsageLimit}` : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(p)}
+                              className="p-2 border border-[#ded5c7] rounded-xl hover:bg-[#faf6f0] text-[#6b493d] transition"
+                              title="Edit Code"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePromo(p._id)}
+                              className="p-2 border border-red-200 bg-red-50 rounded-xl hover:bg-red-100 text-red-600 transition"
+                              title="Delete Code"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ================= CREATE / EDIT FORM VIEW ================= */
+              <form id="promoForm" onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* 1. Code Name & Generator */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1.5">
+                    Promo Code Name
                   </label>
-                  {hasMaxDiscountCap && (
-                    <div className="mt-2 relative max-w-[200px]">
-                      <input
-                        type="number"
-                        placeholder="e.g. 1000"
-                        value={maxDiscountCap}
-                        onChange={(e) => setMaxDiscountCap(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 border border-[#E8DFD8] rounded-lg text-xs bg-white focus:outline-none"
-                      />
-                      <span className="absolute inset-y-0 left-3 flex items-center text-[#8B7A72] text-xs">Rs.</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      maxLength={16}
+                      placeholder="E.G. SUMMER20"
+                      value={formData.code}
+                      disabled={Boolean(editingPromoId)}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                        })
+                      }
+                      className="flex-1 rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm font-semibold tracking-wide text-[#3d2a24] placeholder-[#d4c5c1] focus:border-[#6b493d] focus:outline-none disabled:bg-gray-100"
+                    />
+                    {!editingPromoId && (
+                      <button
+                        type="button"
+                        onClick={handleGenerateCode}
+                        className="flex items-center gap-1.5 rounded-xl border border-[#ded5c8] bg-[#f8f4ed] px-4 py-2.5 text-xs font-bold text-[#6b493d] hover:bg-[#efe4d8] transition"
+                      >
+                        <Zap className="h-3.5 w-3.5 fill-current" /> Auto
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <hr className="border-[#eee5d8]" />
+
+                {/* 2. Scope */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-2">
+                    Applicability Scope
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setFormData({ ...formData, scope: 'WHOLE_STORE' })}
+                      className={`cursor-pointer rounded-2xl border p-4 flex items-center gap-3.5 transition bg-white ${
+                        formData.scope === 'WHOLE_STORE'
+                          ? 'border-[#6b493d] ring-1 ring-[#6b493d]'
+                          : 'border-[#ded5c8] hover:border-[#bdafa0]'
+                      }`}
+                    >
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300">
+                        {formData.scope === 'WHOLE_STORE' && (
+                          <div className="h-3 w-3 rounded-full bg-[#6b493d]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-[#4E3B31]">Entire Store Catalog</p>
+                        <p className="text-xs text-[#a07855]">Applicable store-wide</p>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setFormData({ ...formData, scope: 'SPECIFIC_CATEGORY' })}
+                      className={`cursor-pointer rounded-2xl border p-4 flex items-center gap-3.5 transition bg-white ${
+                        formData.scope === 'SPECIFIC_CATEGORY'
+                          ? 'border-[#6b493d] ring-1 ring-[#6b493d]'
+                          : 'border-[#ded5c8] hover:border-[#bdafa0]'
+                      }`}
+                    >
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300">
+                        {formData.scope === 'SPECIFIC_CATEGORY' && (
+                          <div className="h-3 w-3 rounded-full bg-[#6b493d]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-[#4E3B31]">Specific Categories</p>
+                        <p className="text-xs text-[#a07855]">Apply to chosen item categories</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {formData.scope === 'SPECIFIC_CATEGORY' && (
+                    <div className="mt-3 rounded-2xl border border-[#ded5c8] bg-[#f8f4ed] p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-3">
+                        Choose Qualifying Categories
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {STORE_CATEGORIES.map((cat) => {
+                          const isChecked = formData.selectedCategories.includes(cat);
+                          return (
+                            <label
+                              key={cat}
+                              className="flex items-center gap-2.5 rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2 text-xs font-semibold text-[#4E3B31] cursor-pointer hover:bg-stone-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleCategoryToggle(cat)}
+                                className="h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-0"
+                              />
+                              <span>{cat}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#E8DFD8]/40 pt-4">
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Start Validity</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full border border-[#E8DFD8] bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">End Expiry Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full border border-[#E8DFD8] bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-              />
-              {errors.endDate && <p className="text-[10px] text-red-600 font-semibold mt-1">{errors.endDate}</p>}
-            </div>
-          </div>
+                <hr className="border-[#eee5d8]" />
 
-          <div className="grid grid-cols-2 gap-4 border-t border-[#E8DFD8]/40 pt-4">
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Total Campaign Limit</label>
-              <input
-                type="number"
-                placeholder="e.g. Unlimited"
-                value={totalUsageLimit}
-                onChange={(e) => setTotalUsageLimit(e.target.value)}
-                className="mt-1 w-full border border-[#E8DFD8] bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wide text-[#5c3d2e]/80">Per-buyer usage</label>
-              <input
-                type="number"
-                value={perBuyerLimit}
-                onChange={(e) => setPerBuyerLimit(e.target.value)}
-                className="mt-1 w-full border border-[#E8DFD8] bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-              />
-            </div>
+                {/* 3. Discount Mechanism */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-2">
+                    Discount Mechanism
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 'PERCENTAGE', label: 'Percentage', symbol: '%' },
+                      { id: 'FIXED_AMOUNT', label: 'Fixed Amt', symbol: 'Rs.' },
+                      { id: 'FREE_SHIPPING', label: 'Free Ship', icon: '🚚' },
+                      { id: 'CUSTOM_REWARD', label: 'Reward', icon: '🎁' }
+                    ].map((item) => {
+                      const selected = formData.mechanism === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, mechanism: item.id })}
+                          className={`flex flex-col items-center justify-center rounded-xl border py-2.5 text-center transition ${
+                            selected
+                              ? 'border-[#6b493d] bg-[#6b493d] text-white shadow-sm'
+                              : 'border-[#ded5c8] bg-white text-[#4E3B31] hover:border-[#bdafa0]'
+                          }`}
+                        >
+                          <span className="text-sm font-bold">
+                            {item.symbol || item.icon}
+                          </span>
+                          <span className="text-[11px] font-bold">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#4E3B31] mb-1">
+                        {formData.mechanism === 'PERCENTAGE'
+                          ? 'Discount Percentage (%)'
+                          : formData.mechanism === 'FIXED_AMOUNT'
+                          ? 'Discount Amount (Rs.)'
+                          : formData.mechanism === 'FREE_SHIPPING'
+                          ? 'Shipping Benefit'
+                          : 'Reward Description'}
+                      </label>
+
+                      {formData.mechanism === 'PERCENTAGE' && (
+                        <div className="relative">
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            max="100"
+                            onKeyDown={blockInvalidNumberKeys}
+                            placeholder="e.g. 15"
+                            value={formData.discountValue}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                discountValue: Math.max(1, parseInt(e.target.value) || '')
+                              })
+                            }
+                            className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 pr-8 text-sm focus:border-[#6b493d] focus:outline-none"
+                          />
+                          <span className="absolute right-3 top-2.5 text-sm text-gray-400 font-bold">%</span>
+                        </div>
+                      )}
+
+                      {formData.mechanism === 'FIXED_AMOUNT' && (
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          onKeyDown={blockInvalidNumberKeys}
+                          placeholder="e.g. 250"
+                          value={formData.discountValue}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              discountValue: Math.max(1, parseInt(e.target.value) || '')
+                            })
+                          }
+                          className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
+                        />
+                      )}
+
+                      {formData.mechanism === 'FREE_SHIPPING' && (
+                        <input
+                          type="text"
+                          disabled
+                          value="100% Free Shipping"
+                          className="w-full rounded-xl border border-[#ded5c8] bg-gray-100 px-3.5 py-2.5 text-sm text-gray-600 font-semibold"
+                        />
+                      )}
+
+                      {formData.mechanism === 'CUSTOM_REWARD' && (
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Free Grooming Comb"
+                          value={formData.customRewardText}
+                          onChange={(e) =>
+                            setFormData({ ...formData, customRewardText: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#4E3B31] mb-1">
+                        Minimum Spend Req. (Rs.)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        onKeyDown={blockInvalidNumberKeys}
+                        placeholder="0 for none"
+                        value={formData.minSpend}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            minSpend: Math.max(0, parseInt(e.target.value) || '')
+                          })
+                        }
+                        className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {formData.mechanism === 'PERCENTAGE' && (
+                    <div className="mt-3">
+                      <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-[#4E3B31]">
+                        <input
+                          type="checkbox"
+                          checked={formData.hasMaxDiscountCap}
+                          onChange={(e) =>
+                            setFormData({ ...formData, hasMaxDiscountCap: e.target.checked })
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-0"
+                        />
+                        <span>Apply Max Discount Ceiling Cap</span>
+                      </label>
+
+                      {formData.hasMaxDiscountCap && (
+                        <input
+                          type="number"
+                          min="1"
+                          onKeyDown={blockInvalidNumberKeys}
+                          placeholder="Max discount amount in Rs."
+                          value={formData.maxDiscountCap}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              maxDiscountCap: Math.max(1, parseInt(e.target.value) || '')
+                            })
+                          }
+                          className="mt-2 w-full sm:w-1/2 block rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2 text-sm focus:border-[#6b493d] focus:outline-none"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <hr className="border-[#eee5d8]" />
+
+                {/* 4. Validity Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={todayStr}
+                      value={formData.startDate}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          startDate: newStart,
+                          endDate: prev.endDate && prev.endDate < newStart ? newStart : prev.endDate
+                        }));
+                      }}
+                      className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={formData.startDate || todayStr}
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Limits */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                      Total Campaign Limit
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      onKeyDown={blockInvalidNumberKeys}
+                      placeholder="Blank for unlimited"
+                      value={formData.totalUsageLimit}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          totalUsageLimit: e.target.value ? Math.max(1, parseInt(e.target.value) || 1) : ''
+                        })
+                      }
+                      className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                      Per-Buyer Limit
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      onKeyDown={blockInvalidNumberKeys}
+                      value={formData.perBuyerLimit}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          perBuyerLimit: Math.max(1, parseInt(e.target.value) || 1)
+                        })
+                      }
+                      className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         </div>
 
-        <div className="bg-[#F5EFEB] border-t md:border-t-0 md:border-l border-[#E8DFD8] p-6 md:p-8 flex flex-col justify-between space-y-6">
-          <div className="space-y-4">
-            <span className="text-[10px] uppercase font-bold tracking-widest text-[#8B7A72] block">Live Preview Card</span>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#8c6753] to-[#5c3d2e] p-6 text-[#FAF6F0] border border-[#5c3d2e] shadow-xl">
-              <div className="flex items-center justify-between border-b border-white/20 pb-4">
-                <span className="text-xs tracking-wider uppercase font-extrabold">🐾 Promotion</span>
-                <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded font-medium">
-                  {scope === 'WHOLE_STORE' ? 'Storewide' : `${selectedCategories.length} Categories`}
+        {/* Right Column: Live Preview Card (ONLY rendered in Create/Edit mode) */}
+        {!isManage && (
+          <div className="w-[310px] shrink-0 bg-[#f7f2ea] border-l border-[#eee7dc] p-6 flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#a07855]">
+                  Live Preview Card
                 </span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full p-1 text-stone-400 hover:bg-stone-200/50 hover:text-stone-700 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="my-6 space-y-2 text-center">
-                <h4 className="text-3xl font-extrabold tracking-tight">
-                  {mechanism === 'PERCENTAGE' && `${discountValue || 0}% OFF`}
-                  {mechanism === 'FIXED_AMOUNT' && `Rs. ${discountValue || 0} OFF`}
-                  {mechanism === 'FREE_SHIPPING' && 'FREE SHIPPING'}
-                  {mechanism === 'CUSTOM_REWARD' && (customRewardText || 'Custom Gift')}
-                </h4>
-                {hasMaxDiscountCap && parseFloat(maxDiscountCap) > 0 && (
-                  <p className="text-[11px] text-[#dec2b3] italic">Cap up to Rs. {maxDiscountCap}</p>
-                )}
-                {parseFloat(minSpend) > 0 && (
-                  <p className="text-[11px] font-bold text-[#F8ECE3]">Min spend: Rs. {minSpend}</p>
-                )}
-              </div>
-              <div className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-2.5 text-center font-mono font-bold text-sm uppercase">
-                {code || 'YOURCODE'}
+
+              {/* Promo Card Ticket */}
+              <div className="rounded-[22px] bg-[#6b493d] p-6 text-white shadow-lg text-center relative overflow-hidden">
+                <div className="flex items-center justify-between text-xs font-bold text-[#e0cfc6] mb-8">
+                  <span className="flex items-center gap-1">🐾 PROMOTION</span>
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium tracking-wide">
+                    {formData.scope === 'WHOLE_STORE' ? 'Storewide' : 'Category'}
+                  </span>
+                </div>
+
+                <div className="my-6">
+                  <h3 className="text-3xl font-black tracking-tight text-white uppercase break-words">
+                    {getPreviewDiscountText()}
+                  </h3>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-white/20 bg-black/10 py-2.5 font-mono text-sm font-bold tracking-widest text-[#f5eae2]">
+                  {formData.code || 'YOURCODE'}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled={!isValid || loading}
-              onClick={handlePublish}
-              className={`w-full font-extrabold text-xs py-3 rounded-lg shadow-md transition text-white ${
-                isValid && !loading ? 'bg-[#5c3d2e] hover:bg-opacity-95' : 'bg-[#8B7A72] cursor-not-allowed'
-              }`}
-            >
-              {loading ? 'Publishing...' : 'Publish Promo Code'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full border border-[#E8DFD8] hover:bg-[#E8DFD8]/40 font-bold text-xs py-2 rounded-lg transition text-[#5c3d2e]"
-            >
-              Cancel
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-2 mt-8">
+              <button
+                type="submit"
+                form="promoForm"
+                disabled={loading}
+                className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50"
+              >
+                {loading
+                  ? 'Processing...'
+                  : editingPromoId
+                  ? 'Update Promo Code'
+                  : 'Publish Promo Code'}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-xl border border-[#ded5c7] bg-white py-3 text-center text-sm font-bold text-[#6b493d] hover:bg-[#fcfaf8] transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );
-}
+};
+
+export default PromoModal;
