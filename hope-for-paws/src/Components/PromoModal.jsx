@@ -940,67 +940,106 @@ const todayStr = getLocalDateString();
           </div>
 
           {/* Right Column: Live Preview Card (ONLY in Create/Edit mode) */}
-          {!isManage && (
-            <div className="w-[310px] shrink-0 bg-[#f7f2ea] border-l border-[#eee7dc] p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#a07855]">
-                    Live Preview Card
-                  </span>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-full p-1 text-stone-400 hover:bg-stone-200/50 hover:text-stone-700 transition"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Promo Card Ticket */}
-                <div className="rounded-[22px] bg-[#6b493d] p-6 text-white shadow-lg text-center relative overflow-hidden">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#e0cfc6] mb-8">
-                    <span className="flex items-center gap-1">🐾 PROMOTION</span>
-                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium tracking-wide">
-                      {formData.scope === 'WHOLE_STORE' ? 'Storewide' : 'Category'}
-                    </span>
-                  </div>
-
-                  <div className="my-6">
-                    <h3 className="text-3xl font-black tracking-tight text-white uppercase break-words">
-                      {getPreviewDiscountText()}
-                    </h3>
-                  </div>
-
-                  <div className="mt-6 rounded-xl border border-white/20 bg-black/10 py-2.5 font-mono text-sm font-bold tracking-widest text-[#f5eae2]">
-                    {formData.code || 'YOURCODE'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-2 mt-8">
-                <button
-                  type="submit"
-                  form="promoForm"
-                  disabled={loading || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
-                  className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading
-                    ? 'Processing...'
-                    : editingPromoId
-                    ? 'Update Promo Code'
-                    : 'Publish Promo Code'}
-                </button>
+        {!isManage && (
+          <div className="w-[330px] shrink-0 bg-[#f7f2ea] border-l border-[#eee7dc] p-6 flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center mb-5">
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#a07855]">
+                  Live Voucher Preview
+                </span>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full rounded-xl border border-[#ded5c7] bg-white py-3 text-center text-sm font-bold text-[#6b493d] hover:bg-[#fcfaf8] transition"
+                  className="rounded-full p-1.5 text-stone-400 hover:bg-stone-200/50 hover:text-stone-700 transition"
                 >
-                  Cancel
+                  <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* Styled Ticket Voucher */}
+              <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-b from-[#6b493d] to-[#54382e] p-6 text-white shadow-xl border border-[#4a3127]">
+                {/* Decorative Ticket Cutouts */}
+                <div className="absolute -left-3.5 top-[60%] h-7 w-7 rounded-full bg-[#f7f2ea] shadow-inner" />
+                <div className="absolute -right-3.5 top-[60%] h-7 w-7 rounded-full bg-[#f7f2ea] shadow-inner" />
+
+                {/* Voucher Header */}
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#e6d0c4]">
+                    🐾 Hope For Paws
+                  </span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#f5eae2] backdrop-blur-sm border border-white/10">
+                    {formData.scope === 'WHOLE_STORE' ? 'Storewide' : 'Category'}
+                  </span>
+                </div>
+
+                {/* Main Discount Display */}
+                <div className="my-7 text-center">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#d4b9ab] mb-1">
+                    Special Offer
+                  </p>
+                  <h3 className="text-3xl sm:text-[34px] font-black tracking-tight text-white leading-none break-words drop-shadow-sm">
+                    {getPreviewDiscountText()}
+                  </h3>
+                  {formData.hasMaxDiscountCap && formData.maxDiscountCap && formData.mechanism === 'PERCENTAGE' && (
+                    <p className="mt-2 text-[10px] font-medium text-[#e3cebe]">
+                      Capped up to Rs. {Number(formData.maxDiscountCap).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Perforated Divider */}
+                <div className="relative my-4 flex items-center justify-center">
+                  <div className="w-full border-b-2 border-dashed border-white/25" />
+                </div>
+
+                {/* Code Box */}
+                <div className="mt-5 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#d8c2b4] mb-1.5">
+                    Use Code At Checkout
+                  </p>
+                  <div className="rounded-xl border border-white/20 bg-black/20 px-3 py-2.5 font-mono text-base font-extrabold tracking-[0.2em] text-[#faf6f0] shadow-inner backdrop-blur-xs select-all">
+                    {formData.code || 'YOURCODE'}
+                  </div>
+                </div>
+
+                {/* Dynamic Conditions Line */}
+                <div className="mt-4 pt-3 border-t border-white/10 text-center space-y-0.5">
+                  <p className="text-[10px] text-[#dac3b5]">
+                    {formData.minSpend && Number(formData.minSpend) > 0
+                      ? `Min. spend Rs. ${Number(formData.minSpend).toLocaleString()}`
+                      : 'No minimum order required'}
+                  </p>
+                  <p className="text-[10px] text-[#bda79b]">
+                    Valid through {formData.endDate ? new Date(formData.endDate + 'T00:00:00').toLocaleDateString() : 'Limited Time'}
+                  </p>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Action Buttons */}
+            <div className="space-y-2 mt-6">
+              <button
+                type="submit"
+                form="promoForm"
+                disabled={loading || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
+                className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {loading
+                  ? 'Processing...'
+                  : editingPromoId
+                  ? 'Update Promo Code'
+                  : 'Publish Promo Code'}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-xl border border-[#ded5c7] bg-white py-3 text-center text-sm font-bold text-[#6b493d] hover:bg-[#fcfaf8] transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         </div>
       </div>
