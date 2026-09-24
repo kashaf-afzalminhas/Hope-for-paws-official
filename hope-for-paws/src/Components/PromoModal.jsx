@@ -27,7 +27,14 @@ const PromoModal = ({ isOpen, onClose }) => {
   const [promoToDelete, setPromoToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const getLocalDateString = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const todayStr = getLocalDateString();
 
   const defaultFormState = {
     code: '',
@@ -110,8 +117,8 @@ const PromoModal = ({ isOpen, onClose }) => {
       maxDiscountCap: promo.maxDiscountCap ? String(promo.maxDiscountCap) : '',
       customRewardText: promo.customRewardText || '',
       minSpend: promo.minSpend !== undefined && promo.minSpend !== null && promo.minSpend > 0 ? String(promo.minSpend) : '',
-      startDate: promo.startDatetime ? new Date(promo.startDatetime).toISOString().split('T')[0] : todayStr,
-      endDate: promo.endDatetime ? new Date(promo.endDatetime).toISOString().split('T')[0] : '',
+      startDate: promo.startDatetime ? getLocalDateString(new Date(promo.startDatetime)) : todayStr,
+      endDate: promo.endDatetime ? getLocalDateString(new Date(promo.endDatetime)) : '',
       totalUsageLimit: promo.totalUsageLimit ? String(promo.totalUsageLimit) : '',
       perBuyerLimit: promo.perBuyerLimit || 1
     });
