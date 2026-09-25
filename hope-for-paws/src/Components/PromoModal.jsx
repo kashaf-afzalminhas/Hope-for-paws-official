@@ -96,11 +96,18 @@ const todayStr = getLocalDateString();
   const handleCategoryToggle = (cat) => {
     setFormData((prev) => {
       const exists = prev.selectedCategories.includes(cat);
+      const nextCategories = exists
+        ? prev.selectedCategories.filter((c) => c !== cat)
+        : [...prev.selectedCategories, cat];
+
+      // Auto-clear the error if user selected at least one category
+      if (nextCategories.length > 0 && errorMsg.includes('qualifying category')) {
+        setErrorMsg('');
+      }
+
       return {
         ...prev,
-        selectedCategories: exists
-          ? prev.selectedCategories.filter((c) => c !== cat)
-          : [...prev.selectedCategories, cat]
+        selectedCategories: nextCategories
       };
     });
   };
@@ -167,6 +174,9 @@ const todayStr = getLocalDateString();
 
   const isPerBuyerLimitInvalid =
     formData.perBuyerLimit !== '' && Number(formData.perBuyerLimit) < 1;
+  
+  const isCategorySelectionInvalid =
+    formData.scope === 'SPECIFIC_CATEGORY' && formData.selectedCategories.length === 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1021,7 +1031,7 @@ const todayStr = getLocalDateString();
               <button
                 type="submit"
                 form="promoForm"
-                disabled={loading || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
+                disabled={loading || isCategorySelectionInvalid || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
                 className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading
