@@ -122,11 +122,11 @@ export default function Checkout() {
               item.product?.sellerId ||
               item.seller?._id ||
               item.seller,
-            category: item.category || item.product?.category,
+            category: item.category || item.product?.category || '',
             price: item.price,
             quantity: item.quantity
           })),
-          currentShippingFee: shippingFee
+          currentShippingFee: defaultShipping
         })
       });
 
@@ -191,7 +191,15 @@ export default function Checkout() {
       
       const payload = {
         items: items.map(it => ({
-          productId: it.productId,
+          productId: it.productId || it.product?._id || it._id,
+          sellerId:
+            it.sellerId?._id ||
+            it.sellerId ||
+            it.product?.sellerId?._id ||
+            it.product?.sellerId ||
+            it.seller?._id ||
+            it.seller,
+          category: it.category || it.product?.category || '',
           title: it.title || 'Unknown Product',
           image: it.image,
           quantity: it.quantity,

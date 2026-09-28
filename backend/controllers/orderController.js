@@ -115,17 +115,23 @@ exports.createOrder = async (req, res) => {
             discountAmount = Math.min(appliedPromo.discountAmount || 0, subtotal);
           }
 
-          // Atomically update campaign and per-buyer redemption counts
+          // Atomically update campaign count
           await PromoCode.findByIdAndUpdate(promoDoc._id, {
             $inc: { totalRedemptions: 1 }
           });
-          const userIdx = promoDoc.userRedemptions.findIndex(u => u.userId.toString() === buyerId.toString());
-          if (userIdx > -1) {
-            promoDoc.userRedemptions[userIdx].count += 1;
-          } else {
-            promoDoc.userRedemptions.push({ userId: buyerId, count: 1 });
+
+          // Record buyer redemption count if logged in
+          if (buyerId) {
+            const userIdx = promoDoc.userRedemptions.findIndex(
+              u => u.userId && u.userId.toString() === buyerId.toString()
+            );
+            if (userIdx > -1) {
+              promoDoc.userRedemptions[userIdx].count += 1;
+            } else {
+              promoDoc.userRedemptions.push({ userId: buyerId, count: 1 });
+            }
+            await promoDoc.save();
           }
-          await promoDoc.save();
         }
       }
 
