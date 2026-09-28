@@ -161,6 +161,7 @@ const Login = () => {
           }
           
           updateUser(data.user);
+          window.dispatchEvent(new Event('user-logged-in'));
           await performPostLoginRedirect(data.user);
         } else {
           setLoading(false);
@@ -246,6 +247,7 @@ const Login = () => {
         localStorage.removeItem('savedPassword');
         
         updateUser(data.user);
+        window.dispatchEvent(new Event('user-logged-in'));
         await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google login failed");
@@ -307,6 +309,7 @@ const Login = () => {
         localStorage.removeItem('savedPassword');
         
         updateUser(data.user);
+        window.dispatchEvent(new Event('user-logged-in'));
         await performPostLoginRedirect(data.user);
       } else {
         setError(data.message || "Google registration failed");

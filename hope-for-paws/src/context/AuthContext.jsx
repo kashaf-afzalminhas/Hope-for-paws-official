@@ -61,6 +61,7 @@ export const AuthProvider = ({ children }) => {
       
       setUser(user);
       setIsAuthenticated(true);
+      window.dispatchEvent(new Event('user-logged-in'));
     } catch (error) {
       throw error;
     }

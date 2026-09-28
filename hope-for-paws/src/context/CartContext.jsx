@@ -188,12 +188,23 @@ export const CartProvider = ({ children }) => {
     [items]
   );
 
-  // Auto-fetch cart on mount if logged in
+  // Auto-fetch cart on mount and whenever user signs in or tab regains focus
   useEffect(() => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (token) {
+    fetchCart();
+
+    const handleAuthOrCartUpdate = () => {
       fetchCart();
-    }
+    };
+
+    window.addEventListener('storage', handleAuthOrCartUpdate);
+    window.addEventListener('focus', handleAuthOrCartUpdate);
+    window.addEventListener('user-logged-in', handleAuthOrCartUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleAuthOrCartUpdate);
+      window.removeEventListener('focus', handleAuthOrCartUpdate);
+      window.removeEventListener('user-logged-in', handleAuthOrCartUpdate);
+    };
   }, [fetchCart]);
 
   return (
