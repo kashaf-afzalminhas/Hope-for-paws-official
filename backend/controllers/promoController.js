@@ -215,8 +215,12 @@ exports.applyPromoCode = async (req, res) => {
     // 6. Check categories if the scope is restricted
     let eligibleItems = sellerItems;
     if (promo.scope === 'SPECIFIC_CATEGORY') {
+      const allowedCategoriesLower = (promo.applicableCategories || []).map((c) =>
+        c.trim().toLowerCase()
+      );
+
       eligibleItems = sellerItems.filter((item) =>
-        promo.applicableCategories.includes(item.resolvedCategory)
+        allowedCategoriesLower.includes((item.category || '').trim().toLowerCase())
       );
 
       if (eligibleItems.length === 0) {
