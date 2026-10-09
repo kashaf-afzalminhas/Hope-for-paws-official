@@ -23,12 +23,13 @@ ChartJS.register(
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play, ArrowUpRight,
-  BadgeCheck, Clock, Star, ArrowLeft, Tag
+  BadgeCheck, Clock, Star, ArrowLeft, Tag, ShieldCheck
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import PromoModal from '../Components/PromoModal';
+import SellerPolicies from './SellerPolicies';
 
 const API_URL = 'http://localhost:3000/api/sellers';
 
@@ -307,7 +308,8 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
           { id: 'overview', label: 'Overview', icon: TrendingUp },
           { id: 'products', label: 'Products', icon: Package },
           { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-          { id: 'reviews', label: 'Reviews', icon: Star }
+          { id: 'reviews', label: 'Reviews', icon: Star },
+          { id: 'policies', label: 'Policies', icon: ShieldCheck }
         ].map(tab => (
           <button
             key={tab.id}
@@ -326,6 +328,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
 
       {/* Content Area */}
       <div className="min-h-[400px]">
+        {activeTab === 'policies' && <SellerPolicies />}
         {activeTab === 'analytics' && (
           <SellerAnalyticsDashboard 
             embedded 

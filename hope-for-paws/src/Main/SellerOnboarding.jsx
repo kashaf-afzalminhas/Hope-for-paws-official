@@ -5,6 +5,7 @@ import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerServic
 import { useAuth } from '../context/AuthContext';
 import { User, Store, Mail, Phone, MapPin, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
 import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 const SellerOnboarding = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const SellerOnboarding = () => {
     phone: '',
     countryCode: '+92',
     address: '',
+    location: emptyPakistanLocation,
   });
 
   const [profileImage, setProfileImage] = useState(null);
@@ -68,6 +70,10 @@ const SellerOnboarding = () => {
       newErrors.address = 'Address is required';
     } else if (formData.address.length < 2 || formData.address.length > 200) {
       newErrors.address = 'Address must be 2-200 characters';
+    }
+
+    if (!formData.location?.cityCode) {
+      newErrors.location = 'Country, province, and city are required';
     }
 
     setErrors(newErrors);
@@ -119,6 +125,7 @@ const SellerOnboarding = () => {
       submitData.append('email', formData.email);
       submitData.append('phone', getFullPhoneNumber(formData.phone, formData.countryCode));
       submitData.append('address', formData.address);
+      submitData.append('location', JSON.stringify(formData.location));
       if (profileImage) {
         submitData.append('profileImage', profileImage);
       }
@@ -271,6 +278,24 @@ const SellerOnboarding = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   
                   {/* Full Name */}
+                  <motion.div variants={itemVariants} className="md:col-span-2">
+                    <div className="mb-2 flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-[#a07855]" />
+                      <label className="block text-xs font-bold text-[#8d6e63] uppercase tracking-widest">Store location *</label>
+                    </div>
+                    <PakistanLocationSelector
+                      value={formData.location}
+                      required
+                      disabled={loading}
+                      onChange={(location) => {
+                        setFormData((prev) => ({ ...prev, location }));
+                        setErrors((prev) => ({ ...prev, location: '' }));
+                      }}
+                    />
+                    {errors.location && <p className="mt-2 text-sm text-red-500 font-medium">{errors.location}</p>}
+                  </motion.div>
+
+                  {/* Address */}
                   <motion.div variants={itemVariants} className="md:col-span-2">
                     <label htmlFor="fullName" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
                       Full Name *

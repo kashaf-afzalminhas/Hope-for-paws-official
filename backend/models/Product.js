@@ -20,6 +20,18 @@ const productSchema = new mongoose.Schema(
 
     },
 
+    shippingPolicyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ShippingPolicy',
+      default: null
+    },
+
+    guaranteePolicyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'GuaranteePolicy',
+      default: null
+    },
+
     title: {
 
       type: String,

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const structuredLocationFields = require('./locationFields');
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: String, required: true, unique: true },
@@ -21,6 +22,7 @@ const orderSchema = new mongoose.Schema({
     city: { type: String },
     province: { type: String },
     postalCode: { type: String },
+    ...structuredLocationFields,
   },
   paymentMethod: { type: String, default: 'card' },
   totals: {

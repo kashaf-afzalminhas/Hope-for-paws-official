@@ -3,7 +3,49 @@ const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Review = require('../models/Review');
+const ShippingPolicy = require('../models/ShippingPolicy');
+const GuaranteePolicy = require('../models/GuaranteePolicy');
+const {
+  resolveEffectiveShippingPolicy,
+  resolveEffectiveGuaranteePolicy
+} = require('../services/policyService');
 const mongoose = require('mongoose');
+
+const validatePolicyReferences = async (sellerId, shippingPolicyId, guaranteePolicyId) => {
+  const references = {};
+
+  if (shippingPolicyId) {
+    const policy = await ShippingPolicy.findOne({
+      _id: shippingPolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Shipping policy was not found for this seller.');
+    }
+
+    references.shippingPolicyId = policy._id;
+  } else if (shippingPolicyId === '') {
+    references.shippingPolicyId = null;
+  }
+
+  if (guaranteePolicyId) {
+    const policy = await GuaranteePolicy.findOne({
+      _id: guaranteePolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Guarantee policy was not found for this seller.');
+    }
+
+    references.guaranteePolicyId = policy._id;
+  } else if (guaranteePolicyId === '') {
+    references.guaranteePolicyId = null;
+  }
+
+  return references;
+};
 
 // 1. Create Product
 exports.createProduct = async (req, res) => {
@@ -22,11 +64,22 @@ exports.createProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
       return res.status(400).json({ message: 'Title, brand, sku, price, and category are required' });
+    }
+
+    let policyReferences;
+    try {
+      policyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
     }
 
     // Strict Validations
@@ -83,6 +136,7 @@ exports.createProduct = async (req, res) => {
       discountPercentage:
         discountPercentage !== undefined ? Number(discountPercentage) : 0,
       additionalInfo: parsedAdditionalInfo,
+      ...policyReferences,
       images,
       status: 'active',
       isVisible: true
@@ -151,6 +205,7 @@ exports.listMyProducts = async (req, res) => {
   }
 };
 
+
 // 4. Get Single Product (Updated with dynamic sales and seller rating)
 exports.getProductById = async (req, res) => {
   try {
@@ -159,13 +214,11 @@ exports.getProductById = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const successfulStatuses = ['Confirmed', 'Processing', 'Shipped', 'Delivered'];
-
-    // Aggregate total successful sales for this specific product
+    // Sales are counted only after successful delivery.
     const productSalesAgg = await Order.aggregate([
       {
         $match: {
-          status: { $in: successfulStatuses },
+          status: 'Delivered',
           'items.productId': product._id
         }
       },
@@ -183,20 +236,21 @@ exports.getProductById = async (req, res) => {
       }
     ]);
 
-    const productTotalSales = productSalesAgg.length > 0 ? productSalesAgg[0].totalSales : 0;
+    const productTotalSales = productSalesAgg[0]?.totalSales || 0;
 
-    // Calculate seller statistics (total sales & rating) if seller is populated
     let sellerTotalSales = 0;
     let sellerRating = 0;
+    let sellerReviewCount = 0;
 
     if (product.sellerId) {
       const sellerObjId = product.sellerId._id;
 
+      // Count only delivered quantities across the seller's products.
       const sellerSalesAgg = await Order.aggregate([
         {
           $match: {
             sellerId: sellerObjId,
-            status: { $in: successfulStatuses }
+            status: 'Delivered'
           }
         },
         { $unwind: '$items' },
@@ -207,29 +261,63 @@ exports.getProductById = async (req, res) => {
           }
         }
       ]);
-      sellerTotalSales = sellerSalesAgg.length > 0 ? sellerSalesAgg[0].totalSales : 0;
 
-      const sellerProducts = await Product.find({ sellerId: sellerObjId }).select('_id').lean();
-      const productIds = sellerProducts.map((p) => p._id);
+      sellerTotalSales = sellerSalesAgg[0]?.totalSales || 0;
 
-      if (productIds.length > 0) {
-        const reviewAgg = await Review.aggregate([
-          { $match: { product: { $in: productIds } } },
+      // Calculate the seller/store rating from reviews on all of the
+      // seller's products.
+      const sellerProducts = await Product.find({ sellerId: sellerObjId })
+        .select('_id')
+        .lean();
+
+      const sellerProductIds = sellerProducts.map(({ _id }) => _id);
+
+      if (sellerProductIds.length > 0) {
+        const reviewStats = await Review.aggregate([
+          {
+            $match: {
+              product: { $in: sellerProductIds },
+              rating: { $gte: 1, $lte: 5 }
+            }
+          },
           {
             $group: {
               _id: null,
-              avgRating: { $avg: '$rating' }
+              averageRating: { $avg: '$rating' },
+              reviewCount: { $sum: 1 }
             }
           }
         ]);
-        if (reviewAgg.length > 0 && reviewAgg[0].avgRating) {
-          sellerRating = Math.round(reviewAgg[0].avgRating * 10) / 10;
+
+        const sellerReviewStats = reviewStats[0];
+
+        if (sellerReviewStats) {
+          sellerRating =
+            Math.round(sellerReviewStats.averageRating * 10) / 10;
+          sellerReviewCount = sellerReviewStats.reviewCount || 0;
         }
       }
     }
 
     const productObj = product.toObject();
+
+    const [effectiveShipping, effectiveGuarantee] = await Promise.all([
+      resolveEffectiveShippingPolicy(productObj),
+      resolveEffectiveGuaranteePolicy(productObj)
+    ]);
+
+    productObj.shippingPolicy = effectiveShipping.policy;
+    productObj.guaranteePolicy = effectiveGuarantee.policy;
+    // Product-level sales.
     productObj.totalSales = productTotalSales;
+    productObj.productTotalSales = productTotalSales;
+
+    // Seller/store-level statistics.
+    productObj.sellerTotalSales = sellerTotalSales;
+    productObj.sellerRating = sellerRating;
+    productObj.sellerReviewCount = sellerReviewCount;
+
+    // Preserve the response shape used by the sahab branch.
     if (productObj.sellerId && typeof productObj.sellerId === 'object') {
       productObj.sellerId.totalSales = sellerTotalSales;
       productObj.sellerId.rating = sellerRating;
@@ -284,8 +372,19 @@ exports.updateProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
+
+    let updatePolicyReferences;
+    try {
+      updatePolicyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
@@ -356,6 +455,14 @@ exports.updateProduct = async (req, res) => {
         ? Number(discountPercentage)
         : product.discountPercentage;
     if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'shippingPolicyId')) {
+      product.shippingPolicyId = updatePolicyReferences.shippingPolicyId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'guaranteePolicyId')) {
+      product.guaranteePolicyId = updatePolicyReferences.guaranteePolicyId;
+    }
 
     // Media Sync Logic
     let imagesToDelete = [];

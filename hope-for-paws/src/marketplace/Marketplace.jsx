@@ -131,17 +131,21 @@ function PawSVG({ size = 20, color = C.brown }) {
   );
 }
 
-function Stars({ rating, size = 11, showVal = false }) {
+function Stars({ rating, size = 11, showVal = false, numReviews = 0 }) {
+  const safeRating = Number(rating);
+  const hasReviews = Number.isFinite(safeRating) && safeRating > 0 && Number(numReviews) > 0;
+  const displayValue = hasReviews ? safeRating.toFixed(1) : 'No reviews yet';
+
   return (
     <div style={{ display:"flex", alignItems:"center", gap:3 }}>
       <div style={{ display:"flex", gap:1.5 }}>
         {[1,2,3,4,5].map(s => (
           <Star key={s} size={size}
-            style={{ color: s <= Math.round(rating) ? C.tan : C.creamDark,
-                     fill:  s <= Math.round(rating) ? C.tan : C.creamDark }} />
+            style={{ color: hasReviews && s <= Math.round(safeRating) ? C.tan : C.creamDark,
+                     fill:  hasReviews && s <= Math.round(safeRating) ? C.tan : C.creamDark }} />
         ))}
       </div>
-      {showVal && <span style={{ fontSize:size, color:C.brownMid, fontWeight:600 }}>{rating.toFixed(1)}</span>}
+      {showVal && <span style={{ fontSize:size, color:C.brownMid, fontWeight:600 }}>{displayValue}</span>}
     </div>
   );
 }
@@ -246,8 +250,8 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                 </div>
                 <h2 style={{ fontSize:20, fontWeight:800, color:C.brown, lineHeight:1.25, marginBottom:10 }}>{p.name}</h2>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <Stars rating={p.rating} size={13} showVal/>
-                  <span style={{ fontSize:12, color:C.brownSoft }}>({p.reviews.toLocaleString()} reviews)</span>
+                  <Stars rating={p.rating} size={13} showVal numReviews={p.reviews} />
+                  {p.reviews > 0 ? <span style={{ fontSize:12, color:C.brownSoft }}>({p.reviews.toLocaleString()} reviews)</span> : <span style={{ fontSize:12, color:C.brownSoft }}>No reviews yet</span>}
                 </div>
               </div>
 
@@ -534,8 +538,8 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                   <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
                   <p style={{ fontSize: 13, color: C.brown, margin: 0, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Stars rating={p.rating} size={10} />
-                    <span style={{ fontSize: 10, color: C.brownSoft }}>{p.rating.toFixed(1)}</span>
+                    <Stars rating={p.rating} size={10} numReviews={p.reviews} />
+                    {p.reviews > 0 ? <span style={{ fontSize: 10, color: C.brownSoft }}>{Number(p.rating || 0).toFixed(1)}</span> : <span style={{ fontSize: 10, color: C.brownSoft }}>No reviews yet</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 8 }}>
                     <div>
