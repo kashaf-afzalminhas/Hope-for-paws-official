@@ -35,7 +35,7 @@ const normalizeCart = (cart) => {
         price: discountedPrice,
         originalPrice: discountPercentage > 0 ? p.price : null,
         image,
-        seller: p.sellerId?.name || 'Unknown Seller',
+        seller: p.sellerId?.storeName || p.sellerId?.name || p.sellerId?.sellerName || 'Unknown Seller',
         category: p.category,
         brand: p.brand,
         weight: p.weight,
