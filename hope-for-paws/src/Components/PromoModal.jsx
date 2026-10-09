@@ -5,13 +5,9 @@ import {
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
-const STORE_CATEGORIES = [
-  'Grooming',
-  'Food & Treats',
-  'Beds & Furniture',
-  'Toys',
-  'Health & Wellness'
-];
+import { PRODUCT_CATEGORIES } from '../utils/constants';
+
+const STORE_CATEGORIES = PRODUCT_CATEGORIES;
 
 const PromoModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('create'); // 'create' | 'manage'
@@ -653,194 +649,191 @@ const todayStr = getLocalDateString();
                       })}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Discount Value Input */}
-                      <div>
-                        <label className="block text-xs font-bold text-[#4E3B31] mb-1">
-                          {formData.mechanism === 'PERCENTAGE'
-                            ? 'Discount Percentage (%)'
-                            : formData.mechanism === 'FIXED_AMOUNT'
-                            ? 'Discount Amount (Rs.)'
-                            : formData.mechanism === 'FREE_SHIPPING'
-                            ? 'Shipping Benefit'
-                            : 'Reward Description'}
-                          <span className="text-red-500"> *</span>
-                        </label>
+                    {formData.mechanism === 'CUSTOM_REWARD' ? (
+                      <div className="mt-4 rounded-2xl border border-[#ede6e1] bg-[#faf7f5] p-6 text-center space-y-3">
+                        <div className="w-12 h-12 mx-auto rounded-full bg-[#f3e7dc] border border-[#c9a280]/40 flex items-center justify-center text-[#6b493d] text-xl">
+                          🎁
+                        </div>
+                        <div>
+                          <span className="inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d] mb-2">
+                            Coming Soon
+                          </span>
+                          <h4 className="text-sm font-bold text-[#4E3B31]">Custom Gifts & Freebies</h4>
+                          <p className="text-xs leading-relaxed text-[#a07855] max-w-sm mx-auto mt-1">
+                            Rewarding shoppers with free merchandise, samples, and treats is currently in development and will be available soon!
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Discount Value Input */}
+                          <div>
+                            <label className="block text-xs font-bold text-[#4E3B31] mb-1">
+                              {formData.mechanism === 'PERCENTAGE'
+                                ? 'Discount Percentage (%)'
+                                : formData.mechanism === 'FIXED_AMOUNT'
+                                ? 'Discount Amount (Rs.)'
+                                : 'Shipping Benefit'}
+                              <span className="text-red-500"> *</span>
+                            </label>
 
-                        {formData.mechanism === 'PERCENTAGE' && (
-                          <div className="relative">
-                            <input
-                              type="number"
-                              required
-                              min="1"
-                              max="100"
-                              onKeyDown={blockInvalidNumberKeys}
-                              placeholder="e.g. 15"
-                              value={formData.discountValue}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  discountValue: e.target.value
-                                })
-                              }
-                              className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-8 text-sm focus:outline-none ${
-                                isPercentageInvalid
-                                  ? 'border-red-400 focus:border-red-500'
-                                  : 'border-[#ded5c8] focus:border-[#6b493d]'
-                              }`}
-                            />
-                            <span className="absolute right-3 top-2.5 text-sm text-gray-400 font-bold">%</span>
+                            {formData.mechanism === 'PERCENTAGE' && (
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  required
+                                  min="1"
+                                  max="100"
+                                  onKeyDown={blockInvalidNumberKeys}
+                                  placeholder="e.g. 15"
+                                  value={formData.discountValue}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      discountValue: e.target.value
+                                    })
+                                  }
+                                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-8 text-sm focus:outline-none ${
+                                    isPercentageInvalid
+                                      ? 'border-red-400 focus:border-red-500'
+                                      : 'border-[#ded5c8] focus:border-[#6b493d]'
+                                  }`}
+                                />
+                                <span className="absolute right-3 top-2.5 text-sm text-gray-400 font-bold">%</span>
+                              </div>
+                            )}
+
+                            {formData.mechanism === 'FIXED_AMOUNT' && (
+                              <input
+                                type="number"
+                                required
+                                min="1"
+                                onKeyDown={blockInvalidNumberKeys}
+                                placeholder="e.g. 250"
+                                value={formData.discountValue}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    discountValue: e.target.value
+                                  })
+                                }
+                                className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
+                                  isFixedAmountInvalid
+                                    ? 'border-red-400 focus:border-red-500'
+                                    : 'border-[#ded5c8] focus:border-[#6b493d]'
+                                }`}
+                              />
+                            )}
+
+                            {formData.mechanism === 'FREE_SHIPPING' && (
+                              <input
+                                type="text"
+                                disabled
+                                value="100% Free Shipping"
+                                className="w-full rounded-xl border border-[#ded5c8] bg-gray-100 px-3.5 py-2.5 text-sm text-gray-600 font-semibold"
+                              />
+                            )}
+
+                            {formData.mechanism === 'PERCENTAGE' && (
+                              <p className={`mt-1 text-[11px] ${isPercentageInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                                {isPercentageInvalid
+                                  ? 'Discount percentage must be between 1% and 100%.'
+                                  : 'Percentage discount must be between 1% and 100%.'}
+                              </p>
+                            )}
+
+                            {formData.mechanism === 'FIXED_AMOUNT' && (
+                              <p className={`mt-1 text-[11px] ${isFixedAmountInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                                {isFixedAmountInvalid
+                                  ? 'Discount amount must be greater than Rs. 0.'
+                                  : 'Enter flat amount deducted in Rs. (must be greater than 0).'}
+                              </p>
+                            )}
+
+                            {formData.mechanism === 'FREE_SHIPPING' && (
+                              <p className="mt-1 text-[11px] text-[#8d7565]">
+                                Fully waives shipping fees for orders containing your products.
+                              </p>
+                            )}
                           </div>
-                        )}
 
-                        {formData.mechanism === 'FIXED_AMOUNT' && (
-                          <input
-                            type="number"
-                            required
-                            min="1"
-                            onKeyDown={blockInvalidNumberKeys}
-                            placeholder="e.g. 250"
-                            value={formData.discountValue}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                discountValue: e.target.value
-                              })
-                            }
-                            className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
-                              isFixedAmountInvalid
-                                ? 'border-red-400 focus:border-red-500'
-                                : 'border-[#ded5c8] focus:border-[#6b493d]'
-                            }`}
-                          />
-                        )}
-
-                        {formData.mechanism === 'FREE_SHIPPING' && (
-                          <input
-                            type="text"
-                            disabled
-                            value="100% Free Shipping"
-                            className="w-full rounded-xl border border-[#ded5c8] bg-gray-100 px-3.5 py-2.5 text-sm text-gray-600 font-semibold"
-                          />
-                        )}
-
-                        {formData.mechanism === 'CUSTOM_REWARD' && (
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Free Grooming Brush"
-                            value={formData.customRewardText}
-                            onChange={(e) =>
-                              setFormData({ ...formData, customRewardText: e.target.value })
-                            }
-                            className="w-full rounded-xl border border-[#ded5c8] bg-white px-3.5 py-2.5 text-sm focus:border-[#6b493d] focus:outline-none"
-                          />
-                        )}
-
-                        {/* Dynamic helper/error note for discount */}
-                        {formData.mechanism === 'PERCENTAGE' && (
-                          <p className={`mt-1 text-[11px] ${isPercentageInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
-                            {isPercentageInvalid
-                              ? 'Discount percentage must be between 1% and 100%.'
-                              : 'Percentage discount must be between 1% and 100%.'}
-                          </p>
-                        )}
-
-                        {formData.mechanism === 'FIXED_AMOUNT' && (
-                          <p className={`mt-1 text-[11px] ${isFixedAmountInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
-                            {isFixedAmountInvalid
-                              ? 'Discount amount must be greater than Rs. 0.'
-                              : 'Enter flat amount deducted in Rs. (must be greater than 0).'}
-                          </p>
-                        )}
-
-                        {formData.mechanism === 'FREE_SHIPPING' && (
-                          <p className="mt-1 text-[11px] text-[#8d7565]">
-                            Fully waives shipping fees for orders containing your products.
-                          </p>
-                        )}
-
-                        {formData.mechanism === 'CUSTOM_REWARD' && (
-                          <p className="mt-1 text-[11px] text-[#8d7565]">
-                            Specify the complimentary item or gift to include with the order.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Minimum Spend Req Input */}
-                      <div>
-                        <label className="block text-xs font-bold text-[#4E3B31] mb-1">
-                          Minimum Spend Req. (Rs.)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          onKeyDown={blockInvalidNumberKeys}
-                          placeholder="Optional (e.g. 500)"
-                          value={formData.minSpend}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              minSpend: e.target.value
-                            })
-                          }
-                          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
-                            isMinSpendInvalid
-                              ? 'border-red-400 focus:border-red-500'
-                              : 'border-[#ded5c8] focus:border-[#6b493d]'
-                          }`}
-                        />
-                        <p className={`mt-1 text-[11px] ${isMinSpendInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
-                          {isMinSpendInvalid
-                            ? 'Minimum spend cannot be negative.'
-                            : 'Order subtotal required to unlock this code (leave blank for no minimum).'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Ceiling Cap Checkbox for Percentage */}
-                    {formData.mechanism === 'PERCENTAGE' && (
-                      <div className="mt-4 pt-3 border-t border-[#f0e9df]">
-                        <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-[#4E3B31]">
-                          <input
-                            type="checkbox"
-                            checked={formData.hasMaxDiscountCap}
-                            onChange={(e) =>
-                              setFormData({ ...formData, hasMaxDiscountCap: e.target.checked })
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-0"
-                          />
-                          <span>Apply Maximum Discount Ceiling Cap</span>
-                        </label>
-
-                        {formData.hasMaxDiscountCap && (
-                          <div className="mt-2 w-full sm:w-1/2">
+                          {/* Minimum Spend Req Input */}
+                          <div>
+                            <label className="block text-xs font-bold text-[#4E3B31] mb-1">
+                              Minimum Spend Req. (Rs.)
+                            </label>
                             <input
                               type="number"
-                              min="1"
+                              min="0"
                               onKeyDown={blockInvalidNumberKeys}
-                              placeholder="e.g. 1000"
-                              value={formData.maxDiscountCap}
+                              placeholder="Optional (e.g. 500)"
+                              value={formData.minSpend}
                               onChange={(e) =>
                                 setFormData({
                                   ...formData,
-                                  maxDiscountCap: e.target.value
+                                  minSpend: e.target.value
                                 })
                               }
-                              className={`w-full rounded-xl border bg-white px-3.5 py-2 text-sm focus:outline-none ${
-                                isCapInvalid
+                              className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm focus:outline-none ${
+                                isMinSpendInvalid
                                   ? 'border-red-400 focus:border-red-500'
                                   : 'border-[#ded5c8] focus:border-[#6b493d]'
                               }`}
                             />
-                            <p className={`mt-1 text-[11px] ${isCapInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
-                              {isCapInvalid
-                                ? 'Ceiling cap must be greater than Rs. 0.'
-                                : 'Caps total percentage discount up to this maximum amount in Rs.'}
+                            <p className={`mt-1 text-[11px] ${isMinSpendInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                              {isMinSpendInvalid
+                                ? 'Minimum spend cannot be negative.'
+                                : 'Order subtotal required to unlock this code (leave blank for no minimum).'}
                             </p>
                           </div>
+                        </div>
+
+                        {/* Ceiling Cap Checkbox for Percentage */}
+                        {formData.mechanism === 'PERCENTAGE' && (
+                          <div className="mt-4 pt-3 border-t border-[#f0e9df]">
+                            <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-[#4E3B31]">
+                              <input
+                                type="checkbox"
+                                checked={formData.hasMaxDiscountCap}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, hasMaxDiscountCap: e.target.checked })
+                                }
+                                className="h-4 w-4 rounded border-gray-300 text-[#6b493d] focus:ring-0"
+                              />
+                              <span>Apply Maximum Discount Ceiling Cap</span>
+                            </label>
+
+                            {formData.hasMaxDiscountCap && (
+                              <div className="mt-2 w-full sm:w-1/2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  onKeyDown={blockInvalidNumberKeys}
+                                  placeholder="e.g. 1000"
+                                  value={formData.maxDiscountCap}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      maxDiscountCap: e.target.value
+                                    })
+                                  }
+                                  className={`w-full rounded-xl border bg-white px-3.5 py-2 text-sm focus:outline-none ${
+                                    isCapInvalid
+                                      ? 'border-red-400 focus:border-red-500'
+                                      : 'border-[#ded5c8] focus:border-[#6b493d]'
+                                  }`}
+                                />
+                                <p className={`mt-1 text-[11px] ${isCapInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                                  {isCapInvalid
+                                    ? 'Ceiling cap must be greater than Rs. 0.'
+                                    : 'Caps total percentage discount up to this maximum amount in Rs.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
 
@@ -1031,10 +1024,12 @@ const todayStr = getLocalDateString();
               <button
                 type="submit"
                 form="promoForm"
-                disabled={loading || isCategorySelectionInvalid || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
+                disabled={formData.mechanism === 'CUSTOM_REWARD' || loading || isCategorySelectionInvalid || isPercentageInvalid || isFixedAmountInvalid || isMinSpendInvalid || isCapInvalid || isPerBuyerLimitInvalid}
                 className="w-full rounded-xl bg-[#6b493d] py-3 text-center text-sm font-bold text-white shadow hover:bg-[#57392f] transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {loading
+                {formData.mechanism === 'CUSTOM_REWARD'
+                  ? 'Feature Coming Soon'
+                  : loading
                   ? 'Processing...'
                   : editingPromoId
                   ? 'Update Promo Code'
