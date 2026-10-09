@@ -537,16 +537,8 @@ export default function Checkout() {
           )}
 
           {promoError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[12px] text-red-700 space-y-1">
-              <p className="font-semibold">{promoError.message}</p>
-              {promoError.qualifyingCategories && promoError.qualifyingCategories.length > 0 && (
-                <a 
-                  href={`/shop?category=${promoError.qualifyingCategories[0]}`}
-                  className="block underline font-bold text-[#6b493d] text-[11px]"
-                >
-                  Explore qualifying {promoError.qualifyingCategories.join(', ')} items →
-                </a>
-              )}
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
+              {promoError.message}
             </div>
           )}
         </div>
