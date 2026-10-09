@@ -285,7 +285,7 @@ const todayStr = getLocalDateString();
     if (formData.mechanism === 'FREE_SHIPPING') {
       return 'FREE SHIPPING';
     }
-    return formData.customRewardText || 'SPECIAL REWARD';
+    return 'COMING SOON';
   };
 
   const isManage = activeTab === 'manage';
@@ -624,9 +624,9 @@ const todayStr = getLocalDateString();
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
                         { id: 'PERCENTAGE', label: 'Percentage', symbol: '%' },
-                        { id: 'FIXED_AMOUNT', label: 'Fixed Amt', symbol: 'Rs.' },
-                        { id: 'FREE_SHIPPING', label: 'Free Ship', icon: '🚚' },
-                        { id: 'CUSTOM_REWARD', label: 'Reward', icon: '🎁' }
+                        { id: 'FIXED_AMOUNT', label: 'Fixed Amount', symbol: 'Rs. OFF' },
+                        { id: 'FREE_SHIPPING', label: 'Shipping', symbol: 'Free' },
+                        { id: 'CUSTOM_REWARD', label: 'Reward', symbol: 'Gift' }
                       ].map((item) => {
                         const selected = formData.mechanism === item.id;
                         return (
@@ -650,17 +650,17 @@ const todayStr = getLocalDateString();
                     </div>
 
                     {formData.mechanism === 'CUSTOM_REWARD' ? (
-                      <div className="mt-4 rounded-2xl border border-[#ede6e1] bg-[#faf7f5] p-6 text-center space-y-3">
-                        <div className="w-12 h-12 mx-auto rounded-full bg-[#f3e7dc] border border-[#c9a280]/40 flex items-center justify-center text-[#6b493d] text-xl">
-                          🎁
+                      <div className="mt-5 rounded-2xl border border-[#ede6e1] bg-[#faf7f5] p-8 text-center space-y-3">
+                        <div className="w-12 h-12 mx-auto rounded-full bg-[#f3e7dc] border border-[#c9a280]/40 flex items-center justify-center text-[#6b493d]">
+                          <Tag className="w-5 h-5 text-[#6b493d]" />
                         </div>
-                        <div>
-                          <span className="inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d] mb-2">
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center rounded-full border border-[#c9a280]/60 bg-[#f3e7dc] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6b493d]">
                             Coming Soon
                           </span>
-                          <h4 className="text-sm font-bold text-[#4E3B31]">Custom Gifts & Freebies</h4>
-                          <p className="text-xs leading-relaxed text-[#a07855] max-w-sm mx-auto mt-1">
-                            Rewarding shoppers with free merchandise, samples, and treats is currently in development and will be available soon!
+                          <h4 className="text-[15px] font-bold text-[#4E3B31]">Custom Gifts & Store Rewards</h4>
+                          <p className="text-xs leading-relaxed text-[#a07855] max-w-sm mx-auto">
+                            Rewarding shoppers with free merchandise, samples, and treats is currently under development and will be available in an upcoming update.
                           </p>
                         </div>
                       </div>
@@ -833,109 +833,109 @@ const todayStr = getLocalDateString();
                             )}
                           </div>
                         )}
+
+                        <hr className="border-[#eee5d8] my-6" />
+
+                        {/* 4. Validity Dates */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                              Start Date <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              min={todayStr}
+                              value={formData.startDate}
+                              onChange={(e) => {
+                                const newStart = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  startDate: newStart,
+                                  endDate: prev.endDate && prev.endDate < newStart ? newStart : prev.endDate
+                                }));
+                              }}
+                              className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                            />
+                            <p className="mt-1 text-[11px] text-[#8d7565]">
+                              Campaign begins at 00:00:00 on this date.
+                            </p>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                              End Date <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              min={formData.startDate || todayStr}
+                              value={formData.endDate}
+                              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                              className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                            />
+                            <p className="mt-1 text-[11px] text-[#8d7565]">
+                              Campaign ends at 23:59:59 on this date.
+                            </p>
+                          </div>
+                        </div>
+
+                        <hr className="border-[#eee5d8] my-6" />
+
+                        {/* 5. Limits */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                              Total Campaign Limit
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              onKeyDown={blockInvalidNumberKeys}
+                              placeholder="Leave blank for unlimited"
+                              value={formData.totalUsageLimit}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  totalUsageLimit: e.target.value
+                                })
+                              }
+                              className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
+                            />
+                            <p className="mt-1 text-[11px] text-[#8d7565]">
+                              Max overall uses across all buyers (blank = unlimited).
+                            </p>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
+                              Per-Buyer Usage Limit <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              required
+                              min="1"
+                              onKeyDown={blockInvalidNumberKeys}
+                              value={formData.perBuyerLimit}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  perBuyerLimit: e.target.value
+                                })
+                              }
+                              className={`w-full rounded-xl border bg-white px-3 py-2 text-sm text-[#4E3B31] focus:outline-none ${
+                                isPerBuyerLimitInvalid
+                                  ? 'border-red-400 focus:border-red-500'
+                                  : 'border-[#ded5c8] focus:border-[#6b493d]'
+                              }`}
+                            />
+                            <p className={`mt-1 text-[11px] ${isPerBuyerLimitInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
+                              {isPerBuyerLimitInvalid
+                                ? 'Must allow at least 1 redemption per customer.'
+                                : 'How many times each buyer account can redeem this code.'}
+                            </p>
+                          </div>
+                        </div>
                       </>
                     )}
-                  </div>
-
-                  <hr className="border-[#eee5d8]" />
-
-                  {/* 4. Validity Dates */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                        Start Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        min={todayStr}
-                        value={formData.startDate}
-                        onChange={(e) => {
-                          const newStart = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            startDate: newStart,
-                            endDate: prev.endDate && prev.endDate < newStart ? newStart : prev.endDate
-                          }));
-                        }}
-                        className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
-                      />
-                      <p className="mt-1 text-[11px] text-[#8d7565]">
-                        Campaign begins at 00:00:00 on this date.
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                        End Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        min={formData.startDate || todayStr}
-                        value={formData.endDate}
-                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                        className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
-                      />
-                      <p className="mt-1 text-[11px] text-[#8d7565]">
-                        Campaign ends at 23:59:59 on this date.
-                      </p>
-                    </div>
-                  </div>
-
-                  <hr className="border-[#eee5d8]" />
-
-                  {/* 5. Limits */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                        Total Campaign Limit
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        onKeyDown={blockInvalidNumberKeys}
-                        placeholder="Leave blank for unlimited"
-                        value={formData.totalUsageLimit}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            totalUsageLimit: e.target.value
-                          })
-                        }
-                        className="w-full rounded-xl border border-[#ded5c8] bg-white px-3 py-2 text-sm text-[#4E3B31] focus:border-[#6b493d] focus:outline-none"
-                      />
-                      <p className="mt-1 text-[11px] text-[#8d7565]">
-                        Max overall uses across all buyers (blank = unlimited).
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#a07855] mb-1">
-                        Per-Buyer Usage Limit <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        onKeyDown={blockInvalidNumberKeys}
-                        value={formData.perBuyerLimit}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            perBuyerLimit: e.target.value
-                          })
-                        }
-                        className={`w-full rounded-xl border bg-white px-3 py-2 text-sm text-[#4E3B31] focus:outline-none ${
-                          isPerBuyerLimitInvalid
-                            ? 'border-red-400 focus:border-red-500'
-                            : 'border-[#ded5c8] focus:border-[#6b493d]'
-                        }`}
-                      />
-                      <p className={`mt-1 text-[11px] ${isPerBuyerLimitInvalid ? 'font-semibold text-red-600' : 'text-[#8d7565]'}`}>
-                        {isPerBuyerLimitInvalid
-                          ? 'Must allow at least 1 redemption per customer.'
-                          : 'How many times each buyer account can redeem this code.'}
-                      </p>
-                    </div>
                   </div>
                 </form>
               )}
