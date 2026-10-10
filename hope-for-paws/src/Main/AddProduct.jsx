@@ -728,7 +728,8 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
 
         </form>
       </div>
-    </div>
+
+      </div>
   );
 };
 

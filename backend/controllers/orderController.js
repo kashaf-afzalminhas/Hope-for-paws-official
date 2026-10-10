@@ -21,7 +21,7 @@ function getNotificationService() {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod } = req.body;
+    const { items, shippingAddress, paymentMethod, appliedPromo } = req.body;
     const buyerId = req.user?.id || req.user?.userId;
 
     if (!items || items.length === 0) {
@@ -77,6 +77,7 @@ exports.createOrder = async (req, res) => {
 
       itemsBySeller[sellerId].push({
         productId: product._id,
+        category: product.category,
         title: product.title,
         image:
           product.images && product.images.length > 0
@@ -89,33 +90,75 @@ exports.createOrder = async (req, res) => {
 
     const ordersToCreate = [];
 
+const PromoCode = require('../models/PromoCode');
+
     for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
       const subtotal = sellerItems.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-       0
-  );
+        (acc, item) => acc + item.price * item.quantity,
+        0
+      );
 
-    const shippingQuote = await calculateSellerShipping({
-      sellerId,
-      items: sellerItems,
-      destination: {
-        ...shippingAddress,
-        country: shippingAddress.country || 'Pakistan'
-    },
-    qualifyingSubtotal: subtotal
-  });
+      const shippingQuote = await calculateSellerShipping({
+        sellerId,
+        items: sellerItems,
+        destination: {
+          ...shippingAddress,
+          country: shippingAddress.country || 'Pakistan'
+        },
+        qualifyingSubtotal: subtotal
+      });
 
-  const shippingFee = shippingQuote.shippingFee;
-  const finalTotal = subtotal + shippingFee;
+      let shippingFee = shippingQuote.shippingFee;
+      let discountAmount = 0;
+      let orderPromoCode = null;
+      let customReward = null;
+
+      // Apply promo only to the specific seller's sub-order
+      if (appliedPromo && appliedPromo.sellerId && appliedPromo.sellerId.toString() === sellerId.toString()) {
+        const promoDoc = await PromoCode.findOne({ code: appliedPromo.code, isActive: true });
+        if (promoDoc) {
+          orderPromoCode = promoDoc.code;
+          if (promoDoc.discountMechanism === 'FREE_SHIPPING') {
+            shippingFee = 0;
+          } else if (promoDoc.discountMechanism === 'CUSTOM_REWARD') {
+            customReward = promoDoc.customRewardText;
+          } else {
+            discountAmount = Math.min(appliedPromo.discountAmount || 0, subtotal);
+          }
+
+          // Atomically update campaign count
+          await PromoCode.findByIdAndUpdate(promoDoc._id, {
+            $inc: { totalRedemptions: 1 }
+          });
+
+          // Record buyer redemption count if logged in
+          if (buyerId) {
+            const userIdx = promoDoc.userRedemptions.findIndex(
+              u => u.userId && u.userId.toString() === buyerId.toString()
+            );
+            if (userIdx > -1) {
+              promoDoc.userRedemptions[userIdx].count += 1;
+            } else {
+              promoDoc.userRedemptions.push({ userId: buyerId, count: 1 });
+            }
+            await promoDoc.save();
+          }
+        }
+      }
+
+      const finalTotal = Math.max(0, subtotal - discountAmount + shippingFee);
       ordersToCreate.push({
         buyerId,
         sellerId,
         items: sellerItems,
         shippingAddress,
         paymentMethod,
+        promoCode: orderPromoCode,
+        customReward,
         totals: {
           subtotal,
           shippingFee,
+          discountAmount,
           finalTotal
         },
         status: 'Pending',

@@ -7,7 +7,7 @@ const POPULATE_OPTS = {
   select: 'title price discountPercentage images sellerId category brand weight countInStock',
   populate: {
     path: 'sellerId',
-    select: 'storeName name',
+    select: 'storeName name sellerName',
   },
 };
 

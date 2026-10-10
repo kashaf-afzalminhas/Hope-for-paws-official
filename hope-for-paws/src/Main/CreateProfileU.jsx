@@ -23,6 +23,16 @@ import MyPosts from './MyPosts';
 import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
+const COUNTRY_CODES = [
+  { code: '+92', label: 'Pakistan (+92)' },
+  { code: '+1', label: 'US/Canada (+1)' },
+  { code: '+44', label: 'UK (+44)' },
+  { code: '+971', label: 'UAE (+971)' },
+  { code: '+966', label: 'Saudi Arabia (+966)' },
+  { code: '+91', label: 'India (+91)' },
+  { code: '+61', label: 'Australia (+61)' }
+];
+
 // Simple Toast component
 const Toast = ({ toasts }) => (
   <div className="fixed top-4 right-4 z-50 space-y-2">
