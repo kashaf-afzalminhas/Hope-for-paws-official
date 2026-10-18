@@ -1,22 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
+import { ChevronDown } from 'lucide-react';
 
-const PAKISTAN_CITIES = [
-  'Abbottabad', 'Attock', 'Bahawalpur', 'Bahawalnagar', 'Bannu', 'Battagram',
-  'Bhakkar', 'Chakwal', 'Chaman', 'Chiniot', 'Chishtian', 'Dadu', 'Dera Ghazi Khan',
-  'Dera Ismail Khan', 'Faisalabad', 'Ghotki', 'Gilgit', 'Gojra', 'Gujranwala',
-  'Gujrat', 'Hafizabad', 'Haripur', 'Hyderabad', 'Islamabad', 'Jacobabad',
-  'Jhelum', 'Kamalia', 'Karachi', 'Kasur', 'Khanewal', 'Khushab', 'Khuzdar',
-  'Kohat', 'Kot Addu', 'Lahore', 'Larkana', 'Layyah', 'Lodhran', 'Mansehra',
-  'Mardan', 'Mirpur', 'Mirpur Khas', 'Multan', 'Muzaffarabad', 'Muzaffargarh',
-  'Narowal', 'Nawabshah', 'Nowshera', 'Okara', 'Pakpattan', 'Peshawar',
-  'Quetta', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha',
-  'Sheikhupura', 'Sialkot', 'Sibi', 'Sukkur', 'Swabi', 'Swat', 'Tando Adam',
-  'Taxila', 'Turbat', 'Vehari', 'Wah Cantonment', 'Zhob',
-];
+
 
 // Image validation constants
 const MAX_FILE_SIZE_MB = 2; // 2MB per image
@@ -25,6 +16,54 @@ const ALLOWED_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGES = 5;
 const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
+
+const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectRef = useRef(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick, true);
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick, true);
+  }, []);
+
+  return (
+    <div ref={selectRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`flex w-full items-center justify-between rounded-xl border bg-white px-4 py-2.5 text-left text-[#4E3B31] transition-colors focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${error ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8]'}`}
+      >
+        <span>{options.find((option) => option.value === value)?.label || placeholder}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#e8dcc8] bg-white py-1 text-[#4E3B31] shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+            {placeholder}
+          </button>
+          {options.map((option) => (
+            <button type="button" role="option" aria-selected={value === option.value} key={option.value} onClick={() => { onChange(option.value); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+AdoptionSelect.propTypes = {
+  value: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(PropTypes.shape({ value: PropTypes.string.isRequired, label: PropTypes.string.isRequired })).isRequired,
+  placeholder: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string
+};
 
 const AdoptionForm = () => {
   const [name, setName] = useState('');
@@ -35,6 +74,7 @@ const AdoptionForm = () => {
   const [neuteredSpayed, setNeuteredSpayed] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [locationDetails, setLocationDetails] = useState(emptyPakistanLocation);
   const [images, setImages] = useState([]); // Array of File objects
   const [imagePreviews, setImagePreviews] = useState([]); // Array of data URLs
   const [imageErrors, setImageErrors] = useState([]); // Array of error messages for each image
@@ -48,20 +88,32 @@ const AdoptionForm = () => {
   const [descriptionError, setDescriptionError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [imagesError, setImagesError] = useState('');
-  const [locationQuery, setLocationQuery] = useState('');
-  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-  const locationRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
-
-  const filteredCities = locationQuery.length > 0
-    ? PAKISTAN_CITIES.filter(c =>
-        c.toLowerCase().includes(locationQuery.toLowerCase())
-      )
-    : PAKISTAN_CITIES;
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const requireAuth = useRequireAuth();
+
+  const [effectiveUser, setEffectiveUser] = useState(() => {
+    try {
+      return user || JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      setEffectiveUser(user);
+    } else {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+        if (stored) setEffectiveUser(stored);
+      } catch {
+        // ignore
+      }
+    }
+  }, [user]);
 
   /**
    * Validate a single image file
@@ -297,8 +349,8 @@ const AdoptionForm = () => {
     }
 
     // Location
-    if (!location || location.trim() === '') {
-      setLocationError('Please select a valid city from the list');
+    if (!locationDetails?.cityCode) {
+      setLocationError('Please select a valid country, province, and city');
       hasValidationError = true;
     } else {
       setLocationError('');
@@ -346,6 +398,7 @@ const AdoptionForm = () => {
     formData.append('neuteredSpayed', neuteredSpayed);
     formData.append('description', description);
     formData.append('location', location);
+    if (locationDetails) formData.append('locationDetails', JSON.stringify(locationDetails));
 
     // Append all images
     for (const image of images) {
@@ -392,11 +445,18 @@ const AdoptionForm = () => {
   }
 
   // Show login prompt if not authenticated
-  if (!isAuthenticated || !user) {
+  if (!effectiveUser) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg text-center">
         <p className="mb-2 font-medium">Please sign in to create an adoption post.</p>
-        <p className="text-sm">You'll need an account so pet owners can reach you about your listing.</p>
+        <p className="text-sm mb-3">You'll need an account so pet owners can reach you about your listing.</p>
+        <button
+          type="button"
+          onClick={() => requireAuth('create an adoption post')}
+          className="rounded-lg bg-[#6b493d] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5a3c32]"
+        >
+          Sign in
+        </button>
       </div>
     );
   }
@@ -428,8 +488,8 @@ const AdoptionForm = () => {
                 setName(val);
                 setNameError(val.trim() === '' ? nameError : '');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                nameError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                nameError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {nameError && (
@@ -466,8 +526,8 @@ const AdoptionForm = () => {
                 // Block minus sign from being typed
                 if (e.key === '-') e.preventDefault();
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                ageError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                ageError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {ageError && (
@@ -492,8 +552,8 @@ const AdoptionForm = () => {
                 setBreed(val);
                 setBreedError(validateBreedValue(val));
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                breedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                breedError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
               }`}
             />
             {breedError && (
@@ -507,25 +567,23 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Pet Type
             </label>
-            <select
+            <AdoptionSelect
               value={petType}
-              onChange={(e) => {
-                const val = e.target.value;
-                setPetType(val);
-                if (val.trim() !== '') setPetTypeError('');
+              placeholder="Select pet type"
+              error={petTypeError}
+              options={[
+                { value: 'Dog', label: 'Dog' },
+                { value: 'Cat', label: 'Cat' },
+                { value: 'Bird', label: 'Bird' },
+                { value: 'Rabbit', label: 'Rabbit' },
+                { value: 'Hamster', label: 'Hamster' },
+                { value: 'Other', label: 'Other' }
+              ]}
+              onChange={(value) => {
+                setPetType(value);
+                if (value.trim() !== '') setPetTypeError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                petTypeError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select pet type</option>
-              <option value="Dog">Dog</option>
-              <option value="Cat">Cat</option>
-              <option value="Bird">Bird</option>
-              <option value="Rabbit">Rabbit</option>
-              <option value="Hamster">Hamster</option>
-              <option value="Other">Other</option>
-            </select>
+            />
             {petTypeError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {petTypeError}
@@ -539,21 +597,16 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Vaccinated
             </label>
-            <select
+            <AdoptionSelect
               value={vaccinated}
-              onChange={(e) => {
-                const val = e.target.value;
-                setVaccinated(val);
-                if (val.trim() !== '') setVaccinatedError('');
+              placeholder="Select vaccination status"
+              error={vaccinatedError}
+              options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+              onChange={(value) => {
+                setVaccinated(value);
+                if (value.trim() !== '') setVaccinatedError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                vaccinatedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select vaccination status</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
+            />
             {vaccinatedError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {vaccinatedError}
@@ -565,21 +618,16 @@ const AdoptionForm = () => {
             <label className="block text-sm font-medium text-[#4E3B31]">
               Neutered/Spayed
             </label>
-            <select
+            <AdoptionSelect
               value={neuteredSpayed}
-              onChange={(e) => {
-                const val = e.target.value;
-                setNeuteredSpayed(val);
-                if (val.trim() !== '') setNeuteredSpayedError('');
+              placeholder="Select neutering status"
+              error={neuteredSpayedError}
+              options={[{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }]}
+              onChange={(value) => {
+                setNeuteredSpayed(value);
+                if (value.trim() !== '') setNeuteredSpayedError('');
               }}
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent bg-white ${
-                neuteredSpayedError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Select neutering status</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
+            />
             {neuteredSpayedError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {neuteredSpayedError}
@@ -588,59 +636,19 @@ const AdoptionForm = () => {
           </div>
         </div>
 
-        <div className="space-y-2" ref={locationRef}>
+        <div className="space-y-2">
           <label className="block text-sm font-medium text-[#4E3B31]">
             Location <span className="text-xs text-[#8d6e63] font-normal">(Pakistan only)</span>
           </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search city, e.g. Lahore"
-              value={locationQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                setLocationQuery(val);
-                setLocation('');
-                setShowCitySuggestions(true);
-                if (val.trim() === '') {
-                  setLocationError('Please select a valid city from the list');
-                } else {
-                  setLocationError('Please select a city from the list');
-                }
-              }}
-              onFocus={() => setShowCitySuggestions(true)}
-              onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-              autoComplete="off"
-              className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent ${
-                locationError ? 'border-red-400 bg-red-50' : 'border-gray-300'
-              }`}
-            />
-
-            {/* Dropdown suggestions */}
-            {showCitySuggestions && filteredCities.length > 0 && (
-              <ul className="absolute z-50 w-full mt-1 bg-white border border-[#bca18a] rounded-md shadow-lg max-h-52 overflow-y-auto">
-                {filteredCities.map((city) => (
-                  <li
-                    key={city}
-                    onMouseDown={() => {
-                      setLocation(city);
-                      setLocationQuery(city);
-                      setLocationError('');
-                      setShowCitySuggestions(false);
-                    }}
-                    className="px-4 py-2 text-sm text-[#4E3B31] hover:bg-[#f3ede7] cursor-pointer transition-colors"
-                  >
-                    {city}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {showCitySuggestions && locationQuery.length > 0 && filteredCities.length === 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-red-200 rounded-md shadow-lg px-4 py-3 text-sm text-red-600">
-                No Pakistani city found matching "{locationQuery}"
-              </div>
-            )}
-          </div>
+          <PakistanLocationSelector
+            value={locationDetails}
+            required
+            onChange={(nextLocation) => {
+              setLocationDetails(nextLocation);
+              setLocation(nextLocation.cityName || '');
+              setLocationError('');
+            }}
+          />
           {locationError && (
             <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
               <span>⚠️</span> {locationError}
@@ -661,8 +669,8 @@ const AdoptionForm = () => {
               if (val.trim() !== '') setDescriptionError('');
             }}
             rows="4"
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#8B5A2B] focus:border-transparent resize-y ${
-              descriptionError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+            className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 resize-y ${
+              descriptionError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
             }`}
           />
           {descriptionError && (

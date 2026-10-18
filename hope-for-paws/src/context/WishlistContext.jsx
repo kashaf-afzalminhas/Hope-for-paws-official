@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './AuthContext'; // Using standard auth context assumption
 import { API_BASE_URL } from '../config';
 
 const WishlistContext = createContext();
@@ -7,63 +6,68 @@ const WishlistContext = createContext();
 export const useWishlist = () => useContext(WishlistContext);
 
 export const WishlistProvider = ({ children }) => {
-  const { user } = useAuth();
   const [wishlist, setWishlist] = useState([]);
   const [unviewedCount, setUnviewedCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const getAuthToken = () => {
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
+  };
+
   const fetchWishlist = useCallback(async () => {
-    if (!user) {
+    const token = getAuthToken();
+    if (!token) {
       setWishlist([]);
       setUnviewedCount(0);
       setIsLoading(false);
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/wishlist`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (!res.ok) throw new Error('Failed to fetch wishlist');
       const data = await res.json();
-      
+
       setWishlist(data.products || []);
       setUnviewedCount(data.unviewedCount || 0);
     } catch (err) {
-      console.error(err);
+      console.error('fetchWishlist error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    fetchWishlist();
+    const token = getAuthToken();
+    if (token) {
+      fetchWishlist();
+    }
   }, [fetchWishlist]);
 
   const toggleWishlist = async (productId) => {
-    if (!user) return { success: false, message: 'Not logged in' };
+    const token = getAuthToken();
+    if (!token) return { success: false, message: 'Not logged in' };
 
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const isCurrentlyInWishlist = wishlist.some(p => (p._id || p.id || p) === productId);
     const previousWishlist = [...wishlist];
     const previousUnviewedCount = unviewedCount;
-    
+
     // Optimistic Update
-    setWishlist(prev => 
-      isCurrentlyInWishlist 
-        ? prev.filter(p => (p._id || p.id || p) !== productId) 
-        : [...prev, productId] 
+    setWishlist(prev =>
+      isCurrentlyInWishlist
+        ? prev.filter(p => (p._id || p.id || p) !== productId)
+        : [...prev, productId]
     );
 
-    // Increment count optimistically if adding; let backend sync precise count on remove
     if (!isCurrentlyInWishlist) {
       setUnviewedCount(prev => prev + 1);
     }
@@ -81,17 +85,16 @@ export const WishlistProvider = ({ children }) => {
       if (!res.ok) throw new Error('Failed to toggle wishlist');
       const data = await res.json();
 
-      // Sync populated products and unviewed count directly from backend response
-      if (data.products) {
-        setWishlist(data.products);
-      }
+      // Fetch the full populated product objects from the server
+      await fetchWishlist();
+
       if (typeof data.unviewedCount === 'number') {
         setUnviewedCount(data.unviewedCount);
       }
 
       return { success: true, message: data.message };
     } catch (err) {
-      console.error(err);
+      console.error('toggleWishlist error:', err);
       setWishlist(previousWishlist);
       setUnviewedCount(previousUnviewedCount);
       return { success: false, message: err.message };
@@ -101,17 +104,16 @@ export const WishlistProvider = ({ children }) => {
   const isInWishlist = (productId) => wishlist.some(p => (p._id || p.id || p) === productId);
 
   const clearWishlist = async () => {
-    if (!user) return { success: false, message: 'Not logged in' };
+    const token = getAuthToken();
+    if (!token) return { success: false, message: 'Not logged in' };
 
     const previousWishlist = [...wishlist];
     const previousUnviewedCount = unviewedCount;
 
-    // Optimistic update
     setWishlist([]);
     setUnviewedCount(0);
 
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/wishlist/clear`, {
         method: 'DELETE',
         headers: {
@@ -122,7 +124,7 @@ export const WishlistProvider = ({ children }) => {
       if (!res.ok) throw new Error('Failed to clear wishlist');
       return { success: true, message: 'Wishlist cleared' };
     } catch (err) {
-      console.error(err);
+      console.error('clearWishlist error:', err);
       setWishlist(previousWishlist);
       setUnviewedCount(previousUnviewedCount);
       return { success: false, message: err.message };
@@ -130,11 +132,11 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const markAsViewed = useCallback(async () => {
-    if (!user) return;
-    setUnviewedCount(0); // Instantly reset count to 0 in UI
+    const token = getAuthToken();
+    if (!token) return;
+    setUnviewedCount(0);
 
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await fetch(`${API_BASE_URL}/wishlist/view`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -142,7 +144,7 @@ export const WishlistProvider = ({ children }) => {
     } catch (err) {
       console.error('Failed to mark wishlist as viewed:', err);
     }
-  }, [user]);
+  }, []);
 
   return (
     <WishlistContext.Provider value={{

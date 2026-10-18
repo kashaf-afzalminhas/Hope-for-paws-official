@@ -29,6 +29,7 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
   const [imageError, setImageError] = useState('');
+  const [ageError, setAgeError] = useState('');
   const previewUrlsRef = useRef([]);
 
   useEffect(() => () => {
@@ -39,10 +40,10 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
     const files = Array.from(event.target.files || []);
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     const validFiles = files.filter((file) => allowedTypes.includes(file.type) && file.size <= 5 * 1024 * 1024);
-    if (validFiles.length !== files.length) setImageError('Use JPEG, PNG, or WebP images up to 5MB each.');
-    else if (existingImages.length + newFiles.length + validFiles.length > 20) setImageError('You can have up to 20 photos.');
-    else setImageError('');
-    const filesToAdd = validFiles.slice(0, Math.max(0, 20 - existingImages.length - newFiles.length));
+    if (validFiles.length !== files.length) { setImageError('Use JPEG, PNG, or WebP images up to 5MB each.'); event.target.value = ''; return; }
+    if (existingImages.length + newFiles.length + validFiles.length > 5) { setImageError('You can only upload a maximum of 5 pictures.'); event.target.value = ''; return; }
+    setImageError('');
+    const filesToAdd = validFiles.slice(0, Math.max(0, 5 - existingImages.length - newFiles.length));
     const previewsToAdd = filesToAdd.map((file) => URL.createObjectURL(file));
     previewUrlsRef.current.push(...previewsToAdd);
     setNewFiles((previous) => [...previous, ...filesToAdd]);
@@ -64,6 +65,12 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
       setImageError('Keep at least one photo for this adoption ad.');
       return;
     }
+    const ageNum = Number(formData.age);
+    if (formData.age !== '' && (isNaN(ageNum) || ageNum < 0)) {
+      setAgeError('Age cannot be negative.');
+      return;
+    }
+    setAgeError('');
     const originalImages = getAdoptionImages(post);
     const indicesToRemove = originalImages.map((image, index) => (existingImages.includes(image) ? null : index)).filter((index) => index !== null);
     onSave(post._id, formData, newFiles, indicesToRemove);
@@ -103,7 +110,22 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
           </div>
           {[
             ['name', 'Pet name'], ['age', 'Age'], ['breed', 'Breed'], ['location', 'Location'],
-          ].map(([name, label]) => <div key={name}><label className="mb-1 block text-sm font-medium text-[#4E3B31]">{label}</label><input type="text" value={formData[name]} onChange={(event) => setFormData({ ...formData, [name]: event.target.value })} className="w-full rounded-xl border border-sand px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay" /></div>)}
+          ].map(([name, label]) => (
+            <div key={name}>
+              <label className="mb-1 block text-sm font-medium text-[#4E3B31]">{label}</label>
+              <input
+                type={name === 'age' ? 'number' : 'text'}
+                min={name === 'age' ? '0' : undefined}
+                value={formData[name]}
+                onChange={(event) => {
+                  setFormData({ ...formData, [name]: event.target.value });
+                  if (name === 'age') setAgeError('');
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay ${name === 'age' && ageError ? 'border-red-400' : 'border-sand'}`}
+              />
+              {name === 'age' && ageError && <p className="mt-1 text-xs font-medium text-red-600">{ageError}</p>}
+            </div>
+          ))}
           <div className="grid grid-cols-2 gap-3">
             {['petType', 'vaccinated', 'neuteredSpayed'].map((name) => <div key={name} className={name === 'petType' ? 'col-span-2' : ''}><label className="mb-1 block text-sm font-medium text-[#4E3B31]">{name === 'petType' ? 'Pet type' : name === 'neuteredSpayed' ? 'Neutered / spayed' : 'Vaccinated'}</label><select value={formData[name]} onChange={(event) => setFormData({ ...formData, [name]: event.target.value })} className="w-full rounded-xl border border-sand bg-white px-3 py-2"><option value="">Select</option>{(name === 'petType' ? ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Other'] : ['Yes', 'No']).map((option) => <option key={option} value={option}>{option}</option>)}</select></div>)}
           </div>
@@ -139,6 +161,9 @@ const MyAdoptions = ({ embedded = false }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedPostForRequests, setSelectedPostForRequests] = useState(null);
   const [savingStates, setSavingStates] = useState({}); // Track saving state per post
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { userStats, fetchUserStats } = useAdoption();
   const [storedUser, setStoredUser] = useState(null);
@@ -218,13 +243,18 @@ const MyAdoptions = ({ embedded = false }) => {
     }
   };
 
-  const handleDelete = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this adoption post?")) return;
-    
+  const handleDelete = (postId) => {
+    setPostToDelete(postId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!postToDelete) return;
     try {
+      setIsDeleting(true);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       await axios.delete(
-        `${API_BASE_URL}/adoptions/${postId}`,
+        `${API_BASE_URL}/adoptions/${postToDelete}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -238,7 +268,16 @@ const MyAdoptions = ({ embedded = false }) => {
     } catch (err) {
       console.error('Error deleting adoption post:', err);
       setError(err.response?.data?.message || err.message || 'Failed to delete post');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setPostToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setPostToDelete(null);
   };
 
   const handleEdit = (post) => {
@@ -588,6 +627,55 @@ const MyAdoptions = ({ embedded = false }) => {
           onRequestAction={handleRequestAction}
           onRefresh={() => { const effectiveUser = user || storedUser; const uid = getCurrentUserId(effectiveUser); if (uid) fetchUserAdoptions(uid); }}
         />
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {isDeleteModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#6B4A38]/40 px-4 backdrop-blur-sm"
+          onClick={cancelDelete}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-sand bg-white p-6 shadow-warm-lg animate-in fade-in zoom-in-95 duration-200"
+          >
+            {/* Icon */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 border border-rose-100">
+              <Trash2 className="h-7 w-7 text-rose-600" />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-center text-lg font-heading font-bold text-ink">
+              Delete Adoption Post
+            </h3>
+
+            {/* Message */}
+            <p className="mt-2 text-center text-sm text-ink-soft">
+              Are you sure you want to delete this adoption post? This action cannot be undone.
+            </p>
+
+            {/* Buttons */}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={cancelDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl border border-sand px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-sand-light disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </section>
   );

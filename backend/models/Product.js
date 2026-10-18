@@ -20,6 +20,18 @@ const productSchema = new mongoose.Schema(
 
     },
 
+    shippingPolicyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ShippingPolicy',
+      default: null
+    },
+
+    guaranteePolicyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'GuaranteePolicy',
+      default: null
+    },
+
     title: {
 
       type: String,
@@ -53,7 +65,6 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['Food', 'Toys', 'Bedding', 'Grooming', 'Health & Medicine', 'Accessories', 'Walking'],
       trim: true
     },
     brand: {
@@ -78,9 +89,10 @@ const productSchema = new mongoose.Schema(
     additionalInfo: {
       type: [{
         heading: { type: String, trim: true },
+        details: { type: String, trim: true },
         description: { type: String, trim: true }
       }],
-      validate: [(val) => val.length <= 5, '{PATH} exceeds the limit of 5 custom fields']
+      validate: [(val) => val.length <= 20, '{PATH} exceeds the limit of 20 custom fields']
     },
 
     // ✅ NEW FIELD: Stock (Matches your frontend code)

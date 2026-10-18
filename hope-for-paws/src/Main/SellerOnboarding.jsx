@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerService';
 import { useAuth } from '../context/AuthContext';
 import { User, Store, Mail, Phone, MapPin, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 const SellerOnboarding = () => {
   const navigate = useNavigate();
@@ -18,7 +20,9 @@ const SellerOnboarding = () => {
     storeName: '',
     email: '',
     phone: '',
+    countryCode: '+92',
     address: '',
+    location: emptyPakistanLocation,
   });
 
   const [profileImage, setProfileImage] = useState(null);
@@ -33,7 +37,7 @@ const SellerOnboarding = () => {
         ...prev,
         fullName: user.username || user.fullName || prev.fullName,
         email: user.email || '',
-        phone: user.phone || ''
+        ...parsePhoneNumber(user.phone)
       }));
     }
   }, [user]);
@@ -59,16 +63,17 @@ const SellerOnboarding = () => {
       newErrors.email = 'Valid email is required';
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (formData.phone.length < 5 || formData.phone.length > 20) {
-      newErrors.phone = 'Valid phone number is required';
-    }
+    const phoneError = validatePhone(formData.phone, formData.countryCode);
+    if (phoneError) newErrors.phone = phoneError;
 
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required';
     } else if (formData.address.length < 2 || formData.address.length > 200) {
       newErrors.address = 'Address must be 2-200 characters';
+    }
+
+    if (!formData.location?.cityCode) {
+      newErrors.location = 'Country, province, and city are required';
     }
 
     setErrors(newErrors);
@@ -118,8 +123,9 @@ const SellerOnboarding = () => {
       submitData.append('fullName', formData.fullName);
       submitData.append('storeName', formData.storeName);
       submitData.append('email', formData.email);
-      submitData.append('phone', formData.phone);
+      submitData.append('phone', getFullPhoneNumber(formData.phone, formData.countryCode));
       submitData.append('address', formData.address);
+      submitData.append('location', JSON.stringify(formData.location));
       if (profileImage) {
         submitData.append('profileImage', profileImage);
       }
@@ -128,7 +134,7 @@ const SellerOnboarding = () => {
       
       const updatedUser = updateLocalUserAsSeller('pending');
       if (updatedUser) {
-        updatedUser.phone = formData.phone;
+        updatedUser.phone = getFullPhoneNumber(formData.phone, formData.countryCode);
         updatedUser.phoneVerified = true;
         const userStorage = localStorage.getItem('user') ? localStorage : sessionStorage;
         userStorage.setItem('user', JSON.stringify(updatedUser));
@@ -273,6 +279,24 @@ const SellerOnboarding = () => {
                   
                   {/* Full Name */}
                   <motion.div variants={itemVariants} className="md:col-span-2">
+                    <div className="mb-2 flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-[#a07855]" />
+                      <label className="block text-xs font-bold text-[#8d6e63] uppercase tracking-widest">Store location *</label>
+                    </div>
+                    <PakistanLocationSelector
+                      value={formData.location}
+                      required
+                      disabled={loading}
+                      onChange={(location) => {
+                        setFormData((prev) => ({ ...prev, location }));
+                        setErrors((prev) => ({ ...prev, location: '' }));
+                      }}
+                    />
+                    {errors.location && <p className="mt-2 text-sm text-red-500 font-medium">{errors.location}</p>}
+                  </motion.div>
+
+                  {/* Address */}
+                  <motion.div variants={itemVariants} className="md:col-span-2">
                     <label htmlFor="fullName" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
                       Full Name *
                     </label>
@@ -345,26 +369,20 @@ const SellerOnboarding = () => {
 
                   {/* Phone Number */}
                   <motion.div variants={itemVariants}>
-                    <label htmlFor="phone" className="block text-xs font-bold text-[#8d6e63] mb-2 uppercase tracking-widest">
-                      Phone Number *
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                        <Phone className="h-5 w-5" />
-                      </div>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="+92 300 1234567"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-medium ${
-                          errors.phone ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      />
-                    </div>
-                    {errors.phone && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.phone}</p>}
+                    <PhoneNumberInput
+                      phone={formData.phone}
+                      countryCode={formData.countryCode}
+                      required
+                      label="Phone Number"
+                      touched={Boolean(errors.phone)}
+                      error={errors.phone}
+                      disabled={loading}
+                      onChange={({ phone, countryCode, error }) => {
+                        setFormData((prev) => ({ ...prev, phone, countryCode }));
+                        setErrors((prev) => ({ ...prev, phone: error || '' }));
+                      }}
+                      className="[&>div>select]:!rounded-xl [&>div>select]:!border-gray-200 [&>div>select]:!bg-gray-50 [&>div>select]:!py-3.5 [&>div>input]:!rounded-xl [&>div>input]:!border-gray-200 [&>div>input]:!bg-gray-50 [&>div>input]:!py-3.5"
+                    />
                   </motion.div>
 
                   {/* Address */}

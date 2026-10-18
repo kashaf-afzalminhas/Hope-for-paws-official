@@ -1,9 +1,11 @@
 import { Star, StarHalf } from "lucide-react";
 
 export default function StarDisplay({ rating, numReviews = 0, size = 14, showText = true }) {
+  const normalizedRating = Number(rating);
+  const hasReviews = Number.isFinite(normalizedRating) && normalizedRating > 0 && Number(numReviews) > 0;
   const stars = [];
-  const fullStars = Math.floor(rating);
-  const hasHalfStar = rating % 1 >= 0.5;
+  const fullStars = hasReviews ? Math.floor(normalizedRating) : 0;
+  const hasHalfStar = hasReviews && normalizedRating % 1 >= 0.5;
 
   for (let i = 0; i < 5; i++) {
     if (i < fullStars) {
@@ -20,7 +22,13 @@ export default function StarDisplay({ rating, numReviews = 0, size = 14, showTex
       <div className="flex items-center gap-0.5">{stars}</div>
       {showText && (
         <span className="text-xs text-stone-400 font-medium">
-          {rating.toFixed(1)} <span className="font-normal text-stone-300">({numReviews} review{numReviews !== 1 ? 's' : ''})</span>
+          {hasReviews ? (
+            <>
+              {normalizedRating.toFixed(1)} <span className="font-normal text-stone-300">({numReviews} review{numReviews !== 1 ? 's' : ''})</span>
+            </>
+          ) : (
+            <span className="font-normal text-stone-400">No reviews yet</span>
+          )}
         </span>
       )}
     </div>

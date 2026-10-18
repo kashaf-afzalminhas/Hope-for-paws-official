@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const structuredLocationFields = require('./locationFields');
 
 const adoptionSchema = new mongoose.Schema({
   userId: {
@@ -6,6 +7,7 @@ const adoptionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  locationDetails: structuredLocationFields,
   name: {
     type: String,
     required: true,

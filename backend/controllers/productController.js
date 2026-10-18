@@ -1,7 +1,51 @@
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Review = require('../models/Review');
+const ShippingPolicy = require('../models/ShippingPolicy');
+const GuaranteePolicy = require('../models/GuaranteePolicy');
+const {
+  resolveEffectiveShippingPolicy,
+  resolveEffectiveGuaranteePolicy
+} = require('../services/policyService');
 const mongoose = require('mongoose');
+
+const validatePolicyReferences = async (sellerId, shippingPolicyId, guaranteePolicyId) => {
+  const references = {};
+
+  if (shippingPolicyId) {
+    const policy = await ShippingPolicy.findOne({
+      _id: shippingPolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Shipping policy was not found for this seller.');
+    }
+
+    references.shippingPolicyId = policy._id;
+  } else if (shippingPolicyId === '') {
+    references.shippingPolicyId = null;
+  }
+
+  if (guaranteePolicyId) {
+    const policy = await GuaranteePolicy.findOne({
+      _id: guaranteePolicyId,
+      sellerId
+    }).select('_id').lean();
+
+    if (!policy) {
+      throw new Error('Guarantee policy was not found for this seller.');
+    }
+
+    references.guaranteePolicyId = policy._id;
+  } else if (guaranteePolicyId === '') {
+    references.guaranteePolicyId = null;
+  }
+
+  return references;
+};
 
 // 1. Create Product
 exports.createProduct = async (req, res) => {
@@ -20,11 +64,22 @@ exports.createProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
 
     if (!title || price === undefined || !category || !brand || !sku) {
       return res.status(400).json({ message: 'Title, brand, sku, price, and category are required' });
+    }
+
+    let policyReferences;
+    try {
+      policyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
     }
 
     // Strict Validations
@@ -46,7 +101,15 @@ exports.createProduct = async (req, res) => {
     let parsedAdditionalInfo = [];
     if (additionalInfo) {
       try {
-        parsedAdditionalInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        const rawInfo = typeof additionalInfo === 'string' ? JSON.parse(additionalInfo) : additionalInfo;
+        if (Array.isArray(rawInfo)) {
+          parsedAdditionalInfo = rawInfo
+            .map(item => ({
+              heading: (item.heading || '').trim(),
+              details: (item.details || item.description || '').trim()
+            }))
+            .filter(item => item.heading !== '' || item.details !== '');
+        }
       } catch (e) {
         console.error('Error parsing additionalInfo:', e);
       }
@@ -73,6 +136,7 @@ exports.createProduct = async (req, res) => {
       discountPercentage:
         discountPercentage !== undefined ? Number(discountPercentage) : 0,
       additionalInfo: parsedAdditionalInfo,
+      ...policyReferences,
       images,
       status: 'active',
       isVisible: true
@@ -141,15 +205,125 @@ exports.listMyProducts = async (req, res) => {
   }
 };
 
-// 4. Get Single Product (Updated to prevent Detail Page Crash)
+
+// 4. Get Single Product (Updated with dynamic sales and seller rating)
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      // ✅ FIX ADDED: Populates seller details so the Detail Page can read name & status
       .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json(product);
+
+    // Sales are counted only after successful delivery.
+    const productSalesAgg = await Order.aggregate([
+      {
+        $match: {
+          status: 'Delivered',
+          'items.productId': product._id
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.productId': product._id
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$items.quantity' }
+        }
+      }
+    ]);
+
+    const productTotalSales = productSalesAgg[0]?.totalSales || 0;
+
+    let sellerTotalSales = 0;
+    let sellerRating = 0;
+    let sellerReviewCount = 0;
+
+    if (product.sellerId) {
+      const sellerObjId = product.sellerId._id;
+
+      // Count only delivered quantities across the seller's products.
+      const sellerSalesAgg = await Order.aggregate([
+        {
+          $match: {
+            sellerId: sellerObjId,
+            status: 'Delivered'
+          }
+        },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: '$items.quantity' }
+          }
+        }
+      ]);
+
+      sellerTotalSales = sellerSalesAgg[0]?.totalSales || 0;
+
+      // Calculate the seller/store rating from reviews on all of the
+      // seller's products.
+      const sellerProducts = await Product.find({ sellerId: sellerObjId })
+        .select('_id')
+        .lean();
+
+      const sellerProductIds = sellerProducts.map(({ _id }) => _id);
+
+      if (sellerProductIds.length > 0) {
+        const reviewStats = await Review.aggregate([
+          {
+            $match: {
+              product: { $in: sellerProductIds },
+              rating: { $gte: 1, $lte: 5 }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              averageRating: { $avg: '$rating' },
+              reviewCount: { $sum: 1 }
+            }
+          }
+        ]);
+
+        const sellerReviewStats = reviewStats[0];
+
+        if (sellerReviewStats) {
+          sellerRating =
+            Math.round(sellerReviewStats.averageRating * 10) / 10;
+          sellerReviewCount = sellerReviewStats.reviewCount || 0;
+        }
+      }
+    }
+
+    const productObj = product.toObject();
+
+    const [effectiveShipping, effectiveGuarantee] = await Promise.all([
+      resolveEffectiveShippingPolicy(productObj),
+      resolveEffectiveGuaranteePolicy(productObj)
+    ]);
+
+    productObj.shippingPolicy = effectiveShipping.policy;
+    productObj.guaranteePolicy = effectiveGuarantee.policy;
+    // Product-level sales.
+    productObj.totalSales = productTotalSales;
+    productObj.productTotalSales = productTotalSales;
+
+    // Seller/store-level statistics.
+    productObj.sellerTotalSales = sellerTotalSales;
+    productObj.sellerRating = sellerRating;
+    productObj.sellerReviewCount = sellerReviewCount;
+
+    // Preserve the response shape used by the sahab branch.
+    if (productObj.sellerId && typeof productObj.sellerId === 'object') {
+      productObj.sellerId.totalSales = sellerTotalSales;
+      productObj.sellerId.rating = sellerRating;
+    }
+
+    res.json(productObj);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -198,8 +372,19 @@ exports.updateProduct = async (req, res) => {
     const {
       title, description, price, category, countInStock,
       brand, sku, discountPercentage, additionalInfo,
-      lowStockThreshold
+      lowStockThreshold, shippingPolicyId, guaranteePolicyId
     } = req.body;
+
+    let updatePolicyReferences;
+    try {
+      updatePolicyReferences = await validatePolicyReferences(
+        seller._id,
+        shippingPolicyId,
+        guaranteePolicyId
+      );
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
 
     // Strict Validations
     if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
@@ -219,15 +404,24 @@ exports.updateProduct = async (req, res) => {
 
     let parsedAdditionalInfo;
     if (additionalInfo !== undefined) {
+      let rawInfo = additionalInfo;
       if (typeof additionalInfo === 'string') {
         try {
-          parsedAdditionalInfo = JSON.parse(additionalInfo);
+          rawInfo = JSON.parse(additionalInfo);
         } catch (e) {
           console.error('Error parsing additionalInfo:', e);
-          parsedAdditionalInfo = [];
+          rawInfo = [];
         }
+      }
+      if (Array.isArray(rawInfo)) {
+        parsedAdditionalInfo = rawInfo
+          .map(item => ({
+            heading: (item.heading || '').trim(),
+            details: (item.details || item.description || '').trim()
+          }))
+          .filter(item => item.heading !== '' || item.details !== '');
       } else {
-        parsedAdditionalInfo = additionalInfo;
+        parsedAdditionalInfo = [];
       }
     }
 
@@ -261,6 +455,14 @@ exports.updateProduct = async (req, res) => {
         ? Number(discountPercentage)
         : product.discountPercentage;
     if (parsedAdditionalInfo !== undefined) product.additionalInfo = parsedAdditionalInfo;
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'shippingPolicyId')) {
+      product.shippingPolicyId = updatePolicyReferences.shippingPolicyId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePolicyReferences, 'guaranteePolicyId')) {
+      product.guaranteePolicyId = updatePolicyReferences.guaranteePolicyId;
+    }
 
     // Media Sync Logic
     let imagesToDelete = [];
@@ -367,6 +569,26 @@ exports.shareProduct = async (req, res) => {
     res.json({ shareCount: product.shareCount });
   } catch (err) {
     console.error('Error recording product share:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Seller-specific custom categories for product creation.
+exports.listMyProductCategories = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId }).select('_id').lean();
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+
+    const products = await Product.find({ sellerId: seller._id }).select('category').lean();
+    const categories = [...new Set(
+      products
+        .map(product => product.category?.trim())
+        .filter(category => category)
+    )].sort((first, second) => first.localeCompare(second));
+
+    return res.json(categories);
+  } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 };

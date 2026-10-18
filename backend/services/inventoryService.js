@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const EventEmitter = require('events');
+const Notification = require('../models/Notification');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
@@ -8,6 +9,10 @@ const emailTemplates = require('../utils/emailTemplates');
 // Create a dedicated event emitter for inventory operations
 class InventoryEventEmitter extends EventEmitter {}
 const inventoryEvents = new InventoryEventEmitter();
+
+function getNotificationService() {
+  return global.notificationService;
+}
 
 /**
  * NON-BLOCKING EVENT LISTENER
@@ -45,7 +50,78 @@ inventoryEvents.on('checkLowStock', async (productsToCheck) => {
       // 2. Out of Stock Event
       if (item.newStock === 0) {
         console.log(`[Inventory Alert] Product ${item.productId} is OUT OF STOCK.`);
-        // Product remains active with 0 stock (UI renders Out of Stock badge & disables CTA)
+        try {
+          // Deep-populate sellerId and the associated User
+          const productWithSeller = await Product.findById(item.productId)
+            .populate({
+              path: 'sellerId',
+              populate: { path: 'userId', select: '_id email username notificationPreferences' }
+            });
+
+          if (!productWithSeller || !productWithSeller.sellerId) {
+            console.warn(`[Inventory Alert] Product ${item.productId} has no valid seller profile.`);
+            continue;
+          }
+
+          // Resolve the User document
+          let sellerUser = productWithSeller.sellerId.userId;
+
+          // Fallback if nested population did not return the document
+          if (!sellerUser || !sellerUser._id) {
+            const rawUserId = productWithSeller.sellerId.userId || productWithSeller.sellerId;
+            sellerUser = await User.findById(rawUserId).select('_id email username notificationPreferences');
+          }
+
+          if (!sellerUser) {
+            console.warn(`[Inventory Alert] Could not resolve User for seller profile:`, productWithSeller.sellerId);
+            continue;
+          }
+
+          console.log(`[Inventory Alert] Found seller user: ${sellerUser.email} (ID: ${sellerUser._id})`);
+
+          const notificationService = getNotificationService();
+
+          if (notificationService) {
+            // Central service: saves DB doc, emits live Socket.io event, and dispatches email
+            await notificationService.createNotification(
+              {
+                recipient: sellerUser._id,
+                sender: sellerUser._id,
+                type: 'out_of_stock',
+                title: `Out of Stock: ${productWithSeller.title}`,
+                message: `Your product "${productWithSeller.title}" has run out of stock. Restock soon to avoid lost sales.`,
+                data: { productId: productWithSeller._id },
+                priority: 'high',
+                channels: { email: true, inApp: true, push: false }
+              },
+              { sendEmail: true }
+            );
+            console.log(`[Inventory Alert] Notification & email dispatched via NotificationService to seller ${sellerUser._id}`);
+          } else {
+            console.warn('[Inventory Alert] NotificationService not available on global, falling back to direct DB write & sendEmail');
+            await Notification.create({
+              recipient: sellerUser._id,
+              sender: sellerUser._id,
+              type: 'out_of_stock',
+              title: `Out of Stock: ${productWithSeller.title}`,
+              message: `Your product "${productWithSeller.title}" has run out of stock. Restock soon to avoid lost sales.`,
+              data: { productId: productWithSeller._id },
+              priority: 'high',
+              channels: { email: true, inApp: true, push: false }
+            });
+
+            if (sellerUser.email && sellerUser.notificationPreferences?.email !== 'disabled') {
+              const { subject, html } = emailTemplates.buildNotificationEmail({
+                title: `Out of Stock Alert: ${productWithSeller.title}`,
+                message: `Your product "${productWithSeller.title}" has reached 0 stock and is now marked as Out of Stock. Please restock to resume sales.`
+              });
+              await sendEmail(sellerUser.email, subject, `Out of stock: ${productWithSeller.title}`, html);
+              console.log(`[Inventory Alert] Direct email dispatched to ${sellerUser.email}`);
+            }
+          }
+        } catch (alertErr) {
+          console.error('[Inventory Alert] Failed to send out-of-stock notification/email:', alertErr);
+        }
       }
     }
   } catch (error) {

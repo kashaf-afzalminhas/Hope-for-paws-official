@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL } from '../config';
+import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
+import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 function ToastStack({ toasts, dismissToast }) {
   if (toasts.length === 0) return null;
@@ -68,6 +70,10 @@ export default function Checkout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 
   const addToast = useCallback((type, message) => {
     const id = Date.now() + Math.random();
@@ -79,7 +85,7 @@ export default function Checkout() {
     setToasts(t => t.filter(x => x.id !== id));
   }, []);
   
-  const [contact, setContact] = useState({ email: '', phone: '' });
+  const [contact, setContact] = useState({ email: '', phone: '', countryCode: '+92' });
   const [shippingAddress, setShippingAddress] = useState({
     fullName: '',
     street: '',
@@ -87,10 +93,117 @@ export default function Checkout() {
     province: '',
     postalCode: ''
   });
+  const [shippingLocation, setShippingLocation] = useState(emptyPakistanLocation);
 
-  const shippingFee = 0;
-  const finalTotal = items.length > 0 ? cartTotal + shippingFee : 0;
+const [shippingQuote, setShippingQuote] = useState(null);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState('');
 
+  const baseShippingFee = shippingQuote?.shippingFee ?? (items.length > 0 ? (SHIPPING_FEE || 0) : 0);
+  const shippingFee = appliedPromo?.waivedShipping ? 0 : baseShippingFee;
+  const discountAmount = appliedPromo?.discountAmount || 0;
+  const finalTotal = items.length > 0 ? Math.max(0, cartTotal - discountAmount + shippingFee) : 0;
+
+  const handleApplyPromo = async () => {
+    if (!promoCodeInput.trim()) return;
+    setIsApplyingPromo(true);
+    setPromoError(null);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/promos/apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code: promoCodeInput.trim().toUpperCase(),
+          cartItems: items.map(item => ({
+            productId: item.productId || item.product?._id || item._id,
+            sellerId:
+              item.sellerId?._id ||
+              item.sellerId ||
+              item.product?.sellerId?._id ||
+              item.product?.sellerId ||
+              item.seller?._id ||
+              item.seller,
+            category: item.category || item.product?.category || '',
+            price: item.price,
+            quantity: item.quantity
+          })),
+          currentShippingFee: baseShippingFee
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setAppliedPromo(null);
+        setPromoError(data);
+        addToast('error', data.message || 'Invalid promo code');
+      } else {
+        setAppliedPromo(data);
+        setPromoError(null);
+        addToast('success', data.message);
+      }
+    } catch (err) {
+      addToast('error', 'Network error while checking promo code.');
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  };
+
+  const calculateShipping = async () => {
+    if (!shippingLocation.cityCode) {
+      setFieldErrors(prev => ({ ...prev, city: undefined }));
+      setShippingError('City is required to calculate shipping.');
+      addToast('error', 'Please enter your delivery city first.');
+      return;
+    }
+
+    setIsCalculatingShipping(true);
+    setShippingError('');
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+      const payload = {
+        items: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity
+        })),
+        shippingAddress: {
+          ...shippingAddress,
+          country: shippingLocation.countryName,
+          ...shippingLocation,
+        }
+      };
+
+      const res = await fetch(`${API_BASE_URL}/orders/shipping-quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to calculate shipping.');
+      }
+
+      setShippingQuote(data);
+    } catch (err) {
+      console.error('Shipping calculation error:', err);
+      setShippingQuote(null);
+      setShippingError(err.message || 'Failed to calculate shipping.');
+      addToast('error', err.message || 'Failed to calculate shipping.');
+    } finally {
+      setIsCalculatingShipping(false);
+    }
+  };
   const handlePlaceOrder = async () => {
     if (items.length === 0) {
       addToast('error', 'Your cart is empty');
@@ -99,19 +212,13 @@ export default function Checkout() {
 
     // Validation for contact and delivery address
     const errors = {};
-    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
-    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
-
-    if (!contact.phone || !contact.phone.trim()) {
-      errors.phone = 'Phone number is required to complete your order.';
-    } else if (!phoneRegex.test(cleanPhone)) {
-      errors.phone = 'Please enter a valid phone number.';
-    }
+    const phoneError = validatePhone(contact.phone, contact.countryCode);
+    if (phoneError) errors.phone = phoneError;
 
     if (!shippingAddress.street || !shippingAddress.street.trim()) {
       errors.street = 'Delivery address is required to complete your order.';
     }
-    if (!shippingAddress.city || !shippingAddress.city.trim()) {
+    if (!shippingLocation.cityCode) {
       errors.city = 'City is required.';
     }
     if (!contact.email || !contact.email.trim()) {
@@ -141,14 +248,31 @@ export default function Checkout() {
       
       const payload = {
         items: items.map(it => ({
-          productId: it.productId,
+          productId: it.productId || it.product?._id || it._id,
+          sellerId:
+            it.sellerId?._id ||
+            it.sellerId ||
+            it.product?.sellerId?._id ||
+            it.product?.sellerId ||
+            it.seller?._id ||
+            it.seller,
+          category: it.category || it.product?.category || '',
           title: it.title || 'Unknown Product',
           image: it.image,
           quantity: it.quantity,
           price: it.price
         })),
-        shippingAddress: { ...contact, ...shippingAddress },
+        shippingAddress: {
+          email: contact.email,
+          phone: getFullPhoneNumber(contact.phone, contact.countryCode),
+          ...shippingAddress,
+          city: shippingLocation.cityName,
+          province: shippingLocation.provinceName,
+          country: shippingLocation.countryName,
+          ...shippingLocation
+        },
         paymentMethod,
+        appliedPromo,
         totals: {
           subtotal: cartTotal,
           shippingFee,
@@ -234,24 +358,25 @@ export default function Checkout() {
                 {fieldErrors.email && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.email}</p>}
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Phone Number <span className="text-red-400">*</span></label>
-                <input 
-                  type="tel" 
-                  value={contact.phone}
-                  onChange={(e) => { setContact({...contact, phone: e.target.value}); setFieldErrors(prev => ({ ...prev, phone: undefined })); }}
-                  onBlur={() => {
-                    const cleanPhone = (contact.phone || '').replace(/[\s\-().]/g, '');
-                    const phoneRegex = /^(\+[1-9]\d{6,14}|0\d{9,10}|\d{10,11})$/;
-                    if (!contact.phone || !contact.phone.trim()) {
-                      setFieldErrors(prev => ({ ...prev, phone: 'Phone number is required to complete your order.' }));
-                    } else if (!phoneRegex.test(cleanPhone)) {
-                      setFieldErrors(prev => ({ ...prev, phone: 'Please enter a valid phone number (e.g. 03001234567).' }));
-                    }
+                <PhoneNumberInput
+                  phone={contact.phone}
+                  countryCode={contact.countryCode}
+                  required
+                  label="Phone Number"
+                  touched={Boolean(fieldErrors.phone)}
+                  error={fieldErrors.phone}
+                  onChange={({ phone, countryCode, error }) => {
+                    setContact((prev) => ({ ...prev, phone, countryCode }));
+                    setFieldErrors((prev) => ({ ...prev, phone: error || undefined }));
                   }}
-                  placeholder="0300 1234567 or +923001234567"
-                  className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
+                  onBlur={() => {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      phone: validatePhone(contact.phone, contact.countryCode) || undefined
+                    }));
+                  }}
+                  className="min-w-0 w-full [&>div]:min-w-0 [&>div>select]:!min-w-[96px] [&>div>select]:!w-[96px] [&>div>select]:!rounded-xl [&>div>select]:!border-[#d4c5c1] [&>div>select]:!py-3 [&>div>input]:!rounded-xl [&>div>input]:!border-[#d4c5c1] [&>div>input]:!py-3"
                 />
-                {fieldErrors.phone && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.phone}</p>}
               </div>
             </div>
           </section >
@@ -282,28 +407,19 @@ export default function Checkout() {
                 />
                 {fieldErrors.street && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.street}</p>}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">City <span className="text-red-400">*</span></label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.city}
-                    onChange={(e) => { setShippingAddress({...shippingAddress, city: e.target.value}); setFieldErrors(prev => ({ ...prev, city: undefined })); }}
-                    placeholder="Lahore"
-                    className={`w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border rounded-xl px-4 py-3 focus:outline-none transition-colors ${fieldErrors.city ? 'border-red-400 focus:border-red-500' : 'border-[#d4c5c1] focus:border-[#6b493d]'}`}
-                  />
-                  {fieldErrors.city && <p className="text-red-500 text-[12px] mt-1.5 font-medium">{fieldErrors.city}</p>}
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Province/State</label>
-                  <input 
-                    type="text" 
-                    value={shippingAddress.province}
-                    onChange={(e) => setShippingAddress({...shippingAddress, province: e.target.value})}
-                    placeholder="NY"
-                    className="w-full bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 focus:outline-none focus:border-[#6b493d] transition-colors"
-                  />
-                </div>
+              <div className="mb-5">
+                <PakistanLocationSelector
+                  value={shippingLocation}
+                  required
+                  onChange={(location) => {
+                    setShippingLocation(location);
+                    setShippingAddress((previous) => ({ ...previous, city: location.cityName, province: location.provinceName }));
+                    setShippingQuote(null);
+                    setShippingError('');
+                  }}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-[11px] font-bold text-[#a07f77] mb-2 uppercase tracking-wide">Postal Code</label>
                   <input 
@@ -318,7 +434,40 @@ export default function Checkout() {
             </div>
           </section >
 
-    {/* Payment Section */ }
+    {/* Shipping Section */ }
+    <section className='bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]'>
+      <div className='flex items-center justify-between gap-4'>
+        <div>
+          <h2 className='text-xl font-extrabold text-[#3d2a24] tracking-tight'>Shipping</h2>
+          <p className='text-[12px] text-[#a07f77] mt-1'>Calculate delivery charges for your address.</p>
+        </div>
+        <button
+          type='button'
+          onClick={calculateShipping}
+          disabled={isCalculatingShipping || items.length === 0}
+          className='bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors whitespace-nowrap'
+        >
+          {isCalculatingShipping ? 'Calculating...' : 'Calculate Shipping'}
+        </button>
+      </div>
+      {shippingError && (
+        <p className='text-red-500 text-[12px] mt-3 font-medium'>{shippingError}</p>
+      )}
+      {shippingQuote?.sellers?.length > 0 && (
+        <div className='mt-4 space-y-3'>
+          {shippingQuote.sellers.map((seller) => (
+            <div key={seller.sellerId} className='flex items-center justify-between gap-4 bg-[#f7f1ee] rounded-xl px-4 py-3'>
+              <div>
+                <p className='text-[13px] font-bold text-[#3d2a24]'>{seller.sellerName}</p>
+                {seller.freeShipping && <p className='text-[11px] text-[#6b493d] font-semibold mt-1'>Free shipping</p>}
+              </div>
+              <span className='text-[13px] font-bold text-[#3d2a24]'>Rs {seller.shippingFee.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+ {/* Payment Section */ }
     < section className = "bg-white rounded-2xl p-6 sm:p-8 shadow-[0_4px_24px_rgba(107,73,61,0.06)] border border-[#ede6e1]" >
             <h2 className="text-xl font-extrabold mb-5 text-[#3d2a24] tracking-tight">Payment Method</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -414,9 +563,21 @@ export default function Checkout() {
             <span>Subtotal</span>
             <span className="text-[#3d2a24] font-bold">Rs {cartTotal.toLocaleString()}</span>
           </div>
+          {appliedPromo && discountAmount > 0 && (
+            <div className="flex justify-between text-[14px] text-emerald-700 font-medium">
+              <span>Discount ({appliedPromo.code})</span>
+              <span className="font-bold">-Rs {discountAmount.toLocaleString()}</span>
+            </div>
+          )}
+          {appliedPromo?.customReward && (
+            <div className="flex justify-between text-[13px] text-[#6b493d] font-semibold">
+              <span>Reward</span>
+              <span>{appliedPromo.customReward}</span>
+            </div>
+          )}
           <div className="flex justify-between text-[14px] text-[#a07f77] font-medium">
             <span>Shipping</span>
-            <span className="text-[#3d2a24] font-bold">Rs 0</span>
+            <span className="text-[#3d2a24] font-bold">Rs {shippingFee.toLocaleString()}</span>
           </div>
         </div>
 
@@ -427,16 +588,44 @@ export default function Checkout() {
           </div>
         </div>
 
-        {/* Promo Code */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Promo code"
-            className="flex-1 bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 text-[13px] focus:outline-none focus:border-[#6b493d] transition-colors"
-          />
-          <button className="bg-[#6b493d] hover:bg-[#5a3c31] text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors">
-            Apply
-          </button>
+        {/* Promo Code with Evaluation Feedback */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Promo code"
+              value={promoCodeInput}
+              onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+              className="flex-1 bg-white text-[#3d2a24] placeholder-[#d4c5c1] border border-[#d4c5c1] rounded-xl px-4 py-3 text-[13px] uppercase focus:outline-none focus:border-[#6b493d] transition-colors"
+            />
+            <button 
+              type="button"
+              onClick={handleApplyPromo}
+              disabled={isApplyingPromo || !promoCodeInput.trim()}
+              className="bg-[#6b493d] hover:bg-[#5a3c31] disabled:opacity-50 text-white font-bold px-5 py-3 rounded-xl text-[13px] transition-colors"
+            >
+              {isApplyingPromo ? 'Checking...' : 'Apply'}
+            </button>
+          </div>
+
+          {appliedPromo && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-[12px] font-semibold text-emerald-800 flex justify-between items-center">
+              <span>{appliedPromo.message}</span>
+              <button 
+                type="button" 
+                onClick={() => { setAppliedPromo(null); setPromoCodeInput(''); }} 
+                className="text-emerald-900 underline text-[11px]"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
+          {promoError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
+              {promoError.message}
+            </div>
+          )}
         </div>
       </div>
 

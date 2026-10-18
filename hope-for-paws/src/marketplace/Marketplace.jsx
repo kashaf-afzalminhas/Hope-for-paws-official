@@ -11,7 +11,7 @@ import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
-import { useRequireAuth } from "../Components/AuthGuard";
+
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    GLOBAL CSS
@@ -131,17 +131,21 @@ function PawSVG({ size = 20, color = C.brown }) {
   );
 }
 
-function Stars({ rating, size = 11, showVal = false }) {
+function Stars({ rating, size = 11, showVal = false, numReviews = 0 }) {
+  const safeRating = Number(rating);
+  const hasReviews = Number.isFinite(safeRating) && safeRating > 0 && Number(numReviews) > 0;
+  const displayValue = hasReviews ? safeRating.toFixed(1) : 'No reviews yet';
+
   return (
     <div style={{ display:"flex", alignItems:"center", gap:3 }}>
       <div style={{ display:"flex", gap:1.5 }}>
         {[1,2,3,4,5].map(s => (
           <Star key={s} size={size}
-            style={{ color: s <= Math.round(rating) ? C.tan : C.creamDark,
-                     fill:  s <= Math.round(rating) ? C.tan : C.creamDark }} />
+            style={{ color: hasReviews && s <= Math.round(safeRating) ? C.tan : C.creamDark,
+                     fill:  hasReviews && s <= Math.round(safeRating) ? C.tan : C.creamDark }} />
         ))}
       </div>
-      {showVal && <span style={{ fontSize:size, color:C.brownMid, fontWeight:600 }}>{rating.toFixed(1)}</span>}
+      {showVal && <span style={{ fontSize:size, color:C.brownMid, fontWeight:600 }}>{displayValue}</span>}
     </div>
   );
 }
@@ -246,8 +250,8 @@ function QuickView({ product: p, isFav, onFav, inCart, onCart, onClose }) {
                 </div>
                 <h2 style={{ fontSize:20, fontWeight:800, color:C.brown, lineHeight:1.25, marginBottom:10 }}>{p.name}</h2>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <Stars rating={p.rating} size={13} showVal/>
-                  <span style={{ fontSize:12, color:C.brownSoft }}>({p.reviews.toLocaleString()} reviews)</span>
+                  <Stars rating={p.rating} size={13} showVal numReviews={p.reviews} />
+                  {p.reviews > 0 ? <span style={{ fontSize:12, color:C.brownSoft }}>({p.reviews.toLocaleString()} reviews)</span> : <span style={{ fontSize:12, color:C.brownSoft }}>No reviews yet</span>}
                 </div>
               </div>
 
@@ -517,6 +521,7 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                     onError={e => { e.target.src = `https://placehold.co/230x170/EDE8DF/9B6B45?text=🐾`; }}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
+                  {p.stock <= 0 && <div style={{ position:"absolute", inset:0, backgroundColor:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}><span style={{ padding:"4px 8px", backgroundColor:"#B03A2E", color:C.white, borderRadius:6, fontSize:10, fontWeight:800, textTransform:"uppercase" }}>Out of Stock</span></div>}
                   <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {p.badge && <Badge text={p.badge} />}
                     {discount && <span className="tag-pill" style={{ backgroundColor: C.tanPale, color: C.tanDeep, border: `1px solid ${C.tan}40` }}>-{discount}%</span>}
@@ -533,8 +538,8 @@ function TopPicks({ onFav, favs, onCart, isInCart, onQuickView, products = [] })
                   <p style={{ fontSize:9, color:C.brownSoft, margin:0, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", display:"flex", alignItems:"center", gap:4 }}>{p.seller}<VerifiedBadge isVerified={p.sellerVerified} size="sm"/></p>
                   <p style={{ fontSize: 13, color: C.brown, margin: 0, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Stars rating={p.rating} size={10} />
-                    <span style={{ fontSize: 10, color: C.brownSoft }}>{p.rating.toFixed(1)}</span>
+                    <Stars rating={p.rating} size={10} numReviews={p.reviews} />
+                    {p.reviews > 0 ? <span style={{ fontSize: 10, color: C.brownSoft }}>{Number(p.rating || 0).toFixed(1)}</span> : <span style={{ fontSize: 10, color: C.brownSoft }}>No reviews yet</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 8 }}>
                     <div>
@@ -960,8 +965,7 @@ export default function Marketplace() {
   const [toasts,      setToasts]     = useState([]);
   const { addToCart: ctxAddToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const cartNavigate = useNavigate();
-  const requireAuth = useRequireAuth();
+  const navigate = useNavigate();
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
@@ -970,6 +974,7 @@ export default function Marketplace() {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authBanner, setAuthBanner] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1036,26 +1041,36 @@ export default function Marketplace() {
   }, []);
 
   const onFav = useCallback(async (id) => {
-    if (!requireAuth('use the wishlist')) {
-      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: window.location.pathname }));
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'wishlist', productId: id, redirectUrl: '/wishlist' }));
+      setAuthBanner('Please sign in to use the wishlist.');
+      setTimeout(() => {
+        navigate('/signin', { state: { from: '/wishlist' } });
+      }, 1500);
       return;
     }
     const result = await toggleWishlist(id);
-    if (result.success && result.message.includes('added')) {
+    if (result && result.success) {
       addToast("fav", products.find(x => x.id === id)?.name);
     }
-  }, [requireAuth, toggleWishlist, addToast, products]);
+  }, [navigate, toggleWishlist, addToast, products]);
 
   const onCart = useCallback(async (id) => {
-    if (!requireAuth('add items to your cart')) {
-      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: window.location.pathname }));
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('pendingAction', JSON.stringify({ action: 'cart', productId: id, redirectUrl: '/cart' }));
+      setAuthBanner('Please sign in to add items to your cart.');
+      setTimeout(() => {
+        navigate('/signin', { state: { from: '/cart' } });
+      }, 1500);
       return;
     }
     const result = await ctxAddToCart(id, 1);
-    if (result.success) {
+    if (result && result.success) {
       addToast("cart", products.find(x => x.id === id)?.name);
     }
-  }, [requireAuth, ctxAddToCart, addToast, products]);
+  }, [navigate, ctxAddToCart, addToast, products]);
 
   const clearAll = useCallback(() => {
     setQuery("");
@@ -1195,6 +1210,15 @@ export default function Marketplace() {
 
       <MobileSheet open={filterOpen} onClose={() => setFilterOpen(false)} filters={filters} setFilters={setFilters} brands={BRANDS} sellers={SELLERS} maxPrice={absoluteMaxPrice}/>
       {quickView && <QuickView product={quickView} isFav={isInWishlist(quickView.id)} onFav={onFav} inCart={isInCart(quickView.id)} onCart={onCart} onClose={() => setQuickView(null)}/>}
+      
+      {/* Centered Auth Toast Banner with Spinner */}
+      {authBanner && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-[#6b493d] text-white px-6 py-3 rounded-xl shadow-2xl font-poppins text-sm flex items-center gap-3 animate-fadeUp">
+          <span>{authBanner}</span>
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
+        </div>
+      )}
+
       <ToastStack toasts={toasts}/>
       <ScrollToTop visible={scrollY > 400}/>
     </div>

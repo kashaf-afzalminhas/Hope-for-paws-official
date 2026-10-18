@@ -12,8 +12,12 @@ const {
   getSellerApplicationById
 } = require('../controllers/sellerController');
 const { getSellerOrders, updateOrderStatus, getDashboardStats } = require('../controllers/orderController');
-const { listMyProducts, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
+const { listMyProducts, listMyProductCategories, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
 const { getSellerReviews } = require('../controllers/reviewController');
+const {
+  listGuaranteePolicies, createGuaranteePolicy, updateGuaranteePolicy, deleteGuaranteePolicy,
+  listShippingPolicies, createShippingPolicy, updateShippingPolicy, deleteShippingPolicy, getPolicyTemplates
+} = require('../controllers/policyController');
 
 
 /**
@@ -48,6 +52,7 @@ router.get('/admin/:sellerId', auth, getSellerApplicationById);
 // --- Seller Dashboard Routes ---
 // Products CRUD
 router.get('/products', auth, listMyProducts);
+router.get('/product-categories', auth, listMyProductCategories);
 router.get('/products/:id', auth, getSellerProductById);
 router.post('/products', auth, uploadProductImage.array('media', 5), createProduct);
 router.put('/products/:id', auth, uploadProductImage.array('media', 5), updateProduct);
@@ -63,5 +68,15 @@ router.get('/dashboard-stats', auth, getDashboardStats);
 
 // Reviews — Fetch all reviews for the seller's products
 router.get('/reviews', auth, getSellerReviews);
+// Reusable seller policies
+router.get('/policies/templates', auth, getPolicyTemplates);
+router.get('/policies/guarantees', auth, listGuaranteePolicies);
+router.post('/policies/guarantees', auth, createGuaranteePolicy);
+router.put('/policies/guarantees/:id', auth, updateGuaranteePolicy);
+router.delete('/policies/guarantees/:id', auth, deleteGuaranteePolicy);
+router.get('/policies/shipping', auth, listShippingPolicies);
+router.post('/policies/shipping', auth, createShippingPolicy);
+router.put('/policies/shipping/:id', auth, updateShippingPolicy);
+router.delete('/policies/shipping/:id', auth, deleteShippingPolicy);
 
 module.exports = router;

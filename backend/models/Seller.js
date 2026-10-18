@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const structuredLocationFields = require('./locationFields');
 
 const sellerSchema = new mongoose.Schema(
   {
@@ -36,6 +37,7 @@ const sellerSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    location: structuredLocationFields,
     paymentDetails: {
       bankName: {
         type: String,

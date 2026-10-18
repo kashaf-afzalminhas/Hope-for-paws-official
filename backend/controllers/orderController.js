@@ -7,6 +7,8 @@ const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
 const { processCheckoutInventory } = require('../services/inventoryService');
+const { calculateSellerShipping, ShippingCalculationError } = require('../services/shippingService');
+const { toLocationSnapshot } = require('../utils/pakistanLocations');
 
 
 function getNotificationService() {
@@ -19,7 +21,7 @@ function getNotificationService() {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, paymentMethod } = req.body;
+    const { items, shippingAddress, paymentMethod, appliedPromo } = req.body;
     const buyerId = req.user?.id || req.user?.userId;
 
     if (!items || items.length === 0) {
@@ -27,9 +29,12 @@ exports.createOrder = async (req, res) => {
     }
 
     // ── Phone, City & Address Validation ─────────────────────────────
-    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city) {
+    const locationSnapshot = toLocationSnapshot(shippingAddress?.location || shippingAddress);
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || !locationSnapshot) {
       return res.status(400).json({ message: 'Please fill in all required contact and shipping fields.' });
     }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
 
     // Strip spaces, dashes, parentheses, and dots while keeping leading '+'
     const rawPhone = shippingAddress.phone ? String(shippingAddress.phone).trim() : '';
@@ -72,6 +77,7 @@ exports.createOrder = async (req, res) => {
 
       itemsBySeller[sellerId].push({
         productId: product._id,
+        category: product.category,
         title: product.title,
         image:
           product.images && product.images.length > 0
@@ -84,9 +90,7 @@ exports.createOrder = async (req, res) => {
 
     const ordersToCreate = [];
 
-    // Reserved for future seller shipping fee logic.
-    // Do not include in finalTotal calculation.
-    const sellerShippingFee = 15;
+const PromoCode = require('../models/PromoCode');
 
     for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
       const subtotal = sellerItems.reduce(
@@ -94,17 +98,67 @@ exports.createOrder = async (req, res) => {
         0
       );
 
-      const shippingFee = 0;
-      const finalTotal = subtotal + shippingFee;
+      const shippingQuote = await calculateSellerShipping({
+        sellerId,
+        items: sellerItems,
+        destination: {
+          ...shippingAddress,
+          country: shippingAddress.country || 'Pakistan'
+        },
+        qualifyingSubtotal: subtotal
+      });
+
+      let shippingFee = shippingQuote.shippingFee;
+      let discountAmount = 0;
+      let orderPromoCode = null;
+      let customReward = null;
+
+      // Apply promo only to the specific seller's sub-order
+      if (appliedPromo && appliedPromo.sellerId && appliedPromo.sellerId.toString() === sellerId.toString()) {
+        const promoDoc = await PromoCode.findOne({ code: appliedPromo.code, isActive: true });
+        if (promoDoc) {
+          orderPromoCode = promoDoc.code;
+          if (promoDoc.discountMechanism === 'FREE_SHIPPING') {
+            shippingFee = 0;
+          } else if (promoDoc.discountMechanism === 'CUSTOM_REWARD') {
+            customReward = promoDoc.customRewardText;
+          } else {
+            discountAmount = Math.min(appliedPromo.discountAmount || 0, subtotal);
+          }
+
+          // Atomically update campaign count
+          await PromoCode.findByIdAndUpdate(promoDoc._id, {
+            $inc: { totalRedemptions: 1 }
+          });
+
+          // Record buyer redemption count if logged in
+          if (buyerId) {
+            const userIdx = promoDoc.userRedemptions.findIndex(
+              u => u.userId && u.userId.toString() === buyerId.toString()
+            );
+            if (userIdx > -1) {
+              promoDoc.userRedemptions[userIdx].count += 1;
+            } else {
+              promoDoc.userRedemptions.push({ userId: buyerId, count: 1 });
+            }
+            await promoDoc.save();
+          }
+        }
+      }
+
+      const finalTotal = Math.max(0, subtotal - discountAmount + shippingFee);
       ordersToCreate.push({
         buyerId,
         sellerId,
         items: sellerItems,
         shippingAddress,
         paymentMethod,
+        promoCode: orderPromoCode,
+        customReward,
         totals: {
           subtotal,
           shippingFee,
+          discountAmount,
           finalTotal
         },
         status: 'Pending',
@@ -294,7 +348,127 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to place order', error: error.message });
   }
 };
+exports.getShippingQuote = async (req, res) => {
+  try {
+    const { items, shippingAddress } = req.body;
 
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        message: 'No items provided for shipping calculation.'
+      });
+    }
+
+    const locationSnapshot = toLocationSnapshot(shippingAddress);
+    if (!shippingAddress?.city || !locationSnapshot) {
+      return res.status(400).json({
+        message: 'A delivery city is required to calculate shipping.'
+      });
+    }
+    shippingAddress.location = locationSnapshot;
+    Object.assign(shippingAddress, locationSnapshot);
+
+    const itemsBySeller = {};
+
+    for (const item of items) {
+      const productId = item.productId || item.product?._id;
+      const quantity = Number(item.quantity);
+
+      if (!productId || !Number.isInteger(quantity) || quantity < 1) {
+        return res.status(400).json({
+          message: 'Invalid product or quantity.'
+        });
+      }
+
+      const product = await Product.findById(productId)
+        .select('title price discountPercentage sellerId')
+        .lean();
+
+      if (!product) {
+        return res.status(400).json({
+          message: 'One or more selected products are no longer available.'
+        });
+      }
+
+      const sellerId = product.sellerId.toString();
+
+      if (!itemsBySeller[sellerId]) {
+        itemsBySeller[sellerId] = [];
+      }
+
+      const discountedPrice =
+        product.discountPercentage > 0
+          ? product.price * (1 - product.discountPercentage / 100)
+          : product.price;
+
+      itemsBySeller[sellerId].push({
+        productId: product._id,
+        quantity,
+        price: discountedPrice
+      });
+    }
+
+    const quotes = [];
+
+    for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
+      const subtotal = sellerItems.reduce(
+        (total, item) => total + item.price * item.quantity,
+        0
+      );
+
+      const quote = await calculateSellerShipping({
+        sellerId,
+        items: sellerItems,
+        destination: {
+          ...shippingAddress,
+          country: shippingAddress.country || 'Pakistan'
+        },
+        qualifyingSubtotal: subtotal
+      });
+
+      const seller = await Seller.findById(sellerId)
+        .select('storeName name')
+        .lean();
+
+      quotes.push({
+        sellerId,
+        sellerName: seller?.storeName || seller?.name || 'Seller',
+        ...quote
+      });
+    }
+
+    const shippingFee = quotes.reduce(
+      (total, quote) => total + quote.shippingFee,
+      0
+    );
+
+    const subtotal = quotes.reduce(
+      (total, quote) => total + quote.subtotal,
+      0
+    );
+
+    res.json({
+      success: true,
+      subtotal,
+      shippingFee,
+      finalTotal: subtotal + shippingFee,
+      sellers: quotes
+    });
+  } catch (error) {
+    console.error('getShippingQuote error:', error);
+
+    if (error instanceof ShippingCalculationError) {
+      return res.status(error.status || 400).json({
+        message: error.message,
+        code: error.code
+      });
+    }
+
+    res.status(500).json({
+      message: 'Failed to calculate shipping.',
+      error: error.message
+    });
+  }
+};
 exports.getBuyerOrders = async (req, res) => {
   try {
     const buyerId = req.user?.id || req.user?.userId;
@@ -670,11 +844,13 @@ exports.getDashboardStats = async (req, res) => {
     const products = await Product.find({ sellerId: seller._id }).select('countInStock lowStockThreshold status').lean();
     const activeProducts = products.filter(p => p.status === 'active' && p.countInStock > 0).length;
     const lowStock = products.filter(p => p.countInStock > 0 && p.countInStock <= (p.lowStockThreshold ?? 5)).length;
+    const outOfStock = products.filter(p => p.countInStock <= 0).length;
 
     const sellerId = seller._id;
+    const sellerMatch = { $or: [{ sellerId: seller._id }, { sellerId: userId }] };
 
     const statsAgg = await Order.aggregate([
-      { $match: { sellerId: sellerId } },
+      { $match: sellerMatch },
       {
         $group: {
           _id: null,
@@ -682,8 +858,8 @@ exports.getDashboardStats = async (req, res) => {
           totalRevenue: {
             $sum: {
               $cond: [
-                { $ne: ['$status', 'Cancelled'] },
-                '$totals.subtotal',
+                { $eq: ['$status', 'Delivered'] },
+                '$totals.finalTotal',
                 0
               ]
             }
@@ -701,14 +877,14 @@ exports.getDashboardStats = async (req, res) => {
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
     const monthlyAgg = await Order.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo }, sellerId: sellerId, status: { $ne: 'Cancelled' } } },
+{ $match: { createdAt: { $gte: sixMonthsAgo }, ...sellerMatch, status: 'Delivered' } },
       {
         $group: {
           _id: {
             month: { $month: '$createdAt' },
             year: { $year: '$createdAt' }
           },
-          revenue: { $sum: '$totals.subtotal' }
+          revenue: { $sum: '$totals.finalTotal' }
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
@@ -734,7 +910,7 @@ exports.getDashboardStats = async (req, res) => {
       }
     });
 
-    const recentOrdersRaw = await Order.find({ sellerId: sellerId })
+    const recentOrdersRaw = await Order.find(sellerMatch)
       .sort({ createdAt: -1 })
       .limit(5)
       .lean();
@@ -755,7 +931,7 @@ exports.getDashboardStats = async (req, res) => {
     });
 
     const topProductsAgg = await Order.aggregate([
-      { $match: { sellerId: sellerId, status: { $ne: 'Cancelled' } } },
+{ $match: { ...sellerMatch, status: 'Delivered' } },
       { $unwind: '$items' },
       {
         $group: {
@@ -789,6 +965,7 @@ exports.getDashboardStats = async (req, res) => {
       totalOrders,
       activeProducts,
       lowStock,
+      outOfStock,
       revenueByMonth: revenueByMonth.map(r => ({ month: r.month, value: r.value })),
       recentOrders,
       topProducts
