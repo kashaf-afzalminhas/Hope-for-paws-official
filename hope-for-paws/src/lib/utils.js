@@ -9,6 +9,29 @@
 
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
+import { AUTH_BASE_URL } from "../config";
+
+/**
+ * Builds a usable image URL from a user's profileImage.
+ * Handles full URLs (e.g. Google photos) and paths uploaded to our backend (e.g. /uploads/...).
+ * Returns null when the user has no image.
+ */
+export function getProfileImageUrl(profileImage) {
+  if (!profileImage || typeof profileImage !== "string") return null;
+  const value = profileImage.trim();
+  if (!value) return null;
+  if (/^(https?:)?\/\//i.test(value) || value.startsWith("data:") || value.startsWith("blob:")) return value;
+  const base = AUTH_BASE_URL.replace(/\/auth\/?$/, "");
+  return `${base}${value.startsWith("/") ? "" : "/"}${value}`;
+}
+
+/** Up to two initials from a name, used when there is no profile image. */
+export function getInitials(name) {
+  if (!name || !name.trim()) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase();
+}
 
 export function cn(...inputs) {
   return twMerge(clsx(...inputs));

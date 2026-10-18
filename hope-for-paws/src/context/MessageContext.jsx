@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getSocket, initSocket } from '../services/socket';
 import { useAuth } from './AuthContext';
 
@@ -19,9 +19,12 @@ const MessageProvider = ({ children }) => {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
+  const refreshTimerRef = useRef(null);
 
   const getStoredUserId = () => {
     try {
+      // A stored user without a token is a stale session; treat it as logged out
+      if (!(localStorage.getItem('token') || sessionStorage.getItem('token'))) return null;
       const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
       const storedUser = userStr ? JSON.parse(userStr) : null;
       return storedUser?.id || storedUser?._id || null;
@@ -37,21 +40,18 @@ const MessageProvider = ({ children }) => {
   useEffect(() => {
     const currentUserId = getCurrentUserId();
     if (!currentUserId) {
-      console.log('MessageProvider: No authenticated user yet, waiting for login');
+      // Logged out: clear chat state so the next user never sees the previous user's chats
+      setConversations([]);
+      setUnreadCount(0);
+      setCurrentConversationId(null);
       return;
     }
 
-    console.log('MessageProvider: Initializing global socket for user:', currentUserId);
     try {
-      const socket = initSocket(currentUserId);
-      console.log('MessageProvider: Global socket initialized:', !!socket);
+      initSocket(currentUserId);
     } catch (e) {
       console.warn('MessageProvider: Failed to initialize socket:', e.message);
     }
-
-    return () => {
-      console.log('MessageProvider: Cleaning up global socket for user:', currentUserId);
-    };
   }, [user]);
 
   // Centralized socket event handler for new messages
@@ -70,23 +70,12 @@ const MessageProvider = ({ children }) => {
       return;
     }
 
-    if (!socket.connected) {
-      const handleConnect = () => {
-        socket.off('connect', handleConnect); // Remove listener to prevent duplicates
-        setSocketConnected(true); // Trigger effect re-run
-      };
-      socket.on('connect', handleConnect);
-      return;
-    }
-
-    // Update socket connected state
-    if (!socketConnected) {
+    // Listeners can be attached before the socket connects; Socket.IO keeps them across reconnects
+    if (!socketConnected && socket.connected) {
       setSocketConnected(true);
     }
 
     const handleNewMessage = (message) => {
-      console.log('MessageContext: Received newMessage:', message);
-      
       const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
       const currentUserId = user?.id || user?._id;
       
@@ -95,22 +84,33 @@ const MessageProvider = ({ children }) => {
       const isActiveVisibleConversation = isChatRoute && isActiveConversation && document.hasFocus();
       
       if (
-        message.senderId !== currentUserId &&
+        String(message.senderId) !== String(currentUserId) &&
         !isActiveVisibleConversation
       ) {
         setUnreadCount(prev => prev + 1);
       }
       
+      // Debounced: a burst of messages triggers one list refresh
       if (currentUserId) {
-        refreshConversations(currentUserId);
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = setTimeout(() => refreshConversations(currentUserId), 500);
       }
     };
 
     // Listen only for newMessage event (backend emits this consistently)
     socket.on('newMessage', handleNewMessage);
 
+    // After a reconnect, reload the list so messages sent while offline show up
+    const handleReconnect = () => {
+      const id = getCurrentUserId();
+      if (id) refreshConversations(id);
+    };
+    socket.on('connect', handleReconnect);
+
     return () => {
       socket.off('newMessage', handleNewMessage);
+      socket.off('connect', handleReconnect);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
   }, [currentConversationId, socketConnected, user]);
 
@@ -136,7 +136,6 @@ const MessageProvider = ({ children }) => {
       const totalUnread = filteredConversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
       setUnreadCount(totalUnread);
       
-      console.log('MessageContext: Refreshed conversations:', filteredConversations.length);
     } catch (error) {
       console.error('Error refreshing conversations:', error);
     }
@@ -146,7 +145,6 @@ const MessageProvider = ({ children }) => {
     const currentUserId = getCurrentUserId();
     if (!currentUserId) return;
 
-    console.log('MessageContext: Refreshing conversations for authenticated user:', currentUserId);
     refreshConversations(currentUserId);
   }, [user, refreshConversations]);
 
@@ -188,12 +186,6 @@ const MessageProvider = ({ children }) => {
   }, []);
 
   const updateConversations = useCallback((newConversations) => {
-    console.log('MessageContext: updateConversations called with:', {
-      type: typeof newConversations,
-      isArray: Array.isArray(newConversations),
-      value: newConversations
-    });
-    
     // Ensure newConversations is always an array
     if (!Array.isArray(newConversations)) {
       console.error('MessageContext: updateConversations received non-array:', newConversations);
@@ -209,7 +201,6 @@ const MessageProvider = ({ children }) => {
       return true;
     });
     
-    console.log('MessageContext: Filtered conversations from', newConversations.length, 'to', filteredConversations.length);
     
     setConversations(filteredConversations);
     

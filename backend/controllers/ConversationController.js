@@ -1,9 +1,17 @@
 const Conversation = require("../models/Conversation");
+const User = require("../models/User");
 const mongoose = require("mongoose");
+
+const PLACEHOLDER_TEXT = "Start a conversation...";
+
+const getAuthUserId = (req) => {
+  const id = req.user?.id || req.user?.userId || req.user?._id;
+  return id ? id.toString() : null;
+};
 
 exports.getConversations = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthUserId(req);
     const conversations = await Conversation.find({
       participants: userId,
       "deletedBy.userId": { $ne: new mongoose.Types.ObjectId(userId) }
@@ -17,73 +25,37 @@ exports.getConversations = async (req, res) => {
 };
 
 exports.createConversation = async (req, res) => {
-  // Log the full request body for debugging
-  console.log('Incoming createConversation request body:', req.body);
-  const { senderId, receiverId } = req.body;
-  
-  // Validate input more thoroughly
+  // The logged-in user is always one side of the conversation
+  const senderId = getAuthUserId(req);
+  const receiverId = req.body?.receiverId ? String(req.body.receiverId) : null;
+
   if (!senderId || !receiverId) {
-    console.error('Missing senderId or receiverId:', { senderId, receiverId });
-    return res.status(400).json({ 
-      message: "Both senderId and receiverId are required",
+    return res.status(400).json({
+      message: "receiverId is required",
       code: "MISSING_IDS"
     });
   }
-
+  if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+    return res.status(400).json({
+      message: "Invalid user ID format",
+      code: "INVALID_ID_FORMAT"
+    });
+  }
   if (senderId === receiverId) {
-    console.error('Attempt to create conversation with self:', { senderId, receiverId });
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: "Cannot create conversation with yourself",
       code: "SELF_CONVERSATION"
     });
   }
 
-  // Defensive check: ensure exactly 2 unique, valid ObjectIds
-  const participants = [senderId, receiverId];
-  if (
-    !Array.isArray(participants) ||
-    participants.length !== 2 ||
-    new Set(participants).size !== 2 ||
-    !participants.every(id => mongoose.Types.ObjectId.isValid(id))
-  ) {
-    console.error('Invalid participants array:', participants);
-    return res.status(400).json({
-      message: "Conversation must have exactly 2 unique participants (valid ObjectIds)",
-      code: "INVALID_PARTICIPANTS"
-    });
-  }
-
-  console.log('Creating conversation with participants:', participants);
-
-  let session;
   try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-  } catch (sessionErr) {
-    console.warn('Could not start MongoDB session, falling back to no transaction:', sessionErr.message);
-    session = null;
-  }
-
-  try {
-    // Validate IDs again (redundant, but safe)
-    if (!mongoose.Types.ObjectId.isValid(senderId) || 
-        !mongoose.Types.ObjectId.isValid(receiverId)) {
-      console.error('Invalid user ID format:', { senderId, receiverId });
-      return res.status(400).json({ 
-        message: "Invalid user ID format",
-        code: "INVALID_ID_FORMAT"
-      });
+    const receiverExists = await User.exists({ _id: receiverId });
+    if (!receiverExists) {
+      return res.status(404).json({ message: "User not found", code: "USER_NOT_FOUND" });
     }
 
-    // Use the model method we created
-    const existingConversation = await Conversation.findByParticipants(
-      senderId,
-      receiverId
-    ).session?.(session);
-
+    const existingConversation = await Conversation.findByParticipants(senderId, receiverId);
     if (existingConversation) {
-      if (session) await session.commitTransaction();
-      console.log('Existing conversation found:', existingConversation._id);
       return res.status(200).json({
         data: existingConversation,
         message: "Existing conversation found",
@@ -91,35 +63,27 @@ exports.createConversation = async (req, res) => {
       });
     }
 
+    // No transaction: the unique participants index + duplicate-key handling below
+    // already prevents duplicates, and transactions fail on standalone MongoDB.
     const newConversation = new Conversation({
-      participants: [senderId, receiverId], // Will be sorted by pre-save hook
+      participants: [senderId, receiverId], // Sorted by pre-save hook
       lastMessage: {
-        text: "Start a conversation...",
+        text: PLACEHOLDER_TEXT,
         createdAt: new Date(),
         senderId: null
       }
     });
+    await newConversation.save();
 
-    if (session) {
-      await newConversation.save({ session });
-      await session.commitTransaction();
-    } else {
-      await newConversation.save();
-    }
-
-    console.log('New conversation created:', newConversation._id);
     return res.status(201).json({
       data: newConversation,
       message: "New conversation created",
       code: "CONVERSATION_CREATED"
     });
   } catch (err) {
-    if (session) await session.abortTransaction();
     if (err.code === 11000) {
-      // If we still hit a duplicate key (should be very rare now)
       const existing = await Conversation.findByParticipants(senderId, receiverId);
       if (existing) {
-        console.warn('Duplicate key error, but found existing conversation:', existing._id);
         return res.status(200).json({
           data: existing,
           message: "Conversation already exists (race condition resolved)",
@@ -127,43 +91,36 @@ exports.createConversation = async (req, res) => {
         });
       }
     }
-    // Log the full error and all relevant variables
-    console.error("Error in createConversation:", {
-      error: err,
-      senderId,
-      receiverId,
-      participants,
-      requestBody: req.body,
-      timestamp: new Date()
-    });
+    console.error("Error in createConversation:", err);
     res.status(500).json({
       message: "Failed to create conversation",
-      error: err.message,
       code: "INTERNAL_ERROR"
     });
-  } finally {
-    if (session) session.endSession();
   }
 };
 
 exports.getConversationById = async (req, res) => {
   const { id } = req.params;
+  const userId = getAuthUserId(req);
 
   try {
-    // Validate the conversation ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid conversation ID" });
     }
 
-    const conversation = await Conversation.findById(id).populate("participants", "-password");
+    const conversation = await Conversation.findById(id).populate("participants", "username profileImage status lastActive");
     if (!conversation) {
       return res.status(404).json({ message: "Conversation not found" });
+    }
+    const isMember = conversation.participants.some((p) => p._id.toString() === userId);
+    if (!isMember) {
+      return res.status(403).json({ message: "You are not part of this conversation" });
     }
 
     res.json(conversation);
   } catch (err) {
     console.error("Error fetching conversation by ID:", err);
-    res.status(500).json({ message: "Failed to fetch conversation", error: err.message });
+    res.status(500).json({ message: "Failed to fetch conversation" });
   }
 };
 
@@ -173,138 +130,142 @@ exports.getUserConversations = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
+    // Users can only list their own conversations
+    if (userId !== getAuthUserId(req)) {
+      return res.status(403).json({ message: "You can only view your own conversations" });
+    }
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
+    // Unread count and last message are computed per conversation with small indexed lookups,
+    // instead of loading every message of every conversation.
     const conversations = await Conversation.aggregate([
-      { 
-        $match: { 
-          participants: userObjectId
-        } 
+      { $match: { participants: userObjectId } },
+      {
+        $addFields: {
+          _myDeletedAt: {
+            $ifNull: [
+              {
+                $arrayElemAt: [
+                  {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: { $ifNull: ["$deletedBy", []] },
+                          as: "d",
+                          cond: { $eq: ["$$d.userId", userObjectId] }
+                        }
+                      },
+                      as: "d",
+                      in: "$$d.deletedAt"
+                    }
+                  },
+                  0
+                ]
+              },
+              new Date(0)
+            ]
+          }
+        }
       },
       {
         $lookup: {
           from: "messages",
-          localField: "_id",
-          foreignField: "conversationId",
-          as: "messages"
+          let: { cid: "$_id", since: "$_myDeletedAt" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$conversationId", "$$cid"] },
+                    { $gt: ["$createdAt", "$$since"] },
+                    { $ne: ["$senderId", userObjectId] },
+                    { $not: [{ $in: [userObjectId, { $ifNull: ["$readBy", []] }] }] }
+                  ]
+                }
+              }
+            },
+            { $count: "n" }
+          ],
+          as: "_unread"
+        }
+      },
+      {
+        $lookup: {
+          from: "messages",
+          let: { cid: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$conversationId", "$$cid"] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 }
+          ],
+          as: "_last"
         }
       },
       {
         $addFields: {
-          unreadCount: {
-            $size: {
-              $filter: {
-                input: "$messages",
-                as: "msg",
-                cond: {
-                  $and: [
-                    { $ne: ["$$msg.senderId", new mongoose.Types.ObjectId(userId)] },
-                    { $not: { $in: [new mongoose.Types.ObjectId(userId), "$$msg.readBy"] } }
-                  ]
-                }
-              }
-            }
-          },
-          lastMessage: { $arrayElemAt: ["$messages", -1] }
+          unreadCount: { $ifNull: [{ $arrayElemAt: ["$_unread.n", 0] }, 0] },
+          lastMessage: { $arrayElemAt: ["$_last", 0] }
         }
       },
       { $sort: { updatedAt: -1 } },
-      { $project: { messages: 0 } }
+      { $project: { _unread: 0, _last: 0, _myDeletedAt: 0 } }
     ]);
 
-    // Enhance conversations with proper lastMessage structure and filter out empty ones
-    const Message = require('../models/message');
-    const enhancedConversations = await Promise.all(conversations.map(async conv => {
-      if (!conv.lastMessage || typeof conv.lastMessage === 'string') {
-        // Get actual last message if empty or string
-        const lastMsg = await Message.findOne({ conversationId: conv._id })
-          .sort({ createdAt: -1 })
-          .lean();
-        
-        if (lastMsg && lastMsg.text && lastMsg.text !== "Start a conversation...") {
-          return {
-            ...conv,
-            lastMessage: {
-              text: lastMsg.text,
-              createdAt: lastMsg.createdAt,
-              senderId: lastMsg.senderId
-            }
-          };
-        } else {
-          // Filter out conversations with no real messages
-          return null;
-        }
+    const validConversations = conversations.filter(conv => {
+      // Hide conversations with no real messages yet
+      if (!conv.lastMessage || !conv.lastMessage.text || conv.lastMessage.text === PLACEHOLDER_TEXT) {
+        return false;
       }
-      
-      // Filter out conversations with "Start a conversation..." as last message
-      if (conv.lastMessage && conv.lastMessage.text === "Start a conversation...") {
-        return null;
-      }
-      
-      return conv;
-    }));
-
-    // Filter out null conversations and conversations deleted before the last message
-    const validConversations = enhancedConversations.filter(conv => {
-      if (!conv) return false;
-
+      // Hide conversations the user deleted, unless a newer message arrived since
       if (Array.isArray(conv.deletedBy)) {
-        const userDelete = conv.deletedBy.find(
-          d => d.userId?.toString() === userId.toString()
-        );
-        if (userDelete && conv.lastMessage?.createdAt) {
-          if (new Date(conv.lastMessage.createdAt) <= new Date(userDelete.deletedAt)) {
-            return false;
-          }
+        const userDelete = conv.deletedBy.find(d => d.userId?.toString() === userId);
+        if (userDelete && conv.lastMessage.createdAt &&
+            new Date(conv.lastMessage.createdAt) <= new Date(userDelete.deletedAt)) {
+          return false;
         }
       }
       return true;
     });
-    
-    console.log(`Returning ${validConversations.length} valid conversations for user ${userId}`);
+
     res.json({ data: validConversations });
   } catch (err) {
     console.error("Error fetching user conversations:", err);
-    res.status(500).json({ message: "Failed to fetch user conversations", error: err.message });
+    res.status(500).json({ message: "Failed to fetch user conversations" });
   }
 };
 
 exports.getConversationBetweenUsers = async (req, res) => {
   try {
     const { firstUserId, secondUserId } = req.params;
-    // Validate input
     if (!firstUserId || !secondUserId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Both user IDs are required",
         code: "MISSING_IDS"
       });
     }
-    // Convert to ObjectId and sort consistently
-    const sortedParticipants = [firstUserId, secondUserId]
-      .map(id => new mongoose.Types.ObjectId(id))
-      .sort((a, b) => a.toString().localeCompare(b.toString()));
-    // Find conversation with exactly these 2 participants
-    const conversation = await Conversation.findOne({
-      participants: { $all: sortedParticipants, $size: 2 }
-    });
+    // Only a participant can look up the conversation
+    const me = getAuthUserId(req);
+    if (me !== firstUserId && me !== secondUserId) {
+      return res.status(403).json({ message: "You can only look up your own conversations" });
+    }
+
+    const conversation = await Conversation.findByParticipants(firstUserId, secondUserId);
     if (!conversation) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: "Conversation not found",
         code: "NOT_FOUND"
       });
     }
-    res.json({ 
+    res.json({
       data: conversation,
       code: "FOUND"
     });
   } catch (err) {
     console.error('Error in getConversationBetweenUsers:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Failed to fetch conversation",
-      error: err.message,
       code: "INTERNAL_ERROR"
     });
   }
 };
-

@@ -16,7 +16,7 @@ const validateObjectId = (req, res, next) => {
 };
 
 // Send a message
-router.post("/", messageController.sendMessage);
+router.post("/", auth, messageController.sendMessage);
 
 // Get messages of a specific conversation
 router.get("/:conversationId", auth, validateObjectId, messageController.getMessages);

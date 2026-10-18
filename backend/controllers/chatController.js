@@ -5,7 +5,7 @@ const User = require('../models/User');
 
 exports.getRecentChats = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = new mongoose.Types.ObjectId(String(req.user?.id || req.user?.userId || req.user?._id));
 
         // Validate user ID
         if (!userId) {
@@ -79,7 +79,7 @@ exports.getRecentChats = async (req, res) => {
                     lastMessage: 1,
                     timestamp: 1,
                     unreadCount: 1,
-                    userInfo: { username: 1, email: 1 }
+                    userInfo: { username: 1, profileImage: 1 }
                 }
             },
             { $sort: { timestamp: -1 } }

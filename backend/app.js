@@ -47,7 +47,6 @@ const promoRoutes = require('./routes/promoRoutes');
 const NotificationService = require('./services/notificationService');
 
 dotenv.config();
-console.log('MONGO_URI:', process.env.MONGO_URI);
 mongoose.connect(process.env.MONGO_URI, {
   tls: true,
   serverSelectionTimeoutMS: 30000,
@@ -105,8 +104,7 @@ app.set("socketio", io);
 // Socket.IO authentication middleware
 io.use((socket, next) => {
   try {
-    const token = socket.handshake.auth.token;
-    console.log('Socket.IO token received:', token); // Debug log
+    const token = socket.handshake.auth?.token;
     if (!token) {
       console.log('Socket connection attempt without token');
       return next(new Error('Authentication error: No token provided'));
@@ -118,8 +116,7 @@ io.use((socket, next) => {
       console.log('Socket connection attempt with invalid token');
       return next(new Error('Authentication error: Invalid token'));
     }
-    socket.userId = userId;
-    console.log('Socket authentication successful for user:', socket.userId);
+    socket.userId = String(userId);
     next();
   } catch (error) {
     console.error('Socket authentication error:', error.message);
@@ -131,23 +128,28 @@ io.use((socket, next) => {
 initChatReminderWorker(notificationService);
 
 io.on('connection', async (socket) => {
-  console.log('User connected via Socket.IO:', socket.userId);
-  
-  // Add user to notification service
-  await notificationService.addUserSocket(socket.userId, socket.id);
+  // Every socket joins its user's personal room right away (used for messages and notifications)
+  socket.join(socket.userId);
 
-  socket.on('disconnect', async (reason) => {
-    console.log('User disconnected via Socket.IO:', socket.userId, 'Reason:', reason);
-    await notificationService.removeUserSocket(socket.userId);
+  // Register event handlers first, so events sent right after connecting (e.g. joinConversation) aren't lost
+  const { setupSocketHandlers } = require('./services/socketHandler');
+  setupSocketHandlers(io, socket, notificationService);
+
+  socket.on('disconnect', async () => {
+    await notificationService.removeUserSocket(socket.userId, socket.id);
   });
+
+  // Add user to notification service (marks them online)
+  try {
+    await notificationService.addUserSocket(socket.userId, socket.id);
+  } catch (error) {
+    console.error('Failed to register user socket:', error);
+  }
 
   socket.on('error', (error) => {
     console.error('Socket error for user:', socket.userId, error);
   });
 
-  // Setup socket handlers for chat functionality
-  const { setupSocketHandlers } = require('./services/socketHandler');
-  setupSocketHandlers(io, socket, notificationService);
 });
 
 // Make notification service available globally
@@ -259,6 +261,20 @@ const socialLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/posts/:id/like', socialLimiter);
+
+// Login limiter: 20 failed attempts per 15 minutes per IP (successful logins don't count)
+const authLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  skipSuccessfulRequests: true,
+  message: {
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(['/auth/signin', '/auth/login', '/auth/login-google', '/auth/complete-google-registration', '/auth/change-password'], authLoginLimiter);
 app.use('/api/comments', socialLimiter);
 
 // Strict rate limiter for write-heavy adoption actions (creation and requests) — 10 requests per 15 minutes per IP (Bug 20)

@@ -23,16 +23,6 @@ import MyPosts from './MyPosts';
 import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
-const COUNTRY_CODES = [
-  { code: '+92', label: 'Pakistan (+92)' },
-  { code: '+1', label: 'US/Canada (+1)' },
-  { code: '+44', label: 'UK (+44)' },
-  { code: '+971', label: 'UAE (+971)' },
-  { code: '+966', label: 'Saudi Arabia (+966)' },
-  { code: '+91', label: 'India (+91)' },
-  { code: '+61', label: 'Australia (+61)' }
-];
-
 // Simple Toast component
 const Toast = ({ toasts }) => (
   <div className="fixed top-4 right-4 z-50 space-y-2">
@@ -546,6 +536,10 @@ const ProfilePage = () => {
       }
     }
 
+    // Split the saved phone back into number + country code (these were previously undefined)
+    const { phone: phoneNumber, countryCode: phoneCountryCode } =
+      parsePhoneNumber(updatedUser.phone || fullPhone, formData.countryCode || '+92');
+
     setOriginalProfile({
       name: updatedUser.username || '',
       email: updatedUser.email || '',
@@ -570,9 +564,10 @@ const ProfilePage = () => {
     const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
     try {
+      const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
           id,
           username: name,
@@ -832,9 +827,10 @@ const ProfilePage = () => {
     }
 
     try {
+      const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${AUTH_BASE_URL}/change-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ id, currentPassword, newPassword }),
       });
 

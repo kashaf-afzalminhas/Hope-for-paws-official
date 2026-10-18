@@ -77,9 +77,7 @@ export const getUserConversations = async (userId) => {
     return response;
   } catch (error) {
     console.error('getUserConversations error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     
     // Return a safe fallback response
     return { data: [] };
@@ -98,9 +96,7 @@ export const getConversationBetweenUsers = async (firstUserId, secondUserId) => 
     }
     // Only log unexpected errors
     console.error('getConversationBetweenUsers error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -111,9 +107,7 @@ export const createConversation = async (senderId, receiverId) => {
     return response;
   } catch (error) {
     console.error('Create conversation error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -170,9 +164,7 @@ export const getAllUsers = async () => {
     return response;
   } catch (error) {
     console.error('getAllUsers error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -194,9 +186,7 @@ export const uploadProfileImage = async (formData) => {
     return response;
   } catch (error) {
     console.error('uploadProfileImage error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -208,9 +198,7 @@ export const getUserProfile = async () => {
     return response;
   } catch (error) {
     console.error('getUserProfile error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -222,9 +210,7 @@ export const getUserPublicProfile = async (userId) => {
     return response;
   } catch (error) {
     console.error('getUserPublicProfile error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -236,9 +222,7 @@ export const removeProfileImage = async () => {
     return response;
   } catch (error) {
     console.error('removeProfileImage error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };

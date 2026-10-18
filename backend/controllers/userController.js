@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const TempUser = require('../models/TempUser');
 const Seller = require('../models/Seller');
@@ -22,7 +23,8 @@ const COUNTRY_PHONE_LENGTH_RULES = {
   '+91': { min: 10, max: 10, label: 'India' }
 };
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
-const LINK_CONFIRMATION_REQUIRED = process.env.REQUIRE_GOOGLE_LINK_CONFIRMATION === 'true';
+// Ask before linking Google to an existing account (on by default; set REQUIRE_GOOGLE_LINK_CONFIRMATION=false to turn off)
+const LINK_CONFIRMATION_REQUIRED = process.env.REQUIRE_GOOGLE_LINK_CONFIRMATION !== 'false';
 
 const validateInternationalPhone = (phone) => {
   if (!E164_PHONE_REGEX.test(phone)) {
@@ -335,20 +337,139 @@ const signIn = async (req, res) => {
 // ==========================================~
 // 4. GOOGLE AUTH (Updated for Seller)
 // ==========================================
-const googleLogins = async (req, res) => {
+// One shared client (re-creating it per request throws away Google's cached certs)
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const GOOGLE_VERIFY_TIMEOUT_MS = 10000;
+const isDev = process.env.NODE_ENV !== 'production';
+
+// Rejects if the promise doesn't settle in time, so the request can never hang forever
+const withTimeout = (promise, ms, label) => {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`${label} timed out after ${ms}ms`);
+      err.code = 'ETIMEDOUT';
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
+const NETWORK_ERROR_RE = /ETIMEDOUT|ENOTFOUND|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENETUNREACH|socket hang up|network/i;
+
+// Verifies a Google ID token and returns the trusted identity, or sends an error response and returns null
+const verifyGoogleCredential = async (credential, res) => {
+  if (!credential || typeof credential !== 'string') {
+    res.status(400).json({ message: 'Missing Google credential' });
+    return null;
+  }
+  let payload;
   try {
-    const { credential, confirmLinking } = req.body;
-    const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: GOOGLE_CLIENT_ID
+    const ticket = await withTimeout(
+      googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID }),
+      GOOGLE_VERIFY_TIMEOUT_MS,
+      'Google token verification'
+    );
+    payload = ticket.getPayload();
+  } catch (verifyErr) {
+    console.error('[google-auth] token verification failed:', verifyErr.message);
+    if (NETWORK_ERROR_RE.test(verifyErr.code || '') || NETWORK_ERROR_RE.test(verifyErr.message || '')) {
+      res.status(503).json({
+        message: "The server couldn't reach Google to verify your sign-in. Please try again.",
+        ...(isDev && { detail: verifyErr.message })
+      });
+      return null;
+    }
+    res.status(401).json({
+      message: 'Google sign-in could not be verified.',
+      ...(isDev && { detail: verifyErr.message })
     });
-    const payload = ticket.getPayload();
+    return null;
+  }
+  if (!payload?.email) {
+    res.status(400).json({ message: 'Google account has no email address' });
+    return null;
+  }
+  if (payload.email_verified !== true) {
+    res.status(400).json({ message: 'Your Google email address is not verified' });
+    return null;
+  }
+  const email = normalizeEmail(payload.email);
+  return {
+    email,
+    name: payload.name || email.split('@')[0],
+    googleId: payload.sub,
+    picture: payload.picture || ''
+  };
+};
+
+const googleLogins = async (req, res) => {
+  const t0 = Date.now();
+  const log = (msg) => console.log(`[google-login +${Date.now() - t0}ms] ${msg}`);
+
+  try {
+    const { credential, confirmLinking } = req.body || {};
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({ message: 'Missing Google credential' });
+    }
+
+    // Fail fast if MongoDB isn't connected (otherwise Mongoose silently buffers the query)
+    if (mongoose.connection.readyState !== 1) {
+      log(`MongoDB not connected (readyState=${mongoose.connection.readyState})`);
+      return res.status(503).json({ message: 'Database is not connected. Please try again shortly.' });
+    }
+
+    // 1) Verify the ID token with Google
+    log('verifying Google ID token...');
+    let payload;
+    try {
+      const ticket = await withTimeout(
+        googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID }),
+        GOOGLE_VERIFY_TIMEOUT_MS,
+        'Google token verification'
+      );
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      console.error('[google-login] token verification failed:', verifyErr.message);
+      if (NETWORK_ERROR_RE.test(verifyErr.code || '') || NETWORK_ERROR_RE.test(verifyErr.message || '')) {
+        return res.status(503).json({
+          message: "The server couldn't reach Google to verify your sign-in. Please try again.",
+          ...(isDev && { detail: verifyErr.message })
+        });
+      }
+      // Wrong audience (client ID mismatch), expired token, malformed token, etc.
+      return res.status(401).json({
+        message: 'Google sign-in could not be verified.',
+        ...(isDev && { detail: verifyErr.message })
+      });
+    }
+    log('token verified');
+
+    if (!payload?.email) {
+      return res.status(400).json({ message: 'Google account has no email address' });
+    }
+    if (payload.email_verified !== true) {
+      return res.status(400).json({ message: 'Your Google email address is not verified' });
+    }
+
     const email = normalizeEmail(payload.email);
-    const name = payload.name;
+    const name = payload.name || email.split('@')[0];
     const googleId = payload.sub;
 
-    let user = await User.findOne({ email }).select('-password');
+    // 2) Look up the user (password is loaded so the "local" provider check below works;
+    //    it is stripped before the user object is sent back)
+    log('looking up user...');
+    // Match by Google account ID first, then fall back to email for accounts not linked yet
+    let user = await User.findOne({
+      authProviders: { $elemMatch: { provider: 'google', providerId: googleId } }
+    });
+    if (!user) {
+      user = await User.findOne({ email });
+      const linkedGoogle = user?.authProviders?.find((p) => p.provider === 'google');
+      if (linkedGoogle?.providerId && linkedGoogle.providerId !== googleId) {
+        return res.status(409).json({ message: 'This email is already linked to a different Google account.' });
+      }
+    }
 
     if (user) {
       const alreadyLinked = hasProvider(user, 'google');
@@ -360,39 +481,60 @@ const googleLogins = async (req, res) => {
         });
       }
 
-      if (!alreadyLinked) {
-        linkAuthProvider(user, 'google', googleId);
-      }
+      // Links Google if new, and fills in the Google ID on older links that were saved without one
+      linkAuthProvider(user, 'google', googleId);
       if (!hasProvider(user, 'local') && user.password) {
         linkAuthProvider(user, 'local');
       }
 
-      await user.save();
+      if (user.isModified()) {
+        log('saving linked providers...');
+        await user.save();
+      }
+
+      const userSafe = user.toObject();
+      delete userSafe.password;
 
       const token = jwt.sign(
-        { id: user._id, username: user.username, isVeterinarian: user.isVeterinarian, isSeller: user.isSeller },
+        { id: userSafe._id, username: userSafe.username, isVeterinarian: userSafe.isVeterinarian, isSeller: userSafe.isSeller },
         process.env.JWT_SECRET,
         { expiresIn: '5d' }
       );
 
-      return res.status(200).json({ message: 'Sign in successful', token, user });
+      log('sign in successful');
+      return res.status(200).json({ message: 'Sign in successful', token, user: userSafe });
     }
 
-    // If user doesn't exist, ask frontend to get UserType.
+    // 3) New user: ask the frontend for the account type
+    log('new Google user, asking for account type');
     return res.status(200).json({ needsUserType: true, email, username: name, googleId, picture: payload.picture || '' });
 
   } catch (error) {
-    console.error("Google Login Error:", error);
-    res.status(500).json({ message: "Error" });
+    console.error('Google Login Error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        message: 'Google login failed on the server.',
+        ...(isDev && { detail: error.message })
+      });
+    }
   }
 };
 
 const completeGoogleRegistration = async (req, res) => {
   try {
-    const { email, username, isVeterinarian, userType, googleId, profileImage: profileImageUrl } = req.body;
-    const normalizedEmail = normalizeEmail(email);
+    // SECURITY: identity comes only from a Google ID token verified here, never from client-supplied email/googleId
+    const { credential, username: requestedUsername, isVeterinarian, userType } = req.body || {};
+    const identity = await verifyGoogleCredential(credential, res);
+    if (!identity) return;
 
-    if (!normalizedEmail || !username) return res.status(400).json({ message: 'Missing fields' });
+    const normalizedEmail = identity.email;
+    const googleId = identity.googleId;
+    const profileImageUrl = identity.picture;
+    const username = (typeof requestedUsername === 'string' && requestedUsername.trim()) || identity.name;
+
+    if (ADMIN_EMAILS.includes(normalizedEmail)) {
+      return res.status(403).json({ message: 'Reserved email.' });
+    }
 
     let profileImage = '';
     if (typeof profileImageUrl === 'string' && profileImageUrl.trim()) {
@@ -418,30 +560,22 @@ const completeGoogleRegistration = async (req, res) => {
 
     // Seller details check moved to onboarding
 
-    let user = await User.findOne({ email: normalizedEmail });
-    if (user) {
-      if (!hasProvider(user, 'google')) {
-        linkAuthProvider(user, 'google', googleId || null);
-      }
-      if (isSeller && !user.isSeller) {
-        user.isSeller = true;
-        user.sellerStatus = 'incomplete';
-      }
-      await user.save();
-    } else {
-      user = await User.create({
-        username,
-        email: normalizedEmail,
-        password: null,
-        isVeterinarian: isVet,
-        isSeller,
-        sellerStatus: isSeller ? 'incomplete' : undefined,
-        phone: "",
-        phoneVerified: false,
-        profileImage,
-        authProviders: [{ provider: 'google', providerId: googleId || null }]
-      });
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: 'An account with this email already exists. Please sign in with Google instead.' });
     }
+    const user = await User.create({
+      username,
+      email: normalizedEmail,
+      password: null,
+      isVeterinarian: isVet,
+      isSeller,
+      sellerStatus: isSeller ? 'incomplete' : undefined,
+      phone: "",
+      phoneVerified: false,
+      profileImage,
+      authProviders: [{ provider: 'google', providerId: googleId || null }]
+    });
 
     const userSafe = user.toObject();
     delete userSafe.password;
@@ -528,7 +662,9 @@ const getUserProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { id, username, email, phone, city, location, about, notificationPreferences } = req.body;
+    // The profile being edited is always the logged-in user's; any id in the body is ignored
+    const id = req.user.id;
+    const { username, email, phone, city, location, about, notificationPreferences } = req.body || {};
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -674,20 +810,45 @@ const resetPassword = async (req, res) => {
 
 // Other Exports
 const signOut = async (req, res) => res.status(200).json({ message: 'Signed out' });
+// Only public profile fields are returned by the user lookup endpoints (never email, phone or verification codes)
+const PUBLIC_USER_FIELDS = 'username profileImage status lastActive isVeterinarian isSeller sellerStatus city about createdAt';
+
 const getUserById = async (req, res) => {
-  const user = await User.findById(req.body.id).select("-password");
-  res.json({ data: user });
+  try {
+    const { id } = req.body || {};
+    if (!id || !mongoose.Types.ObjectId.isValid(String(id))) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    const user = await User.findById(id).select(PUBLIC_USER_FIELDS);
+    res.json({ data: user });
+  } catch (error) {
+    console.error('getUserById error:', error);
+    res.status(500).json({ message: 'Failed to fetch user' });
+  }
 };
 const getAllUsers = async (req, res) => {
-  const users = await User.find().select("-password");
-  res.json({ data: users });
+  try {
+    const users = await User.find().select(PUBLIC_USER_FIELDS);
+    res.json({ data: users });
+  } catch (error) {
+    console.error('getAllUsers error:', error);
+    res.status(500).json({ message: 'Failed to fetch users' });
+  }
 };
 const searchUsers = async (req, res) => {
-  const { query } = req.body;
-  const users = await User.find({
-    $or: [{ username: { $regex: query, $options: 'i' } }, { email: { $regex: query, $options: 'i' } }]
-  }).select("-password");
-  res.json({ data: users });
+  try {
+    const query = typeof req.body?.query === 'string' ? req.body.query.trim().slice(0, 100) : '';
+    if (!query) return res.json({ data: [] });
+    const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const users = await User.find({ username: { $regex: safe, $options: 'i' } })
+      .select(PUBLIC_USER_FIELDS)
+      .limit(50)
+      .lean();
+    res.json({ data: users });
+  } catch (error) {
+    console.error('searchUsers error:', error);
+    res.status(500).json({ message: 'Failed to search users' });
+  }
 };
 const deleteLocalProfileImage = async (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') return;
@@ -744,7 +905,11 @@ const removeProfileImage = async (req, res) => {
 };
 const getUserPublicProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("username email profileImage phone city about isVeterinarian isSeller lastActive");
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+    // Public endpoint: never return email or phone
+    const user = await User.findById(req.params.id).select("username profileImage city about isVeterinarian isSeller lastActive");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -767,14 +932,26 @@ const getUserPublicProfile = async (req, res) => {
   }
 };
 const changePassword = async (req, res) => {
-  const { id, currentPassword, newPassword } = req.body;
-  const user = await User.findById(id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  const isMatch = await bcrypt.compare(currentPassword, user.password);
-  if (!isMatch) return res.status(400).json({ error: 'Incorrect password' });
-  user.password = await bcrypt.hash(newPassword, 10);
-  await user.save();
-  res.status(200).json({ message: 'Changed' });
+  try {
+    // Always the logged-in user's password; any id in the body is ignored
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user.password) {
+      return res.status(400).json({ error: 'This account has no password yet. Use "Set Password" instead.' });
+    }
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Incorrect password' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.status(200).json({ message: 'Changed' });
+  } catch (error) {
+    console.error('changePassword error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
 };
 
 // For Google-first accounts: set a password once (JWT required).

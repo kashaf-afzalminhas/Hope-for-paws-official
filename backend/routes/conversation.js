@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const conversationController = require("../controllers/ConversationController");
 const mongoose = require("mongoose");
+const auth = require("../middleware/auth");
 
 // Middleware to validate ObjectId
 const validateObjectId = (req, res, next) => {
@@ -26,15 +27,15 @@ const validateUserIds = (req, res, next) => {
 };
 
 // Create a new conversation
-router.post("/", conversationController.createConversation);
+router.post("/", auth, conversationController.createConversation);
 
 // Get all conversations for a specific user
-router.get("/:userId", validateUserIds, conversationController.getUserConversations);
+router.get("/:userId", auth, validateUserIds, conversationController.getUserConversations);
 
 // Get a specific conversation between two users
-router.get("/find/:firstUserId/:secondUserId", validateUserIds, conversationController.getConversationBetweenUsers);
+router.get("/find/:firstUserId/:secondUserId", auth, validateUserIds, conversationController.getConversationBetweenUsers);
 
 // Get a conversation by its ID
-router.get("/conversation/:id", validateObjectId, conversationController.getConversationById);
+router.get("/conversation/:id", auth, validateObjectId, conversationController.getConversationById);
 
 module.exports = router;

@@ -42,26 +42,24 @@ router.post('/signin', signIn);
 router.post('/login', signIn);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);
-router.post('/update-profile', updateProfile);
+router.post('/update-profile', auth, updateProfile);
 router.post('/signout', signOut); 
-router.post('/change-password', changePassword);
+router.post('/change-password', auth, changePassword);
 router.post('/set-password', auth, setPassword);
 // User management routes
-router.post('/getUserById', getUserById);
-router.post('/getAllUsers', getAllUsers);
-router.post('/searchUsers', searchUsers);
+router.post('/getUserById', auth, getUserById);
+router.post('/getAllUsers', auth, getAllUsers);
+router.post('/searchUsers', auth, searchUsers);
 
 // Token validation route
 router.get('/user/validate', auth, validateToken);
 
-// Debug route to check token (remove this in production)
-router.get('/debug-token', (req, res) => {
-  const authHeader = req.headers.authorization;
-  console.log('Debug - Authorization header:', authHeader);
-  res.json({ 
-    hasAuthHeader: !!authHeader,
-    authHeader: authHeader,
-    message: 'Debug endpoint - check server logs'
+// Debug route to check token: login required, and the token itself is never logged or echoed back
+router.get('/debug-token', auth, (req, res) => {
+  res.json({
+    hasAuthHeader: true,
+    userId: req.user.id,
+    message: 'Token is valid'
   });
 });
 

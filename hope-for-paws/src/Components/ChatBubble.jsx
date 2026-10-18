@@ -23,7 +23,7 @@ const ChatBubble = ({ message, timestamp, isCurrentUser, senderName, className }
         "flex items-center gap-1.5 text-[11.5px] mb-1 font-medium select-none",
         isCurrentUser ? "text-[#3D1E0C] justify-start" : "text-[#F5EBE1] justify-start"
       )}>
-        <span className="font-semibold">{senderName || (isCurrentUser ? 'Sahab' : 'User')}</span>
+        <span className="font-semibold">{senderName || (isCurrentUser ? 'You' : 'User')}</span>
         <span>:</span>
         <span className="opacity-80 text-[10.5px]">{formatMessageTime(timestamp)}</span>
       </div>

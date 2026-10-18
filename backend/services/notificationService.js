@@ -11,14 +11,16 @@ const { scheduleChatReminder } = require('../queues/chatEmailQueue');
 class NotificationService {
   constructor(io) {
     this.io = io;
-    this.userSockets = new Map(); // Map to store user ID to socket ID mapping
+    this.userSockets = new Map(); // userId -> Set of socket IDs (one per open tab/device)
 
     this.transporter = transporter;
   }
 
   // Store user socket connection
   async addUserSocket(userId, socketId) {
-    this.userSockets.set(userId.toString(), socketId);
+    const key = userId.toString();
+    if (!this.userSockets.has(key)) this.userSockets.set(key, new Set());
+    this.userSockets.get(key).add(socketId);
     activityTracker.trackUserConnect(userId);
     try {
       await User.findByIdAndUpdate(
@@ -35,8 +37,15 @@ class NotificationService {
   }
 
   // Remove user socket connection
-  async removeUserSocket(userId) {
-    this.userSockets.delete(userId.toString());
+  // Removes one socket; the user only goes offline when their last tab/device disconnects.
+  async removeUserSocket(userId, socketId) {
+    const key = userId.toString();
+    const sockets = this.userSockets.get(key);
+    if (sockets && socketId) {
+      sockets.delete(socketId);
+      if (sockets.size > 0) return;
+    }
+    this.userSockets.delete(key);
     activityTracker.trackUserDisconnect(userId);
     try {
       await User.findByIdAndUpdate(
@@ -64,8 +73,12 @@ class NotificationService {
   }
 
   // Get socket ID for a user
+  // Returns the user's personal room name (every socket of the user joins it), or undefined if offline.
+  // Emitting to it reaches all of the user's open tabs/devices.
   getUserSocket(userId) {
-    return this.userSockets.get(userId.toString());
+    const key = userId.toString();
+    const sockets = this.userSockets.get(key);
+    return sockets && sockets.size > 0 ? key : undefined;
   }
 
   // Backward-compatible alias used in some handlers
@@ -220,7 +233,7 @@ class NotificationService {
       notification.emailSentAt = new Date();
       await notification.save();
 
-      console.log(`Email notification sent to ${recipient.email}`);
+      console.log(`Email notification sent to user ${recipient._id}`);
     } catch (error) {
       console.error('Error sending email notification:', error);
     }
@@ -418,7 +431,7 @@ class NotificationService {
 
     await this.transporter.sendMail(mailOptions);
     console.log(
-      `Chat digest email sent to ${recipient.email} (${totalMessages} messages from ${uniqueSenderNames.length} senders)`
+      `Chat digest email sent to user ${recipient._id} (${totalMessages} messages from ${uniqueSenderNames.length} senders)`
     );
   }
 
@@ -464,7 +477,7 @@ class NotificationService {
       { $set: { emailSent: true, emailSentAt: new Date() } }
     );
 
-    console.log(`Daily digest email sent to ${recipient.email} (${notifications.length} notifications)`);
+    console.log(`Daily digest email sent to user ${recipient._id} (${notifications.length} notifications)`);
   }
 
   async runDailyDigestJob() {

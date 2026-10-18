@@ -40,12 +40,12 @@ const Login = () => {
       setEmail(location.state.email);
     } else {
       const savedEmail = localStorage.getItem('savedEmail');
-      const savedPassword = localStorage.getItem('savedPassword');
+      // Passwords are no longer remembered; clear any copy saved by older versions
+      localStorage.removeItem('savedPassword');
       const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
 
       if (savedRememberMe) {
         setEmail(savedEmail || '');
-        setPassword(savedPassword || '');
         setRememberMe(true);
       }
     }
@@ -147,7 +147,6 @@ const Login = () => {
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('rememberMe', 'true');
             localStorage.setItem('savedEmail', email);
-            localStorage.setItem('savedPassword', password);
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('user');
           } else {
@@ -179,16 +178,41 @@ const Login = () => {
     }
   };
 
+  // POST to /login-google with a timeout and safe JSON parsing
+  const postGoogleLogin = async (body) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { message: `Unexpected server response (${response.status})` };
+      }
+      if (!response.ok && data.detail) console.error("Google login error detail:", data.detail);
+      return { response, data };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   const googleLoginHandler = async (googleResponse) => {
     setLoading(true);
     setError("");
     try {
-      let response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential: googleResponse.credential }),
-      });
-      let data = await response.json();
+      if (!googleResponse?.credential) {
+        setLoading(false);
+        setError("Google didn't return a credential. Please try again.");
+        return;
+      }
+
+      let { response, data } = await postGoogleLogin({ credential: googleResponse.credential });
 
       if (response.ok && data.requiresLinkConfirmation) {
         const shouldLink = window.confirm(
@@ -200,15 +224,10 @@ const Login = () => {
           return;
         }
 
-        response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            credential: googleResponse.credential,
-            confirmLinking: true
-          }),
-        });
-        data = await response.json();
+        ({ response, data } = await postGoogleLogin({
+          credential: googleResponse.credential,
+          confirmLinking: true
+        }));
       }
 
       setLoading(false);
@@ -217,8 +236,8 @@ const Login = () => {
           setPendingGoogleUser({
             email: data.email,
             username: data.username,
-            googleId: data.googleId,
-            picture: data.picture
+            picture: data.picture,
+            credential: googleResponse.credential
           });
           setShowUserTypeModal(true);
           return;
@@ -252,9 +271,14 @@ const Login = () => {
       } else {
         setError(data.message || "Google login failed");
       }
-    } catch {
+    } catch (err) {
       setLoading(false);
-      setError("An error occurred during Google login");
+      console.error("Google login request failed:", err);
+      if (err.name === "AbortError") {
+        setError("The server took too long to respond. Please try again.");
+      } else {
+        setError("Couldn't reach the server. Make sure the backend is running.");
+      }
     }
   };
 
@@ -267,12 +291,10 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: pendingGoogleUser.email,
+          credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
           isVeterinarian: userTypeSelected === 'veterinarian',
           userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
-          googleId: pendingGoogleUser.googleId,
-          profileImage: pendingGoogleUser.picture,
           ...(userTypeSelected === 'seller' && sellerInfo && {
             sellerName: sellerInfo.businessName,
             cnic: sellerInfo.cnic,
@@ -468,7 +490,7 @@ const Login = () => {
               <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
                 <GoogleLogin
                   onSuccess={(response) => googleLoginHandler(response)}
-                  onError={(error) => console.log(error)}
+                  onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
                   theme="filled_blue"
                   shape="pill"
                   size="large"

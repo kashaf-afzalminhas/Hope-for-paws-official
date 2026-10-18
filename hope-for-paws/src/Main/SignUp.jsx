@@ -196,8 +196,8 @@ const SignUp = () => {
           setPendingGoogleUser({
             email: data.email,
             username: data.username,
-            googleId: data.googleId,
-            picture: data.picture
+            picture: data.picture,
+            credential: googleResponse.credential
           });
           setShowUserTypeModal(true);
           return;
@@ -224,12 +224,10 @@ const SignUp = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: pendingGoogleUser.email,
+          credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
-          googleId: pendingGoogleUser.googleId,
-          profileImage: pendingGoogleUser.picture,
           isVeterinarian: userTypeSelected === 'veterinarian',
-          userType: userTypeSelected === 'seller' ? 'seller' : 'user'
+          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user')
         }),
       });
       const data = await response.json();

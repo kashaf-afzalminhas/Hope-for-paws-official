@@ -76,10 +76,20 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  // Save the user next to the token: localStorage for "remember me", sessionStorage otherwise.
+  // (Writing to both left a stale user behind after the browser closed and the session token was gone.)
   const updateUser = (updatedUserData) => {
     setUser(updatedUserData);
-    localStorage.setItem('user', JSON.stringify(updatedUserData));
-    sessionStorage.setItem('user', JSON.stringify(updatedUserData));
+    const serialized = JSON.stringify(updatedUserData);
+    if (localStorage.getItem('token')) {
+      localStorage.setItem('user', serialized);
+      sessionStorage.removeItem('user');
+    } else if (sessionStorage.getItem('token')) {
+      sessionStorage.setItem('user', serialized);
+      localStorage.removeItem('user');
+    } else {
+      sessionStorage.setItem('user', serialized);
+    }
   };
 
   return (
