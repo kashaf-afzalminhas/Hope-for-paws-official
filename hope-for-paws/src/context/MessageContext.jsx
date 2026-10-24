@@ -106,10 +106,15 @@ const MessageProvider = ({ children }) => {
       if (id) refreshConversations(id);
     };
     socket.on('connect', handleReconnect);
+    // Read in another tab/device: refresh the unread counts here too
+    socket.on('conversationRead', handleReconnect);
+    socket.on('conversationDeleted', handleReconnect);
 
     return () => {
       socket.off('newMessage', handleNewMessage);
       socket.off('connect', handleReconnect);
+      socket.off('conversationRead', handleReconnect);
+      socket.off('conversationDeleted', handleReconnect);
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
   }, [currentConversationId, socketConnected, user]);

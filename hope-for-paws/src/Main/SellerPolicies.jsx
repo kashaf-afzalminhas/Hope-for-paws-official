@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Edit2, Loader2, Plus, ShieldCheck, Trash2, Truck, X } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
-const API_URL = 'http://localhost:3000/api/sellers';
+const API_URL = `${API_BASE_URL}/sellers`;
 const getAxiosConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}` }
 });

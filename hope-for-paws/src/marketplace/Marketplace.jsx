@@ -11,6 +11,7 @@ import { PRODUCT_CATEGORIES } from "../utils/constants";
 import VerifiedBadge from "../Components/VerifiedBadge";
 import StarDisplay from "../Components/StarDisplay";
 import { useWishlist } from "../context/WishlistContext";
+import { API_ORIGIN } from "../config";
 
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -981,7 +982,7 @@ export default function Marketplace() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
-        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        const API_BASE = API_ORIGIN;
         const res = await fetch(`${API_BASE}/api/products`, { signal: controller.signal });
         if (!res.ok) throw new Error("Failed to fetch products");
         const data = await res.json();

@@ -24,6 +24,8 @@ import {
   RefreshCw,
   AlertTriangle,
 } from "lucide-react";
+import { API_ORIGIN } from "../config";
+import { getMediaUrl } from "../lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
 // DATA
@@ -306,7 +308,7 @@ function OrderDetailPanel({ order }) {
                   <div className="w-8 h-8 rounded-lg bg-[#6b493d]/10 flex items-center justify-center flex-shrink-0">
                     {item.image ? (
                       <img
-                        src={item.image.startsWith('http') ? item.image : `http://localhost:3000${item.image}`}
+                        src={getMediaUrl(item.image)}
                         alt={item.title}
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -864,7 +866,7 @@ export default function SellerOrderDashboard({ embedded = false, onNavigateAnaly
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token') || localStorage.getItem('hope_for_paws_token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiBase = API_ORIGIN;
         const res = await fetch(`${apiBase}/api/orders/seller`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -904,7 +906,7 @@ export default function SellerOrderDashboard({ embedded = false, onNavigateAnaly
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token') || localStorage.getItem('hope_for_paws_token');
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiBase = API_ORIGIN;
       const res = await fetch(`${apiBase}/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {

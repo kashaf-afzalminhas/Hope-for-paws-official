@@ -3,7 +3,7 @@ const router = express.Router();
 const User = require('../models/User'); // Adjust the path according to your project structure
 const bcrypt = require('bcryptjs');
 const auth = require('../middleware/auth');
-const { uploadProfileImage } = require('../middleware/multer_middleware');
+const { uploadProfileImage, handleUpload, verifyImageContent } = require('../middleware/multer_middleware');
 const { 
   signUp, 
   signIn, 
@@ -16,6 +16,7 @@ const {
   resendOTP,
   getUserById, 
   getAllUsers, 
+  getUsersByIds,
   searchUsers,
   uploadProfileImage: uploadProfileImageController,
   getUserPublicProfile,
@@ -49,6 +50,7 @@ router.post('/set-password', auth, setPassword);
 // User management routes
 router.post('/getUserById', auth, getUserById);
 router.post('/getAllUsers', auth, getAllUsers);
+router.post('/getUsersByIds', auth, getUsersByIds);
 router.post('/searchUsers', auth, searchUsers);
 
 // Token validation route
@@ -64,7 +66,7 @@ router.get('/debug-token', auth, (req, res) => {
 });
 
 // Profile management routes
-router.post('/upload-profile-image', auth, uploadProfileImage.single('image'), uploadProfileImageController);
+router.post('/upload-profile-image', auth, handleUpload(uploadProfileImage.single('image')), verifyImageContent, uploadProfileImageController);
 router.get('/profile', auth, getUserProfile);
 router.get('/profile/:id', getUserPublicProfile);
 router.delete('/remove-profile-image', auth, removeProfileImage);

@@ -23,6 +23,8 @@ import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import { useRequireAuth } from "../Components/AuthGuard";
 import ReportModal from "./ReportModal";
+import { API_BASE_URL } from "../config";
+import { getMediaUrl } from "../lib/utils";
 
 /* ─────────────────────────── CONSTANTS ─────────────────────────── */
 const BRAND = {
@@ -162,7 +164,7 @@ function CustomerReviews({ productId }) {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/reviews/product/${productId}`);
+        const res = await fetch(`${API_BASE_URL}/reviews/product/${productId}`);
         if (res.ok) {
           const data = await res.json();
           setReviews(data);
@@ -243,7 +245,12 @@ export default function ProductDetails() {
     const fetchProduct = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`http://localhost:3000/api/products/${id}`, { signal: controller.signal });
+        // Send the login token if there is one, so a seller can preview their own hidden product
+        const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+          signal: controller.signal,
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+        });
         if (!res.ok) throw new Error("Failed to fetch product");
         const data = await res.json();
 
@@ -266,7 +273,7 @@ export default function ProductDetails() {
           rating: data.averageRating || 0,
           reviewCount: data.numReviews || 0,
           weight: data.weight || null,
-          images: data.images?.length > 0 ? data.images.map(img => img.startsWith('http') ? img : `http://localhost:3000${img}`) : [
+          images: data.images?.length > 0 ? data.images.map(img => getMediaUrl(img)) : [
             "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80"
           ],
           seller: {

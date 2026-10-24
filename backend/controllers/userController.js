@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const TempUser = require('../models/TempUser');
 const Seller = require('../models/Seller');
+const { saveImage, deleteImage } = require('../services/imageStorage');
 const { toLocationSnapshot } = require('../utils/pakistanLocations');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -170,7 +171,12 @@ const signUp = async (req, res) => {
       expiry: '2 minutes',
       preheader: `Your Hope for Paws verification code is ${otp}`,
     });
-    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject: 'Hope for Paws: Verification Code', text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`, html });
+    try {
+      await transporter.sendMail({ from: process.env.GMAIL_USER, to: normalizedEmail, subject: 'Hope for Paws: Verification Code', text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`, html });
+    } catch (mailError) {
+      console.error('SignUp Email Error:', mailError.code || '', mailError.message);
+      return res.status(503).json({ message: 'We could not send the verification email right now. Please try again in a minute.' });
+    }
 
     res.status(201).json({ message: 'OTP sent to your email.' });
 
@@ -620,9 +626,15 @@ const resendOTP = async (req, res) => {
       expiry: '2 minutes',
       preheader: `Your new Hope for Paws verification code is ${newOtp}`,
     });
-    await transporter.sendMail({ from: process.env.GMAIL_USER, to: email, subject: 'Hope for Paws: New OTP', text: `Your new OTP: ${newOtp}\nIt expires in 2 minutes.`, html });
+    try {
+      await transporter.sendMail({ from: process.env.GMAIL_USER, to: tempUser.email, subject: 'Hope for Paws: New OTP', text: `Your new OTP: ${newOtp}\nIt expires in 2 minutes.`, html });
+    } catch (mailError) {
+      console.error('Resend OTP Email Error:', mailError.code || '', mailError.message);
+      return res.status(503).json({ message: 'We could not send the verification email right now. Please try again in a minute.' });
+    }
     res.status(200).json({ message: 'New OTP sent.' });
   } catch (error) {
+    console.error('Resend OTP Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -835,6 +847,21 @@ const getAllUsers = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch users' });
   }
 };
+// Several users at once (public fields only), e.g. the people someone chats with
+const getUsersByIds = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const validIds = [...new Set(ids.map(String))]
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .slice(0, 200);
+    if (validIds.length === 0) return res.json({ data: [] });
+    const users = await User.find({ _id: { $in: validIds } }).select(PUBLIC_USER_FIELDS);
+    res.json({ data: users });
+  } catch (error) {
+    console.error('getUsersByIds error:', error);
+    res.status(500).json({ message: 'Failed to fetch users' });
+  }
+};
 const searchUsers = async (req, res) => {
   try {
     const query = typeof req.body?.query === 'string' ? req.body.query.trim().slice(0, 100) : '';
@@ -850,17 +877,14 @@ const searchUsers = async (req, res) => {
     res.status(500).json({ message: 'Failed to search users' });
   }
 };
-const deleteLocalProfileImage = async (imagePath) => {
+// Deletes a user's old profile picture (Cloudinary or local), unless the same image is still the store photo
+const deleteLocalProfileImage = async (imagePath, userId) => {
   if (!imagePath || typeof imagePath !== 'string') return;
-  const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-  const fullPath = path.join(process.cwd(), cleanPath);
-
   try {
-    await fs.unlink(fullPath);
+    const usedBySeller = userId ? await Seller.exists({ userId, profileImage: imagePath }) : null;
+    if (!usedBySeller) await deleteImage(imagePath);
   } catch (err) {
-    if (err.code !== 'ENOENT') {
-      console.error('Error deleting profile image from disk:', err);
-    }
+    console.error('Error deleting old profile image:', err.message);
   }
 };
 const uploadProfileImage = async (req, res) => {
@@ -868,19 +892,24 @@ const uploadProfileImage = async (req, res) => {
 
   try {
     const existingUser = await User.findById(req.user.id);
-    if (existingUser?.profileImage) {
-      await deleteLocalProfileImage(existingUser.profileImage);
-    }
+    if (!existingUser) return res.status(404).json({ success: false, message: "User not found" });
 
+    const newImage = await saveImage(req.file, 'profile-images');
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { profileImage: `/uploads/profile-images/${req.file.filename}` },
+      { profileImage: newImage },
       { new: true }
     );
+
+    // Remove the previous picture only after the new one is saved
+    if (existingUser.profileImage && existingUser.profileImage !== newImage) {
+      await deleteLocalProfileImage(existingUser.profileImage, req.user.id);
+    }
 
     res.json({ success: true, data: { profileImage: user.profileImage } });
   } catch (error) {
     console.error('Error uploading profile image:', error);
+    if (error.status === 400) return res.status(400).json({ success: false, message: error.message });
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -891,7 +920,7 @@ const removeProfileImage = async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     if (user.profileImage) {
-      await deleteLocalProfileImage(user.profileImage);
+      await deleteLocalProfileImage(user.profileImage, user._id);
     }
 
     user.profileImage = "";
@@ -1154,6 +1183,7 @@ module.exports = {
   updateProfile,
   signOut,
   getAllUsers,
+  getUsersByIds,
   getUserById,
   searchUsers,
   uploadProfileImage,

@@ -5,6 +5,24 @@ const Adoption = require('../models/adoptionModel');
 const AdoptionRequest = require('../models/adoptionRequestModel');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
+const mongoose = require('mongoose');
+const Seller = require('../models/Seller');
+const Product = require('../models/Product');
+const { deleteImage } = require('../services/imageStorage');
+
+// Fields that are never sent to the admin panel (password hash and one-time codes)
+const PRIVATE_USER_FIELDS = '-password -verificationCode -verificationCodeExpires -phoneVerificationCode -phoneVerificationCodeExpires -pendingEmailOTP -pendingEmailOTPExpires';
+
+// Expired or invalid admin login -> 401 (so the admin is asked to log in again), anything else -> 500
+const sendAdminError = (res, error) => {
+  if (error && (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError')) {
+    return res.status(401).json({ message: 'Your session has expired. Please log in again.' });
+  }
+  if (error && error.name === 'CastError') {
+    return res.status(400).json({ message: 'Invalid ID' });
+  }
+  return res.status(500).json({ message: 'Server error' });
+};
 
 const getAllUsersForAdmin = async (req, res) => {
   try {
@@ -17,7 +35,7 @@ const getAllUsersForAdmin = async (req, res) => {
     if (!user || !user.isAdmin) {
       return res.status(403).json({ message: 'Access denied: Admins only' });
     }
-    const users = await User.find({});
+    const users = await User.find({}).select(PRIVATE_USER_FIELDS);
     const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
     const sellers = users.filter(u => u.isSeller && !u.isAdmin);
     const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
@@ -25,7 +43,7 @@ const getAllUsersForAdmin = async (req, res) => {
     res.json({ admins, veterinarians, sellers, regularUsers });
   } catch (error) {
     console.error('Error fetching users for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -46,7 +64,7 @@ const getUserStats = async (req, res) => {
     res.json({ posts, comments, adoptions, requests });
   } catch (error) {
     console.error('Error fetching user stats:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -66,11 +84,18 @@ const deleteUser = async (req, res) => {
       Adoption.deleteMany({ userId: userId }),
       AdoptionRequest.deleteMany({ requester: userId })
     ]);
+    // If the user had a store, take it down too: suspend it and hide its products.
+    // (The seller record is kept so existing orders and order history still work.)
+    const seller = await Seller.findOne({ userId });
+    if (seller) {
+      await Product.updateMany({ sellerId: seller._id }, { $set: { isVisible: false, status: 'hidden', hiddenBySuspension: true } });
+      await Seller.updateOne({ _id: seller._id }, { $set: { status: 'suspended', isVerified: false } });
+    }
     await User.deleteOne({ _id: userId });
     res.json({ message: 'User and related data deleted', deleted: { posts: posts.deletedCount, comments: comments.deletedCount, adoptions: adoptions.deletedCount, requests: requests.deletedCount } });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -96,7 +121,7 @@ const getAllAdoptionsForAdmin = async (req, res) => {
     res.json(adoptionsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all adoptions for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -115,7 +140,7 @@ const getUserAdoptionsForAdmin = async (req, res) => {
     res.json(adoptions);
   } catch (error) {
     console.error('Error fetching user adoptions for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -136,7 +161,7 @@ const deleteAdoptionForAdmin = async (req, res) => {
     res.json({ message: 'Adoption deleted successfully' });
   } catch (error) {
     console.error('Error deleting adoption for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -168,7 +193,7 @@ const getAllPostsForAdmin = async (req, res) => {
     res.json(postsWithComments);
   } catch (error) {
     console.error('Error fetching all posts for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -187,7 +212,7 @@ const getUserPostsForAdmin = async (req, res) => {
     res.json(posts);
   } catch (error) {
     console.error('Error fetching user posts for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -203,9 +228,10 @@ const deletePostForAdmin = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
     // Delete image from Cloudinary
-    if (post.imageUrl) {
-      const publicId = post.imageUrl.split('/').pop().split('.')[0];
-      try { await cloudinary.uploader.destroy(publicId); } catch (e) { console.error('Cloudinary delete error:', e); }
+    // Delete every image of the post (main image and gallery), including ones inside Cloudinary folders
+    const postImages = [post.imageUrl, ...(Array.isArray(post.imageUrls) ? post.imageUrls : [])].filter(Boolean);
+    for (const url of [...new Set(postImages)]) {
+      try { await deleteImage(url); } catch (e) { console.error('Cloudinary delete error:', e.message); }
     }
     // Delete all comments associated with the post
     await Comment.deleteMany({ postId: post._id });
@@ -214,7 +240,7 @@ const deletePostForAdmin = async (req, res) => {
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
     console.error('Error deleting post for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -244,7 +270,7 @@ const getAllCommentsForAdmin = async (req, res) => {
     res.json(commentsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all comments for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -264,7 +290,7 @@ const getUserCommentsForAdmin = async (req, res) => {
     res.json(comments);
   } catch (error) {
     console.error('Error fetching user comments for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -284,7 +310,7 @@ const getPostCommentsForAdmin = async (req, res) => {
     res.json(comments);
   } catch (error) {
     console.error('Error fetching post comments for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -303,7 +329,7 @@ const deleteCommentForAdmin = async (req, res) => {
     res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error('Error deleting comment for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -316,7 +342,7 @@ const getAllUsersWithStats = async (req, res) => {
     const adminUser = await User.findById(decoded.id);
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     
-    const users = await User.find({});
+    const users = await User.find({}).select(PRIVATE_USER_FIELDS);
     const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
     const sellers = users.filter(u => u.isSeller && !u.isAdmin);
     const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
@@ -363,7 +389,7 @@ const getAllUsersWithStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching users with stats:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -394,7 +420,7 @@ const getAllAdoptionRequestsForAdmin = async (req, res) => {
     res.json(requestsWithFallbacks);
   } catch (error) {
     console.error('Error fetching all adoption requests for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -425,7 +451,7 @@ const getUserAdoptionRequestsForAdmin = async (req, res) => {
     res.json(requestsWithFallbacks);
   } catch (error) {
     console.error('Error fetching user adoption requests for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 
@@ -446,7 +472,7 @@ const deleteAdoptionRequestForAdmin = async (req, res) => {
     res.json({ message: 'Adoption request deleted successfully' });
   } catch (error) {
     console.error('Error deleting adoption request for admin:', error);
-    res.status(500).json({ message: 'Server error' });
+    sendAdminError(res, error);
   }
 };
 

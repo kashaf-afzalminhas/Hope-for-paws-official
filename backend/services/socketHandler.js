@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
+const Message = require('../models/message');
 
 // Legacy/test socket events (testHandler, testMessage, debugSocket, message:new, bid:new,
 // job:hired, work:submitted, work:approved) trusted IDs sent by the client and are not used
@@ -73,6 +74,10 @@ const setupSocketHandlers = (io, socket, notificationService) => {
       const { messageId, conversationId } = data || {};
       if (!messageId || !conversationId) return;
       if (!(await isConversationMember(conversationId, socket.userId))) return;
+      // The message must belong to that conversation
+      if (!mongoose.Types.ObjectId.isValid(String(messageId))) return;
+      const inConversation = await Message.exists({ _id: String(messageId), conversationId: String(conversationId) });
+      if (!inConversation) return;
       socket.to(conversationId.toString()).emit('messageRead', {
         messageId,
         userId: socket.userId,

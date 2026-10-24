@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Star, X, Loader2, CheckCircle2, ImagePlus, Trash2 } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 // REVIEW MODAL
 // STAR RATING INPUT
@@ -115,7 +116,7 @@ export default function ReviewModal({ isOpen, onClose, orderId, product, onSucce
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const res = await fetch("http://localhost:3000/api/reviews", {
+      const res = await fetch(`${API_BASE_URL}/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,6 +8,8 @@ const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
 
 const MAX_MESSAGE_LENGTH = 5000;
+const DEFAULT_MESSAGE_PAGE = 200;
+const MAX_MESSAGE_PAGE = 500;
 // Minimum gap between immediate "new message" emails to the same seller.
 // Tracked in memory so it doesn't interfere with the reminder queue's lastChatEmailSentAt cooldown.
 const SELLER_EMAIL_COOLDOWN_MS = 15 * 60 * 1000;
@@ -193,11 +195,24 @@ exports.getMessages = async (req, res) => {
       }
     }
 
-    const messages = await Message.find(query)
-      .sort({ createdAt: 1, timestamp: 1 })
+    // Paging: newest messages first from the database, returned oldest-first.
+    // ?before=<ISO date> loads older messages; ?limit= (default 200, max 500).
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_MESSAGE_PAGE, 1), MAX_MESSAGE_PAGE);
+    if (typeof req.query.before === 'string' && req.query.before) {
+      const beforeDate = new Date(req.query.before);
+      if (Number.isNaN(beforeDate.getTime())) {
+        return res.status(400).json({ message: "Invalid 'before' date" });
+      }
+      query.createdAt = { ...(query.createdAt || {}), $lt: beforeDate };
+    }
+
+    const newestFirst = await Message.find(query)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit)
       .populate("readBy", "username");
 
-    res.json(messages);
+    res.set('X-Has-More', newestFirst.length === limit ? 'true' : 'false');
+    res.json(newestFirst.reverse());
   } catch (err) {
     console.error("Error fetching messages:", err);
     res.status(500).json({ message: "Failed to fetch messages" });
@@ -258,6 +273,12 @@ exports.markConversationAsRead = async (req, res) => {
       },
       { $addToSet: { readBy: userObjectId } }
     );
+
+    // Let the user's other tabs/devices update their unread badges
+    if (result.modifiedCount > 0) {
+      const io = req.app.get("socketio");
+      if (io) io.to(userId).emit("conversationRead", { conversationId: String(conversationId) });
+    }
 
     res.json({
       message: "Conversation marked as read",

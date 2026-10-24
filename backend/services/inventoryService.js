@@ -139,34 +139,29 @@ inventoryEvents.on('checkLowStock', async (productsToCheck) => {
 exports.processCheckoutInventory = async (orderItems) => {
   if (!orderItems || orderItems.length === 0) return true;
 
-  // 1. Build the bulkWrite operations with strict race-condition guards
-  const bulkOps = orderItems.map(item => ({
-    updateOne: {
-      filter: { 
-        _id: item.productId, 
-        // GUARANTEE: The current stock MUST be >= the requested quantity. 
-        // This mathematically prevents stock from ever dropping below zero during concurrent checkouts.
-        countInStock: { $gte: item.quantity } 
-      },
-      update: { 
-        $inc: { countInStock: -item.quantity } 
-      }
-    }
-  }));
-
-  // 2. Execute atomic bulk write in a single DB trip
-  const result = await Product.bulkWrite(bulkOps);
-
-  // 3. Verify exactly all items were successfully updated.
-  // If matchedCount/modifiedCount is less than orderItems.length, 
-  // it means the query constraint ($gte) failed for at least one item due to insufficient stock.
-  if (result.modifiedCount !== orderItems.length) {
-    throw new Error('Insufficient stock for one or more items in your cart. Checkout aborted.');
+  // Merge repeated products so one product is never decremented twice in separate operations
+  const merged = new Map();
+  for (const item of orderItems) {
+    const key = item.productId.toString();
+    merged.set(key, (merged.get(key) || 0) + Number(item.quantity));
   }
 
-  // 4. Fetch the newly updated stock levels for evaluation
-  const productIds = orderItems.map(item => item.productId);
-  const updatedProducts = await Product.find({ _id: { $in: productIds } })
+  // Decrement one product at a time; each update only succeeds if enough stock is left.
+  // If any product is short, every decrement already made is put back, so a failed checkout never loses stock.
+  const done = [];
+  for (const [productId, quantity] of merged) {
+    const result = await Product.updateOne(
+      { _id: productId, countInStock: { $gte: quantity } },
+      { $inc: { countInStock: -quantity } }
+    );
+    if (result.modifiedCount !== 1) {
+      await exports.restoreInventory(done);
+      throw new Error('Insufficient stock for one or more items in your cart. Checkout aborted.');
+    }
+    done.push({ productId, quantity });
+  }
+
+  const updatedProducts = await Product.find({ _id: { $in: [...merged.keys()] } })
     .select('_id countInStock')
     .lean();
 
@@ -175,8 +170,27 @@ exports.processCheckoutInventory = async (orderItems) => {
     newStock: p.countInStock
   }));
 
-  // 5. Fire off the non-blocking event so the main checkout thread can respond instantly to the buyer
+  // Non-blocking low-stock alerts
   inventoryEvents.emit('checkLowStock', stockCheckPayload);
 
   return true;
+};
+
+/**
+ * Puts stock back, e.g. when a checkout fails after reserving stock or an order is cancelled.
+ * @param {Array} items - [{ productId, quantity }]
+ */
+exports.restoreInventory = async (items) => {
+  if (!items || items.length === 0) return;
+  const ops = items
+    .filter(i => i && i.productId && Number(i.quantity) > 0)
+    .map(i => ({
+      updateOne: {
+        filter: { _id: i.productId },
+        update: { $inc: { countInStock: Number(i.quantity) } }
+      }
+    }));
+  if (ops.length > 0) {
+    await Product.bulkWrite(ops);
+  }
 };

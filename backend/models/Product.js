@@ -172,6 +172,13 @@ const productSchema = new mongoose.Schema(
     isHidden: {
       type: Boolean,
       default: false
+    },
+
+    // Set when the product was hidden because its seller was suspended, so it can be
+    // shown again automatically if the seller is re-approved
+    hiddenBySuspension: {
+      type: Boolean,
+      default: false
     }
 
   },

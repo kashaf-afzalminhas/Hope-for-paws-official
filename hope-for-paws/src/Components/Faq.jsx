@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_ORIGIN } from "../config";
 
 const FAQPage = () => {
   const [faqs, setFaqs] = useState([]); // Initialize faqs as an empty array
@@ -8,7 +9,7 @@ const FAQPage = () => {
     // Fetch FAQs from the backend API
     const fetchFAQs = async () => {
       try {
-        const response = await fetch("http://localhost:3000/faqRoutes");
+        const response = await fetch(`${API_ORIGIN}/faqRoutes`);
         if (!response.ok) {
           throw new Error("Failed to fetch FAQs");
         }

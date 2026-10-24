@@ -25,6 +25,9 @@ export function getProfileImageUrl(profileImage) {
   return `${base}${value.startsWith("/") ? "" : "/"}${value}`;
 }
 
+/** Same as getProfileImageUrl, for any image stored on our backend (products, reviews, etc.) */
+export const getMediaUrl = getProfileImageUrl;
+
 /** Up to two initials from a name, used when there is no profile image. */
 export function getInitials(name) {
   if (!name || !name.trim()) return "?";

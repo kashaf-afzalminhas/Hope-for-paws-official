@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, RefreshCw, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 
 export default function ReportedItems() {
   const [products, setProducts] = useState([]);
@@ -141,7 +142,7 @@ export default function ReportedItems() {
                       <div className="flex items-center gap-3">
                         {product.images && product.images[0] ? (
                           <img 
-                            src={product.images[0].startsWith('http') ? product.images[0] : `${API_BASE_URL.replace('/api', '')}${product.images[0]}`} 
+                            src={getMediaUrl(product.images[0])} 
                             alt={product.title} 
                             className="w-12 h-12 rounded-lg object-cover border border-[#EAE2D8]"
                           />

@@ -113,9 +113,16 @@ export const createConversation = async (senderId, receiverId) => {
 };
 
 // Messages
-export const getMessagesByConversation = async (conversationId) => {
+// Loads the newest page of messages, or older ones with { before: <date of the oldest loaded message> }.
+// response.hasMore tells whether even older messages exist.
+export const getMessagesByConversation = async (conversationId, { before, limit } = {}) => {
   try {
-    const response = await apiRoutes.get(`/messages/${conversationId}`);
+    const params = {};
+    if (before) params.before = before;
+    if (limit) params.limit = limit;
+    const response = await apiRoutes.get(`/messages/${conversationId}`, { params });
+    const pageSize = limit || 200;
+    const hasMore = Array.isArray(response.data) && response.data.length >= pageSize;
     // Normalize the response data for debugging
     const normalized = (response.data || []).map(msg => ({
       _id: msg._id || msg.id || '',
@@ -123,10 +130,10 @@ export const getMessagesByConversation = async (conversationId) => {
       senderId: msg.senderId || msg.sender?.id || '',
       createdAt: msg.createdAt || msg.timestamp || '',
     }));
-    return { ...response, data: normalized };
+    return { ...response, data: normalized, hasMore };
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return { data: [] };
+    return { data: [], hasMore: false };
   }
 };
 
@@ -168,6 +175,10 @@ export const getAllUsers = async () => {
     throw error;
   }
 };
+
+// Get several users by ID (public profile fields only) — used by the chat page
+export const getUsersByIds = (ids) =>
+  authApi.post('/getUsersByIds', { ids });
 
 // Search users (you can implement this based on your backend)
 export const searchUsers = (query) =>

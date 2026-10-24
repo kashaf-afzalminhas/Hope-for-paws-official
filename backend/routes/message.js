@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const messageController = require('../controllers/messageController');
 const mongoose = require('mongoose');
+const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // Middleware to validate ObjectId
 const validateObjectId = (req, res, next) => {
@@ -16,7 +18,17 @@ const validateObjectId = (req, res, next) => {
 };
 
 // Send a message
-router.post("/", auth, messageController.sendMessage);
+// At most 30 messages per minute per user (stops spam floods)
+const sendMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => (req.user?.id || req.user?.userId ? `user:${req.user.id || req.user.userId}` : ipKeyGenerator(req.ip)),
+  message: { message: 'You are sending messages too quickly. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/", auth, sendMessageLimiter, messageController.sendMessage);
 
 // Get messages of a specific conversation
 router.get("/:conversationId", auth, validateObjectId, messageController.getMessages);

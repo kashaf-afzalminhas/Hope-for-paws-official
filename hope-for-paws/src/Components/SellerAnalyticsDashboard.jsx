@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { TrendingUp, PieChart, ArrowLeft } from 'lucide-react';
+import { API_ORIGIN } from '../config';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -30,7 +31,7 @@ export default function SellerAnalyticsDashboard({ embedded = false, onNavigateO
           localStorage.getItem('token') ||
           sessionStorage.getItem('token') ||
           localStorage.getItem('hope_for_paws_token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiBase = API_ORIGIN;
         const res = await fetch(`${apiBase}/api/sellers/orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });

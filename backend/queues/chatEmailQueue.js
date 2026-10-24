@@ -169,9 +169,11 @@ const cancelChatReminder = async (recipientId) => {
   } catch (error) {}
 };
 
+// Quiet hours are in Pakistan time (UTC+5), whatever timezone the server runs in
+const pktNow = () => new Date(Date.now() + 5 * 60 * 60 * 1000);
+
 const isWithinQuietHours = () => {
-  const now = new Date();
-  const currentHour = now.getHours();
+  const currentHour = pktNow().getUTCHours();
   const start = config.QUIET_HOURS_START;
   const end = config.QUIET_HOURS_END;
 
@@ -183,8 +185,8 @@ const isWithinQuietHours = () => {
 };
 
 const minutesUntilQuietHoursEnd = () => {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const now = pktNow();
+  const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
   const endMinutes = config.QUIET_HOURS_END * 60;
 
   if (!isWithinQuietHours()) return 0;
@@ -228,17 +230,23 @@ const initChatReminderWorker = (notificationService) => {
 
     // Gather unread messages
     const conversations = await Conversation.find({ participants: recipientId })
-      .select('_id participants')
+      .select('_id participants deletedBy')
       .lean();
 
     if (!conversations.length) {
       return { skipped: true, reason: 'no-conversations' };
     }
 
-    const conversationIds = conversations.map((c) => c._id);
+    // Skip messages from chats the user deleted (only messages after the deletion count)
+    const conversationFilters = conversations.map((c) => {
+      const deleted = (c.deletedBy || []).find((d) => d.userId && d.userId.toString() === recipientId.toString());
+      return deleted?.deletedAt
+        ? { conversationId: c._id, createdAt: { $gt: new Date(deleted.deletedAt) } }
+        : { conversationId: c._id };
+    });
 
     const unreadMessages = await Message.find({
-      conversationId: { $in: conversationIds },
+      $or: conversationFilters,
       senderId: { $ne: recipientId },
       readBy: { $ne: recipientId }
     })

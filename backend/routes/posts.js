@@ -6,6 +6,7 @@ const sanitizeHtml = require('sanitize-html');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
+const { deleteImage } = require('../services/imageStorage');
 const dotenv = require('dotenv')
 dotenv.config();
 
@@ -26,10 +27,12 @@ console.log('Cloudinary Config Present:', {
 // Configure Multer with security limits
 const storage = multer.memoryStorage();
 const imageFileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
+  if (file.mimetype.startsWith('image/') && !file.mimetype.includes('svg')) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'), false);
+    const err = new Error('Only image files are allowed!');
+    err.status = 400;
+    cb(err, false);
   }
 };
 const upload = multer({
@@ -178,7 +181,7 @@ router.get('/user/:userId', auth, async (req, res) => {
 
 // Create post
 router.post('/', auth, upload.fields([
-  { name: 'images', maxCount: 20 },
+  { name: 'images', maxCount: 10 }, // the form allows 5; 10 keeps memory per request bounded
   { name: 'image', maxCount: 1 },
 ]), async (req, res) => {
   try {
@@ -202,7 +205,9 @@ router.post('/', auth, upload.fields([
     for (const file of files) {
       const b64 = Buffer.from(file.buffer).toString('base64');
       const dataURI = `data:${file.mimetype};base64,${b64}`;
-      const uploadResponse = await cloudinary.uploader.upload(dataURI);
+      const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'avif']
+      });
       uploadedUrls.push(uploadResponse.secure_url);
     }
 
@@ -254,12 +259,18 @@ router.post('/', auth, upload.fields([
 
 // Update post
 router.put('/:id', auth, upload.fields([
-  { name: 'images', maxCount: 20 },
+  { name: 'images', maxCount: 10 }, // the form allows 5; 10 keeps memory per request bounded
   { name: 'image', maxCount: 1 },
 ]), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: 'Invalid post ID format' });
+    }
+
+    // Check the post exists and belongs to this user BEFORE uploading anything
+    const existingPost = await Post.findOne({ _id: req.params.id, userId: req.user.userId });
+    if (!existingPost) {
+      return res.status(404).json({ message: 'Post not found' });
     }
 
     const update = {
@@ -270,16 +281,20 @@ router.put('/:id', auth, upload.fields([
       ...(req.files?.image || []),
     ];
 
+    let replacedImages = [];
     if (files.length > 0) {
       const uploadedUrls = [];
       for (const file of files) {
         const b64 = Buffer.from(file.buffer).toString('base64');
         const dataURI = `data:${file.mimetype};base64,${b64}`;
-        const uploadResponse = await cloudinary.uploader.upload(dataURI);
+        const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+          allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'avif']
+        });
         uploadedUrls.push(uploadResponse.secure_url);
       }
       update.imageUrl = uploadedUrls[0];
       update.imageUrls = uploadedUrls;
+      replacedImages = [existingPost.imageUrl, ...(existingPost.imageUrls || [])].filter(Boolean);
     }
 
     const post = await Post.findOneAndUpdate(
@@ -290,6 +305,13 @@ router.put('/:id', auth, upload.fields([
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // New photos replaced the old ones: remove the old ones from Cloudinary
+    for (const url of [...new Set(replacedImages)]) {
+      if (!(update.imageUrls || []).includes(url)) {
+        await deleteImage(url).catch((e) => console.error('Failed to delete old post image:', e.message));
+      }
     }
 
     const comments = await Comment.find({ postId: post._id })

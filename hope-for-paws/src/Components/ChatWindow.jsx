@@ -74,6 +74,7 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     try {
       if (showSpinner) setIsLoading(true);
       const response = await getMessagesByConversation(conversationId);
+      if (showSpinner) setHasOlder(Boolean(response.hasMore));
       const fetched = (response.data || []).map((msg, idx) => ({
         _id: String(msg._id || msg.id || `local-${idx}`),
         text: msg.text || msg.content || '',
@@ -122,9 +123,41 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     }
   }, [conversationId, setCurrentConversationId]);
 
+  // Scroll to the newest message, except right after loading older messages at the top
+  const skipNextScrollRef = useRef(false);
   useEffect(() => {
+    if (skipNextScrollRef.current) {
+      skipNextScrollRef.current = false;
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Older messages are loaded on request (the chat opens with the latest 200)
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadOlderMessages = async () => {
+    const oldest = messages.find(m => !m.pending);
+    if (!oldest || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const response = await getMessagesByConversation(conversationId, { before: oldest.createdAt });
+      const older = (response.data || []).map((msg, idx) => ({
+        _id: String(msg._id || msg.id || `older-${idx}-${oldest._id}`),
+        text: msg.text || msg.content || '',
+        senderId: String(msg.senderId || msg.sender?.id || ''),
+        createdAt: msg.createdAt || oldest.createdAt
+      })).filter(msg => msg.text);
+      setHasOlder(Boolean(response.hasMore));
+      skipNextScrollRef.current = true;
+      setMessages(prev => {
+        const ids = new Set(prev.map(m => m._id));
+        return [...older.filter(m => !ids.has(m._id)), ...prev];
+      });
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   // Messages read while this chat is open are marked read on the server too (debounced)
   const markReadTimerRef = useRef(null);
@@ -382,6 +415,18 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
           </div>
         ) : messages.length > 0 ? (
           <div className="space-y-1">
+            {hasOlder && (
+              <div className="flex justify-center mb-3">
+                <button
+                  type="button"
+                  onClick={loadOlderMessages}
+                  disabled={loadingOlder}
+                  className="text-xs font-medium text-[#6b493d] bg-[#FFF9F2] border border-[#E3CBB3] rounded-full px-4 py-1.5 hover:bg-white disabled:opacity-60 cursor-pointer"
+                >
+                  {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+                </button>
+              </div>
+            )}
             {messages.map((message) => {
               if (!message.text || !message._id) return null;
               const isMe = String(message.senderId) === String(currentUser?.id || currentUser?._id);

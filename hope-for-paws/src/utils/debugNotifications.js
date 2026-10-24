@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, API_ORIGIN } from '../config';
 
 export const debugNotificationSystem = async () => {
   console.log('=== Notification System Debug ===');
@@ -22,7 +22,7 @@ export const debugNotificationSystem = async () => {
 
   // Test backend health
   try {
-    const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+    const healthUrl = API_ORIGIN + '/health';
     console.log('Testing health endpoint:', healthUrl);
     const healthResponse = await axios.get(healthUrl, { timeout: 5000 });
     console.log('Health check success:', healthResponse.data);

@@ -138,6 +138,10 @@ exports.deleteConversation = async (req, res) => {
             { new: true }
         );
 
+        // Let the user's other tabs/devices remove it from their list too
+        const io = req.app.get('socketio');
+        if (io) io.to(String(rawUserId)).emit('conversationDeleted', { conversationId: String(conversationId) });
+
         res.status(200).json({ success: true, message: 'Chat deleted successfully' });
     } catch (error) {
         console.error('Error deleting conversation:', error);

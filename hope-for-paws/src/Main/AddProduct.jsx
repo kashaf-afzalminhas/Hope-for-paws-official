@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Package, Image as ImageIcon, CheckCircle, Tag, Settings, List, Info, ArrowLeft, Loader2, UploadCloud, X, AlertCircle, Trash2, Plus, ChevronDown } from 'lucide-react';
 
-const API_URL = 'http://localhost:3000/api/sellers';
+const API_URL = `${API_BASE_URL}/sellers`;
 
 const getAxiosConfig = () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -12,6 +12,8 @@ const getAxiosConfig = () => {
 };
 
 import { PRODUCT_CATEGORIES as CATEGORIES } from '../utils/constants';
+import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 
 const AddProduct = ({ productId, onCancel, onSuccess }) => {
   const isEditMode = !!productId;
@@ -615,7 +617,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif"
                 onChange={handleMediaChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
@@ -636,7 +638,7 @@ const AddProduct = ({ productId, onCancel, onSuccess }) => {
               <div className="mt-8 flex flex-wrap gap-5">
                 {existingImages.map((src, idx) => (
                   <div key={`existing-${idx}`} className="relative w-28 h-28 rounded-xl overflow-hidden border border-stone-200 shadow-sm group">
-                    <img src={src.startsWith('http') ? src : `http://localhost:3000${src}`} alt="preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={(src.startsWith('blob:') || src.startsWith('data:') ? src : getMediaUrl(src))} alt="preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <button
                       type="button"
                       onClick={() => removeExistingMedia(idx)}

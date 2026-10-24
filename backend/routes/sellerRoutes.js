@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { uploadProfileImage, uploadProductImage } = require('../middleware/multer_middleware');
+const { uploadProfileImage, uploadProductImage, handleUpload, verifyImageContent } = require('../middleware/multer_middleware');
 const { onboardSellerRules, updateStatusRules } = require('../validators/sellerValidators');
 const {
   onboardSeller,
@@ -12,7 +12,7 @@ const {
   getSellerApplicationById
 } = require('../controllers/sellerController');
 const { getSellerOrders, updateOrderStatus, getDashboardStats } = require('../controllers/orderController');
-const { listMyProducts, listMyProductCategories, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility } = require('../controllers/productController');
+const { listMyProducts, listMyProductCategories, createProduct, updateProduct, deleteProduct, getSellerProductById, toggleProductVisibility, requireActiveSeller } = require('../controllers/productController');
 const { getSellerReviews } = require('../controllers/reviewController');
 const {
   listGuaranteePolicies, createGuaranteePolicy, updateGuaranteePolicy, deleteGuaranteePolicy,
@@ -35,7 +35,7 @@ const validate = (req, res, next) => {
 };
 
 // POST /api/sellers/onboard - Onboard as a seller (requires auth)
-router.post('/onboard', auth, uploadProfileImage.single('profileImage'), onboardSellerRules, validate, onboardSeller);
+router.post('/onboard', auth, handleUpload(uploadProfileImage.single('profileImage')), verifyImageContent, onboardSellerRules, validate, onboardSeller);
 
 // GET /api/sellers/me - Get current user's seller profile
 router.get('/me', auth, getMySellerProfile);
@@ -54,9 +54,10 @@ router.get('/admin/:sellerId', auth, getSellerApplicationById);
 router.get('/products', auth, listMyProducts);
 router.get('/product-categories', auth, listMyProductCategories);
 router.get('/products/:id', auth, getSellerProductById);
-router.post('/products', auth, uploadProductImage.array('media', 5), createProduct);
-router.put('/products/:id', auth, uploadProductImage.array('media', 5), updateProduct);
-router.delete('/products/:id', auth, deleteProduct);
+// The seller check runs before the upload, so non-sellers and suspended sellers can't upload files
+router.post('/products', auth, requireActiveSeller, handleUpload(uploadProductImage.array('media', 5)), verifyImageContent, createProduct);
+router.put('/products/:id', auth, requireActiveSeller, handleUpload(uploadProductImage.array('media', 5)), verifyImageContent, updateProduct);
+router.delete('/products/:id', auth, requireActiveSeller, deleteProduct);
 router.patch('/products/:id/toggle-visibility', auth, toggleProductVisibility);
 
 // Orders Management

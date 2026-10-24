@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
-import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
+import { getUsersByIds, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
 //import { getSocket, initSocket } from '../services/socket';
 import { getSocket, initSocket, setNotificationCallback, disconnectSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
@@ -83,6 +83,7 @@ const ChatPageContent = () => {
   const currentUserIdRef = useRef(currentUserId);
   const [userCache, setUserCache] = useState(new Map()); // Add user cache
   const selectedConversationIdRef = useRef(null);
+  const openedFromListRef = useRef(false);
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversation?._id || null;
   }, [selectedConversation]);
@@ -176,6 +177,7 @@ const addUserToCache = useCallback((user) => {
     
     // If we're on /chat without a recipientId, show conversation list on mobile
     if (location.pathname === '/chat' && !recipientId && isMobile) {
+      openedFromListRef.current = false;
       setShowChatMobile(false);
       setSelectedConversation(null);
       setSelectedUser(null);
@@ -282,28 +284,46 @@ const addUserToCache = useCallback((user) => {
     }
   }, [error, conversations]);
 
-  // Move loadUsers function outside useEffect so it can be accessed by error handlers
+  // Loads only the people this user chats with (conversation partners + the person in the URL),
+  // instead of every user on the site. Already-loaded users are not fetched again.
+  const requestedUserIdsRef = useRef(new Set());
   const loadUsers = async () => {
-    if (!currentUserId || isLoadingUsersInProgress) {
+    if (!currentUserId) {
       return;
     }
-    
-    
+
+    const wanted = new Set();
+    (Array.isArray(conversations) ? conversations : []).forEach((conv) => {
+      (conv.participants || conv.members || []).forEach((id) => wanted.add(String(id?._id || id)));
+    });
+    if (recipientId && recipientId !== 'undefined' && recipientId !== 'null') wanted.add(String(recipientId));
+    wanted.delete(String(currentUserId));
+    const missing = [...wanted].filter((id) => /^[a-f0-9]{24}$/i.test(id) && !requestedUserIdsRef.current.has(id));
+
+    if (missing.length === 0) {
+      setIsLoadingUsers(false);
+      return;
+    }
+    missing.forEach((id) => requestedUserIdsRef.current.add(id));
+
     setIsLoadingUsersInProgress(true);
     
     try {
-      const response = await getAllUsers();
-      
+      const response = await getUsersByIds(missing);
 
       // Validate response data
       if (!response.data || !Array.isArray(response.data.data)) {
-        throw new Error('Invalid response format from getAllUsers API');
+        throw new Error('Invalid response format from getUsersByIds API');
       }
 
       const usersData = response.data.data || [];
-      setUsers(usersData);
+      setUsers((prev) => {
+        const byId = new Map(prev.map((u) => [String(u._id), u]));
+        usersData.forEach((u) => { if (u && u._id) byId.set(String(u._id), u); });
+        return [...byId.values()];
+      });
       
-      // Cache all users
+      // Cache loaded users
       usersData.forEach(user => {
         if (user && user._id) {
           addUserToCache(user);
@@ -312,6 +332,8 @@ const addUserToCache = useCallback((user) => {
 
       setError(null); // Clear any previous errors
     } catch (error) {
+      // Allow these users to be requested again next time
+      missing.forEach((id) => requestedUserIdsRef.current.delete(id));
       console.error('Error loading users:', error);
       console.error('Error details:', {
         message: error.message,
@@ -329,16 +351,13 @@ const addUserToCache = useCallback((user) => {
           variant: 'destructive',
         });
       } else {
-        setError(error.response?.data?.message || 'Failed to load users');
+        // Chat still works without names/photos, so show a toast instead of the full error screen
         addToast({
           title: 'Error',
-          description: error.response?.data?.message || 'Failed to load users',
+          description: error.response?.data?.message || 'Failed to load user details',
           variant: 'destructive',
         });
       }
-      
-      // Set empty array as fallback to prevent infinite loading
-      setUsers([]);
     } finally {
       setIsLoadingUsers(false);
       setIsLoadingUsersInProgress(false);
@@ -376,13 +395,17 @@ const addUserToCache = useCallback((user) => {
       }
     }, 10000);
     
-    loadUsers();
-    
     return () => {
       isMounted.current = false;
       clearTimeout(timeoutId);
     };
   }, [currentUserId]); // Removed addToast from dependencies
+
+  // (Re)load chat partners whenever the conversation list or the person in the URL changes
+  useEffect(() => {
+    loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, conversations, recipientId]);
 
   // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
@@ -604,6 +627,12 @@ const addUserToCache = useCallback((user) => {
     }
     
     if (isMobile) {
+      // Give the open chat its own history entry, so the phone's back button returns to the list
+      if (String(recipientId || '') !== String(otherUserId)) {
+        setLastHandledRecipientId(String(otherUserId)); // conversation is already selected, don't reload it
+        openedFromListRef.current = true;
+        navigate(`/chat/${otherUserId}`);
+      }
       setIsTransitioning(true);
       setTimeout(() => {
         setShowChatMobile(true);
@@ -623,9 +652,15 @@ const addUserToCache = useCallback((user) => {
       setCurrentConversationId(null);
     }
     
-    // Clear URL parameter for mobile
+    // Clear URL parameter for mobile. If the chat was opened from the list, go back in history
+    // (same as the phone's back button); otherwise replace the URL with the list.
     if (isMobile && recipientId) {
-      navigate('/chat', { replace: true });
+      if (openedFromListRef.current) {
+        openedFromListRef.current = false;
+        navigate(-1);
+      } else {
+        navigate('/chat', { replace: true });
+      }
     }
     setTimeout(() => setIsTransitioning(false), 300);
   };

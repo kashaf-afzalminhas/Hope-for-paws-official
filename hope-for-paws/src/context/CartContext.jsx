@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 
 const CartContext = createContext(null);
 
@@ -20,9 +21,7 @@ const normalizeCart = (cart) => {
       const p = item.productId;
       const image =
         p.images && p.images.length > 0
-          ? p.images[0].startsWith('http')
-            ? p.images[0]
-            : `http://localhost:3000${p.images[0]}`
+          ? getMediaUrl(p.images[0])
           : "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80";
       const discountPercentage = p.discountPercentage || 0;
       const discountedPrice =

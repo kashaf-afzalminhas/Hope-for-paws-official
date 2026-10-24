@@ -68,6 +68,8 @@ export const updateLocalUserAsSeller = (sellerStatus = 'pending') => {
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
   user.isSeller = true;
   user.sellerStatus = sellerStatus;
-  localStorage.setItem('user', JSON.stringify(user));
+  // Save next to the login token ("remember me" -> localStorage, otherwise sessionStorage)
+  const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+  storage.setItem('user', JSON.stringify(user));
   return user;
 };

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config';
-import { getCurrentUserId } from '../../lib/utils';
+import { getCurrentUserId, getMediaUrl } from '../../lib/utils';
 import AdoptionCard from './AdoptionCard.jsx';
 import { formatAdoptionDate, getRequestStatusBadge } from './adoptionTheme';
 
@@ -28,7 +28,7 @@ const AdoptionHistoryCard = ({ item }) => {
   const posterUsername = item.posterUsername || 'Listing owner';
   const avatarUrl =
     item.posterProfileImage && posterId
-      ? `${API_BASE_URL.replace('/api', '')}${item.posterProfileImage}`
+      ? getMediaUrl(item.posterProfileImage)
       : null;
 
   const requestBadge = getRequestStatusBadge(item.status);

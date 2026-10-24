@@ -30,8 +30,10 @@ import StarDisplay from '../Components/StarDisplay';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import PromoModal from '../Components/PromoModal';
 import SellerPolicies from './SellerPolicies';
+import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 
-const API_URL = 'http://localhost:3000/api/sellers';
+const API_URL = `${API_BASE_URL}/sellers`;
 
 // Set up axios instance with token
 const getAxiosConfig = () => {
@@ -454,7 +456,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                         <div className="flex items-center space-x-4">
                           <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                             {product.image ? (
-                              <img src={product.image.startsWith('http') ? product.image : `http://localhost:3000${product.image}`} alt={product.title} className="w-full h-full object-cover" />
+                              <img src={getMediaUrl(product.image)} alt={product.title} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-5 h-5 text-gray-400" /></div>
                             )}
@@ -565,7 +567,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-3">
                           {review.user?.profileImage ? (
-                            <img src={review.user.profileImage.startsWith('http') ? review.user.profileImage : `http://localhost:3000${review.user.profileImage}`} alt={review.user.username} className="w-9 h-9 rounded-full object-cover" />
+                            <img src={getMediaUrl(review.user.profileImage)} alt={review.user.username} className="w-9 h-9 rounded-full object-cover" />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-[#6b493d]/10 flex items-center justify-center text-[#6b493d] font-semibold text-sm">
                               {review.user?.username ? review.user.username.charAt(0).toUpperCase() : '?'}
@@ -642,7 +644,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                               {product.images && product.images.length > 0 ? (
-                                <img src={product.images[0].startsWith('http') ? product.images[0] : `http://localhost:3000${product.images[0]}`} alt={product.title} className="w-full h-full object-cover" />
+                                <img src={getMediaUrl(product.images[0])} alt={product.title} className="w-full h-full object-cover" />
                               ) : (
                                 <ImageIcon className="w-5 h-5 text-gray-400" />
                               )}

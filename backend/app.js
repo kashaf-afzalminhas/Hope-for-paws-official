@@ -1,8 +1,12 @@
 const dns = require('dns');
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {
-  console.warn('Failed to set global DNS servers, falling back to OS defaults:', e.message);
+// Custom DNS servers are opt-in (e.g. DNS_SERVERS=8.8.8.8,1.1.1.1 for local networks with broken DNS).
+// On AWS and most hosts the server's own DNS must be used, so nothing is overridden by default.
+if (process.env.DNS_SERVERS) {
+  try {
+    dns.setServers(process.env.DNS_SERVERS.split(',').map((s) => s.trim()).filter(Boolean));
+  } catch (e) {
+    console.warn('Failed to set DNS servers, falling back to OS defaults:', e.message);
+  }
 }
 dns.setDefaultResultOrder('ipv4first');
 
@@ -47,12 +51,31 @@ const promoRoutes = require('./routes/promoRoutes');
 const NotificationService = require('./services/notificationService');
 
 dotenv.config();
+
+// Fail fast on missing configuration instead of starting a half-working server
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' &&
+    !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
+  console.warn('WARNING: Cloudinary is not configured. Uploaded images will be saved on this server\'s disk and lost on redeploy.');
+}
+
 mongoose.connect(process.env.MONGO_URI, {
   tls: true,
   serverSelectionTimeoutMS: 30000,
 })
-  .then(() => {
+  .then(async () => {
     console.log('MongoDB connected successfully');
+    // After a restart nobody is connected yet: clear "online" flags left over from before
+    try {
+      await mongoose.model('User').updateMany({ status: 'online' }, { $set: { status: 'offline' } });
+    } catch (e) {
+      console.warn('Could not reset online statuses:', e.message);
+    }
   })
   .catch(err => {
     console.error('Failed to connect MongoDB:', err);
@@ -65,9 +88,25 @@ mongoose.connect(process.env.MONGO_URI, {
   });
 
 const app = express();
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+
+// Behind a load balancer / nginx, use the real client IP (needed for rate limits).
+// Set TRUST_PROXY=0 if the API is exposed directly to the internet without a proxy.
+const parseTrustProxy = (value) => {
+  if (value === undefined || value === '') return process.env.NODE_ENV === 'production' ? 1 : false;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return /^\d+$/.test(value) ? Number(value) : value; // number of hops, or e.g. "loopback"
+};
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+
+// Allowed browser origins (extra ones can be added with CORS_ORIGINS="https://a.com,https://b.com")
+const ALLOWED_ORIGINS = [
+  'https://www.hopeforpaws.club',
+  'https://hopeforpaws.club',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
+];
 // const server = http.createServer(app);
 
 // Initialize Socket.IO
@@ -77,12 +116,7 @@ const server = createServer(app);
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: [
-      'https://www.hopeforpaws.club',
-      'http://localhost:5173',
-      'http://localhost:5174'
-     
-    ],
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -102,7 +136,7 @@ notificationService.scheduleDailyDigestJob();
 app.set("socketio", io);
 
 // Socket.IO authentication middleware
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
     if (!token) {
@@ -115,6 +149,11 @@ io.use((socket, next) => {
     if (!userId) {
       console.log('Socket connection attempt with invalid token');
       return next(new Error('Authentication error: Invalid token'));
+    }
+    // The account must still exist (e.g. not deleted by an admin)
+    const exists = await mongoose.model('User').exists({ _id: userId });
+    if (!exists) {
+      return next(new Error('Authentication error: Account not found'));
     }
     socket.userId = String(userId);
     next();
@@ -159,7 +198,9 @@ app.set('notificationService', notificationService);
 // Add timeout middleware
 app.use((req, res, next) => {
   // Set timeout to 30 seconds
-  req.setTimeout(30000, () => {
+  // Uploads (multipart) get longer, since several images may be sent on to Cloudinary
+  const isUpload = (req.headers['content-type'] || '').startsWith('multipart/form-data');
+  req.setTimeout(isUpload ? 120000 : 30000, () => {
     res.status(504).json({ message: 'Request timeout' });
   });
   next();
@@ -183,13 +224,7 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'https://www.hopeforpaws.club',
-
-    'http://localhost:5173',
-    'http://localhost:5174',
-
-  ],
+  origin: ALLOWED_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type', 
@@ -207,27 +242,8 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
-// Apply CORS middleware
+// Apply CORS middleware (it also answers OPTIONS preflight requests)
 app.use(cors(corsOptions));
-
-// Add headers middleware for all routes
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (corsOptions.origin.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Expose-Headers', corsOptions.exposedHeaders.join(', '));
-  res.header('Access-Control-Max-Age', corsOptions.maxAge.toString());
-  
-  // Handle OPTIONS method
-  if (req.method === 'OPTIONS') {
-    return res.status(204).send();
-  }
-  next();
-});
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // Increased from 1000 to 5000 requests per windowMs
@@ -295,24 +311,53 @@ app.use('/api/adoptions', (req, res, next) => {
   next();
 });
 
-app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(passport.initialize());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Add route logging middleware
+// Block MongoDB operator injection: drop any request keys that start with "$" (e.g. {"code": {"$ne": null}})
+const stripMongoOperators = (value, depth = 0) => {
+  if (!value || typeof value !== 'object' || depth > 10) return;
+  for (const key of Object.keys(value)) {
+    if (key.startsWith('$')) {
+      delete value[key];
+    } else {
+      stripMongoOperators(value[key], depth + 1);
+    }
+  }
+};
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  stripMongoOperators(req.body);
+  stripMongoOperators(req.query);
+  stripMongoOperators(req.params);
   next();
 });
 
-// Add a test endpoint for notifications (without auth)
+app.use(passport.initialize());
+
+// Uploaded files: types that can run code in a browser are never served, and everything else
+// is sent with a sandbox policy so it can't act as a web page or script
+app.use('/uploads', (req, res, next) => {
+  if (/\.(svg|svgz|html?|xhtml|xml|js|mjs|php|css)$/i.test(req.path)) {
+    return res.status(404).end();
+  }
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox");
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
+
+// Request logging (method and path only; set LOG_REQUESTS=false to turn it off)
+if (process.env.LOG_REQUESTS !== 'false') {
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// Test endpoint for notifications (no auth). It no longer echoes request headers (they contain login tokens).
 app.get('/api/notifications/test', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Notification endpoint is accessible',
-    timestamp: new Date().toISOString(),
-    headers: req.headers
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -346,12 +391,10 @@ app.get('/', (req, res) => {
 
 // Add health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    connections: req.app.get('socketio') ? req.app.get('socketio').engine.clientsCount : 0
+    uptime: process.uptime()
   });
 });
 
@@ -380,10 +423,18 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Handle other errors
-  res.status(err.status || 500).json({ 
-    message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err : {}
+  // Upload errors (too big, wrong type) are the user's mistake, not a server error
+  if (err && (err.name === 'MulterError' || /only image files/i.test(err.message || ''))) {
+    const tooBig = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(400).json({ message: tooBig ? 'File too large' : (err.message || 'Image upload failed') });
+  }
+
+  // Handle other errors. Internal error details are never sent to users in production.
+  const status = err.status || err.statusCode || 500;
+  const isDev = process.env.NODE_ENV === 'development';
+  res.status(status).json({
+    message: status < 500 ? (err.message || 'Bad request') : (isDev ? err.message : 'Something went wrong!'),
+    ...(isDev ? { error: err } : {})
   });
 });
 
