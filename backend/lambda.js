@@ -120,7 +120,6 @@ const ensureDb = async () => {
 
 const getExpressHandler = () => {
   if (cachedHandler) return cachedHandler;
-  if (appLoadError) throw appLoadError;
 
   try {
     // Lazy-load so OPTIONS/health still work if Express fails to boot
@@ -134,6 +133,7 @@ const getExpressHandler = () => {
         'application/pdf',
       ],
     });
+    appLoadError = null;
     return cachedHandler;
   } catch (err) {
     appLoadError = err;

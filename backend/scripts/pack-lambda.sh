@@ -25,8 +25,9 @@ for dir in config controllers middleware models queues routes services validator
   fi
 done
 
-# Optional runtime assets (empty placeholder dirs ok)
-mkdir -p "$STAGING/uploads/profile-images"
+# Optional runtime assets (empty placeholder dirs ok).
+# Not writable on Lambda (/var/task is read-only) — multer/imageStorage use /tmp there.
+mkdir -p "$STAGING/uploads/profile-images" "$STAGING/uploads/products"
 # Do NOT copy existing uploaded images (too large / not for Lambda)
 
 echo "==> Installing production dependencies only"
