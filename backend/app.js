@@ -19,11 +19,15 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
 const { createServer } = require('http');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 // const http = require('http');
 // const initSocket = require('./config/socket');
 const authRoutes = require('./routes/authRoutes');
+
+// Socket.IO is local/EC2 only — Lambda zip strips the package (see scripts/pack-lambda.sh)
+const isLambda =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+const { Server } = isLambda ? { Server: null } : require('socket.io');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
 const postRoutes = require('./routes/posts');
@@ -108,93 +112,91 @@ const ALLOWED_ORIGINS = [
   'https://hopeforpaws.club',
   ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 ];
-// const server = http.createServer(app);
+// HTTP + Socket.IO only outside Lambda (API Gateway handles HTTP there)
+const server = isLambda ? null : createServer(app);
+let io = null;
 
-// Initialize Socket.IO
-// const io = initSocket(server);
-const server = createServer(app);
+if (!isLambda) {
+  io = new Server(server, {
+    cors: {
+      origin: ALLOWED_ORIGINS,
+      methods: ['GET', 'POST'],
+      credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e6
+  });
+}
 
-// Socket.IO setup
-const io = new Server(server, {
-  cors: {
-    origin: ALLOWED_ORIGINS,
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  transports: ['polling', 'websocket'],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  upgradeTimeout: 10000,
-  maxHttpBufferSize: 1e6
-});
-
-// Initialize notification service
+// Initialize notification service (io may be null on Lambda — realtime emit is skipped)
 const notificationService = new NotificationService(io);
-notificationService.scheduleDailyDigestJob();
-
-// Attach Socket.IO instance to Express app so it can be accessed in controllers
-app.set("socketio", io);
-
-// Socket.IO authentication middleware
-io.use(async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token;
-    if (!token) {
-      console.log('Socket connection attempt without token');
-      return next(new Error('Authentication error: No token provided'));
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId || decoded.id; // Accept either field
-    if (!userId) {
-      console.log('Socket connection attempt with invalid token');
-      return next(new Error('Authentication error: Invalid token'));
-    }
-    // The account must still exist (e.g. not deleted by an admin)
-    const exists = await mongoose.model('User').exists({ _id: userId });
-    if (!exists) {
-      return next(new Error('Authentication error: Account not found'));
-    }
-    socket.userId = String(userId);
-    next();
-  } catch (error) {
-    console.error('Socket authentication error:', error.message);
-    return next(new Error('Authentication error: ' + error.message));
-  }
-});
-
-// Socket.IO connection handling
+if (!isLambda) {
+  notificationService.scheduleDailyDigestJob();
+}
 initChatReminderWorker(notificationService);
 
-io.on('connection', async (socket) => {
-  // Every socket joins its user's personal room right away (used for messages and notifications)
-  socket.join(socket.userId);
-
-  // Register event handlers first, so events sent right after connecting (e.g. joinConversation) aren't lost
-  const { setupSocketHandlers } = require('./services/socketHandler');
-  setupSocketHandlers(io, socket, notificationService);
-
-  socket.on('disconnect', async () => {
-    await notificationService.removeUserSocket(socket.userId, socket.id);
-  });
-
-  // Add user to notification service (marks them online)
-  try {
-    await notificationService.addUserSocket(socket.userId, socket.id);
-  } catch (error) {
-    console.error('Failed to register user socket:', error);
-  }
-
-  socket.on('error', (error) => {
-    console.error('Socket error for user:', socket.userId, error);
-  });
-
-});
-
-// Make notification service available globally
+// Attach Socket.IO / notification service so controllers can access them
+app.set('socketio', io);
 global.notificationService = notificationService;
 app.set('notificationService', notificationService);
+
+if (io) {
+  // Socket.IO authentication middleware
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        console.log('Socket connection attempt without token');
+        return next(new Error('Authentication error: No token provided'));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId || decoded.id; // Accept either field
+      if (!userId) {
+        console.log('Socket connection attempt with invalid token');
+        return next(new Error('Authentication error: Invalid token'));
+      }
+      // The account must still exist (e.g. not deleted by an admin)
+      const exists = await mongoose.model('User').exists({ _id: userId });
+      if (!exists) {
+        return next(new Error('Authentication error: Account not found'));
+      }
+      socket.userId = String(userId);
+      next();
+    } catch (error) {
+      console.error('Socket authentication error:', error.message);
+      return next(new Error('Authentication error: ' + error.message));
+    }
+  });
+
+  io.on('connection', async (socket) => {
+    // Every socket joins its user's personal room right away (used for messages and notifications)
+    socket.join(socket.userId);
+
+    // Register event handlers first, so events sent right after connecting (e.g. joinConversation) aren't lost
+    const { setupSocketHandlers } = require('./services/socketHandler');
+    setupSocketHandlers(io, socket, notificationService);
+
+    socket.on('disconnect', async () => {
+      await notificationService.removeUserSocket(socket.userId, socket.id);
+    });
+
+    // Add user to notification service (marks them online)
+    try {
+      await notificationService.addUserSocket(socket.userId, socket.id);
+    } catch (error) {
+      console.error('Failed to register user socket:', error);
+    }
+
+    socket.on('error', (error) => {
+      console.error('Socket error for user:', socket.userId, error);
+    });
+  });
+}
 
 // Add timeout middleware
 app.use((req, res, next) => {
@@ -413,8 +415,9 @@ app.get('/health', (req, res) => {
 
 // Socket.IO health check
 app.get('/socket-health', (req, res) => {
-  res.json({ 
-    socketConnections: io.engine.clientsCount,
+  res.json({
+    socketConnections: io?.engine?.clientsCount ?? 0,
+    socketEnabled: !!io,
     notificationServiceActive: !!notificationService
   });
 });
@@ -451,6 +454,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Export Express app for Lambda (serverless-http) and for tests
+module.exports = app;
+
+// Local / EC2: start the HTTP server. Lambda must not listen.
+if (!isLambda && server) {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
