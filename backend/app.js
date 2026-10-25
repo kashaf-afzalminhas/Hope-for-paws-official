@@ -1,3 +1,7 @@
+// Detect Lambda BEFORE any app requires — pack-lambda.sh strips socket.io from the zip
+const isLambda =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+
 const dns = require('dns');
 // Custom DNS servers are opt-in (e.g. DNS_SERVERS=8.8.8.8,1.1.1.1 for local networks with broken DNS).
 // On AWS and most hosts the server's own DNS must be used, so nothing is overridden by default.
@@ -20,14 +24,12 @@ const path = require('path');
 const passport = require('passport');
 const { createServer } = require('http');
 const jwt = require('jsonwebtoken');
-// const http = require('http');
-// const initSocket = require('./config/socket');
-const authRoutes = require('./routes/authRoutes');
-
-// Socket.IO is local/EC2 only — Lambda zip strips the package (see scripts/pack-lambda.sh)
-const isLambda =
-  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+// Socket.IO is local/EC2 only — never require it on Lambda
 const { Server } = isLambda ? { Server: null } : require('socket.io');
+
+dotenv.config();
+
+const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
 const postRoutes = require('./routes/posts');
@@ -53,8 +55,6 @@ const promoRoutes = require('./routes/promoRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
-
-dotenv.config();
 
 // Fail fast on missing configuration instead of starting a half-working server.
 // Never process.exit on Lambda — that becomes a cryptic API Gateway 500 with no CORS headers.

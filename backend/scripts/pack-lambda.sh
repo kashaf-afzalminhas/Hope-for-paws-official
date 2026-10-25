@@ -106,13 +106,14 @@ print("Structure check: OK (lambda.js, app.js, utils/, serverless-http present)"
 PY
 
 # Smoke-load handler from staging (same layout as zip)
-echo "==> Smoke test: require handler"
+echo "==> Smoke test: require handler + /health invoke"
 cd "$STAGING"
 # Dummy required env vars so app.js fail-fast checks pass; connection errors are non-fatal on require
 RUNTIME=lambda \
 AWS_LAMBDA_FUNCTION_NAME=local-smoke \
 MONGO_URI='mongodb://127.0.0.1:27017/lambda-smoke?directConnection=true' \
 JWT_SECRET='lambda-smoke-jwt-secret' \
+FRONTEND_URL='https://hopeforpawshub.co' \
 node -e "
   process.env.RUNTIME = 'lambda';
   process.env.AWS_LAMBDA_FUNCTION_NAME = 'local-smoke';
@@ -121,8 +122,29 @@ node -e "
     console.error('handler is not a function');
     process.exit(1);
   }
-  console.log('handler export OK');
-  process.exit(0);
+  const event = {
+    version: '2.0',
+    rawPath: '/health',
+    headers: { origin: 'https://hopeforpawshub.co' },
+    requestContext: { http: { method: 'GET', path: '/health' } }
+  };
+  mod.handler(event, { callbackWaitsForEmptyEventLoop: false }).then((res) => {
+    if (res.statusCode !== 200) {
+      console.error('health smoke failed', res);
+      process.exit(1);
+    }
+    if (!(res.headers && res.headers['Access-Control-Allow-Origin'])) {
+      console.error('health missing CORS header', res.headers);
+      process.exit(1);
+    }
+    // Also ensure Express app can load without socket.io
+    require('./app');
+    console.log('handler export OK; health+CORS OK; app require OK');
+    process.exit(0);
+  }).catch((err) => {
+    console.error('smoke invoke failed', err);
+    process.exit(1);
+  });
 "
 
 echo ""

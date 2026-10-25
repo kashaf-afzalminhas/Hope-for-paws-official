@@ -1,43 +1,58 @@
 /**
  * AWS Lambda entrypoint for the HopeForPaws Express API.
  *
- * Console upload settings:
- *   Runtime:  Node.js 20.x
- *   Handler:  lambda.handler
- *   Arch:     x86_64
- *   Timeout:  29 seconds (API Gateway max)
- *   Memory:   1024 MB (or higher)
+ * Handler: lambda.handler
  *
- * Set RUNTIME=lambda in the function environment variables as well.
+ * IMPORTANT: Do not require('./app') at module load time.
+ * If app init throws, API Gateway returns a generic 500 with NO CORS headers
+ * (browsers report that as a CORS failure). Health/OPTIONS must always work.
  */
 process.env.RUNTIME = process.env.RUNTIME || 'lambda';
 
 const mongoose = require('mongoose');
 const serverless = require('serverless-http');
 
-const { ALLOWED_ORIGINS: BASE_ALLOWED_ORIGINS } = require('./config/allowedOrigins');
-const ALLOWED_ORIGINS = [
-  ...BASE_ALLOWED_ORIGINS,
-  'https://www.hopeforpaws.club',
+const DEFAULT_ORIGINS = [
+  'https://hopeforpawshub.co',
+  'https://www.hopeforpawshub.co',
   'https://hopeforpaws.club',
-  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace(/\/$/, '')] : []),
-  ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean),
+  'https://www.hopeforpaws.club',
+  'http://localhost:5173',
+  'http://localhost:5174',
 ];
 
-const app = require('./app');
+const loadAllowedOrigins = () => {
+  const origins = new Set(DEFAULT_ORIGINS);
+  try {
+    const { ALLOWED_ORIGINS } = require('./config/allowedOrigins');
+    for (const o of ALLOWED_ORIGINS || []) origins.add(o);
+  } catch (_) {
+    /* ignore — defaults are enough for CORS */
+  }
+  const frontend = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  if (frontend) origins.add(frontend);
+  for (const o of (process.env.CORS_ORIGINS || '').split(',')) {
+    const trimmed = o.trim();
+    if (trimmed) origins.add(trimmed);
+  }
+  return [...origins];
+};
 
-let cachedHandler;
+const ALLOWED_ORIGINS = loadAllowedOrigins();
+
+let cachedHandler = null;
+let appLoadError = null;
 
 const getHeader = (headers = {}, name) => {
   const target = name.toLowerCase();
-  for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() === target) return value;
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (String(key).toLowerCase() === target) return value;
   }
   return undefined;
 };
 
 const buildCorsHeaders = (event) => {
-  const origin = getHeader(event?.headers || {}, 'origin');
+  const origin = getHeader(event?.headers, 'origin');
   const headers = {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers':
@@ -73,7 +88,6 @@ const mongoNeedsTls = (uri = '') =>
 const ensureDb = async () => {
   if (mongoose.connection.readyState === 1) return;
   if (mongoose.connection.readyState === 2) {
-    // Connecting — wait briefly
     await new Promise((resolve, reject) => {
       const onConnected = () => {
         cleanup();
@@ -94,7 +108,7 @@ const ensureDb = async () => {
   }
 
   if (!process.env.MONGO_URI) {
-    throw new Error('MONGO_URI environment variable is not set');
+    throw new Error('MONGO_URI environment variable is not set on this Lambda');
   }
 
   const uri = process.env.MONGO_URI;
@@ -104,10 +118,14 @@ const ensureDb = async () => {
   });
 };
 
-const getHandler = async () => {
-  if (!cachedHandler) {
+const getExpressHandler = () => {
+  if (cachedHandler) return cachedHandler;
+  if (appLoadError) throw appLoadError;
+
+  try {
+    // Lazy-load so OPTIONS/health still work if Express fails to boot
+    const app = require('./app');
     cachedHandler = serverless(app, {
-      // Support REST API (v1) and HTTP API (v2) event formats
       provider: 'aws',
       binary: [
         'multipart/form-data',
@@ -116,18 +134,21 @@ const getHandler = async () => {
         'application/pdf',
       ],
     });
+    return cachedHandler;
+  } catch (err) {
+    appLoadError = err;
+    console.error('Failed to load Express app:', err);
+    throw err;
   }
-  return cachedHandler;
 };
 
 exports.handler = async (event, context) => {
-  // Keep MongoDB connections warm across invocations
   context.callbackWaitsForEmptyEventLoop = false;
 
   const method = getMethod(event);
   const path = getPath(event);
 
-  // Preflight must never depend on Mongo — browsers show this as a CORS failure otherwise
+  // Always answer preflight — never depends on Express or Mongo
   if (method === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -136,12 +157,18 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Liveness without DB so deploys can be verified even when Mongo is down
+  // Liveness — proves this Lambda code is what API Gateway is calling
   if (method === 'GET' && (path === '/health' || path.endsWith('/health'))) {
     return jsonResponse(event, 200, {
       status: 'OK',
       runtime: 'lambda',
+      handler: 'lambda.handler',
+      commitHint: 'lazy-app-load',
+      hasMongoUri: Boolean(process.env.MONGO_URI),
+      hasJwtSecret: Boolean(process.env.JWT_SECRET),
       mongoReadyState: mongoose.connection.readyState,
+      appLoaded: Boolean(cachedHandler),
+      appLoadError: appLoadError ? String(appLoadError.message || appLoadError) : null,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
@@ -149,18 +176,20 @@ exports.handler = async (event, context) => {
 
   try {
     await ensureDb();
-    const handler = await getHandler();
+    const handler = getExpressHandler();
     const result = await handler(event, context);
-
-    // Ensure CORS headers exist even if a route forgot them
     const corsHeaders = buildCorsHeaders(event);
     result.headers = { ...(result.headers || {}), ...corsHeaders };
+    if (!result.statusCode && result.status) {
+      // some wrappers use `status`
+      result.statusCode = result.status;
+    }
     return result;
   } catch (err) {
     console.error('Lambda handler error:', err);
     return jsonResponse(event, 500, {
       message: 'Something went wrong!',
-      error: process.env.NODE_ENV === 'development' ? String(err?.message || err) : undefined,
+      error: String(err?.message || err),
     });
   }
 };
