@@ -1,9 +1,11 @@
 const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const PromoCode = require('../models/PromoCode');
 const nodemailer = require('nodemailer');
 const emailTemplates = require('../utils/emailTemplates');
 const { toLocationSnapshot } = require('../utils/pakistanLocations');
+const { saveImage, deleteImage } = require('../services/imageStorage');
 
 // Email Transporter Setup (matches codebase pattern in userController/contactController)
 const transporter = nodemailer.createTransport({
@@ -32,7 +34,9 @@ const ensureAdmin = async (userId) => {
 // Seller onboarding (post-registration)
 exports.onboardSeller = async (req, res) => {
   try {
-    const { fullName, storeName, email, phone, address } = req.body;
+    const { address } = req.body;
+    const storeName = typeof req.body.storeName === 'string' ? req.body.storeName.trim() : '';
+    if (!storeName) return res.status(400).json({ message: 'Store name is required' });
     let location;
     try {
       location = toLocationSnapshot(typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location);
@@ -50,36 +54,75 @@ exports.onboardSeller = async (req, res) => {
       return res.status(400).json({ message: 'Seller profile already exists' });
     }
 
-    // Check if storeName is already taken
-    const existingStore = await Seller.findOne({ storeName: { $regex: new RegExp(`^${storeName}$`, 'i') } });
+    // Check if storeName is already taken (case-insensitive, special characters escaped)
+    const escapedStoreName = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingStore = await Seller.findOne({ storeName: { $regex: new RegExp(`^${escapedStoreName}$`, 'i') } });
     if (existingStore) {
       return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
     }
 
-    let profileImage = '';
-    if (req.file) {
-      profileImage = `/uploads/profile-images/${req.file.filename}`;
+    // Name, email and phone come from the user's account (they were set at sign-up and are shown read-only).
+    // Only if the account has no phone yet (e.g. Google sign-up) do we accept one here.
+    const fullName = (user.username || '').trim() || storeName;
+    const email = user.email;
+    let phone = user.phone ? String(user.phone).trim() : '';
+    let newPhone = null;
+    if (!phone) {
+      const submittedPhone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+      if (!/^\+?[0-9]{7,15}$/.test(submittedPhone)) {
+        return res.status(400).json({ message: 'Please enter a valid phone number.' });
+      }
+      const phoneTaken = await User.exists({ phone: submittedPhone, _id: { $ne: user._id } });
+      if (phoneTaken) {
+        return res.status(409).json({ message: 'This phone number is already used by another account.' });
+      }
+      phone = submittedPhone;
+      newPhone = submittedPhone;
     }
 
-    const seller = await Seller.create({
-      userId,
-      fullName,
-      storeName,
-      email,
-      phone,
-      address,
-      location,
-      profileImage,
-      status: 'pending',
-      isVerified: false
-    });
+    // Store the image only after every check has passed
+    let profileImage = '';
+    if (req.file) {
+      profileImage = await saveImage(req.file, 'profile-images');
+    }
 
-    user.isSeller = true;
-    user.sellerStatus = 'pending';
-    user.phone = phone;
-    user.phoneVerified = true;
-    // user.canBuy is left true per new rules
-    await user.save();
+    let seller;
+    try {
+      seller = await Seller.create({
+        userId,
+        fullName,
+        storeName,
+        email,
+        phone,
+        address,
+        location,
+        profileImage,
+        status: 'pending',
+        isVerified: false
+      });
+    } catch (createErr) {
+      if (profileImage) await deleteImage(profileImage).catch(() => {});
+      throw createErr;
+    }
+
+    try {
+      user.isSeller = true;
+      user.sellerStatus = 'pending';
+      if (newPhone) {
+        // Saved but not marked verified: the user can verify it from their profile
+        user.phone = newPhone;
+        user.phoneVerified = false;
+      }
+      await user.save();
+    } catch (userErr) {
+      // Undo the seller profile so the user isn't left stuck and can try again
+      await Seller.deleteOne({ _id: seller._id }).catch(() => {});
+      if (profileImage) await deleteImage(profileImage).catch(() => {});
+      if (userErr.code === 11000) {
+        return res.status(409).json({ message: 'This phone number is already used by another account.' });
+      }
+      throw userErr;
+    }
 
     return res.status(201).json({ message: 'Seller onboarded successfully', seller });
   } catch (err) {
@@ -87,6 +130,10 @@ exports.onboardSeller = async (req, res) => {
       return res.status(400).json({ message: err.message, errors: err.errors });
     }
     if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0];
+      if (field === 'storeName') {
+        return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+      }
       return res.status(409).json({ message: 'Seller profile already exists' });
     }
     console.error('onboardSeller error:', err.message);
@@ -104,6 +151,85 @@ exports.getMySellerProfile = async (req, res) => {
     return res.json({ seller, sellerStatus: user?.sellerStatus, isSeller: user?.isSeller, canBuy: user?.canBuy });
   } catch (err) {
     console.error('getMySellerProfile error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Seller edits their own store (store name, logo, address, location).
+// Name, email and phone always come from the user's account and are refreshed here too.
+exports.updateMySellerProfile = async (req, res) => {
+  let newImage = '';
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = req.seller || await Seller.findOne({ userId });
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+    const user = await User.findById(userId).select('username email phone profileImage');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const storeName = typeof req.body.storeName === 'string' ? req.body.storeName.trim() : '';
+    const address = typeof req.body.address === 'string' ? req.body.address.trim() : '';
+    if (!storeName) return res.status(400).json({ message: 'Store name is required' });
+    if (!address) return res.status(400).json({ message: 'Address is required' });
+
+    let location;
+    try {
+      location = toLocationSnapshot(typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location);
+    } catch (parseError) {
+      location = null;
+    }
+    if (!location) return res.status(400).json({ message: 'Select a valid country, province, and city.' });
+
+    // Store names are unique (case-insensitive), ignoring this seller's own store
+    if (storeName.toLowerCase() !== String(seller.storeName || '').toLowerCase()) {
+      const escapedStoreName = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const taken = await Seller.findOne({
+        _id: { $ne: seller._id },
+        storeName: { $regex: new RegExp(`^${escapedStoreName}$`, 'i') }
+      });
+      if (taken) {
+        return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+      }
+    }
+
+    const oldImage = seller.profileImage || '';
+    const removeImage = req.body.removeProfileImage === 'true' || req.body.removeProfileImage === true;
+    if (req.file) {
+      newImage = await saveImage(req.file, 'profile-images');
+      seller.profileImage = newImage;
+    } else if (removeImage) {
+      seller.profileImage = '';
+    }
+
+    const nameChanged = seller.storeName !== storeName;
+    seller.storeName = storeName;
+    seller.address = address;
+    seller.location = location;
+    seller.fullName = (user.username || '').trim() || seller.fullName;
+    seller.email = user.email || seller.email;
+    if (user.phone) seller.phone = user.phone;
+    await seller.save();
+    newImage = ''; // saved: don't delete it in the error handler
+
+    // Keep the store name shown on promo codes in sync
+    if (nameChanged) {
+      await PromoCode.updateMany({ sellerId: seller._id }, { $set: { sellerStoreName: storeName } }).catch(() => {});
+    }
+
+    // Delete the replaced logo, unless it is also the user's profile picture
+    if (oldImage && oldImage !== seller.profileImage && oldImage !== user.profileImage) {
+      await deleteImage(oldImage).catch(() => {});
+    }
+
+    return res.json({ message: 'Store updated', seller });
+  } catch (err) {
+    if (newImage) await deleteImage(newImage).catch(() => {});
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message });
+    }
+    console.error('updateMySellerProfile error:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -127,8 +253,23 @@ exports.updateSellerStatus = async (req, res) => {
     // --- Status Update (BUG FIX: rejection now sets 'suspended', not 'pending') ---
     seller.isVerified = isVerified;
     seller.status = isVerified ? 'verified' : 'suspended';
-    if (notes) seller.notes = notes;
+    if (typeof notes === 'string' && notes.trim()) seller.notes = notes.trim().slice(0, 1000);
     await seller.save();
+
+    // A suspended/rejected seller's products are taken off the marketplace straight away.
+    // On re-approval, only the products that were hidden by the suspension come back
+    // (products the seller had hidden themselves stay hidden).
+    if (!isVerified) {
+      await Product.updateMany(
+        { sellerId: seller._id, status: { $ne: 'hidden' } },
+        { $set: { isVisible: false, status: 'hidden', hiddenBySuspension: true } }
+      );
+    } else {
+      await Product.updateMany(
+        { sellerId: seller._id, hiddenBySuspension: true },
+        { $set: { isVisible: true, status: 'active', hiddenBySuspension: false } }
+      );
+    }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });

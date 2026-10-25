@@ -2,6 +2,7 @@ const Review = require('../models/Review');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
+const mongoose = require('mongoose');
 
 /**
  * Recalculate and cache a product's average rating and total review count.
@@ -55,6 +56,13 @@ exports.createReview = async (req, res) => {
       return res.status(400).json({ message: 'Rating must be a number between 1 and 5.' });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(String(orderId)) || !mongoose.Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({ message: 'Invalid order or product ID' });
+    }
+    if (typeof comment !== 'string') {
+      return res.status(400).json({ message: 'Comment must be text' });
+    }
+
     // ── Security Gate 1: Ownership & Delivery Status ──
     const order = await Order.findById(orderId).lean();
     if (!order) {
@@ -82,9 +90,9 @@ exports.createReview = async (req, res) => {
     }
 
     // ── Security Gate 2: Duplication Lock (app-level check) ──
-    const existingReview = await Review.findOne({ order: orderId }).lean();
+    const existingReview = await Review.findOne({ order: orderId, product: productId }).lean();
     if (existingReview) {
-      return res.status(400).json({ message: 'This order has already been reviewed' });
+      return res.status(400).json({ message: 'You have already reviewed this product for this order' });
     }
 
     // ── Save the review ──
@@ -94,7 +102,7 @@ exports.createReview = async (req, res) => {
       order: orderId,
       rating: numericRating,
       comment: comment.trim(),
-      images: images || []
+      images: [] // review photos aren't supported yet; links sent by the browser are ignored
     });
 
     // ── Recalculate product stats ──
@@ -112,7 +120,7 @@ exports.createReview = async (req, res) => {
   } catch (err) {
     // Handle the unique-index duplicate key error (race-condition safety net)
     if (err.code === 11000) {
-      return res.status(400).json({ message: 'This order has already been reviewed' });
+      return res.status(400).json({ message: 'You have already reviewed this product for this order' });
     }
     console.error('createReview error:', err);
     return res.status(500).json({ message: 'Server error' });
@@ -147,8 +155,18 @@ exports.getProductReviews = async (req, res) => {
 exports.checkOrderReviewed = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const review = await Review.findOne({ order: orderId }).select('_id').lean();
-    return res.json({ reviewed: !!review });
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ message: 'Invalid order ID' });
+    }
+    const [order, reviews] = await Promise.all([
+      Order.findById(orderId).select('items.productId').lean(),
+      Review.find({ order: orderId }).select('product').lean()
+    ]);
+    const reviewedProductIds = reviews.map((r) => r.product.toString());
+    const productIds = (order?.items || []).map((i) => i.productId.toString());
+    // "reviewed" = every product in the order has been reviewed
+    const reviewed = productIds.length > 0 && productIds.every((id) => reviewedProductIds.includes(id));
+    return res.json({ reviewed, reviewedProductIds });
   } catch (err) {
     console.error('checkOrderReviewed error:', err);
     return res.status(500).json({ message: 'Server error' });

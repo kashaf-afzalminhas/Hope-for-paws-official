@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUserId } from '../lib/utils';
 import { getUserPublicProfile } from './api';
 import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 import { getConversationBetweenUsers } from './api';
 import PropTypes from 'prop-types';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
@@ -287,7 +288,7 @@ const AdoptionList = ({ filter = 'all' }) => {
             userRequestInfo.hasRequest && userRequestInfo.requestStatus === 'accepted';
           const avatarUrl =
             post.userId?._id && userProfileImages[post.userId._id]
-              ? `${API_BASE_URL.replace('/api', '')}${userProfileImages[post.userId._id]}`
+              ? getMediaUrl(userProfileImages[post.userId._id])
               : null;
           
           return (
@@ -306,15 +307,6 @@ const AdoptionList = ({ filter = 'all' }) => {
                     : undefined,
               }}
             >
-                  {post.description && post.description.length > 100 && (
-                    <button 
-                  type="button"
-                      onClick={() => setViewDetailsPost(post)}
-                  className="text-left text-sm font-medium text-[#a07855] hover:underline"
-                    >
-                  Read more
-                    </button>
-                  )}
               <button type="button" onClick={() => setViewDetailsPost(post)} className={adoptionBtnSecondary}>
                 View details
                   </button>
@@ -360,7 +352,7 @@ const AdoptionList = ({ filter = 'all' }) => {
           onImageError={() => handleImageError(viewDetailsPost._id)}
           posterAvatarUrl={
             viewDetailsPost.userId?._id && userProfileImages[viewDetailsPost.userId._id]
-              ? `${API_BASE_URL.replace('/api', '')}${userProfileImages[viewDetailsPost.userId._id]}`
+              ? getMediaUrl(userProfileImages[viewDetailsPost.userId._id])
               : null
           }
           canChat={

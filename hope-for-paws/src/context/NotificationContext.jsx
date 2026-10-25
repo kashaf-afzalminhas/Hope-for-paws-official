@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { API_BASE_URL, SOCKET_ENABLED } from '../config';
+import { API_BASE_URL, API_ORIGIN } from '../config';
 import axios from 'axios';
 import { getSocket, initSocket, getSocketStatus } from '../services/socket';
 
@@ -52,6 +52,15 @@ export const NotificationProvider = ({ children }) => {
     refreshUserPreferences();
   }, []);
   
+  // Bumped when a user logs in without a page reload, so the socket listeners are set up again
+  const [authVersion, setAuthVersion] = useState(0);
+  useEffect(() => {
+    const handleLogin = () => setAuthVersion(v => v + 1);
+    window.addEventListener('user-logged-in', handleLogin);
+    return () => window.removeEventListener('user-logged-in', handleLogin);
+  }, []);
+
+  // Use refs to prevent multiple initializations
   const initializationRef = useRef(false);
   const pollingRef = useRef(null);
   // Holds the function that removes the socket listeners registered below.
@@ -81,7 +90,7 @@ export const NotificationProvider = ({ children }) => {
     const checkBackendHealth = async () => {
       try {
         // Fix the health endpoint URL - remove /api from the base URL
-        const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+        const healthUrl = `${API_ORIGIN}/health`;
         await axios.get(healthUrl, { timeout: 5000 });
         console.log('Backend is available, starting notification system');
         return true;
@@ -127,7 +136,7 @@ export const NotificationProvider = ({ children }) => {
             fetchUnreadCount();
             setTotalCount(c => c + 1);
 
-            if (Notification.permission === 'granted') {
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
               new Notification(notification.title, {
                 body: notification.message,
                 icon: '/hfplogo.png'
@@ -197,7 +206,7 @@ export const NotificationProvider = ({ children }) => {
         socketCleanupRef.current = null;
       }
     };
-  }, []);
+  }, [authVersion]);
 
 
   // Fetch initial notifications only once after initialization
@@ -209,7 +218,7 @@ export const NotificationProvider = ({ children }) => {
         fetchUnreadCount();
       }
     }
-  }, [isInitialized]);
+  }, [isInitialized, authVersion]);
 
   const fetchNotifications = async (page = 1, limit = 20) => {
     // Skip if rate limited

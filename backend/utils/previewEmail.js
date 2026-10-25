@@ -8,7 +8,7 @@ const html = buildVerificationEmail({
   code: 'a1b2c3',
   heading: 'Verification Code',
   message: 'Use this code to verify your account and complete your registration.',
-  expiry: '2 minutes',
+  expiry: '5 minutes',
   preheader: 'Your Hope for Paws verification code is a1b2c3',
 });
 

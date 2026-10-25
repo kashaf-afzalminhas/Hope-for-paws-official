@@ -54,8 +54,8 @@ exports.toggleWishlistItem = async (req, res) => {
     const userId = req.user?.id || req.user?.userId;
     const { productId } = req.body;
 
-    if (!productId) {
-      return res.status(400).json({ message: 'Product ID is required' });
+    if (!productId || !require('mongoose').Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({ message: 'A valid product ID is required' });
     }
 
     const productExists = await Product.findById(productId).select('_id').lean();

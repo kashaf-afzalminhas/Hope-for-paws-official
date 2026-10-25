@@ -3,11 +3,11 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import RecentChats from '../Components/RecentChats';
 import ChatWindow from '../Components/ChatWindow';
 import { User, ConversationWithUser } from '../types/index';
-import { getAllUsers, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
+import { getUsersByIds, createConversation, getConversationBetweenUsers, getUserConversations } from '../Main/api';
 //import { getSocket, initSocket } from '../services/socket';
 import { getSocket, initSocket, setNotificationCallback, disconnectSocket } from '../services/socket';
 import { getCurrentUserId } from '../lib/utils';
-import { API_BASE_URL } from '../config';
+import { API_ORIGIN } from '../config';
 import { useMessages } from '../context/MessageContext';
 
 const useToast = () => {
@@ -26,48 +26,19 @@ const useIsMobile = () => {
   useEffect(() => {
     const handleResize = () => {
       const newIsMobile = window.innerWidth <= 768; // Changed from 1024 to 768
-      console.log('Chat useIsMobile - window width:', window.innerWidth, 'isMobile:', newIsMobile);
       setIsMobile(newIsMobile);
     };
     window.addEventListener('resize', handleResize);
-    console.log('Chat initial isMobile:', isMobile, 'window width:', window.innerWidth);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   return isMobile;
 };
 
-const ChatPage = () => {
+const ChatPageContent = () => {
   const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
   const isAuthenticated = !!user;
   const currentUserId = getCurrentUserId(user);
   
-  // Early return if user data is invalid
-  if (user && !currentUserId) {
-    console.error('Invalid user data - missing ID:', user);
-    return (
-      <div className="flex items-center justify-center h-screen font-body bg-[#fff7f0]">
-        <div className="text-center p-6 max-w-md">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-16 w-16 text-red-500 mx-auto mb-4" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-          <h3 className="text-xl font-heading text-[#2c1810] mb-2">Invalid User Data</h3>
-          <p className="font-body text-gray-600 mb-6">Your user data is incomplete. Please log in again.</p>
-          <a 
-            href="/signin" 
-            className="px-6 py-2 bg-[#a07855] text-[#ffd8b8] rounded-full hover:bg-[#8a6a4d] transition-colors"
-          >
-            Sign In Again
-          </a>
-        </div>
-      </div>
-    );
-  }
   const { recipientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -111,6 +82,11 @@ const ChatPage = () => {
   const [cameFromPage, setCameFromPage] = useState(null);
   const currentUserIdRef = useRef(currentUserId);
   const [userCache, setUserCache] = useState(new Map()); // Add user cache
+  const selectedConversationIdRef = useRef(null);
+  const openedFromListRef = useRef(false);
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?._id || null;
+  }, [selectedConversation]);
 
 
   useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
@@ -132,10 +108,8 @@ const addUserToCache = useCallback((user) => {
     const locationState = window.history.state?.usr;
     if (locationState?.fromAdoption) {
       setCameFromPage('/adoption');
-      console.log('User came from adoption page');
     } else if (locationState?.fromPage) {
       setCameFromPage(locationState.fromPage);
-      console.log('User came from:', locationState.fromPage);
     }
   }, []);
 
@@ -144,7 +118,6 @@ const addUserToCache = useCallback((user) => {
     if (!recipientId || !currentUserId) {
       // If no recipientId, show conversation list on mobile
       if (isMobile && showChatMobile) {
-        console.log('No recipientId, switching to conversation list view');
         setShowChatMobile(false);
       }
       return;
@@ -201,11 +174,10 @@ const addUserToCache = useCallback((user) => {
 
   // Handle URL changes for mobile view switching
   useEffect(() => {
-    console.log('URL change detected - pathname:', location.pathname, 'recipientId:', recipientId);
     
     // If we're on /chat without a recipientId, show conversation list on mobile
     if (location.pathname === '/chat' && !recipientId && isMobile) {
-      console.log('On /chat without recipientId, showing conversation list');
+      openedFromListRef.current = false;
       setShowChatMobile(false);
       setSelectedConversation(null);
       setSelectedUser(null);
@@ -213,7 +185,6 @@ const addUserToCache = useCallback((user) => {
     
     // If we're on /chat with a recipientId, show chat view on mobile
     if (location.pathname.startsWith('/chat/') && recipientId && isMobile) {
-      console.log('On /chat with recipientId, showing chat view');
       setShowChatMobile(true);
     }
   }, [location.pathname, recipientId, isMobile]);
@@ -237,21 +208,12 @@ const addUserToCache = useCallback((user) => {
   // Initialize socket when user is authenticated
   useEffect(() => {
     if (currentUserId && isAuthenticated) {
-      console.log('ðŸš€ Initializing socket for user:', currentUserId);
       
-      // Request notification permission
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-          console.log('🔔 Notification permission:', permission);
-        });
-      }
       
       // Test backend connectivity first
       const testBackendConnection = async () => {
         try {
-          const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
-          const data = await response.json();
-          console.log('📩 Backend health check:', data);
+          await fetch(`${API_ORIGIN}/health`);
         } catch (error) {
           console.error('⚠️ Backend connectivity test failed:', error);
           setError('Cannot connect to chat server');
@@ -261,32 +223,26 @@ const addUserToCache = useCallback((user) => {
       testBackendConnection();
       
       try {
-        // Check if socket is already connected (now handled globally by MessageProvider)
-        const existingSocket = getSocket();
-        if (existingSocket && existingSocket.connected) {
-          console.log('✅ Socket already connected, reusing existing connection');
-        } else {
-          console.log('ℹ️ Socket not connected yet, MessageProvider should handle initialization');
-        }
+        // The socket itself is created and managed globally by MessageProvider
         
         // Set up notification callback for real-time notifications
+        // In-page toast only: the browser notification is already shown by NotificationContext
         setNotificationCallback((notification) => {
-          console.log('🔔 Received notification:', notification);
-          
-          // Show toast notification
+          if (!notification) return;
+          // No toast for a message in the chat that's already open on screen
+          const notifConversationId = notification.data?.conversationId;
+          if (
+            notification.type === 'chat_message' &&
+            notifConversationId &&
+            String(notifConversationId) === String(selectedConversationIdRef.current)
+          ) {
+            return;
+          }
           addToast({
             title: notification.title,
-            description: notification.body,
+            description: notification.message || notification.body || '',
             variant: 'default'
           });
-          
-          // Show browser notification if permission is granted
-          if (Notification.permission === 'granted') {
-            new Notification(notification.title, {
-              body: notification.body,
-              icon: '/hfplogo.png'
-            });
-          }
         });
       } catch (error) {
         console.error('⚠️ Error initializing socket:', error);
@@ -294,24 +250,21 @@ const addUserToCache = useCallback((user) => {
       }
     }
 
-    // No cleanup needed - socket is managed globally by MessageProvider
+    // Socket is managed globally by MessageProvider; only clear this page's notification callback
     return () => {
-      console.log('👋 Chat component unmounting...');
+      setNotificationCallback(null);
     };
   }, [currentUserId, isAuthenticated, addToast]);
 
   // Error boundary effect
   useEffect(() => {
+    // Only log: errors elsewhere in the app must not replace the whole chat screen
     const handleError = (error) => {
       console.error('ChatPage error:', error);
-      setError(error.message || 'An unexpected error occurred');
-      setIsLoadingUsers(false);
     };
 
     const handleUnhandledRejection = (event) => {
       console.error('ChatPage unhandled rejection:', event.reason);
-      setError(event.reason?.message || 'An unexpected error occurred');
-      setIsLoadingUsers(false);
     };
 
     window.addEventListener('error', handleError);
@@ -327,62 +280,60 @@ const addUserToCache = useCallback((user) => {
   useEffect(() => {
     if (error && error !== 'User data is incomplete. Please log in again.' && conversations && Array.isArray(conversations) && conversations.length > 0) {
       // If we have conversations but there's an error (not user data error), clear the error
-      console.log('Clearing error because conversations are available');
       setError(null);
     }
   }, [error, conversations]);
 
-  // Move loadUsers function outside useEffect so it can be accessed by error handlers
+  // Loads only the people this user chats with (conversation partners + the person in the URL),
+  // instead of every user on the site. Already-loaded users are not fetched again.
+  const requestedUserIdsRef = useRef(new Set());
   const loadUsers = async () => {
-    console.log('=== loadUsers function called ===');
-    if (!currentUserId || isLoadingUsersInProgress) {
-      console.log('Skipping loadUsers - no currentUserId or already loading');
-      console.log('currentUserId:', currentUserId);
-      console.log('isLoadingUsersInProgress:', isLoadingUsersInProgress);
+    if (!currentUserId) {
       return;
     }
-    
-    console.log('Loading users for currentUserId:', currentUserId);
-    console.log('API configuration:', { AUTH_BASE_URL: API_BASE_URL , API_ROUTES_BASE_URL: `${API_BASE_URL}` });
-    
+
+    const wanted = new Set();
+    (Array.isArray(conversations) ? conversations : []).forEach((conv) => {
+      (conv.participants || conv.members || []).forEach((id) => wanted.add(String(id?._id || id)));
+    });
+    if (recipientId && recipientId !== 'undefined' && recipientId !== 'null') wanted.add(String(recipientId));
+    wanted.delete(String(currentUserId));
+    const missing = [...wanted].filter((id) => /^[a-f0-9]{24}$/i.test(id) && !requestedUserIdsRef.current.has(id));
+
+    if (missing.length === 0) {
+      setIsLoadingUsers(false);
+      return;
+    }
+    missing.forEach((id) => requestedUserIdsRef.current.add(id));
+
     setIsLoadingUsersInProgress(true);
-    console.log('Set isLoadingUsersInProgress to true');
     
     try {
-      console.log('About to call getAllUsers()');
-      const response = await getAllUsers();
-      console.log('getAllUsers() completed');
-      console.log('Response object:', response);
-      console.log('Response.data:', response.data);
-      console.log('Response.data.data:', response.data?.data);
-      console.log('Is response.data.data an array?', Array.isArray(response.data?.data));
-      console.log('Response.data.data length:', response.data?.data?.length);
-      
-      console.log('Users loaded successfully:', response);
-      console.log('Response data:', response.data);
-      console.log('Response status:', response.status);
-      console.log('Actual users array:', response.data?.data);
-      console.log('Setting users to:', response.data?.data || []);
+      const response = await getUsersByIds(missing);
 
       // Validate response data
       if (!response.data || !Array.isArray(response.data.data)) {
-        throw new Error('Invalid response format from getAllUsers API');
+        throw new Error('Invalid response format from getUsersByIds API');
       }
 
       const usersData = response.data.data || [];
-      setUsers(usersData);
+      setUsers((prev) => {
+        const byId = new Map(prev.map((u) => [String(u._id), u]));
+        usersData.forEach((u) => { if (u && u._id) byId.set(String(u._id), u); });
+        return [...byId.values()];
+      });
       
-      // Cache all users
+      // Cache loaded users
       usersData.forEach(user => {
         if (user && user._id) {
           addUserToCache(user);
         }
       });
 
-      console.log('Users set in state, clearing error');
       setError(null); // Clear any previous errors
     } catch (error) {
-      console.log('Error in loadUsers:', error);
+      // Allow these users to be requested again next time
+      missing.forEach((id) => requestedUserIdsRef.current.delete(id));
       console.error('Error loading users:', error);
       console.error('Error details:', {
         message: error.message,
@@ -400,31 +351,22 @@ const addUserToCache = useCallback((user) => {
           variant: 'destructive',
         });
       } else {
-        setError(error.response?.data?.message || 'Failed to load users');
+        // Chat still works without names/photos, so show a toast instead of the full error screen
         addToast({
           title: 'Error',
-          description: error.response?.data?.message || 'Failed to load users',
+          description: error.response?.data?.message || 'Failed to load user details',
           variant: 'destructive',
         });
       }
-      
-      // Set empty array as fallback to prevent infinite loading
-      setUsers([]);
     } finally {
-      console.log('loadUsers finally block');
-      console.log('Setting loading states to false');
       setIsLoadingUsers(false);
       setIsLoadingUsersInProgress(false);
     }
   };
 
   useEffect(() => {
-    console.log('=== useEffect for loadUsers triggered ===');
-    console.log('currentUserId:', currentUserId);
-    console.log('user:', user);
     
     if (!currentUserId) {
-      console.log('No currentUserId, setting loading to false');
       setIsLoadingUsers(false);
       if (user) {
         console.warn('User object exists but no ID found:', user);
@@ -435,7 +377,6 @@ const addUserToCache = useCallback((user) => {
     
     // Convert currentUserId to string and check if it's a valid format
     const currentUserIdStr = String(currentUserId);
-    console.log('Current user ID as string:', currentUserIdStr);
     
     if (currentUserIdStr.length < 10) {
       console.error('CurrentUser ID seems too short:', currentUserIdStr);
@@ -447,27 +388,27 @@ const addUserToCache = useCallback((user) => {
       return;
     }
     
-    console.log('About to call loadUsers()');
+    // Safety net: stop the spinner after 10s, but never wipe a user list that already loaded
     const timeoutId = setTimeout(() => {
-      if (isMounted.current && isLoadingUsers) {
-        console.warn('Loading timeout reached, setting loading to false');
+      if (isMounted.current) {
         setIsLoadingUsers(false);
-        setUsers([]);
       }
-    }, 10000); // 10 second timeout
-    
-    loadUsers();
+    }, 10000);
     
     return () => {
-      console.log('useEffect cleanup - setting isMounted to false');
       isMounted.current = false;
       clearTimeout(timeoutId);
     };
   }, [currentUserId]); // Removed addToast from dependencies
 
+  // (Re)load chat partners whenever the conversation list or the person in the URL changes
+  useEffect(() => {
+    loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, conversations, recipientId]);
+
   // Update last message in conversations
   const updateConversationLastMessage = (conversationId, message) => {
-    console.log('ðŸ”„ Updating conversation last message:', { conversationId, message });
     
     // This function is now only used for optimistic updates when sending messages
     // The actual conversation updates are handled by MessageContext via socket events
@@ -548,10 +489,11 @@ const addUserToCache = useCallback((user) => {
     
     try {
       const findResponse = await getConversationBetweenUsers(currentUserIdRef.current, otherUserId);
-      if (findResponse.data) {
+      const foundConversation = findResponse?.data?.data;
+      if (foundConversation) {
         const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
-        setConversationLookup(prev => new Map(prev).set(cacheKey, findResponse.data));
-        setSelectedConversation(findResponse.data);
+        setConversationLookup(prev => new Map(prev).set(cacheKey, foundConversation));
+        setSelectedConversation(foundConversation);
         setSelectedUser(userObj);
         if (isMobile) {
           setIsTransitioning(true);
@@ -564,10 +506,11 @@ const addUserToCache = useCallback((user) => {
       }
       
       const createResponse = await createConversation(currentUserIdRef.current, otherUserId);
-      if (createResponse.data) {
+      const createdConversation = createResponse?.data?.data;
+      if (createdConversation) {
         const cacheKey = [currentUserIdRef.current, otherUserId].sort().join('-');
-        setConversationLookup(prev => new Map(prev).set(cacheKey, createResponse.data));
-        setSelectedConversation(createResponse.data);
+        setConversationLookup(prev => new Map(prev).set(cacheKey, createdConversation));
+        setSelectedConversation(createdConversation);
         setSelectedUser(userObj);
         if (isMobile) {
           setIsTransitioning(true);
@@ -580,7 +523,6 @@ const addUserToCache = useCallback((user) => {
         // Update conversations list with the new conversation
         // Note: This is now handled by the MessageContext via socket events
         // No need to manually update here as it will be handled automatically
-        console.log('Chat: New conversation created, will be handled by MessageContext');
       }
     } catch (error) {
       console.error('Conversation error:', error);
@@ -595,12 +537,6 @@ const addUserToCache = useCallback((user) => {
     }
   };
 
-  // Debug users state changes
-  useEffect(() => {
-    console.log('Users state updated:', users);
-    console.log('Users count:', users?.length);
-    console.log('Users array details:', users.map(u => ({ id: u._id, username: u.username, email: u.email })));
-  }, [users]);
 
   // Cleanup effect to reset isMounted when component unmounts
   useEffect(() => {
@@ -618,8 +554,11 @@ const addUserToCache = useCallback((user) => {
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden && setCurrentConversationId) {
+      if (!setCurrentConversationId) return;
+      if (document.hidden) {
         setCurrentConversationId(null);
+      } else if (selectedConversationIdRef.current) {
+        setCurrentConversationId(selectedConversationIdRef.current);
       }
     };
 
@@ -648,9 +587,9 @@ const addUserToCache = useCallback((user) => {
     }
     
     // Use the user attached by RecentChats, or look up if missing
-    const otherUserId = conversationData.members
-      ? conversationData.members.find(id => id !== currentUserId)
-      : (conversationData.participants || []).find(id => id !== currentUserId);
+    const otherUserId = (conversationData.members || conversationData.participants || [])
+      .map(String)
+      .find(id => id !== String(currentUserId));
 
     if (!otherUserId) {
       console.error('handleSelectConversation: Could not find other user ID:', conversationData);
@@ -670,11 +609,9 @@ const addUserToCache = useCallback((user) => {
 
     // On desktop, clear the URL param before setting the new conversation
     if (!isMobile && recipientId) {
-      navigate('/chat');
+      navigate('/chat', { replace: true });
     }
 
-    console.log('Switching to conversation:', conversationData);
-    console.log('With user:', fullUserObj);
 
     setSelectedConversation(conversationData);
     setSelectedUser(fullUserObj);
@@ -690,6 +627,12 @@ const addUserToCache = useCallback((user) => {
     }
     
     if (isMobile) {
+      // Give the open chat its own history entry, so the phone's back button returns to the list
+      if (String(recipientId || '') !== String(otherUserId)) {
+        setLastHandledRecipientId(String(otherUserId)); // conversation is already selected, don't reload it
+        openedFromListRef.current = true;
+        navigate(`/chat/${otherUserId}`);
+      }
       setIsTransitioning(true);
       setTimeout(() => {
         setShowChatMobile(true);
@@ -709,9 +652,15 @@ const addUserToCache = useCallback((user) => {
       setCurrentConversationId(null);
     }
     
-    // Clear URL parameter for mobile
+    // Clear URL parameter for mobile. If the chat was opened from the list, go back in history
+    // (same as the phone's back button); otherwise replace the URL with the list.
     if (isMobile && recipientId) {
-      navigate('/chat');
+      if (openedFromListRef.current) {
+        openedFromListRef.current = false;
+        navigate(-1);
+      } else {
+        navigate('/chat', { replace: true });
+      }
     }
     setTimeout(() => setIsTransitioning(false), 300);
   };
@@ -721,9 +670,9 @@ const addUserToCache = useCallback((user) => {
 
   useEffect(() => {
     if (selectedConversation && Array.isArray(users) && users.length > 0) {
-      const otherUserId = selectedConversation.members
-        ? selectedConversation.members.find(id => id !== currentUserId)
-        : (selectedConversation.participants || []).find(id => id !== currentUserId);
+      const otherUserId = (selectedConversation.members || selectedConversation.participants || [])
+        .map(String)
+        .find(id => id !== String(currentUserId));
 
       if (!otherUserId) {
         console.warn('Could not find other user ID in selected conversation:', selectedConversation);
@@ -798,7 +747,6 @@ const addUserToCache = useCallback((user) => {
 
     // Only update if we actually have deduplicated conversations
     if (uniqueConvs.length !== conversations.length) {
-      console.log('Chat: Deduplicating conversations from', conversations.length, 'to', uniqueConvs.length);
       updateConversations(uniqueConvs);
     }
   }, [conversations, updateConversations]);
@@ -819,7 +767,6 @@ const addUserToCache = useCallback((user) => {
       );
       
       if (hasChanges) {
-        console.log('Chat: Updating unread counts for selected conversation');
         updateConversations(updatedConversations);
       }
     }
@@ -1139,4 +1086,40 @@ return (
   </div>
 );
 }
+// Wrapper: checks stored user data before any hooks of the chat page run
+const ChatPage = () => {
+  const user = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user")) || null;
+  const currentUserId = getCurrentUserId(user);
+
+  // Early return if user data is invalid
+  if (user && !currentUserId) {
+    console.error('Invalid user data - missing ID:', user);
+    return (
+      <div className="flex items-center justify-center h-screen font-body bg-[#fff7f0]">
+        <div className="text-center p-6 max-w-md">
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-16 w-16 text-red-500 mx-auto mb-4" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <h3 className="text-xl font-heading text-[#2c1810] mb-2">Invalid User Data</h3>
+          <p className="font-body text-gray-600 mb-6">Your user data is incomplete. Please log in again.</p>
+          <a 
+            href="/signin" 
+            className="px-6 py-2 bg-[#a07855] text-[#ffd8b8] rounded-full hover:bg-[#8a6a4d] transition-colors"
+          >
+            Sign In Again
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return <ChatPageContent />;
+};
+
 export default ChatPage;

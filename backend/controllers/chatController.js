@@ -5,7 +5,7 @@ const User = require('../models/User');
 
 exports.getRecentChats = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = new mongoose.Types.ObjectId(String(req.user?.id || req.user?.userId || req.user?._id));
 
         // Validate user ID
         if (!userId) {
@@ -79,7 +79,7 @@ exports.getRecentChats = async (req, res) => {
                     lastMessage: 1,
                     timestamp: 1,
                     unreadCount: 1,
-                    userInfo: { username: 1, email: 1 }
+                    userInfo: { username: 1, profileImage: 1 }
                 }
             },
             { $sort: { timestamp: -1 } }
@@ -137,6 +137,10 @@ exports.deleteConversation = async (req, res) => {
             },
             { new: true }
         );
+
+        // Let the user's other tabs/devices remove it from their list too
+        const io = req.app.get('socketio');
+        if (io) io.to(String(rawUserId)).emit('conversationDeleted', { conversationId: String(conversationId) });
 
         res.status(200).json({ success: true, message: 'Chat deleted successfully' });
     } catch (error) {

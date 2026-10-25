@@ -10,6 +10,59 @@ const {
   resolveEffectiveGuaranteePolicy
 } = require('../services/policyService');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const { saveImages, deleteImage } = require('../services/imageStorage');
+
+const MAX_PRODUCT_IMAGES = 5;
+
+// Public routes: reads the logged-in user's id from the token if one was sent (otherwise null)
+const getOptionalUserId = (req) => {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) return null;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const id = decoded.userId || decoded.id;
+    return id ? String(id) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Deletes product images from storage, except ones still shown in existing orders (order history keeps them)
+const deleteUnusedProductImages = async (urls) => {
+  for (const url of urls || []) {
+    try {
+      const usedInOrder = await Order.exists({ 'items.image': url });
+      if (!usedInOrder) await deleteImage(url);
+    } catch (err) {
+      console.error('Failed to delete product image', url, err.message);
+    }
+  }
+};
+
+// Escapes user text before using it inside a regular expression
+const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Route middleware: the caller must have a seller profile that isn't suspended.
+ * Runs BEFORE image upload, so non-sellers can't upload files at all.
+ */
+exports.requireActiveSeller = async (req, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = await Seller.findOne({ userId });
+    if (!seller) return res.status(403).json({ message: 'Only sellers can manage products' });
+    if (seller.status === 'suspended') {
+      return res.status(403).json({ message: 'Your seller account is suspended. Please contact Hope for Paws support.' });
+    }
+    req.seller = seller;
+    next();
+  } catch (err) {
+    console.error('requireActiveSeller error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 const validatePolicyReferences = async (sellerId, shippingPolicyId, guaranteePolicyId) => {
   const references = {};
@@ -57,7 +110,7 @@ exports.createProduct = async (req, res) => {
       return res.status(403).json({ message: 'Only sellers can create products' });
     }
 
-    const seller = await Seller.findOne({ userId });
+    const seller = req.seller || await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
     if (seller.status === 'suspended') return res.status(403).json({ message: 'Seller account is suspended' });
 
@@ -83,8 +136,10 @@ exports.createProduct = async (req, res) => {
     }
 
     // Strict Validations
-    if (Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
-    if (Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
+    if (!Number.isFinite(Number(price)) || Number(price) < 0) return res.status(400).json({ message: 'Price must be a valid number of 0 or more' });
+    if (countInStock === undefined || countInStock === '' || !Number.isInteger(Number(countInStock)) || Number(countInStock) < 0) {
+      return res.status(400).json({ message: 'Stock must be a whole number of 0 or more' });
+    }
     if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
       return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
     }
@@ -115,13 +170,12 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-    let images = req.body.images || [];
-    if (typeof images === 'string') images = [images];
-
-    if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
-      images = [...images, ...uploadedImages];
+    // Images only come from uploaded files (image links sent in the request body are ignored)
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length > MAX_PRODUCT_IMAGES) {
+      return res.status(400).json({ message: `A product can have at most ${MAX_PRODUCT_IMAGES} images.` });
     }
+    const images = await saveImages(files, 'products');
 
     const product = await Product.create({
       sellerId: seller._id,
@@ -140,11 +194,16 @@ exports.createProduct = async (req, res) => {
       images,
       status: 'active',
       isVisible: true
+    }).catch(async (createErr) => {
+      await deleteUnusedProductImages(images);
+      throw createErr;
     });
 
     return res.status(201).json({ message: 'Product created', product });
   } catch (err) {
     console.error(err);
+    if (err.status === 400) return res.status(400).json({ message: err.message });
+    if (err.name === 'ValidationError') return res.status(400).json({ message: err.message });
     if (err.code === 11000) {
       return res.status(400).json({ message: 'A product with this SKU or Title already exists in your store.' });
     }
@@ -155,11 +214,16 @@ exports.createProduct = async (req, res) => {
 // 2. Public List (Updated for Frontend Filtering & Verified Badge)
 exports.listProducts = async (req, res) => {
   try {
-    const { category, search, sort, sellerId } = req.query;
+    const str = (v) => (typeof v === 'string' ? v : undefined);
+    const category = str(req.query.category);
+    const search = str(req.query.search);
+    const sort = str(req.query.sort);
+    const sellerId = str(req.query.sellerId);
     // Strictly filter out hidden items (from automated moderation)
     let query = { isVisible: true, isHidden: { $ne: true } };
 
     if (sellerId) {
+      if (!mongoose.Types.ObjectId.isValid(sellerId)) return res.json([]);
       query.sellerId = sellerId;
     }
 
@@ -167,12 +231,19 @@ exports.listProducts = async (req, res) => {
       query.category = category;
     }
 
-    if (search) {
+    if (search && search.trim()) {
+      const safe = escapeRegex(search.trim().slice(0, 100));
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { brand: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { title: { $regex: safe, $options: 'i' } },
+        { brand: { $regex: safe, $options: 'i' } },
+        { description: { $regex: safe, $options: 'i' } }
       ];
+    }
+
+    // Paged mode (used by the Marketplace page): ?page=1&limit=24 plus filters.
+    // Without "page" the old behaviour (a plain array of every product) is kept for other callers.
+    if (req.query.page !== undefined) {
+      return listProductsPaged(req, res, query);
     }
 
     let sortObj = { createdAt: -1 }; // default to new
@@ -190,6 +261,124 @@ exports.listProducts = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Price after the product's own discount, used for price filters and sorting
+const EFFECTIVE_PRICE = {
+  $multiply: [
+    '$price',
+    { $subtract: [1, { $divide: [{ $ifNull: ['$discountPercentage', 0] }, 100] }] }
+  ]
+};
+const NEW_PRODUCT_DAYS = 14;
+const MAX_PAGE_SIZE = 60;
+
+const PAGED_SORTS = {
+  popular: { numReviews: -1, averageRating: -1, createdAt: -1, _id: -1 },
+  rating: { averageRating: -1, numReviews: -1, createdAt: -1, _id: -1 },
+  new: { createdAt: -1, _id: -1 },
+  priceAsc: { effectivePrice: 1, _id: 1 },
+  priceDesc: { effectivePrice: -1, _id: -1 }
+};
+
+const csv = (value) => (typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean).slice(0, 50) : []);
+
+/**
+ * GET /api/products?page=1&limit=24&category=&search=&brands=a,b&sellers=<sellerId>,..&maxPrice=&minRating=&sort=popular|new|rating|priceAsc|priceDesc&facets=1
+ * Returns { products, total, page, limit, totalPages, hasMore, facets? }.
+ * Filtering, sorting and paging all happen in the database, so the page stays fast as the catalogue grows.
+ */
+async function listProductsPaged(req, res, baseQuery) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(req.query.limit, 10) || 24));
+  const sortKey = typeof req.query.sort === 'string' && PAGED_SORTS[req.query.sort] ? req.query.sort : 'popular';
+
+  // Visible products only (same rule as checkout)
+  const visible = { isVisible: true, isHidden: { $ne: true }, status: { $ne: 'hidden' } };
+  const match = { ...baseQuery, ...visible };
+
+  // Search also matches the store name
+  if (match.$or && typeof req.query.search === 'string' && req.query.search.trim()) {
+    const safe = escapeRegex(req.query.search.trim().slice(0, 100));
+    const stores = await Seller.find({ storeName: { $regex: safe, $options: 'i' } }).select('_id').limit(50).lean();
+    if (stores.length) match.$or.push({ sellerId: { $in: stores.map((s) => s._id) } });
+  }
+
+  const brands = csv(req.query.brands);
+  if (brands.length) match.brand = { $in: brands };
+
+  const sellerIds = csv(req.query.sellers).filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (sellerIds.length) {
+    match.sellerId = { $in: sellerIds.map((id) => new mongoose.Types.ObjectId(id)) };
+  } else if (match.sellerId) {
+    match.sellerId = new mongoose.Types.ObjectId(String(match.sellerId));
+  }
+
+  const minRating = Number(req.query.minRating);
+  if (Number.isFinite(minRating) && minRating > 0) match.averageRating = { $gte: minRating };
+
+  const maxPrice = Number(req.query.maxPrice);
+  const afterPrice = Number.isFinite(maxPrice) && req.query.maxPrice !== '' ? [{ $match: { effectivePrice: { $lte: maxPrice } } }] : [];
+
+  const [result] = await Product.aggregate([
+    { $match: match },
+    { $addFields: { effectivePrice: EFFECTIVE_PRICE } },
+    ...afterPrice,
+    {
+      $facet: {
+        items: [{ $sort: PAGED_SORTS[sortKey] }, { $skip: (page - 1) * limit }, { $limit: limit }],
+        total: [{ $count: 'count' }]
+      }
+    }
+  ]);
+
+  const items = await Product.populate(result?.items || [], {
+    path: 'sellerId',
+    select: 'userId name status isVerified storeName'
+  });
+  const total = result?.total?.[0]?.count || 0;
+  const newSince = Date.now() - NEW_PRODUCT_DAYS * 24 * 60 * 60 * 1000;
+  const products = items.map((p) => ({
+    ...p,
+    isNew: p.createdAt ? new Date(p.createdAt).getTime() >= newSince : false
+  }));
+
+  const body = {
+    products,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    hasMore: page * limit < total
+  };
+
+  // Filter options for the sidebar (from every visible product, not just this page)
+  if (req.query.facets === '1') {
+    const [facetResult] = await Product.aggregate([
+      { $match: visible },
+      { $addFields: { effectivePrice: EFFECTIVE_PRICE } },
+      {
+        $facet: {
+          brands: [{ $match: { brand: { $nin: [null, ''] } } }, { $group: { _id: '$brand' } }, { $sort: { _id: 1 } }, { $limit: 200 }],
+          categories: [{ $group: { _id: '$category' } }, { $sort: { _id: 1 } }],
+          sellers: [{ $group: { _id: '$sellerId' } }, { $limit: 200 }],
+          maxPrice: [{ $group: { _id: null, max: { $max: '$effectivePrice' } } }]
+        }
+      }
+    ]);
+    const sellerDocs = await Seller.find({ _id: { $in: (facetResult?.sellers || []).map((s) => s._id) }, status: { $ne: 'suspended' } })
+      .select('storeName')
+      .sort({ storeName: 1 })
+      .lean();
+    body.facets = {
+      brands: (facetResult?.brands || []).map((b) => b._id),
+      categories: (facetResult?.categories || []).map((c) => c._id).filter(Boolean),
+      sellers: sellerDocs.map((s) => ({ _id: s._id, storeName: s.storeName })),
+      maxPrice: Math.ceil(facetResult?.maxPrice?.[0]?.max || 0)
+    };
+  }
+
+  return res.json(body);
+}
 
 // 3. Seller List (My Products)
 exports.listMyProducts = async (req, res) => {
@@ -209,10 +398,21 @@ exports.listMyProducts = async (req, res) => {
 // 4. Get Single Product (Updated with dynamic sales and seller rating)
 exports.getProductById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
     const product = await Product.findById(req.params.id)
       .populate('sellerId', 'userId name status isVerified storeName');
 
     if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    // Hidden products (by the seller, by moderation, or because the seller is suspended)
+    // are only visible to their own seller
+    if (!product.isVisible || product.isHidden || product.status !== 'active') {
+      const viewerId = getOptionalUserId(req);
+      const isOwner = viewerId && product.sellerId?.userId && product.sellerId.userId.toString() === viewerId;
+      if (!isOwner) return res.status(404).json({ message: 'Product not found' });
+    }
 
     // Sales are counted only after successful delivery.
     const productSalesAgg = await Order.aggregate([
@@ -359,8 +559,12 @@ exports.updateProduct = async (req, res) => {
     const userId = req.user?.id || req.user?.userId;
 
     // BUG-002 FIX: Guard against missing seller profile before accessing _id
-    const seller = await Seller.findOne({ userId });
+    const seller = req.seller || await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+    if (seller.status === 'suspended') {
+      return res.status(403).json({ message: 'Your seller account is suspended. Please contact Hope for Paws support.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).json({ message: 'Product not found' });
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -387,8 +591,12 @@ exports.updateProduct = async (req, res) => {
     }
 
     // Strict Validations
-    if (price && Number(price) < 0) return res.status(400).json({ message: 'Price cannot be negative' });
-    if (countInStock && Number(countInStock) < 0) return res.status(400).json({ message: 'Stock cannot be negative' });
+    if (price !== undefined && price !== '' && (!Number.isFinite(Number(price)) || Number(price) < 0)) {
+      return res.status(400).json({ message: 'Price must be a valid number of 0 or more' });
+    }
+    if (countInStock !== undefined && countInStock !== '' && (!Number.isInteger(Number(countInStock)) || Number(countInStock) < 0)) {
+      return res.status(400).json({ message: 'Stock must be a whole number of 0 or more' });
+    }
     if (lowStockThreshold !== undefined && Number(lowStockThreshold) < 0) {
       return res.status(400).json({ message: 'Low stock threshold cannot be negative' });
     }
@@ -442,9 +650,9 @@ exports.updateProduct = async (req, res) => {
 
     product.title = title || product.title;
     product.description = description || product.description;
-    product.price = price !== undefined ? Number(price) : product.price;
+    product.price = price !== undefined && price !== '' ? Number(price) : product.price;
     product.category = category || product.category;
-    product.countInStock = countInStock !== undefined ? Number(countInStock) : product.countInStock;
+    product.countInStock = countInStock !== undefined && countInStock !== '' ? Number(countInStock) : product.countInStock;
     if (lowStockThreshold !== undefined && lowStockThreshold !== '') {
       product.lowStockThreshold = Number(lowStockThreshold);
     }
@@ -478,19 +686,32 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    if (imagesToDelete.length > 0) {
-      product.images = product.images.filter(img => !imagesToDelete.includes(img));
-    }
+    if (!Array.isArray(imagesToDelete)) imagesToDelete = [];
+    // Only images that actually belong to this product can be removed
+    const removedImages = product.images.filter(img => imagesToDelete.includes(img));
+    const keptImages = product.images.filter(img => !imagesToDelete.includes(img));
 
-    if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map(file => `/uploads/products/${file.filename}`);
-      product.images = [...product.images, ...uploadedImages];
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (keptImages.length + files.length > MAX_PRODUCT_IMAGES) {
+      return res.status(400).json({ message: `A product can have at most ${MAX_PRODUCT_IMAGES} images.` });
     }
+    const uploadedImages = await saveImages(files, 'products');
+    product.images = [...keptImages, ...uploadedImages];
 
-    const updatedProduct = await product.save();
+    let updatedProduct;
+    try {
+      updatedProduct = await product.save();
+    } catch (saveErr) {
+      await deleteUnusedProductImages(uploadedImages);
+      throw saveErr;
+    }
+    // Clean up removed images only after the product was saved successfully
+    await deleteUnusedProductImages(removedImages);
     res.json(updatedProduct);
   } catch (err) {
     console.error(err);
+    if (err.status === 400) return res.status(400).json({ message: err.message });
+    if (err.name === 'ValidationError') return res.status(400).json({ message: err.message });
     if (err.code === 11000) {
       return res.status(400).json({ message: 'A product with this SKU or Title already exists in your store.' });
     }
@@ -505,8 +726,12 @@ exports.deleteProduct = async (req, res) => {
     const userId = req.user?.id || req.user?.userId;
 
     // BUG-003 FIX: Guard against missing seller profile before accessing _id
-    const seller = await Seller.findOne({ userId });
+    const seller = req.seller || await Seller.findOne({ userId });
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+    if (seller.status === 'suspended') {
+      return res.status(403).json({ message: 'Your seller account is suspended. Please contact Hope for Paws support.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).json({ message: 'Product not found' });
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -515,7 +740,9 @@ exports.deleteProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this product' });
     }
 
+    const images = [...(product.images || [])];
     await product.deleteOne();
+    await deleteUnusedProductImages(images);
     res.json({ message: 'Product removed' });
   } catch (err) {
     console.error(err);
@@ -530,8 +757,13 @@ exports.toggleProductVisibility = async (req, res) => {
     const userId = req.user?.id || req.user?.userId;
 
     // 1. Fast lean lookup just for the Seller ID
-    const seller = await Seller.findOne({ userId }).select('_id').lean();
+    const seller = await Seller.findOne({ userId }).select('_id status').lean();
     if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+    // A suspended seller can't put products back on the marketplace
+    if (seller.status === 'suspended') {
+      return res.status(403).json({ message: 'Your seller account is suspended. Please contact Hope for Paws support.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).json({ message: 'Product not found' });
 
     // 2. Fast lean lookup to get current status
     const currentProduct = await Product.findOne({ _id: id, sellerId: seller._id }).select('status').lean();
@@ -543,7 +775,7 @@ exports.toggleProductVisibility = async (req, res) => {
     // 3. Atomic direct update - avoids loading huge objects, skips pre-save overhead, incredibly fast
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
-      { $set: { status: newStatus, isVisible: newVisibility } },
+      { $set: { status: newStatus, isVisible: newVisibility, hiddenBySuspension: false } },
       { new: true, runValidators: true }
     );
 

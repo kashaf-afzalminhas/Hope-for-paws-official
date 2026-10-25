@@ -44,7 +44,7 @@ function ToastStack({ toasts, dismissToast }) {
 }
 
 export default function Checkout() {
-  const { items: cartItems, cartTotal: cartSubtotal, clearCart } = useCart();
+  const { items: cartItems, cartTotal: cartSubtotal, clearCart, fetchCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -292,7 +292,12 @@ const [shippingQuote, setShippingQuote] = useState(null);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to place order');
 
-      await clearCart();
+      // The server removes only the ordered products from the cart. A "Buy Now" order must not empty the rest of the cart.
+      if (isBuyNow) {
+        await fetchCart();
+      } else {
+        await clearCart();
+      }
       window.dispatchEvent(new Event('stock-updated'));
       addToast('success', 'Order placed successfully!');
       setTimeout(() => navigate('/my-orders'), 800);

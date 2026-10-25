@@ -1,5 +1,6 @@
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const mongoose = require('mongoose');
 
 // ─── Populate options for cart items ─────────────────────────────────────────
 const POPULATE_OPTS = {
@@ -37,7 +38,7 @@ exports.getCart = async (req, res) => {
     res.json(cart);
   } catch (error) {
     console.error('getCart error:', error);
-    res.status(500).json({ message: 'Failed to fetch cart', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch cart' });
   }
 };
 
@@ -46,8 +47,8 @@ exports.addToCart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
 
-    if (!productId) {
-      return res.status(400).json({ message: 'productId is required' });
+    if (!productId || !mongoose.Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({ message: 'A valid productId is required' });
     }
 
     // Verify the product exists and is purchasable
@@ -55,7 +56,7 @@ exports.addToCart = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    if (!product.isVisible || product.status !== 'active') {
+    if (!product.isVisible || product.status !== 'active' || product.isHidden) {
       return res.status(400).json({ message: 'Product is currently unavailable' });
     }
 
@@ -67,13 +68,13 @@ exports.addToCart = async (req, res) => {
 
     // Check if item is already in cart
     const existingIndex = cart.items.findIndex(
-      (item) => item.productId.toString() === productId
+      (item) => item.productId.toString() === String(productId)
     );
 
     const numericQuantity = Number(quantity);
 
-    if (isNaN(numericQuantity) || numericQuantity < 1) {
-      return res.status(400).json({ message: 'Quantity must be at least 1' });
+    if (!Number.isInteger(numericQuantity) || numericQuantity < 1 || numericQuantity > 100) {
+      return res.status(400).json({ message: 'Quantity must be a whole number between 1 and 100' });
     }
 
     if (existingIndex > -1) {
@@ -102,7 +103,7 @@ exports.addToCart = async (req, res) => {
     res.status(200).json(cart);
   } catch (error) {
     console.error('addToCart error:', error);
-    res.status(500).json({ message: 'Failed to add item to cart', error: error.message });
+    res.status(500).json({ message: 'Failed to add item to cart' });
   }
 };
 
@@ -111,14 +112,14 @@ exports.updateQuantity = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
 
-    if (!productId || quantity == null) {
-      return res.status(400).json({ message: 'productId and quantity are required' });
+    if (!productId || quantity == null || !mongoose.Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({ message: 'A valid productId and quantity are required' });
     }
 
     const numericQuantity = Number(quantity);
 
-    if (numericQuantity < 1) {
-      return res.status(400).json({ message: 'Quantity must be at least 1' });
+    if (!Number.isInteger(numericQuantity) || numericQuantity < 1 || numericQuantity > 100) {
+      return res.status(400).json({ message: 'Quantity must be a whole number between 1 and 100' });
     }
 
     // Verify stock availability
@@ -146,7 +147,7 @@ exports.updateQuantity = async (req, res) => {
     res.json({ success: true, message: 'Quantity updated', cart });
   } catch (error) {
     console.error('updateQuantity error:', error);
-    res.status(500).json({ message: 'Failed to update quantity', error: error.message });
+    res.status(500).json({ message: 'Failed to update quantity' });
   }
 };
 
@@ -175,7 +176,7 @@ exports.removeFromCart = async (req, res) => {
     res.json(cart);
   } catch (error) {
     console.error('removeFromCart error:', error);
-    res.status(500).json({ message: 'Failed to remove item from cart', error: error.message });
+    res.status(500).json({ message: 'Failed to remove item from cart' });
   }
 };
 
@@ -193,6 +194,6 @@ exports.clearCart = async (req, res) => {
     res.json(cart);
   } catch (error) {
     console.error('clearCart error:', error);
-    res.status(500).json({ message: 'Failed to clear cart', error: error.message });
+    res.status(500).json({ message: 'Failed to clear cart' });
   }
 };

@@ -77,9 +77,7 @@ export const getUserConversations = async (userId) => {
     return response;
   } catch (error) {
     console.error('getUserConversations error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     
     // Return a safe fallback response
     return { data: [] };
@@ -98,9 +96,7 @@ export const getConversationBetweenUsers = async (firstUserId, secondUserId) => 
     }
     // Only log unexpected errors
     console.error('getConversationBetweenUsers error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -111,17 +107,22 @@ export const createConversation = async (senderId, receiverId) => {
     return response;
   } catch (error) {
     console.error('Create conversation error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
 
 // Messages
-export const getMessagesByConversation = async (conversationId) => {
+// Loads the newest page of messages, or older ones with { before: <date of the oldest loaded message> }.
+// response.hasMore tells whether even older messages exist.
+export const getMessagesByConversation = async (conversationId, { before, limit } = {}) => {
   try {
-    const response = await apiRoutes.get(`/messages/${conversationId}`);
+    const params = {};
+    if (before) params.before = before;
+    if (limit) params.limit = limit;
+    const response = await apiRoutes.get(`/messages/${conversationId}`, { params });
+    const pageSize = limit || 200;
+    const hasMore = Array.isArray(response.data) && response.data.length >= pageSize;
     // Normalize the response data for debugging
     const normalized = (response.data || []).map(msg => ({
       _id: msg._id || msg.id || '',
@@ -129,10 +130,10 @@ export const getMessagesByConversation = async (conversationId) => {
       senderId: msg.senderId || msg.sender?.id || '',
       createdAt: msg.createdAt || msg.timestamp || '',
     }));
-    return { ...response, data: normalized };
+    return { ...response, data: normalized, hasMore };
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return { data: [] };
+    return { data: [], hasMore: false };
   }
 };
 
@@ -170,12 +171,14 @@ export const getAllUsers = async () => {
     return response;
   } catch (error) {
     console.error('getAllUsers error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
+
+// Get several users by ID (public profile fields only) — used by the chat page
+export const getUsersByIds = (ids) =>
+  authApi.post('/getUsersByIds', { ids });
 
 // Search users (you can implement this based on your backend)
 export const searchUsers = (query) =>
@@ -194,9 +197,7 @@ export const uploadProfileImage = async (formData) => {
     return response;
   } catch (error) {
     console.error('uploadProfileImage error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -208,9 +209,7 @@ export const getUserProfile = async () => {
     return response;
   } catch (error) {
     console.error('getUserProfile error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -222,9 +221,7 @@ export const getUserPublicProfile = async (userId) => {
     return response;
   } catch (error) {
     console.error('getUserPublicProfile error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };
@@ -236,9 +233,7 @@ export const removeProfileImage = async () => {
     return response;
   } catch (error) {
     console.error('removeProfileImage error:', error);
-    console.error('Error response:', error.response);
-    console.error('Error request:', error.request);
-    console.error('Error config:', error.config);
+    console.error('Error response:', error.response?.status, error.response?.data);
     throw error;
   }
 };

@@ -39,10 +39,27 @@ const reviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One review per order — enforced at the database level
-reviewSchema.index({ order: 1 }, { unique: true });
+// One review per product per order — enforced at the database level
+reviewSchema.index({ order: 1, product: 1 }, { unique: true });
 
 // Compound index for efficient product-level aggregation queries
 reviewSchema.index({ product: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Review', reviewSchema);
+const Review = mongoose.model('Review', reviewSchema);
+
+// One-time migration: the old index allowed only ONE review per order (even with several products).
+// Drop it if it still exists; Mongoose creates the new order+product index automatically.
+mongoose.connection.once('open', async () => {
+  try {
+    const indexes = await Review.collection.indexes();
+    if (indexes.some((i) => i.name === 'order_1' && i.unique)) {
+      await Review.collection.dropIndex('order_1');
+      await Review.syncIndexes();
+      console.log('Reviews: replaced one-review-per-order index with one-review-per-product');
+    }
+  } catch (err) {
+    if (err.codeName !== 'NamespaceNotFound') console.error('Review index migration failed:', err.message);
+  }
+});
+
+module.exports = Review;

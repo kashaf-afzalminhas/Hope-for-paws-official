@@ -16,7 +16,7 @@ const ProtectedRoute = ({ allowedRoles, children }) => {
     currentRole = 'admin';
   } else if (user.isSeller) {
     currentRole = 'seller';
-  } else if (user.isVet) {
+  } else if (user.isVeterinarian || user.isVet) {
     currentRole = 'vet';
   }
 

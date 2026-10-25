@@ -34,7 +34,8 @@ const upload = multer({
 });
 
 // Constants for adoption post images
-const MAX_ADOPTION_IMAGES = 100;
+// The adoption form allows 5 images; 10 leaves headroom while keeping memory use per request bounded
+const MAX_ADOPTION_IMAGES = 10;
 const MAX_TOTAL_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB total for all images in one request
 
 /**
@@ -98,26 +99,9 @@ router.get('/cities', (req, res) => {
 
 // Create an adoption post
 router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
-  console.log('=== ADOPTION POST ROUTE HIT ===');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  console.log('Request headers:', req.headers);
-  
   try {
     const { name, age, petType, breed, vaccinated, neuteredSpayed, description, location, locationDetails } = req.body;
     
-    // Debug logging
-    console.log('Received adoption post data:');
-    console.log('name:', name);
-    console.log('age:', age);
-    console.log('petType:', petType);
-    console.log('breed:', breed);
-    console.log('vaccinated:', vaccinated);
-    console.log('neuteredSpayed:', neuteredSpayed);
-    console.log('description:', description);
-    console.log('location:', location);
-    console.log('Number of images received:', req.files ? req.files.length : 0);
-    console.log('Full req.body:', req.body);
 
     // Check if at least one image is provided
     if (!req.files || req.files.length === 0) {
@@ -758,15 +742,8 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
     const sanitizedPhone = sanitizeHtml(phone, { allowedTags: [], allowedAttributes: {} });
     const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
 
-    // Upload image to Cloudinary if present (restrict allowed formats)
-    let petHistoryImageUrl = '';
-    if (req.file) {
-      const b64 = Buffer.from(req.file.buffer).toString('base64');
-      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-      const uploadResponse = await cloudinary.uploader.upload(dataURI, {
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
-      });
-      petHistoryImageUrl = uploadResponse.secure_url;
+    if (!mongoose.Types.ObjectId.isValid(adId)) {
+      return res.status(404).json({ message: 'Adoption post not found' });
     }
 
     const adoptionPost = await Adoption.findById(adId);
@@ -790,6 +767,17 @@ router.post('/:id/request', auth, upload.single('petHistoryImage'), async (req, 
 
     if (existingRequest) {
       return res.status(400).json({ message: 'You already have a request (pending, accepted, or rejected) for this pet' });
+    }
+
+    // Upload the image only after every check has passed (no orphan images on rejected requests)
+    let petHistoryImageUrl = '';
+    if (req.file) {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+      const uploadResponse = await cloudinary.uploader.upload(dataURI, {
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
+      });
+      petHistoryImageUrl = uploadResponse.secure_url;
     }
 
     const adoptionRequest = new AdoptionRequest({

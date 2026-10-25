@@ -2,6 +2,10 @@ const Report = require('../models/Report');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const User = require('../models/User');
+const mongoose = require('mongoose');
+
+// Reports from accounts younger than this are recorded but don't count towards auto-hiding
+const MIN_REPORTER_ACCOUNT_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 const nodemailer = require('nodemailer');
 const emailTemplates = require('../utils/emailTemplates');
 
@@ -18,8 +22,23 @@ exports.createProductReport = async (req, res) => {
     const { targetProduct, reason } = req.body;
     const reporterId = req.user.id || req.user.userId;
 
-    if (!targetProduct || !reason) {
+    if (!targetProduct || !reason || typeof reason !== 'string') {
       return res.status(400).json({ message: 'Target product and reason are required.' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(String(targetProduct))) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    // The product must exist before a report is saved (no orphan reports)
+    const product = await Product.findById(targetProduct);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    // Sellers can't report their own products
+    const ownStore = await Seller.exists({ _id: product.sellerId, userId: reporterId });
+    if (ownStore) {
+      return res.status(400).json({ message: 'You cannot report your own product.' });
     }
 
     // Security Check: Has the user already reported this product?
@@ -32,14 +51,16 @@ exports.createProductReport = async (req, res) => {
     const report = new Report({
       reporter: reporterId,
       targetProduct,
-      reason
+      reason: reason.trim().slice(0, 500)
     });
     await report.save();
 
-    // Find and update Product
-    const product = await Product.findById(targetProduct);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found.' });
+    // Brand-new accounts can report, but their reports don't count towards auto-hiding a product.
+    // This stops someone from creating a few fresh accounts to take down a competitor's listing.
+    const reporter = await User.findById(reporterId).select('createdAt');
+    const accountAgeMs = reporter?.createdAt ? Date.now() - new Date(reporter.createdAt).getTime() : 0;
+    if (accountAgeMs < MIN_REPORTER_ACCOUNT_AGE_MS) {
+      return res.status(201).json({ message: 'Report submitted successfully.', thresholdCrossed: false });
     }
 
     product.reportCount += 1;

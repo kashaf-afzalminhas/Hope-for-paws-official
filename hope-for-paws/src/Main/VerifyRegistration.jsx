@@ -11,7 +11,7 @@ const VerifyRegistration = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [resendMessage, setResendMessage] = useState('');
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [isExpired, setIsExpired] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,7 +72,7 @@ const VerifyRegistration = () => {
       if (response.ok) {
         setResendMessage('New OTP sent successfully! Check your email.');
         setIsExpired(false);
-        setTimeLeft(120); // Reset timer to 2 minutes
+        setTimeLeft(300); // Reset timer to 5 minutes
         setOtp(''); // Clear the old OTP input
         setTimeout(() => setResendMessage(''), 5000); // Clear message after 5 seconds
       } else {

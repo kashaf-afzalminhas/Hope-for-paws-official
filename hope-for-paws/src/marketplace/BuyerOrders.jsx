@@ -413,7 +413,9 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
   const [showDetails, setShowDetails] = useState(false);
 
   const orderId = order._id || order.id;
-  const isReviewed = reviewedOrders?.has(orderId);
+  // An order counts as reviewed once every product in it has a review
+  const isReviewed = (order.items || []).length > 0 &&
+    (order.items || []).every(item => reviewedOrders?.has(`${orderId}:${item.productId}`));
 
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
   const isPending = order.status === "Pending";
@@ -723,7 +725,9 @@ function OrderCard({ order, onCancel, showToast, reviewedOrders, onOpenReview })
               <X size={15} className="text-red-400 flex-shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-red-700">Order cancelled</p>
-                <p className="text-xs text-red-400 mt-0.5">Refund will appear in 3–5 business days.</p>
+                <p className="text-xs text-red-400 mt-0.5">
+                  {order.paymentMethod?.toLowerCase() === 'cod' ? 'No payment was taken for this cash on delivery order.' : 'Refund will appear in 3–5 business days.'}
+                </p>
               </div>
             </div>
           )}
@@ -1102,7 +1106,9 @@ export default function MyOrdersPage({ embedded = false }) {
   const [reviewModal, setReviewModal] = useState({ open: false, orderId: null, product: null });
 
   const handleOpenReview = useCallback((order) => {
-    const firstItem = order.items?.[0];
+    const oid = order._id || order.id;
+    // Review the next product in the order that hasn't been reviewed yet
+    const firstItem = order.items?.find(item => !reviewedOrders.has(`${oid}:${item.productId}`)) || order.items?.[0];
     setReviewModal({
       open: true,
       orderId: order._id || order.id,
@@ -1112,12 +1118,13 @@ export default function MyOrdersPage({ embedded = false }) {
         image: firstItem.image,
       } : null,
     });
-  }, []);
+  }, [reviewedOrders]);
 
   const handleReviewSuccess = useCallback((orderId) => {
-    setReviewedOrders(prev => new Set(prev).add(orderId));
+    const productId = reviewModal.product?.productId;
+    setReviewedOrders(prev => new Set(prev).add(`${orderId}:${productId}`));
     showToast("Review submitted! Thanks for your feedback.", "success");
-  }, [showToast]);
+  }, [showToast, reviewModal.product]);
 
   // Inject global keyframe for toast
   useEffect(() => {
@@ -1151,15 +1158,16 @@ export default function MyOrdersPage({ embedded = false }) {
 
           const reviewChecks = await Promise.allSettled(
             deliveredIds.map(async (id) => {
-              const r = await fetch(`http://localhost:3000/api/reviews/check/${id}`);
+              const r = await fetch(`${API_BASE_URL}/reviews/check/${id}`);
               const d = await r.json();
-              return d.reviewed ? id : null;
+              return (d.reviewedProductIds || []).map(pid => `${id}:${pid}`);
             })
           );
+          // Keys are "orderId:productId" for every product that already has a review
           const already = new Set(
             reviewChecks
-              .filter(r => r.status === "fulfilled" && r.value)
-              .map(r => r.value)
+              .filter(r => r.status === "fulfilled" && Array.isArray(r.value))
+              .flatMap(r => r.value)
           );
           setReviewedOrders(already);
         } else {
@@ -1189,7 +1197,7 @@ export default function MyOrdersPage({ embedded = false }) {
             (o._id === orderId || o.id === orderId) ? { ...o, status: "Cancelled", statusHistory: data.order.statusHistory } : o
           )
         );
-        showToast("Order cancelled. Refund initiated.", "success");
+        showToast("Order cancelled.", "success");
       } else {
         showToast(data.message || "Failed to cancel order", "error");
       }

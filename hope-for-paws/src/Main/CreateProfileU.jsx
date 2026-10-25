@@ -165,7 +165,7 @@ const ProfilePage = () => {
   const [emailOTPLoading, setEmailOTPLoading] = useState(false);
   const [emailOTPError, setEmailOTPError] = useState('');
   const [emailOTPMessage, setEmailOTPMessage] = useState('');
-  const [emailOTPTimeLeft, setEmailOTPTimeLeft] = useState(120);
+  const [emailOTPTimeLeft, setEmailOTPTimeLeft] = useState(300);
   const [emailOTPExpired, setEmailOTPExpired] = useState(false);
   const [pendingProfilePayload, setPendingProfilePayload] = useState(null);
   const [pendingNewEmail, setPendingNewEmail] = useState('');
@@ -536,6 +536,10 @@ const ProfilePage = () => {
       }
     }
 
+    // Split the saved phone back into number + country code (these were previously undefined)
+    const { phone: phoneNumber, countryCode: phoneCountryCode } =
+      parsePhoneNumber(updatedUser.phone || fullPhone, formData.countryCode || '+92');
+
     setOriginalProfile({
       name: updatedUser.username || '',
       email: updatedUser.email || '',
@@ -560,9 +564,10 @@ const ProfilePage = () => {
     const emailToSend = emailOverride || originalProfile.email; // Use original email (or the newly verified one)
 
     try {
+      const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${AUTH_BASE_URL}/update-profile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
           id,
           username: name,
@@ -674,7 +679,7 @@ const ProfilePage = () => {
           setEmailOTP('');
           setEmailOTPError('');
           setEmailOTPMessage('');
-          setEmailOTPTimeLeft(120);
+          setEmailOTPTimeLeft(300);
           setEmailOTPExpired(false);
           setShowEmailOTPModal(true);
         } else {
@@ -768,7 +773,7 @@ const ProfilePage = () => {
 
       if (response.ok) {
         setEmailOTPMessage('New verification code sent!');
-        setEmailOTPTimeLeft(120);
+        setEmailOTPTimeLeft(300);
         setEmailOTPExpired(false);
         setEmailOTP('');
         setTimeout(() => setEmailOTPMessage(''), 5000);
@@ -822,9 +827,10 @@ const ProfilePage = () => {
     }
 
     try {
+      const authToken = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${AUTH_BASE_URL}/change-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ id, currentPassword, newPassword }),
       });
 

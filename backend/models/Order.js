@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const structuredLocationFields = require('./locationFields');
 
 const orderSchema = new mongoose.Schema({
@@ -24,7 +25,7 @@ const orderSchema = new mongoose.Schema({
     postalCode: { type: String },
     ...structuredLocationFields,
   },
-  paymentMethod: { type: String, default: 'card' },
+  paymentMethod: { type: String, default: 'cod' },
   totals: {
     subtotal: { type: Number, required: true },
     shippingFee: { type: Number, required: true },
@@ -32,6 +33,7 @@ const orderSchema = new mongoose.Schema({
     finalTotal: { type: Number, required: true },
   },
   promoCode: { type: String, default: null },
+  promoId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode', default: null },
   customReward: { type: String, default: null },
   status: {
     type: String,
@@ -50,8 +52,9 @@ const orderSchema = new mongoose.Schema({
 // Pre-save hook to generate orderId if not exists
 orderSchema.pre('validate', function(next) {
   if (!this.orderId) {
+    // Timestamp + cryptographically random suffix, so orders created in the same millisecond don't collide
     const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const random = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
     this.orderId = `ORD-${timestamp}${random}`;
   }
   

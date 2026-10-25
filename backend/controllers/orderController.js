@@ -6,13 +6,33 @@ const Cart = require('../models/Cart');
 const User = require('../models/User');
 const { sendEmail } = require('../routes/mailer');
 const emailTemplates = require('../utils/emailTemplates');
-const { processCheckoutInventory } = require('../services/inventoryService');
+const { processCheckoutInventory, restoreInventory } = require('../services/inventoryService');
+const { findActivePromoByCode, evaluatePromo, reservePromoUsage, releasePromoUsage } = require('../services/promoService');
+const mongoose = require('mongoose');
+
+const MAX_QTY_PER_ITEM = 100;
 const { calculateSellerShipping, ShippingCalculationError } = require('../services/shippingService');
 const { toLocationSnapshot } = require('../utils/pakistanLocations');
 
 
 function getNotificationService() {
   return global.notificationService;
+}
+
+// When an order is cancelled: put its stock back and give back the promo use
+async function releaseCancelledOrderResources(order) {
+  try {
+    await restoreInventory((order.items || []).map(i => ({ productId: i.productId, quantity: i.quantity })));
+  } catch (err) {
+    console.error('Failed to restore stock for cancelled order', order.orderId, err);
+  }
+  if (order.promoId || order.promoCode) {
+    try {
+      await releasePromoUsage({ promoId: order.promoId, code: order.promoCode, sellerId: order.sellerId }, order.buyerId);
+    } catch (err) {
+      console.error('Failed to release promo use for cancelled order', order.orderId, err);
+    }
+  }
 }
 
 // ------------------------------------------------------------------
@@ -55,48 +75,79 @@ exports.createOrder = async (req, res) => {
     shippingAddress.phone = sanitizedPhone;
     // ──────────────────────────────────────────────────────────────────
 
-    // Group items by sellerId
-    const itemsBySeller = {};
+    // ── Validate and merge requested items ────────────────────────────
+    if (!Array.isArray(items) || items.length > 100) {
+      return res.status(400).json({ message: 'Invalid order items' });
+    }
+    const requested = new Map(); // productId -> quantity
     for (const item of items) {
-      const productId = item.productId || item.product?._id;
-      if (!productId) continue;
-
-      const product = await Product.findById(productId);
-      if (!product) continue;
-
-      const sellerId = product.sellerId.toString();
-
-      if (!itemsBySeller[sellerId]) {
-        itemsBySeller[sellerId] = [];
+      const productId = String(item?.productId || item?.product?._id || '');
+      const qty = Number(item?.quantity);
+      if (!mongoose.Types.ObjectId.isValid(productId)) {
+        return res.status(400).json({ message: 'Invalid product in order' });
       }
+      if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY_PER_ITEM) {
+        return res.status(400).json({ message: `Quantity must be a whole number between 1 and ${MAX_QTY_PER_ITEM}` });
+      }
+      requested.set(productId, (requested.get(productId) || 0) + qty);
+    }
 
+    // Only products that are currently on sale can be ordered (visible, active, not hidden by moderation)
+    const products = await Product.find({
+      _id: { $in: [...requested.keys()] },
+      isVisible: true,
+      status: { $ne: 'hidden' }, // older products may have no status field (default is active)
+      isHidden: { $ne: true }
+    });
+    if (products.length !== requested.size) {
+      return res.status(400).json({
+        message: 'Some items in your order are no longer available. Please review your cart and try again.'
+      });
+    }
+
+    // Group items by seller; prices always come from the database
+    const itemsBySeller = {};
+    for (const product of products) {
+      const sellerId = product.sellerId.toString();
+      if (!itemsBySeller[sellerId]) itemsBySeller[sellerId] = [];
       const discountedPrice =
         product.discountPercentage > 0
           ? product.price * (1 - product.discountPercentage / 100)
           : product.price;
-
       itemsBySeller[sellerId].push({
         productId: product._id,
+        sellerId,
         category: product.category,
         title: product.title,
-        image:
-          product.images && product.images.length > 0
-            ? product.images[0]
-            : item.image,
-        quantity: item.quantity,
-        price: discountedPrice
+        image: product.images && product.images.length > 0 ? product.images[0] : undefined,
+        quantity: requested.get(product._id.toString()),
+        price: Math.round(discountedPrice * 100) / 100
       });
     }
 
+    // ── Promo: re-validated and recalculated on the server ───────────
+    let promoDoc = null;
+    let promoResult = null;
+    if (appliedPromo && appliedPromo.code !== undefined && appliedPromo.code !== null && appliedPromo.code !== '') {
+      if (typeof appliedPromo.code !== 'string') {
+        return res.status(400).json({ message: 'Invalid promo code' });
+      }
+      promoDoc = await findActivePromoByCode(appliedPromo.code);
+      const allItems = Object.values(itemsBySeller).flat();
+      promoResult = await evaluatePromo({ promo: promoDoc, items: allItems, userId: buyerId });
+      if (!promoResult.valid) {
+        return res.status(400).json({ message: promoResult.message || 'This promo code can no longer be applied.' });
+      }
+    }
+    const promoSellerIds = new Set();
+    if (promoDoc && promoResult?.valid) {
+      for (const i of promoResult.eligibleItems) promoSellerIds.add(i.sellerId.toString());
+    }
+
     const ordersToCreate = [];
-
-const PromoCode = require('../models/PromoCode');
-
+    let promoApplied = false; // a promo is used once, on one sub-order only
     for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
-      const subtotal = sellerItems.reduce(
-        (acc, item) => acc + item.price * item.quantity,
-        0
-      );
+      const subtotal = Math.round(sellerItems.reduce((acc, item) => acc + item.price * item.quantity, 0) * 100) / 100;
 
       const shippingQuote = await calculateSellerShipping({
         sellerId,
@@ -111,49 +162,28 @@ const PromoCode = require('../models/PromoCode');
       let shippingFee = shippingQuote.shippingFee;
       let discountAmount = 0;
       let orderPromoCode = null;
+      let orderPromoId = null;
       let customReward = null;
 
-      // Apply promo only to the specific seller's sub-order
-      if (appliedPromo && appliedPromo.sellerId && appliedPromo.sellerId.toString() === sellerId.toString()) {
-        const promoDoc = await PromoCode.findOne({ code: appliedPromo.code, isActive: true });
-        if (promoDoc) {
-          orderPromoCode = promoDoc.code;
-          if (promoDoc.discountMechanism === 'FREE_SHIPPING') {
-            shippingFee = 0;
-          } else if (promoDoc.discountMechanism === 'CUSTOM_REWARD') {
-            customReward = promoDoc.customRewardText;
-          } else {
-            discountAmount = Math.min(appliedPromo.discountAmount || 0, subtotal);
-          }
-
-          // Atomically update campaign count
-          await PromoCode.findByIdAndUpdate(promoDoc._id, {
-            $inc: { totalRedemptions: 1 }
-          });
-
-          // Record buyer redemption count if logged in
-          if (buyerId) {
-            const userIdx = promoDoc.userRedemptions.findIndex(
-              u => u.userId && u.userId.toString() === buyerId.toString()
-            );
-            if (userIdx > -1) {
-              promoDoc.userRedemptions[userIdx].count += 1;
-            } else {
-              promoDoc.userRedemptions.push({ userId: buyerId, count: 1 });
-            }
-            await promoDoc.save();
-          }
-        }
+      // The promo belongs to one store, so it only applies to that store's sub-order
+      if (promoDoc && !promoApplied && promoSellerIds.has(sellerId)) {
+        promoApplied = true;
+        orderPromoCode = promoDoc.code;
+        orderPromoId = promoDoc._id;
+        if (promoResult.waivedShipping) shippingFee = 0;
+        if (promoResult.customReward) customReward = promoResult.customReward;
+        discountAmount = Math.min(promoResult.discountAmount || 0, subtotal);
       }
 
-      const finalTotal = Math.max(0, subtotal - discountAmount + shippingFee);
+      const finalTotal = Math.max(0, Math.round((subtotal - discountAmount + shippingFee) * 100) / 100);
       ordersToCreate.push({
         buyerId,
         sellerId,
-        items: sellerItems,
+        items: sellerItems.map(({ sellerId: _s, category: _c, ...rest }) => rest),
         shippingAddress,
-        paymentMethod,
+        paymentMethod: 'cod', // Cash on delivery is the only payment method available
         promoCode: orderPromoCode,
+        promoId: orderPromoId,
         customReward,
         totals: {
           subtotal,
@@ -170,33 +200,49 @@ const PromoCode = require('../models/PromoCode');
       return res.status(400).json({ message: 'Invalid products in order' });
     }
 
-    // 1. Consolidate unique product quantities across all seller orders
-    const inventoryItems = [];
-    for (const order of ordersToCreate) {
-      for (const item of order.items) {
-        const qty = Number(item.quantity);
-        if (isNaN(qty) || qty < 1) {
-          return res.status(400).json({ message: 'Invalid item quantity requested' });
-        }
-        inventoryItems.push({ productId: item.productId, quantity: qty });
+    const inventoryItems = [...requested.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+
+    // 1. Record the promo use (atomic, respects campaign and per-buyer limits)
+    let promoReserved = false;
+    if (promoDoc && promoResult?.valid) {
+      promoReserved = await reservePromoUsage(promoDoc, buyerId);
+      if (!promoReserved) {
+        return res.status(400).json({ message: 'This promo code has reached its usage limit.' });
       }
     }
 
-    // 2. Atomically reserve inventory BEFORE creating order records
+    // 2. Reserve stock (rolls itself back if any item is short)
     try {
       await processCheckoutInventory(inventoryItems);
     } catch (invErr) {
+      if (promoReserved) await releasePromoUsage({ promoId: promoDoc._id }, buyerId);
       return res.status(400).json({ message: invErr.message || 'Failed to reserve stock.' });
     }
 
-    // 3. Insert order records once inventory is guaranteed
-    const createdOrders = await Order.insertMany(ordersToCreate);
+    // 3. Create the orders; if that fails, give back the stock and promo use
+    let createdOrders;
+    try {
+      createdOrders = await Order.insertMany(ordersToCreate);
+    } catch (insertErr) {
+      await restoreInventory(inventoryItems).catch(e => console.error('Failed to restore stock:', e));
+      if (promoReserved) {
+        await releasePromoUsage({ promoId: promoDoc._id }, buyerId).catch(e => console.error('Failed to release promo:', e));
+      }
+      throw insertErr;
+    }
 
-    // Empty the user's cart
-    await Cart.findOneAndUpdate(
-      { userId: buyerId },
-      { $set: { items: [] } }
-    );
+    // Take only the ordered quantities out of the cart (a "Buy Now" order leaves the rest of the cart alone)
+    try {
+      for (const { productId, quantity } of inventoryItems) {
+        await Cart.updateOne(
+          { userId: buyerId, 'items.productId': productId },
+          { $inc: { 'items.$.quantity': -quantity } }
+        );
+      }
+      await Cart.updateOne({ userId: buyerId }, { $pull: { items: { quantity: { $lte: 0 } } } });
+    } catch (cartErr) {
+      console.error('Failed to update cart after order:', cartErr);
+    }
 
     // Send order confirmation email (HTML styled, matching Hope for Paws branding)
     // Respects the buyer's notificationPreferences.email setting — a buyer who
@@ -345,7 +391,10 @@ const PromoCode = require('../models/PromoCode');
     res.status(201).json({ success: true, orders: createdOrders, message: 'Orders placed successfully' });
   } catch (error) {
     console.error('createOrder error:', error);
-    res.status(500).json({ message: 'Failed to place order', error: error.message });
+    if (error instanceof ShippingCalculationError) {
+      return res.status(error.status || 400).json({ message: error.message, code: error.code });
+    }
+    res.status(500).json({ message: 'Failed to place order' });
   }
 };
 exports.getShippingQuote = async (req, res) => {
@@ -464,8 +513,7 @@ exports.getShippingQuote = async (req, res) => {
     }
 
     res.status(500).json({
-      message: 'Failed to calculate shipping.',
-      error: error.message
+      message: 'Failed to calculate shipping.'
     });
   }
 };
@@ -487,20 +535,26 @@ exports.cancelOrder = async (req, res) => {
     const { id } = req.params;
     const buyerId = req.user?.id || req.user?.userId;
 
-    const order = await Order.findOne({ _id: id, buyerId });
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid order ID' });
+    }
 
-    if (order.status !== 'Pending') {
+    // Atomic: only one request can move this order from Pending to Cancelled
+    const order = await Order.findOneAndUpdate(
+      { _id: id, buyerId, status: 'Pending' },
+      {
+        $set: { status: 'Cancelled' },
+        $push: { statusHistory: { status: 'Cancelled', note: 'Cancelled by buyer', date: new Date() } }
+      },
+      { new: true }
+    );
+    if (!order) {
+      const exists = await Order.exists({ _id: id, buyerId });
+      if (!exists) return res.status(404).json({ message: 'Order not found' });
       return res.status(400).json({ message: 'Only Pending orders can be cancelled' });
     }
 
-    order.status = 'Cancelled';
-    order.statusHistory.push({
-      status: 'Cancelled',
-      note: 'Cancelled by buyer'
-    });
-
-    await order.save();
+    await releaseCancelledOrderResources(order);
 
     // Send order cancellation email (HTML styled)
     // Respects the buyer's notificationPreferences.email setting.
@@ -659,7 +713,8 @@ exports.getSellerOrders = async (req, res) => {
     }, {});
 
     const responseCounts = {
-      All: orders.length,
+      // Total across every status (not just the filtered list)
+      All: Object.values(counts).reduce((sum, n) => sum + n, 0),
       Pending: counts['Pending'] || 0,
       Confirmed: counts['Confirmed'] || 0,
       Processing: counts['Processing'] || 0,
@@ -681,6 +736,13 @@ exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status: newStatus } = req.body;
     const userId = req.user?.id || req.user?.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid order ID' });
+    }
+    if (typeof newStatus !== 'string') {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
 
     const order = await Order.findById(id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -716,9 +778,26 @@ exports.updateOrderStatus = async (req, res) => {
       }
     }
 
-    order.status = newStatus;
-    order.statusHistory.push({ status: newStatus, date: Date.now() });
-    await order.save();
+    // Atomic: the update only applies if the order is still in the status we checked,
+    // so two requests can't both cancel it (and restore stock twice)
+    const previousStatus = order.status;
+    const updated = await Order.findOneAndUpdate(
+      { _id: order._id, status: previousStatus },
+      {
+        $set: { status: newStatus },
+        $push: { statusHistory: { status: newStatus, date: new Date() } }
+      },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(409).json({ message: 'This order was updated by someone else. Please refresh and try again.' });
+    }
+    order.status = updated.status;
+    order.statusHistory = updated.statusHistory;
+
+    if (newStatus === 'Cancelled') {
+      await releaseCancelledOrderResources(updated);
+    }
 
     // Send status update email to buyer
     // Respects the buyer's notificationPreferences.email setting.
@@ -871,18 +950,20 @@ exports.getDashboardStats = async (req, res) => {
     const totalOrders = statsAgg.length > 0 ? statsAgg[0].totalOrders : 0;
     const totalRevenue = statsAgg.length > 0 ? statsAgg[0].totalRevenue : 0;
 
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
+    // Months are counted in Pakistan time (UTC+5), whatever timezone the server runs in
+    const PKT_OFFSET_MS = 5 * 60 * 60 * 1000;
+    const nowPkt = new Date(Date.now() + PKT_OFFSET_MS);
+    const sixMonthsAgo = new Date(
+      Date.UTC(nowPkt.getUTCFullYear(), nowPkt.getUTCMonth() - 5, 1) - PKT_OFFSET_MS
+    );
 
     const monthlyAgg = await Order.aggregate([
 { $match: { createdAt: { $gte: sixMonthsAgo }, ...sellerMatch, status: 'Delivered' } },
       {
         $group: {
           _id: {
-            month: { $month: '$createdAt' },
-            year: { $year: '$createdAt' }
+            month: { $month: { date: '$createdAt', timezone: 'Asia/Karachi' } },
+            year: { $year: { date: '$createdAt', timezone: 'Asia/Karachi' } }
           },
           revenue: { $sum: '$totals.finalTotal' }
         }
@@ -893,13 +974,12 @@ exports.getDashboardStats = async (req, res) => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const revenueByMonth = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
+      const d = new Date(Date.UTC(nowPkt.getUTCFullYear(), nowPkt.getUTCMonth() - i, 1));
       revenueByMonth.push({
-        month: monthNames[d.getMonth()],
+        month: monthNames[d.getUTCMonth()],
         value: 0,
-        monthNum: d.getMonth() + 1,
-        year: d.getFullYear()
+        monthNum: d.getUTCMonth() + 1,
+        year: d.getUTCFullYear()
       });
     }
 

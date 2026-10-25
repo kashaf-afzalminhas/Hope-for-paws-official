@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+import { getMediaUrl } from '../lib/utils';
 
 const AdminSellerDetail = () => {
   const { id } = useParams();
@@ -175,7 +176,7 @@ const AdminSellerDetail = () => {
               <p className="text-sm font-bold text-[#4a342e] mb-2">Profile Image</p>
               <div className="bg-[#f8f5f0] h-32 md:h-32 rounded-lg border-2 border-dashed border-[#d7ccc8] flex items-center justify-center overflow-hidden">
                 {seller.profileImage ? (
-                  <img src={seller.profileImage} alt="Profile" className="w-full h-full object-cover" onClick={() => window.open(seller.profileImage, '_blank')} />
+                  <img src={getMediaUrl(seller.profileImage)} alt="Profile" className="w-full h-full object-cover" onClick={() => window.open(getMediaUrl(seller.profileImage), '_blank', 'noopener')} />
                 ) : (
                   <span className="text-xs text-[#8d6e63]">No Image Provided</span>
                 )}
@@ -184,25 +185,33 @@ const AdminSellerDetail = () => {
           </div>
 
           {/* Card 4: Action Buttons */}
-          {seller.status === 'pending' && (
-            <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-[#e5e0d8] sticky top-6">
-              <h2 className="text-lg font-bold text-[#5d4037] mb-4">Actions</h2>
-              <div className="flex flex-col gap-3">
+          {/* Actions: pending -> approve/reject, verified -> suspend, suspended/rejected -> approve again */}
+          <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-[#e5e0d8] sticky top-6">
+            <h2 className="text-lg font-bold text-[#5d4037] mb-4">Actions</h2>
+            <div className="flex flex-col gap-3">
+              {seller.status !== 'verified' && (
                 <button 
                   onClick={handleApprove}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition-all active:scale-95"
                 >
-                  Approve
+                  {seller.status === 'suspended' ? 'Re-approve seller' : 'Approve'}
                 </button>
+              )}
+              {seller.status !== 'suspended' && (
                 <button 
                   onClick={() => setShowRejectModal(true)}
                   className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-lg hover:bg-red-50 transition-colors"
                 >
-                  Reject
+                  {seller.status === 'verified' ? 'Suspend seller' : 'Reject'}
                 </button>
-              </div>
+              )}
+              {seller.status === 'suspended' && (
+                <p className="text-xs text-[#8d6e63]">
+                  This seller is suspended or was rejected. Their products are hidden from the marketplace.
+                </p>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 

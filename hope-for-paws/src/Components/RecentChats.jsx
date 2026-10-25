@@ -1,7 +1,34 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaSearch } from 'react-icons/fa';
-import { markConversationAsRead, debugToken } from '../Main/api';
+import { FaSearch, FaArrowLeft } from 'react-icons/fa';
+import { getProfileImageUrl, getInitials } from '../lib/utils';
+
+// Shows the user's profile picture, falling back to initials if there is none or it fails to load
+const ChatAvatar = ({ user, initials, className }) => {
+  const [failed, setFailed] = useState(false);
+  const src = getProfileImageUrl(user?.profileImage);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={user?.username || 'User'}
+        referrerPolicy="no-referrer"
+        className={`w-11 h-11 rounded-full object-cover shrink-0 border ${className}`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-sm tracking-wider border transition-all ${className}`}>
+      {initials}
+    </div>
+  );
+};
 import { format } from 'date-fns';
 import { useMessages } from '../context/MessageContext';
 
@@ -21,13 +48,6 @@ const RecentChats = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const { markAsRead } = useMessages();
 
-  const getInitials = (name) => {
-    if (!name) return 'PF';
-    const parts = name.trim().split(' ').filter(Boolean);
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '';
     try {
@@ -39,18 +59,6 @@ const RecentChats = ({
       return format(date, 'MM/dd/yy');
     } catch {
       return '';
-    }
-  };
-
-  const handleMarkAsRead = async (conversationId) => {
-    try {
-      debugToken();
-      const result = await markConversationAsRead(conversationId);
-      if (result?.data?.modifiedCount > 0) {
-        setTimeout(() => window.dispatchEvent(new CustomEvent('refreshConversations')), 100);
-      }
-    } catch (error) {
-      console.error("Error marking conversation as read:", error);
     }
   };
 
@@ -112,6 +120,27 @@ const RecentChats = ({
     <div className="flex flex-col h-full overflow-hidden bg-[#301B12] text-white select-none">
       {/* Top Banner with Clean Greeting & Message Count */}
       <div className="p-5 pb-3">
+        {/* Back button + breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 mb-3 text-xs">
+          <button
+            type="button"
+            onClick={() => (location.key && location.key !== 'default' ? navigate(-1) : navigate('/'))}
+            className="flex items-center gap-1.5 text-[#E2BD9E] hover:text-white bg-[#42281D] hover:bg-[#4E2E20] border border-[#5A382A] px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+            aria-label="Go back"
+          >
+            <FaArrowLeft className="text-[10px]" />
+            <span>Back</span>
+          </button>
+          <ol className="flex items-center gap-1.5 text-white/50">
+            <li>
+              <button type="button" onClick={() => navigate('/')} className="hover:text-[#E2BD9E] transition-colors cursor-pointer">
+                Home
+              </button>
+            </li>
+            <li aria-hidden="true">›</li>
+            <li className="text-[#F5EAE2] font-medium" aria-current="page">Messages</li>
+          </ol>
+        </nav>
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xl">🐾</span>
@@ -158,7 +187,7 @@ const RecentChats = ({
           </div>
         ) : (
           filteredForDisplay.map((conversation) => {
-            const otherUserId = conversation.participants.find(id => id !== currentUserId);
+            const otherUserId = (conversation.participants || []).map(String).find(id => id !== String(currentUserId));
             const otherUser = getUserById(otherUserId);
             const isSelected = selectedConversationId === conversation._id;
             const unreadCount = conversation.unreadCount || 0;
@@ -170,7 +199,7 @@ const RecentChats = ({
               <button
                 key={conversation._id}
                 onClick={() => {
-                  handleMarkAsRead(conversation._id);
+                  // Server-side mark-as-read happens when the chat window opens
                   markAsRead(conversation._id);
                   onSelectConversation({ ...conversation, user: otherUser });
                 }}
@@ -184,15 +213,17 @@ const RecentChats = ({
               >
                 {/* User Avatar with Initials + Online Dot */}
                 <div className="relative shrink-0">
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-sm tracking-wider border transition-all ${
-                    isSelected 
-                      ? 'bg-[#FDF6EE] text-[#301B12] border-[#8D5832] shadow-xs' 
-                      : unreadCount > 0
-                      ? 'bg-[#523021] text-[#FFF] border-[#BA8B60]'
-                      : 'bg-[#4B2C1E] text-[#E2BD9E] border-[#5D3A29]'
-                  }`}>
-                    {initials}
-                  </div>
+                  <ChatAvatar
+                    user={otherUser}
+                    initials={initials}
+                    className={
+                      isSelected
+                        ? 'bg-[#FDF6EE] text-[#301B12] border-[#8D5832] shadow-xs'
+                        : unreadCount > 0
+                        ? 'bg-[#523021] text-[#FFF] border-[#BA8B60]'
+                        : 'bg-[#4B2C1E] text-[#E2BD9E] border-[#5D3A29]'
+                    }
+                  />
                   {otherUser.status === 'online' && (
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#9CD373] rounded-full ring-2 ring-[#301B12]" />
                   )}

@@ -278,6 +278,7 @@ const router = createBrowserRouter(
       
       {/* ✅ Seller Routes (from bi branch) */}
       <Route path="/seller/onboard" element={<SellerOnboarding />} />
+      <Route path="/seller/settings" element={<ProtectedRoute allowedRoles={['seller']}><SellerOnboarding /></ProtectedRoute>} />
       <Route path="/seller/dashboard" element={<ProtectedRoute allowedRoles={['seller']}><SellerDashboard /></ProtectedRoute>} />
       <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['seller']}><SellerOrders/></ProtectedRoute>} />
       <Route path="/seller/analytics" element={<ProtectedRoute allowedRoles={['seller']}><SellerAnalyticsDashboard /></ProtectedRoute>} />

@@ -1,4 +1,5 @@
-const isLocalhost = window.location.hostname === 'localhost';
+
+const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 export const API_BASE_URL = isLocalhost
   ? 'http://localhost:3000/api'
@@ -14,8 +15,8 @@ export const ADMIN_BASE_URL = isLocalhost
 
 export const API_ROUTES_BASE_URL = API_BASE_URL;
 
-/** Socket.IO is local-only while the API runs on Lambda (use REST polling in production). */
-export const SOCKET_ENABLED = isLocalhost;
+// Server origin without the /api path (e.g. for /health)
+export const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
 

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerService';
+import { onboardSeller, updateLocalUserAsSeller, getMySellerProfile, updateMySellerProfile } from '../services/sellerService';
+import { getMediaUrl } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { getUserProfile } from './api';
 import { User, Store, Mail, Phone, MapPin, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
 import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
@@ -10,10 +12,18 @@ import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/P
 const SellerOnboarding = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
+  // Name, email and phone were set when the account was created, so they are shown read-only here.
+  // Only accounts without a phone yet (e.g. Google sign-up) are asked for one.
+  const [accountPhone, setAccountPhone] = useState(user?.phone || '');
+  const hasAccountPhone = Boolean(accountPhone);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  // Edit mode: the user already has a store, so this page edits it instead of creating one
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [checkingStore, setCheckingStore] = useState(true);
+  const [removeImage, setRemoveImage] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -39,17 +49,52 @@ const SellerOnboarding = () => {
         email: user.email || '',
         ...parsePhoneNumber(user.phone)
       }));
+      setAccountPhone(user.phone || '');
     }
   }, [user]);
 
+  // If a store already exists, load it and switch to edit mode
+  useEffect(() => {
+    let cancelled = false;
+    getMySellerProfile()
+      .then((data) => {
+        const store = data?.seller;
+        if (cancelled || !store) return;
+        setIsEditMode(true);
+        setFormData((prev) => ({
+          ...prev,
+          storeName: store.storeName || '',
+          address: store.address || '',
+          location: store.location?.cityCode ? { ...emptyPakistanLocation, ...store.location } : prev.location,
+        }));
+        if (store.profileImage) setImagePreview(getMediaUrl(store.profileImage));
+      })
+      .catch(() => {}) // 404 = no store yet: normal onboarding
+      .finally(() => { if (!cancelled) setCheckingStore(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Use the saved account details from the server (the copy in the browser can be out of date)
+  useEffect(() => {
+    let cancelled = false;
+    getUserProfile()
+      .then((res) => {
+        const profile = res?.data?.data;
+        if (cancelled || !profile) return;
+        setAccountPhone(profile.phone || '');
+        setFormData((prev) => ({
+          ...prev,
+          fullName: profile.username || prev.fullName,
+          email: profile.email || prev.email,
+          ...(profile.phone ? parsePhoneNumber(profile.phone) : {})
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    } else if (formData.fullName.length < 2 || formData.fullName.length > 100) {
-      newErrors.fullName = 'Full name must be 2-100 characters';
-    }
 
     if (!formData.storeName.trim()) {
       newErrors.storeName = 'Store name is required';
@@ -57,14 +102,10 @@ const SellerOnboarding = () => {
       newErrors.storeName = 'Store name must be 2-100 characters';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Valid email is required';
+    if (!hasAccountPhone) {
+      const phoneError = validatePhone(formData.phone, formData.countryCode);
+      if (phoneError) newErrors.phone = phoneError;
     }
-
-    const phoneError = validatePhone(formData.phone, formData.countryCode);
-    if (phoneError) newErrors.phone = phoneError;
 
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required';
@@ -97,6 +138,7 @@ const SellerOnboarding = () => {
         return;
       }
       setProfileImage(file);
+      setRemoveImage(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -123,20 +165,33 @@ const SellerOnboarding = () => {
       submitData.append('fullName', formData.fullName);
       submitData.append('storeName', formData.storeName);
       submitData.append('email', formData.email);
-      submitData.append('phone', getFullPhoneNumber(formData.phone, formData.countryCode));
+      if (!hasAccountPhone) {
+        submitData.append('phone', getFullPhoneNumber(formData.phone, formData.countryCode));
+      }
       submitData.append('address', formData.address);
       submitData.append('location', JSON.stringify(formData.location));
       if (profileImage) {
         submitData.append('profileImage', profileImage);
       }
 
+      if (isEditMode) {
+        if (!profileImage && removeImage) submitData.append('removeProfileImage', 'true');
+        await updateMySellerProfile(submitData);
+        setSuccess(true);
+        setTimeout(() => navigate('/seller/dashboard'), 1500);
+        return;
+      }
+
       await onboardSeller(submitData);
       
       const updatedUser = updateLocalUserAsSeller('pending');
       if (updatedUser) {
-        updatedUser.phone = getFullPhoneNumber(formData.phone, formData.countryCode);
-        updatedUser.phoneVerified = true;
-        const userStorage = localStorage.getItem('user') ? localStorage : sessionStorage;
+        if (!hasAccountPhone) {
+          // New number saved on the account; it can be verified later from the profile page
+          updatedUser.phone = getFullPhoneNumber(formData.phone, formData.countryCode);
+          updatedUser.phoneVerified = false;
+        }
+        const userStorage = localStorage.getItem('token') ? localStorage : sessionStorage;
         userStorage.setItem('user', JSON.stringify(updatedUser));
         updateUser(updatedUser);
       }
@@ -184,10 +239,12 @@ const SellerOnboarding = () => {
       <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 sm:px-6 z-10">
         <div className="w-full max-w-[800px] text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-[#3d2a24] tracking-tight mb-4 font-serif">
-            Start Selling Today
+            {isEditMode ? 'Store Settings' : 'Start Selling Today'}
           </h1>
           <p className="text-[#6b493d] text-lg max-w-2xl mx-auto font-medium">
-            Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.
+            {isEditMode
+              ? 'Update your store name, logo, address and location. Your name, email and phone come from your account.'
+              : 'Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.'}
           </p>
         </div>
 
@@ -203,8 +260,8 @@ const SellerOnboarding = () => {
               >
                 <CheckCircle className="w-14 h-14 text-green-500" />
               </motion.div>
-              <h2 className="text-4xl font-extrabold text-[#3d2a24] tracking-tight mb-4">You're All Set!</h2>
-              <p className="text-[#a07f77] text-xl mb-10 max-w-md mx-auto">Your store profile has been successfully created. We are redirecting you to your dashboard.</p>
+              <h2 className="text-4xl font-extrabold text-[#3d2a24] tracking-tight mb-4">{isEditMode ? 'Store Updated!' : "You're All Set!"}</h2>
+              <p className="text-[#a07f77] text-xl mb-10 max-w-md mx-auto">{isEditMode ? 'Your changes have been saved. Taking you back to your dashboard.' : 'Your store profile has been successfully created. We are redirecting you to your dashboard.'}</p>
               <div className="w-full max-w-sm mx-auto bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
                  <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2, ease: "linear" }} className="bg-gradient-to-r from-[#a07855] to-[#6b493d] h-2 rounded-full"></motion.div>
               </div>
@@ -268,10 +325,19 @@ const SellerOnboarding = () => {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleImageChange}
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif"
                     className="hidden"
                   />
                   <p className="mt-4 text-sm text-gray-500 font-semibold tracking-wide">STORE LOGO (OPTIONAL)</p>
+                  {isEditMode && imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => { setProfileImage(null); setImagePreview(null); setRemoveImage(true); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="mt-2 text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      Remove logo
+                    </button>
+                  )}
                 </motion.div>
 
                 {/* Form Grid */}
@@ -309,14 +375,12 @@ const SellerOnboarding = () => {
                         id="fullName"
                         name="fullName"
                         value={formData.fullName}
-                        onChange={handleChange}
-                        placeholder="e.g., Ali Khan"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-medium ${
-                          errors.fullName ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                        readOnly
+                        aria-readonly="true"
+                        className="w-full pl-12 pr-4 py-3.5 bg-gray-100 border border-gray-200 rounded-xl outline-none text-[#4E3B31] font-medium cursor-not-allowed"
                       />
                     </div>
-                    {errors.fullName && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.fullName}</p>}
+                    <p className="mt-2 text-xs text-[#8d6e63]">From your account. You can change it on your profile page.</p>
                   </motion.div>
 
                   {/* Store Name */}
@@ -357,14 +421,12 @@ const SellerOnboarding = () => {
                         id="email"
                         name="email"
                         value={formData.email}
-                        onChange={handleChange}
-                        placeholder="store@example.pk"
-                        className={`w-full pl-12 pr-4 py-3.5 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-[#a07855] focus:border-transparent outline-none transition-all duration-200 text-[#4E3B31] font-medium ${
-                          errors.email ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                        readOnly
+                        aria-readonly="true"
+                        className="w-full pl-12 pr-4 py-3.5 bg-gray-100 border border-gray-200 rounded-xl outline-none text-[#4E3B31] font-medium cursor-not-allowed"
                       />
                     </div>
-                    {errors.email && <p className="mt-2 text-sm text-red-500 font-medium flex items-center"><span className="mr-1">⚠️</span>{errors.email}</p>}
+                    <p className="mt-2 text-xs text-[#8d6e63]">From your account.</p>
                   </motion.div>
 
                   {/* Phone Number */}
@@ -376,13 +438,16 @@ const SellerOnboarding = () => {
                       label="Phone Number"
                       touched={Boolean(errors.phone)}
                       error={errors.phone}
-                      disabled={loading}
+                      disabled={loading || hasAccountPhone}
                       onChange={({ phone, countryCode, error }) => {
                         setFormData((prev) => ({ ...prev, phone, countryCode }));
                         setErrors((prev) => ({ ...prev, phone: error || '' }));
                       }}
                       className="[&>div>select]:!rounded-xl [&>div>select]:!border-gray-200 [&>div>select]:!bg-gray-50 [&>div>select]:!py-3.5 [&>div>input]:!rounded-xl [&>div>input]:!border-gray-200 [&>div>input]:!bg-gray-50 [&>div>input]:!py-3.5"
                     />
+                    {hasAccountPhone && (
+                      <p className="mt-2 text-xs text-[#8d6e63]">From your account. You can change it on your profile page.</p>
+                    )}
                   </motion.div>
 
                   {/* Address */}
@@ -425,7 +490,7 @@ const SellerOnboarding = () => {
                 <motion.div variants={itemVariants} className="pt-8 mt-8 border-t border-gray-100">
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || checkingStore}
                     className={`w-full py-4 px-6 rounded-xl font-bold text-lg text-white shadow-[0_10px_20px_rgba(160,120,85,0.3)] transition-all duration-300 flex items-center justify-center overflow-hidden relative group
                       ${loading
                         ? 'bg-gray-400 cursor-not-allowed shadow-none'
@@ -438,11 +503,11 @@ const SellerOnboarding = () => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Creating Profile...
+                        {isEditMode ? 'Saving...' : 'Creating Profile...'}
                       </>
                     ) : (
                       <>
-                        <span className="relative z-10">Complete Setup & Access Dashboard</span>
+                        <span className="relative z-10">{isEditMode ? 'Save Changes' : 'Complete Setup & Access Dashboard'}</span>
                         <div className="absolute inset-0 h-full w-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:animate-[shine_1.5s_ease-in-out_infinite] z-0"></div>
                       </>
                     )}

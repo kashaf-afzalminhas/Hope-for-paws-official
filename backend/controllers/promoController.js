@@ -1,6 +1,8 @@
 const PromoCode = require('../models/PromoCode');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
+const mongoose = require('mongoose');
+const { findActivePromoByCode, evaluatePromo, toPktDayBoundary } = require('../services/promoService');
 
 exports.createPromoCode = async (req, res) => {
   try {
@@ -26,11 +28,15 @@ exports.createPromoCode = async (req, res) => {
       perBuyerLimit,
     } = req.body;
 
-    const startDatetime = new Date(startDate);
-    startDatetime.setHours(0, 0, 0, 0);
-
-    const endDatetime = new Date(endDate);
-    endDatetime.setHours(23, 59, 59, 999);
+    // Dates are whole days in Pakistan time, whatever timezone the server runs in
+    const startDatetime = toPktDayBoundary(startDate, false);
+    const endDatetime = toPktDayBoundary(endDate, true);
+    if (Number.isNaN(startDatetime.getTime()) || Number.isNaN(endDatetime.getTime())) {
+      return res.status(400).json({ message: 'Please choose valid start and end dates.' });
+    }
+    if (typeof code !== 'string' || !/^[A-Za-z0-9]{4,16}$/.test(code.trim())) {
+      return res.status(400).json({ message: 'Promo code must be 4–16 letters or numbers.' });
+    }
 
     if (endDatetime <= startDatetime) {
       return res.status(400).json({ message: 'End date must be after Start date.' });
@@ -89,15 +95,14 @@ exports.getSellerPromos = async (req, res) => {
 
 exports.applyPromoCode = async (req, res) => {
   try {
-    const { code, cartItems = [], currentShippingFee = 0 } = req.body;
+    const { code, cartItems = [] } = req.body || {};
     const userId = req.user?.id || req.user?.userId;
-    const now = new Date();
 
-    if (!code || !code.trim()) {
+    if (typeof code !== 'string' || !code.trim()) {
       return res.status(400).json({ valid: false, message: 'Please enter a promo code.' });
     }
 
-    const promo = await PromoCode.findOne({ code: code.trim().toUpperCase(), isActive: true });
+    const promo = await findActivePromoByCode(code);
     if (!promo) {
       return res.status(404).json({
         valid: false,
@@ -105,179 +110,37 @@ exports.applyPromoCode = async (req, res) => {
       });
     }
 
-    // 1. Check validity dates
-    if (now < promo.startDatetime || now > promo.endDatetime) {
-      return res.status(400).json({
+    // Resolve every cart item from the database: price, seller and category are never taken from the browser
+    const items = [];
+    for (const item of Array.isArray(cartItems) ? cartItems.slice(0, 100) : []) {
+      const prodId = item?.productId || item?.product?._id || item?._id;
+      if (!prodId || !mongoose.Types.ObjectId.isValid(String(prodId))) continue;
+      const dbProduct = await Product.findById(prodId).select('sellerId category price discountPercentage');
+      if (!dbProduct) continue;
+      const qty = Number(item.quantity);
+      const unitPrice = dbProduct.discountPercentage > 0
+        ? dbProduct.price * (1 - dbProduct.discountPercentage / 100)
+        : dbProduct.price;
+      items.push({
+        productId: dbProduct._id,
+        sellerId: dbProduct.sellerId ? dbProduct.sellerId.toString() : null,
+        category: dbProduct.category || '',
+        price: unitPrice,
+        quantity: Number.isInteger(qty) && qty > 0 ? Math.min(qty, 100) : 1,
+      });
+    }
+
+    const result = await evaluatePromo({ promo, items, userId });
+    if (!result.valid) {
+      return res.status(result.status || 400).json({
         valid: false,
-        message: 'This promo code is not active or has already expired.',
+        message: result.message,
+        ...(result.state ? { state: result.state } : {}),
+        ...(result.extra || {}),
       });
     }
 
-    // 2. Check total campaign usage limit
-    if (promo.totalUsageLimit !== null && promo.totalRedemptions >= promo.totalUsageLimit) {
-      return res.status(400).json({
-        valid: false,
-        message: 'This promo campaign has reached its redemption limit.',
-      });
-    }
-
-    // 3. Check per-buyer usage limit
-    if (userId) {
-      const userRecord = promo.userRedemptions?.find(
-        (u) => u.userId && u.userId.toString() === userId.toString()
-      );
-      if (userRecord && userRecord.count >= promo.perBuyerLimit) {
-        return res.status(400).json({
-          valid: false,
-          message: `You have reached the maximum redemption limit (${promo.perBuyerLimit}x) for this code.`,
-        });
-      }
-    }
-
-    // 4. Find all possible seller IDs (both Seller doc _id and User _id) and storeName for the promo
-    let promoSeller = await Seller.findOne({
-      $or: [
-        { _id: promo.sellerId },
-        { userId: promo.sellerId },
-        { storeName: promo.sellerStoreName }
-      ]
-    });
-
-    const validSellerIds = new Set([
-      promo.sellerId.toString(),
-      promoSeller?._id ? promoSeller._id.toString() : null,
-      promoSeller?.userId ? promoSeller.userId.toString() : null
-    ].filter(Boolean));
-
-    const promoStoreName = (promo.sellerStoreName || promoSeller?.storeName || '').trim().toLowerCase();
-
-    // 5. Resolve each item from MongoDB by Product ID to get ground truth seller info
-    const resolvedItems = [];
-    for (const item of cartItems) {
-      const prodId = item.productId || item.product?._id || item._id;
-      let itemSellerId =
-        item.sellerId?._id ||
-        item.sellerId ||
-        item.product?.sellerId?._id ||
-        item.product?.sellerId ||
-        item.seller?._id ||
-        item.seller;
-      let itemCategory = item.category || item.product?.category;
-      let itemPrice = Number(item.price) || 0;
-      let itemStoreName = '';
-
-      if (prodId) {
-        const dbProduct = await Product.findById(prodId);
-        if (dbProduct) {
-          itemSellerId = itemSellerId || dbProduct.sellerId;
-          itemCategory = itemCategory || dbProduct.category;
-          if (!itemPrice) itemPrice = dbProduct.price;
-
-          // Lookup seller profile of the product to match store name
-          if (dbProduct.sellerId) {
-            const productSellerDoc = await Seller.findOne({
-              $or: [{ _id: dbProduct.sellerId }, { userId: dbProduct.sellerId }]
-            });
-            if (productSellerDoc) {
-              if (productSellerDoc._id) validSellerIds.add(productSellerDoc._id.toString());
-              if (productSellerDoc.userId) validSellerIds.add(productSellerDoc.userId.toString());
-              itemStoreName = (productSellerDoc.storeName || '').trim().toLowerCase();
-            }
-          }
-        }
-      }
-
-      resolvedItems.push({
-        productId: prodId,
-        sellerId: itemSellerId ? itemSellerId.toString() : null,
-        storeName: itemStoreName,
-        category: itemCategory || '',
-        price: itemPrice,
-        quantity: Number(item.quantity) || 1,
-      });
-    }
-
-    // 6. Match items if seller ID matches OR store name matches
-    const sellerItems = resolvedItems.filter((item) => {
-      const idMatches = item.sellerId && validSellerIds.has(item.sellerId);
-      const nameMatches = promoStoreName && item.storeName && promoStoreName === item.storeName;
-      return idMatches || nameMatches;
-    });
-
-    if (sellerItems.length === 0) {
-      return res.status(400).json({
-        valid: false,
-        state: 'Seller Item Missing',
-        message: `This promo code is from ${promo.sellerStoreName}. Add products from their store to use this code.`,
-      });
-    }
-
-    // 6. Check categories if the scope is restricted
-    let eligibleItems = sellerItems;
-    if (promo.scope === 'SPECIFIC_CATEGORY') {
-      const allowedCategoriesLower = (promo.applicableCategories || []).map((c) =>
-        c.trim().toLowerCase()
-      );
-
-      eligibleItems = sellerItems.filter((item) =>
-        allowedCategoriesLower.includes((item.category || '').trim().toLowerCase())
-      );
-
-      if (eligibleItems.length === 0) {
-        return res.status(400).json({
-          valid: false,
-          state: 'Wrong Category Items',
-          message: `This code is only valid on ${promo.applicableCategories.join(', ')} from ${promo.sellerStoreName}.`,
-          qualifyingCategories: promo.applicableCategories,
-          sellerStoreName: promo.sellerStoreName,
-        });
-      }
-    }
-
-    // 7. Check minimum spend requirement on eligible items
-    const eligibleSubtotal = eligibleItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    if (eligibleSubtotal < promo.minSpend) {
-      const diff = (promo.minSpend - eligibleSubtotal).toFixed(2);
-      return res.status(400).json({
-        valid: false,
-        state: 'Threshold Not Met',
-        message: `Add Rs. ${diff} more worth of items from ${promo.sellerStoreName} to unlock this code.`,
-        qualifyingItems: eligibleItems.map((i) => i.productId),
-      });
-    }
-
-    // 8. Calculate discounts and rewards
-    let discountAmount = 0;
-    let waivedShipping = false;
-    let customReward = null;
-
-    switch (promo.discountMechanism) {
-      case 'PERCENTAGE': {
-        let calculated = (eligibleSubtotal * promo.discountValue) / 100;
-        if (promo.maxDiscountCap && calculated > promo.maxDiscountCap) {
-          calculated = promo.maxDiscountCap;
-        }
-        discountAmount = Math.min(calculated, eligibleSubtotal);
-        break;
-      }
-      case 'FIXED_AMOUNT': {
-        discountAmount = Math.min(promo.discountValue, eligibleSubtotal);
-        break;
-      }
-      case 'FREE_SHIPPING': {
-        waivedShipping = true;
-        break;
-      }
-      case 'CUSTOM_REWARD': {
-        customReward = promo.customRewardText;
-        break;
-      }
-    }
-
+    const { discountAmount, waivedShipping, customReward, eligibleItems } = result;
     let successMessage = `✓ "${promo.code}" applied!`;
     if (discountAmount > 0) {
       successMessage += ` You saved Rs. ${discountAmount.toFixed(0)} on ${promo.sellerStoreName} items.`;
@@ -299,7 +162,7 @@ exports.applyPromoCode = async (req, res) => {
     });
   } catch (error) {
     console.error('applyPromoCode error:', error);
-    return res.status(500).json({ message: error.message || 'Server error checking promo code' });
+    return res.status(500).json({ message: 'Server error checking promo code' });
   }
 };
 
@@ -314,6 +177,9 @@ exports.updatePromoCode = async (req, res) => {
     }
 
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid promo ID.' });
+    }
     const {
       scope,
       selectedCategories,
@@ -335,14 +201,18 @@ exports.updatePromoCode = async (req, res) => {
     }
 
     if (startDate) {
-      const startDatetime = new Date(startDate);
-      startDatetime.setHours(0, 0, 0, 0);
+      const startDatetime = toPktDayBoundary(startDate, false);
+      if (Number.isNaN(startDatetime.getTime())) {
+        return res.status(400).json({ message: 'Please choose a valid start date.' });
+      }
       promo.startDatetime = startDatetime;
     }
 
     if (endDate) {
-      const endDatetime = new Date(endDate);
-      endDatetime.setHours(23, 59, 59, 999);
+      const endDatetime = toPktDayBoundary(endDate, true);
+      if (Number.isNaN(endDatetime.getTime())) {
+        return res.status(400).json({ message: 'Please choose a valid end date.' });
+      }
       if (promo.startDatetime && endDatetime <= promo.startDatetime) {
         return res.status(400).json({ message: 'End date must be after Start date.' });
       }
@@ -387,6 +257,9 @@ exports.deletePromoCode = async (req, res) => {
     }
 
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid promo ID.' });
+    }
 
     const promo = await PromoCode.findOneAndDelete({ _id: id, sellerId: seller._id });
     if (!promo) {

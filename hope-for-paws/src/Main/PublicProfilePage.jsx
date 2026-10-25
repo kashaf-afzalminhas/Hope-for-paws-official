@@ -9,7 +9,7 @@ import { FaSearch, FaFilter } from 'react-icons/fa';
 // import { FaUserCircle, FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment } from 'react-icons/fa';
 import { FaChevronLeft, FaMapMarkerAlt, FaHeart, FaComment, FaUser, FaCalendarAlt, FaPaw, FaNewspaper } from 'react-icons/fa';
 import { getUserPublicProfile, getUserAdoptionAds, getUserPosts, getConversationBetweenUsers } from './api';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, API_ORIGIN } from '../config';
 import { MessageSquare, User } from 'lucide-react';
 import { useRequireAuth } from '../Components/AuthGuard.jsx';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
@@ -28,9 +28,7 @@ const C = {
   shadow: "rgba(123,79,46,0.10)", shadowMd: "rgba(123,79,46,0.16)",
 };
 
-const API_BASE = typeof window !== "undefined" && window.location.hostname === "localhost"
-  ? "http://localhost:3000"
-  : "https://api.hopeforpaws.club";
+const API_BASE = API_ORIGIN;
 
 function Shimmer({ h = 16, r = 8, w = "100%" }) {
   return (

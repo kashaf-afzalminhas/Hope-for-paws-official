@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, API_ORIGIN } from '../config';
 
 export const testNotificationSystem = async () => {
   console.log('Testing notification system...\n');
@@ -8,12 +8,12 @@ export const testNotificationSystem = async () => {
   try {
     // Test 1: Health endpoint
     console.log('1. Testing health endpoint...');
-    const healthResponse = await axios.get(`${API_BASE_URL.replace('/api', '')}/health`);
+    const healthResponse = await axios.get(`${API_ORIGIN}/health`);
     console.log('Health endpoint working:', healthResponse.data);
 
     // Test 2: Socket health endpoint
     console.log('\n2. Testing socket health endpoint...');
-    const socketHealthResponse = await axios.get(`${API_BASE_URL.replace('/api', '')}/socket-health`);
+    const socketHealthResponse = await axios.get(`${API_ORIGIN}/socket-health`);
     console.log('Socket health endpoint working:', socketHealthResponse.data);
 
     // Test 3: Notification test endpoint (no auth required)
@@ -66,7 +66,7 @@ export const testNotificationSystem = async () => {
     console.log('\n6. Testing Socket.IO connection...');
     try {
       const { io } = await import('socket.io-client');
-      const socket = io(API_BASE_URL.replace('/api', ''), {
+      const socket = io(API_ORIGIN, {
         auth: { token },
         transports: ['polling', 'websocket'],
         timeout: 5000
