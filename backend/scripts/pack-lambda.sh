@@ -108,10 +108,14 @@ PY
 # Smoke-load handler from staging (same layout as zip)
 echo "==> Smoke test: require handler"
 cd "$STAGING"
-RUNTIME=lambda AWS_LAMBDA_FUNCTION_NAME=local-smoke node -e "
+# Dummy required env vars so app.js fail-fast checks pass; connection errors are non-fatal on require
+RUNTIME=lambda \
+AWS_LAMBDA_FUNCTION_NAME=local-smoke \
+MONGO_URI='mongodb://127.0.0.1:27017/lambda-smoke?directConnection=true' \
+JWT_SECRET='lambda-smoke-jwt-secret' \
+node -e "
   process.env.RUNTIME = 'lambda';
   process.env.AWS_LAMBDA_FUNCTION_NAME = 'local-smoke';
-  delete process.env.MONGO_URI; // avoid connecting during require smoke test
   const mod = require('./lambda');
   if (typeof mod.handler !== 'function') {
     console.error('handler is not a function');
