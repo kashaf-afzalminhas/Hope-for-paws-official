@@ -116,8 +116,8 @@ const { ALLOWED_ORIGINS: BASE_ALLOWED_ORIGINS } = require('./config/allowedOrigi
 const ALLOWED_ORIGINS = [
   ...BASE_ALLOWED_ORIGINS,
   // Legacy domain kept until DNS/redirects fully cut over
-  'https://www.hopeforpaws.club',
-  'https://hopeforpaws.club',
+  'https://www.hopeforpawshub.co',
+  'https://hopeforpawshub.co',
   // Production frontend URL from Lambda/env (no trailing slash)
   ...(process.env.FRONTEND_URL ? [String(process.env.FRONTEND_URL).replace(/\/$/, '')] : []),
   ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
