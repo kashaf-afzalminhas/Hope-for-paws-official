@@ -53,6 +53,28 @@ export const getMySellerProfile = async () => {
 };
 
 /**
+ * Update the current seller's store (storeName, address, location, optional profileImage / removeProfileImage)
+ * @param {FormData} formData
+ */
+export const updateMySellerProfile = async (formData) => {
+  const response = await fetch(`${API_BASE_URL}/sellers/me`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    },
+    body: formData
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to update store');
+  }
+
+  return data;
+};
+
+/**
  * Check if current user is a seller
  */
 export const checkSellerStatus = () => {

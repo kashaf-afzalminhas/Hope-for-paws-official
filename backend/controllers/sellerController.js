@@ -1,6 +1,7 @@
 const Seller = require('../models/Seller');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const PromoCode = require('../models/PromoCode');
 const nodemailer = require('nodemailer');
 const emailTemplates = require('../utils/emailTemplates');
 const { toLocationSnapshot } = require('../utils/pakistanLocations');
@@ -150,6 +151,85 @@ exports.getMySellerProfile = async (req, res) => {
     return res.json({ seller, sellerStatus: user?.sellerStatus, isSeller: user?.isSeller, canBuy: user?.canBuy });
   } catch (err) {
     console.error('getMySellerProfile error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Seller edits their own store (store name, logo, address, location).
+// Name, email and phone always come from the user's account and are refreshed here too.
+exports.updateMySellerProfile = async (req, res) => {
+  let newImage = '';
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const seller = req.seller || await Seller.findOne({ userId });
+    if (!seller) return res.status(404).json({ message: 'Seller profile not found' });
+    const user = await User.findById(userId).select('username email phone profileImage');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const storeName = typeof req.body.storeName === 'string' ? req.body.storeName.trim() : '';
+    const address = typeof req.body.address === 'string' ? req.body.address.trim() : '';
+    if (!storeName) return res.status(400).json({ message: 'Store name is required' });
+    if (!address) return res.status(400).json({ message: 'Address is required' });
+
+    let location;
+    try {
+      location = toLocationSnapshot(typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location);
+    } catch (parseError) {
+      location = null;
+    }
+    if (!location) return res.status(400).json({ message: 'Select a valid country, province, and city.' });
+
+    // Store names are unique (case-insensitive), ignoring this seller's own store
+    if (storeName.toLowerCase() !== String(seller.storeName || '').toLowerCase()) {
+      const escapedStoreName = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const taken = await Seller.findOne({
+        _id: { $ne: seller._id },
+        storeName: { $regex: new RegExp(`^${escapedStoreName}$`, 'i') }
+      });
+      if (taken) {
+        return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+      }
+    }
+
+    const oldImage = seller.profileImage || '';
+    const removeImage = req.body.removeProfileImage === 'true' || req.body.removeProfileImage === true;
+    if (req.file) {
+      newImage = await saveImage(req.file, 'profile-images');
+      seller.profileImage = newImage;
+    } else if (removeImage) {
+      seller.profileImage = '';
+    }
+
+    const nameChanged = seller.storeName !== storeName;
+    seller.storeName = storeName;
+    seller.address = address;
+    seller.location = location;
+    seller.fullName = (user.username || '').trim() || seller.fullName;
+    seller.email = user.email || seller.email;
+    if (user.phone) seller.phone = user.phone;
+    await seller.save();
+    newImage = ''; // saved: don't delete it in the error handler
+
+    // Keep the store name shown on promo codes in sync
+    if (nameChanged) {
+      await PromoCode.updateMany({ sellerId: seller._id }, { $set: { sellerStoreName: storeName } }).catch(() => {});
+    }
+
+    // Delete the replaced logo, unless it is also the user's profile picture
+    if (oldImage && oldImage !== seller.profileImage && oldImage !== user.profileImage) {
+      await deleteImage(oldImage).catch(() => {});
+    }
+
+    return res.json({ message: 'Store updated', seller });
+  } catch (err) {
+    if (newImage) await deleteImage(newImage).catch(() => {});
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'This store name is already taken. Please choose another one.' });
+    }
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ message: err.message });
+    }
+    console.error('updateMySellerProfile error:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };

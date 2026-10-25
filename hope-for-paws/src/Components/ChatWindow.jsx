@@ -248,13 +248,49 @@ const ChatWindow = ({ conversationId, currentUser, otherUser, onBack, updateConv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  // Live Online/Offline label: ask once, then follow updates pushed by the server
+  const liveStatusRef = useRef(null);
+  useEffect(() => {
+    const socket = getSocket();
+    const otherId = String(otherUser?._id || '');
+    if (!socket || !otherId) return;
+
+    liveStatusRef.current = null;
+    const setStatus = (status) => {
+      liveStatusRef.current = status;
+      setUserDetails(prev => (prev && prev.status === status ? prev : { ...(prev || otherUser), status }));
+    };
+
+    const requestStatus = () => {
+      socket.emit('getUserStatus', [otherId], (result) => {
+        if (result && result[otherId]) setStatus(result[otherId]);
+      });
+    };
+    const handleStatusChanged = (data) => {
+      if (String(data?.userId) === otherId && data.status) setStatus(data.status);
+    };
+
+    if (socket.connected) requestStatus();
+    socket.on('connect', requestStatus);
+    socket.on('userStatusChanged', handleStatusChanged);
+    return () => {
+      socket.off('connect', requestStatus);
+      socket.off('userStatusChanged', handleStatusChanged);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherUser?._id]);
+
   useEffect(() => {
     if (!otherUser.username) {
       getUserById(otherUser._id)
-        .then(res => setUserDetails(res.data?.data || res.data || otherUser))
+        .then(res => {
+          const details = res.data?.data || res.data || otherUser;
+          // Keep the live status if the server already told us
+          setUserDetails(liveStatusRef.current ? { ...details, status: liveStatusRef.current } : details);
+        })
         .catch(() => setUserDetails(otherUser));
     } else {
-      setUserDetails(otherUser);
+      setUserDetails(liveStatusRef.current ? { ...otherUser, status: liveStatusRef.current } : otherUser);
     }
   }, [otherUser]);
 

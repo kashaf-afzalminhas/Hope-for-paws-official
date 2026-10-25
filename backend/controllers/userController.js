@@ -52,6 +52,14 @@ const validateInternationalPhone = (phone) => {
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 
+// Any normal email address is accepted (not only Gmail)
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const isValidEmail = (email = '') => email.length <= 254 && EMAIL_PATTERN.test(email);
+
+// How long sign-up and email-change codes stay valid
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_TTL_TEXT = '5 minutes';
+
 const hasProvider = (user, provider) =>
   Array.isArray(user?.authProviders) &&
   user.authProviders.some((p) => p.provider === provider);
@@ -106,7 +114,7 @@ const signUp = async (req, res) => {
   if (phoneValidationError) {
     return res.status(400).json({ message: phoneValidationError });
   }
-  if (!normalizedEmail.endsWith('@gmail.com')) return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+  if (!isValidEmail(normalizedEmail)) return res.status(400).json({ message: 'Please enter a valid email address.' });
   if (ADMIN_EMAILS.includes(normalizedEmail)) return res.status(403).json({ message: 'Reserved email.' });
 
   try {
@@ -151,7 +159,7 @@ const signUp = async (req, res) => {
       userType: finalUserType,
       existingUserId: existingUser ? existingUser._id : undefined,
       verificationCode: otp,
-      verificationCodeExpires: Date.now() + 2 * 60 * 1000, // 2 mins
+      verificationCodeExpires: Date.now() + OTP_TTL_MS,
       // Seller Info is collected post-registration
     };
 
@@ -168,11 +176,11 @@ const signUp = async (req, res) => {
       code: otp,
       heading: 'Verification Code',
       message: 'Use this code to verify your account and complete your registration.',
-      expiry: '2 minutes',
+      expiry: OTP_TTL_TEXT,
       preheader: `Your Hope for Paws verification code is ${otp}`,
     });
     try {
-      await transporter.sendMail({ from: process.env.GMAIL_USER, to: normalizedEmail, subject: 'Hope for Paws: Verification Code', text: `Your OTP code is: ${otp}\nIt expires in 2 minutes.`, html });
+      await transporter.sendMail({ from: process.env.GMAIL_USER, to: normalizedEmail, subject: 'Hope for Paws: Verification Code', text: `Your OTP code is: ${otp}\nIt expires in ${OTP_TTL_TEXT}.`, html });
     } catch (mailError) {
       console.error('SignUp Email Error:', mailError.code || '', mailError.message);
       return res.status(503).json({ message: 'We could not send the verification email right now. Please try again in a minute.' });
@@ -616,18 +624,18 @@ const resendOTP = async (req, res) => {
 
     const newOtp = crypto.randomBytes(3).toString('hex');
     tempUser.verificationCode = newOtp;
-    tempUser.verificationCodeExpires = Date.now() + 2 * 60 * 1000;
+    tempUser.verificationCodeExpires = Date.now() + OTP_TTL_MS;
     await tempUser.save();
 
     const html = buildVerificationEmail({
       code: newOtp,
       heading: 'New Verification Code',
       message: 'Here is your new verification code. The previous code has been invalidated.',
-      expiry: '2 minutes',
+      expiry: OTP_TTL_TEXT,
       preheader: `Your new Hope for Paws verification code is ${newOtp}`,
     });
     try {
-      await transporter.sendMail({ from: process.env.GMAIL_USER, to: tempUser.email, subject: 'Hope for Paws: New OTP', text: `Your new OTP: ${newOtp}\nIt expires in 2 minutes.`, html });
+      await transporter.sendMail({ from: process.env.GMAIL_USER, to: tempUser.email, subject: 'Hope for Paws: New OTP', text: `Your new OTP: ${newOtp}\nIt expires in ${OTP_TTL_TEXT}.`, html });
     } catch (mailError) {
       console.error('Resend OTP Email Error:', mailError.code || '', mailError.message);
       return res.status(503).json({ message: 'We could not send the verification email right now. Please try again in a minute.' });
@@ -763,8 +771,8 @@ const updateProfile = async (req, res) => {
 
 // Password Reset Flow
 const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  if (!email.endsWith('@gmail.com')) return res.status(400).json({ error: 'Invalid email.' });
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email.' });
 
   try {
     const user = await User.findOne({ email });
@@ -1046,9 +1054,8 @@ const sendEmailChangeOTP = async (req, res) => {
 
     const normalizedNewEmail = normalizeEmail(newEmail);
 
-    // Validate Gmail
-    if (!normalizedNewEmail.endsWith('@gmail.com')) {
-      return res.status(400).json({ message: 'Please use a valid Gmail address.' });
+    if (!isValidEmail(normalizedNewEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
     }
 
     // Check reserved emails
@@ -1078,7 +1085,7 @@ const sendEmailChangeOTP = async (req, res) => {
     // Store pending email info on the user document
     user.pendingEmail = normalizedNewEmail;
     user.pendingEmailOTP = otp;
-    user.pendingEmailOTPExpires = Date.now() + 2 * 60 * 1000; // 2 minutes
+    user.pendingEmailOTPExpires = Date.now() + OTP_TTL_MS;
     await user.save();
 
     // Send verification email to the NEW email address
@@ -1086,7 +1093,7 @@ const sendEmailChangeOTP = async (req, res) => {
       code: otp,
       heading: 'Email Change Verification',
       message: 'You requested to change your email address on Hope for Paws. Use this code to verify your new email.',
-      expiry: '2 minutes',
+      expiry: OTP_TTL_TEXT,
       preheader: `Your Hope for Paws email verification code is ${otp}`,
     });
 
@@ -1094,7 +1101,7 @@ const sendEmailChangeOTP = async (req, res) => {
       from: process.env.GMAIL_USER,
       to: normalizedNewEmail,
       subject: 'Hope for Paws: Email Change Verification',
-      text: `Your verification code is: ${otp}\nIt expires in 2 minutes.`,
+      text: `Your verification code is: ${otp}\nIt expires in ${OTP_TTL_TEXT}.`,
       html
     });
 

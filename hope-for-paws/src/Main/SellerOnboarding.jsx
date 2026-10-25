@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { onboardSeller, updateLocalUserAsSeller } from '../services/sellerService';
+import { onboardSeller, updateLocalUserAsSeller, getMySellerProfile, updateMySellerProfile } from '../services/sellerService';
+import { getMediaUrl } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile } from './api';
 import { User, Store, Mail, Phone, MapPin, UploadCloud, CheckCircle, PawPrint } from 'lucide-react';
@@ -19,6 +20,10 @@ const SellerOnboarding = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  // Edit mode: the user already has a store, so this page edits it instead of creating one
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [checkingStore, setCheckingStore] = useState(true);
+  const [removeImage, setRemoveImage] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -47,6 +52,27 @@ const SellerOnboarding = () => {
       setAccountPhone(user.phone || '');
     }
   }, [user]);
+
+  // If a store already exists, load it and switch to edit mode
+  useEffect(() => {
+    let cancelled = false;
+    getMySellerProfile()
+      .then((data) => {
+        const store = data?.seller;
+        if (cancelled || !store) return;
+        setIsEditMode(true);
+        setFormData((prev) => ({
+          ...prev,
+          storeName: store.storeName || '',
+          address: store.address || '',
+          location: store.location?.cityCode ? { ...emptyPakistanLocation, ...store.location } : prev.location,
+        }));
+        if (store.profileImage) setImagePreview(getMediaUrl(store.profileImage));
+      })
+      .catch(() => {}) // 404 = no store yet: normal onboarding
+      .finally(() => { if (!cancelled) setCheckingStore(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Use the saved account details from the server (the copy in the browser can be out of date)
   useEffect(() => {
@@ -112,6 +138,7 @@ const SellerOnboarding = () => {
         return;
       }
       setProfileImage(file);
+      setRemoveImage(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -145,6 +172,14 @@ const SellerOnboarding = () => {
       submitData.append('location', JSON.stringify(formData.location));
       if (profileImage) {
         submitData.append('profileImage', profileImage);
+      }
+
+      if (isEditMode) {
+        if (!profileImage && removeImage) submitData.append('removeProfileImage', 'true');
+        await updateMySellerProfile(submitData);
+        setSuccess(true);
+        setTimeout(() => navigate('/seller/dashboard'), 1500);
+        return;
       }
 
       await onboardSeller(submitData);
@@ -204,10 +239,12 @@ const SellerOnboarding = () => {
       <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 sm:px-6 z-10">
         <div className="w-full max-w-[800px] text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-[#3d2a24] tracking-tight mb-4 font-serif">
-            Start Selling Today
+            {isEditMode ? 'Store Settings' : 'Start Selling Today'}
           </h1>
           <p className="text-[#6b493d] text-lg max-w-2xl mx-auto font-medium">
-            Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.
+            {isEditMode
+              ? 'Update your store name, logo, address and location. Your name, email and phone come from your account.'
+              : 'Join thousands of pet lovers. Complete your profile to unlock your dedicated Store Dashboard and start reaching customers nationwide.'}
           </p>
         </div>
 
@@ -223,8 +260,8 @@ const SellerOnboarding = () => {
               >
                 <CheckCircle className="w-14 h-14 text-green-500" />
               </motion.div>
-              <h2 className="text-4xl font-extrabold text-[#3d2a24] tracking-tight mb-4">You're All Set!</h2>
-              <p className="text-[#a07f77] text-xl mb-10 max-w-md mx-auto">Your store profile has been successfully created. We are redirecting you to your dashboard.</p>
+              <h2 className="text-4xl font-extrabold text-[#3d2a24] tracking-tight mb-4">{isEditMode ? 'Store Updated!' : "You're All Set!"}</h2>
+              <p className="text-[#a07f77] text-xl mb-10 max-w-md mx-auto">{isEditMode ? 'Your changes have been saved. Taking you back to your dashboard.' : 'Your store profile has been successfully created. We are redirecting you to your dashboard.'}</p>
               <div className="w-full max-w-sm mx-auto bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
                  <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2, ease: "linear" }} className="bg-gradient-to-r from-[#a07855] to-[#6b493d] h-2 rounded-full"></motion.div>
               </div>
@@ -292,6 +329,15 @@ const SellerOnboarding = () => {
                     className="hidden"
                   />
                   <p className="mt-4 text-sm text-gray-500 font-semibold tracking-wide">STORE LOGO (OPTIONAL)</p>
+                  {isEditMode && imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => { setProfileImage(null); setImagePreview(null); setRemoveImage(true); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="mt-2 text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      Remove logo
+                    </button>
+                  )}
                 </motion.div>
 
                 {/* Form Grid */}
@@ -444,7 +490,7 @@ const SellerOnboarding = () => {
                 <motion.div variants={itemVariants} className="pt-8 mt-8 border-t border-gray-100">
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || checkingStore}
                     className={`w-full py-4 px-6 rounded-xl font-bold text-lg text-white shadow-[0_10px_20px_rgba(160,120,85,0.3)] transition-all duration-300 flex items-center justify-center overflow-hidden relative group
                       ${loading
                         ? 'bg-gray-400 cursor-not-allowed shadow-none'
@@ -457,11 +503,11 @@ const SellerOnboarding = () => {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Creating Profile...
+                        {isEditMode ? 'Saving...' : 'Creating Profile...'}
                       </>
                     ) : (
                       <>
-                        <span className="relative z-10">Complete Setup & Access Dashboard</span>
+                        <span className="relative z-10">{isEditMode ? 'Save Changes' : 'Complete Setup & Access Dashboard'}</span>
                         <div className="absolute inset-0 h-full w-full bg-white/20 transform -skew-x-12 -translate-x-full group-hover:animate-[shine_1.5s_ease-in-out_infinite] z-0"></div>
                       </>
                     )}

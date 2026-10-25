@@ -23,7 +23,7 @@ ChartJS.register(
 import { 
   Package, ShoppingBag, TrendingUp, Wallet, 
   Plus, Edit2, Trash2, X, AlertCircle, Loader2, Image as ImageIcon, Eye, EyeOff, Pause, Play, ArrowUpRight,
-  BadgeCheck, Clock, Star, ArrowLeft, Tag, ShieldCheck
+  BadgeCheck, Clock, Star, ArrowLeft, Tag, ShieldCheck, Settings
 } from 'lucide-react';
 import AddProduct from './AddProduct';
 import StarDisplay from '../Components/StarDisplay';
@@ -293,6 +293,11 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
               )
             )}
           </div>
+          <div className="flex flex-wrap gap-2 self-start">
+          <button type="button" onClick={() => navigate('/seller/settings')} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#d8c3a5] bg-white px-4 py-2.5 text-sm font-semibold text-[#6b493d] shadow-sm transition hover:bg-[#f8f4ed]">
+            <Settings className="h-4 w-4" />
+            Store settings
+          </button>
           {embedded && (
             <button type="button" onClick={() => navigate('/seller/dashboard')} className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-[#6b493d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#57392f] hover:shadow-md">
               <ShoppingBag className="h-4 w-4" />
@@ -300,6 +305,7 @@ const SellerDashboard = ({ onNavigateOrders, embedded = false }) => {
               <ArrowUpRight className="h-4 w-4" />
             </button>
           )}
+          </div>
         </div>
         <p className="text-gray-500 mt-2">Manage your marketplace presence and track performance.</p>
       </div>

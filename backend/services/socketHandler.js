@@ -27,6 +27,18 @@ const setupSocketHandlers = (io, socket, notificationService) => {
     }
   });
 
+  // Live online/offline status for a few users (e.g. the person in the open chat).
+  // Answers through the acknowledgement callback: { [userId]: 'online' | 'offline' }
+  socket.on('getUserStatus', (userIds, ack) => {
+    if (typeof ack !== 'function') return;
+    const ids = Array.isArray(userIds) ? userIds.slice(0, 50).map(String) : [];
+    const result = {};
+    for (const id of ids) {
+      result[id] = notificationService && notificationService.isOnline(id) ? 'online' : 'offline';
+    }
+    ack(result);
+  });
+
   // Activity heartbeat for the authenticated user only
   socket.on('heartbeat', async () => {
     if (!socket.userId) return;

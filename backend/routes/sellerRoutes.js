@@ -7,6 +7,7 @@ const { onboardSellerRules, updateStatusRules } = require('../validators/sellerV
 const {
   onboardSeller,
   getMySellerProfile,
+  updateMySellerProfile,
   updateSellerStatus,
   getAllSellerApplications,
   getSellerApplicationById
@@ -39,6 +40,9 @@ router.post('/onboard', auth, handleUpload(uploadProfileImage.single('profileIma
 
 // GET /api/sellers/me - Get current user's seller profile
 router.get('/me', auth, getMySellerProfile);
+
+// PUT /api/sellers/me - Seller edits their store (name, logo, address, location)
+router.put('/me', auth, requireActiveSeller, handleUpload(uploadProfileImage.single('profileImage')), verifyImageContent, onboardSellerRules, validate, updateMySellerProfile);
 
 // PATCH /api/sellers/status/:userId - Update seller isVerified status (admin only)
 router.patch('/status/:userId', auth, updateStatusRules, validate, updateSellerStatus);

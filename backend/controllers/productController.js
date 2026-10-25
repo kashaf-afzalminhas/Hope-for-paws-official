@@ -240,6 +240,12 @@ exports.listProducts = async (req, res) => {
       ];
     }
 
+    // Paged mode (used by the Marketplace page): ?page=1&limit=24 plus filters.
+    // Without "page" the old behaviour (a plain array of every product) is kept for other callers.
+    if (req.query.page !== undefined) {
+      return listProductsPaged(req, res, query);
+    }
+
     let sortObj = { createdAt: -1 }; // default to new
     if (sort === 'priceAsc') sortObj = { price: 1 };
     else if (sort === 'priceDesc') sortObj = { price: -1 };
@@ -255,6 +261,124 @@ exports.listProducts = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Price after the product's own discount, used for price filters and sorting
+const EFFECTIVE_PRICE = {
+  $multiply: [
+    '$price',
+    { $subtract: [1, { $divide: [{ $ifNull: ['$discountPercentage', 0] }, 100] }] }
+  ]
+};
+const NEW_PRODUCT_DAYS = 14;
+const MAX_PAGE_SIZE = 60;
+
+const PAGED_SORTS = {
+  popular: { numReviews: -1, averageRating: -1, createdAt: -1, _id: -1 },
+  rating: { averageRating: -1, numReviews: -1, createdAt: -1, _id: -1 },
+  new: { createdAt: -1, _id: -1 },
+  priceAsc: { effectivePrice: 1, _id: 1 },
+  priceDesc: { effectivePrice: -1, _id: -1 }
+};
+
+const csv = (value) => (typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean).slice(0, 50) : []);
+
+/**
+ * GET /api/products?page=1&limit=24&category=&search=&brands=a,b&sellers=<sellerId>,..&maxPrice=&minRating=&sort=popular|new|rating|priceAsc|priceDesc&facets=1
+ * Returns { products, total, page, limit, totalPages, hasMore, facets? }.
+ * Filtering, sorting and paging all happen in the database, so the page stays fast as the catalogue grows.
+ */
+async function listProductsPaged(req, res, baseQuery) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(req.query.limit, 10) || 24));
+  const sortKey = typeof req.query.sort === 'string' && PAGED_SORTS[req.query.sort] ? req.query.sort : 'popular';
+
+  // Visible products only (same rule as checkout)
+  const visible = { isVisible: true, isHidden: { $ne: true }, status: { $ne: 'hidden' } };
+  const match = { ...baseQuery, ...visible };
+
+  // Search also matches the store name
+  if (match.$or && typeof req.query.search === 'string' && req.query.search.trim()) {
+    const safe = escapeRegex(req.query.search.trim().slice(0, 100));
+    const stores = await Seller.find({ storeName: { $regex: safe, $options: 'i' } }).select('_id').limit(50).lean();
+    if (stores.length) match.$or.push({ sellerId: { $in: stores.map((s) => s._id) } });
+  }
+
+  const brands = csv(req.query.brands);
+  if (brands.length) match.brand = { $in: brands };
+
+  const sellerIds = csv(req.query.sellers).filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (sellerIds.length) {
+    match.sellerId = { $in: sellerIds.map((id) => new mongoose.Types.ObjectId(id)) };
+  } else if (match.sellerId) {
+    match.sellerId = new mongoose.Types.ObjectId(String(match.sellerId));
+  }
+
+  const minRating = Number(req.query.minRating);
+  if (Number.isFinite(minRating) && minRating > 0) match.averageRating = { $gte: minRating };
+
+  const maxPrice = Number(req.query.maxPrice);
+  const afterPrice = Number.isFinite(maxPrice) && req.query.maxPrice !== '' ? [{ $match: { effectivePrice: { $lte: maxPrice } } }] : [];
+
+  const [result] = await Product.aggregate([
+    { $match: match },
+    { $addFields: { effectivePrice: EFFECTIVE_PRICE } },
+    ...afterPrice,
+    {
+      $facet: {
+        items: [{ $sort: PAGED_SORTS[sortKey] }, { $skip: (page - 1) * limit }, { $limit: limit }],
+        total: [{ $count: 'count' }]
+      }
+    }
+  ]);
+
+  const items = await Product.populate(result?.items || [], {
+    path: 'sellerId',
+    select: 'userId name status isVerified storeName'
+  });
+  const total = result?.total?.[0]?.count || 0;
+  const newSince = Date.now() - NEW_PRODUCT_DAYS * 24 * 60 * 60 * 1000;
+  const products = items.map((p) => ({
+    ...p,
+    isNew: p.createdAt ? new Date(p.createdAt).getTime() >= newSince : false
+  }));
+
+  const body = {
+    products,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    hasMore: page * limit < total
+  };
+
+  // Filter options for the sidebar (from every visible product, not just this page)
+  if (req.query.facets === '1') {
+    const [facetResult] = await Product.aggregate([
+      { $match: visible },
+      { $addFields: { effectivePrice: EFFECTIVE_PRICE } },
+      {
+        $facet: {
+          brands: [{ $match: { brand: { $nin: [null, ''] } } }, { $group: { _id: '$brand' } }, { $sort: { _id: 1 } }, { $limit: 200 }],
+          categories: [{ $group: { _id: '$category' } }, { $sort: { _id: 1 } }],
+          sellers: [{ $group: { _id: '$sellerId' } }, { $limit: 200 }],
+          maxPrice: [{ $group: { _id: null, max: { $max: '$effectivePrice' } } }]
+        }
+      }
+    ]);
+    const sellerDocs = await Seller.find({ _id: { $in: (facetResult?.sellers || []).map((s) => s._id) }, status: { $ne: 'suspended' } })
+      .select('storeName')
+      .sort({ storeName: 1 })
+      .lean();
+    body.facets = {
+      brands: (facetResult?.brands || []).map((b) => b._id),
+      categories: (facetResult?.categories || []).map((c) => c._id).filter(Boolean),
+      sellers: sellerDocs.map((s) => ({ _id: s._id, storeName: s.storeName })),
+      maxPrice: Math.ceil(facetResult?.maxPrice?.[0]?.max || 0)
+    };
+  }
+
+  return res.json(body);
+}
 
 // 3. Seller List (My Products)
 exports.listMyProducts = async (req, res) => {

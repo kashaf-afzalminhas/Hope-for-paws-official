@@ -344,8 +344,8 @@ const Login = () => {
 
   const handleForgotPassword = async () => {
     setError("");
-    if (!email || !email.endsWith('@gmail.com')) {
-      setError('Please enter a valid Gmail address to reset password.');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      setError('Please enter a valid email address to reset password.');
       return;
     }
     setLoading(true);

@@ -66,8 +66,8 @@ const SignUp = () => {
   // Email validation
   const validateEmail = (value) => {
     if (!value) return 'Email is required';
-    const emailRegex = /^[^\s@]+@gmail\.com$/;
-    if (!emailRegex.test(value)) return 'Please enter a valid Gmail address';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRegex.test(value.trim())) return 'Please enter a valid email address';
     return '';
   };
 

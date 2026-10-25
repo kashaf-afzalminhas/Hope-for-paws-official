@@ -165,7 +165,7 @@ const ProfilePage = () => {
   const [emailOTPLoading, setEmailOTPLoading] = useState(false);
   const [emailOTPError, setEmailOTPError] = useState('');
   const [emailOTPMessage, setEmailOTPMessage] = useState('');
-  const [emailOTPTimeLeft, setEmailOTPTimeLeft] = useState(120);
+  const [emailOTPTimeLeft, setEmailOTPTimeLeft] = useState(300);
   const [emailOTPExpired, setEmailOTPExpired] = useState(false);
   const [pendingProfilePayload, setPendingProfilePayload] = useState(null);
   const [pendingNewEmail, setPendingNewEmail] = useState('');
@@ -679,7 +679,7 @@ const ProfilePage = () => {
           setEmailOTP('');
           setEmailOTPError('');
           setEmailOTPMessage('');
-          setEmailOTPTimeLeft(120);
+          setEmailOTPTimeLeft(300);
           setEmailOTPExpired(false);
           setShowEmailOTPModal(true);
         } else {
@@ -773,7 +773,7 @@ const ProfilePage = () => {
 
       if (response.ok) {
         setEmailOTPMessage('New verification code sent!');
-        setEmailOTPTimeLeft(120);
+        setEmailOTPTimeLeft(300);
         setEmailOTPExpired(false);
         setEmailOTP('');
         setTimeout(() => setEmailOTPMessage(''), 5000);

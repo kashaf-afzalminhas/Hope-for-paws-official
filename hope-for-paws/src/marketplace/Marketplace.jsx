@@ -86,6 +86,9 @@ const C = {
 ═══════════════════════════════════════════════════════════════════════════════ */
 // Data will be fetched dynamically
 
+// Products loaded per page (more load as the user scrolls)
+const PAGE_SIZE = 24;
+
 const SORTS = [
   { value:"popular",   label:"Most Popular" },
   { value:"new",       label:"New Arrivals" },
@@ -970,70 +973,163 @@ export default function Marketplace() {
   const [quickView,   setQuickView]  = useState(null);
   const [absoluteMaxPrice, setAbsoluteMaxPrice] = useState(10000);
   const [filters, setFilters] = useState({
-    category:"All", brands:new Set(), sellers:new Set(), priceMax: 10000, minRating: 0,
+    category:"All", brands:new Set(), sellers:new Set(), priceMax: null, minRating: 0,
   });
   const [products, setProducts] = useState([]);
+  const [topPicks, setTopPicks] = useState([]);
+  const [facets, setFacets] = useState({ brands: [], sellers: [], categories: [], maxPrice: 0 });
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [authBanner, setAuthBanner] = useState(null);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const listRequestRef = useRef(0);
+  const loadMoreRef = useRef(null);
 
+  // Wait until the user stops typing before searching
   useEffect(() => {
-    const controller = new AbortController();
-    const fetchProducts = async () => {
-      try {
-        setIsLoading(true);
-        const API_BASE = API_ORIGIN;
-        const res = await fetch(`${API_BASE}/api/products`, { signal: controller.signal });
-        if (!res.ok) throw new Error("Failed to fetch products");
-        const data = await res.json();
-        
-        const mappedData = data.map(p => {
-          let imageUrl = "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80";
-          if (p.images && p.images.length > 0) {
-            imageUrl = p.images[0].startsWith("http") ? p.images[0] : `${API_BASE}${p.images[0]}`;
-          }
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
-          return {
-            ...p,
-            id: p._id,
-            name: p.title,
-            image: imageUrl,
-            seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
-            price:
-              p.price - (p.price * (p.discountPercentage || 0)) / 100,
-
-            originalPrice:
-              (p.discountPercentage || 0) > 0 ? p.price : null,
-            rating: p.averageRating || 0,
-            reviews: p.numReviews || 0,
-            pop: p.pop || Math.floor(Math.random() * 10000),
-            isNew: p.isNew || Math.random() > 0.7,
-            stock: p.countInStock || 0,
-          };
-        });
-        
-        const highestPrice = mappedData.length > 0 ? Math.max(...mappedData.map(p => p.price || 0)) : 10000;
-        setAbsoluteMaxPrice(highestPrice);
-        setFilters(f => ({ ...f, priceMax: highestPrice, minRating: 0 }));
-        
-        setProducts(mappedData);
-        setError("");
-        setIsLoading(false);
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        setError(err.message);
-        setIsLoading(false);
-      }
+  const mapProduct = useCallback((p) => {
+    let imageUrl = "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80";
+    if (p.images && p.images.length > 0) {
+      imageUrl = p.images[0].startsWith("http") ? p.images[0] : `${API_ORIGIN}${p.images[0]}`;
+    }
+    return {
+      ...p,
+      id: p._id,
+      name: p.title,
+      image: imageUrl,
+      seller: p.sellerId?.storeName || p.sellerId?.name || "Hope For Paws Seller",
+      price: p.price - (p.price * (p.discountPercentage || 0)) / 100,
+      originalPrice: (p.discountPercentage || 0) > 0 ? p.price : null,
+      rating: p.averageRating || 0,
+      reviews: p.numReviews || 0,
+      // Popularity = number of reviews (real data, no random numbers)
+      pop: p.numReviews || 0,
+      isNew: Boolean(p.isNew),
+      stock: p.countInStock || 0,
     };
-    fetchProducts();
-    return () => controller.abort();
   }, []);
 
+  // Filter options (brands, sellers, categories, highest price) and the "Top Picks" row, loaded once
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_ORIGIN}/api/products?page=1&limit=8&sort=popular&facets=1`, { signal: controller.signal })
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch products"))))
+      .then(data => {
+        setTopPicks((data.products || []).map(mapProduct));
+        if (data.facets) {
+          setFacets(data.facets);
+          setAbsoluteMaxPrice(Math.max(1, data.facets.maxPrice || 0));
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [mapProduct]);
+
+  // Store names are unique, so the seller filter (shown by name) is sent to the server as seller ids
+  const sellerIdByName = useMemo(() => {
+    const map = new Map();
+    (facets.sellers || []).forEach(s => map.set(s.storeName, String(s._id)));
+    return map;
+  }, [facets.sellers]);
+
+  // Read through refs so loading the filter options doesn't trigger an extra product request
+  const sellerIdByNameRef = useRef(sellerIdByName);
+  sellerIdByNameRef.current = sellerIdByName;
+  const absoluteMaxPriceRef = useRef(absoluteMaxPrice);
+  absoluteMaxPriceRef.current = absoluteMaxPrice;
+
+  const buildParams = useCallback((pageNumber) => {
+    const params = new URLSearchParams({ page: String(pageNumber), limit: String(PAGE_SIZE), sort: sortBy });
+    if (debouncedQuery) params.set("search", debouncedQuery);
+    if (filters.category !== "All") params.set("category", filters.category);
+    if (filters.brands.size) params.set("brands", [...filters.brands].join(","));
+    if (filters.sellers.size) {
+      const ids = [...filters.sellers].map(name => sellerIdByNameRef.current.get(name)).filter(Boolean);
+      if (ids.length) params.set("sellers", ids.join(","));
+    }
+    if (filters.priceMax != null && filters.priceMax < absoluteMaxPriceRef.current) params.set("maxPrice", String(filters.priceMax));
+    if (filters.minRating > 0) params.set("minRating", String(filters.minRating));
+    return params;
+  }, [sortBy, debouncedQuery, filters]);
+
+  // First page: reloaded whenever the search, sort or filters change
+  useEffect(() => {
+    const controller = new AbortController();
+    const requestId = ++listRequestRef.current;
+    setIsLoading(true);
+    setError("");
+    fetch(`${API_ORIGIN}/api/products?${buildParams(1)}`, { signal: controller.signal })
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch products"))))
+      .then(data => {
+        if (requestId !== listRequestRef.current) return;
+        setProducts((data.products || []).map(mapProduct));
+        setPage(1);
+        setHasMore(Boolean(data.hasMore));
+        setTotal(data.total || 0);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        if (err.name === "AbortError" || requestId !== listRequestRef.current) return;
+        setError(err.message || "Failed to fetch products");
+        setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [buildParams, mapProduct]);
+
+  // Next page, added below the current list
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || isLoading) return;
+    const requestId = listRequestRef.current;
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/products?${buildParams(nextPage)}`);
+      if (!res.ok) throw new Error("Failed to fetch products");
+      const data = await res.json();
+      if (requestId !== listRequestRef.current) return; // filters changed meanwhile
+      setProducts(prev => {
+        const seen = new Set(prev.map(p => p.id));
+        return [...prev, ...(data.products || []).map(mapProduct).filter(p => !seen.has(p.id))];
+      });
+      setPage(nextPage);
+      setHasMore(Boolean(data.hasMore));
+      setTotal(data.total || 0);
+    } catch {
+      // The "Load more" button stays, so the user can try again
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, isLoading, page, buildParams, mapProduct]);
+
+  // Load the next page automatically when the user scrolls near the end of the list
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasMore || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0]?.isIntersecting) loadMore();
+    }, { rootMargin: "400px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
   const CATEGORIES = useMemo(() => {
-    return ["All", ...new Set([...PRODUCT_CATEGORIES, ...products.map(p => p.category)])];
-  }, [products]);
-  const BRANDS     = useMemo(() => [...new Set(products.map(p => p.brand))], [products]);
-  const SELLERS    = useMemo(() => [...new Set(products.map(p => p.seller))], [products]);
+    return ["All", ...new Set([...PRODUCT_CATEGORIES, ...(facets.categories || [])])];
+  }, [facets.categories]);
+  const BRANDS     = facets.brands || [];
+  const SELLERS    = useMemo(() => (facets.sellers || []).map(s => s.storeName), [facets.sellers]);
+
+  const findName = useCallback(
+    (id) => (products.find(x => x.id === id) || topPicks.find(x => x.id === id))?.name,
+    [products, topPicks]
+  );
 
   const addToast = useCallback((type, name) => {
     const id = Date.now() + Math.random();
@@ -1053,9 +1149,9 @@ export default function Marketplace() {
     }
     const result = await toggleWishlist(id);
     if (result && result.success) {
-      addToast("fav", products.find(x => x.id === id)?.name);
+      addToast("fav", findName(id));
     }
-  }, [navigate, toggleWishlist, addToast, products]);
+  }, [navigate, toggleWishlist, addToast, findName]);
 
   const onCart = useCallback(async (id) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -1069,40 +1165,24 @@ export default function Marketplace() {
     }
     const result = await ctxAddToCart(id, 1);
     if (result && result.success) {
-      addToast("cart", products.find(x => x.id === id)?.name);
+      addToast("cart", findName(id));
     }
-  }, [navigate, ctxAddToCart, addToast, products]);
+  }, [navigate, ctxAddToCart, addToast, findName]);
 
   const clearAll = useCallback(() => {
     setQuery("");
-    setFilters({ category:"All", brands:new Set(), sellers:new Set(), priceMax: absoluteMaxPrice, minRating: 0 });
-  }, [absoluteMaxPrice]);
+    setFilters({ category:"All", brands:new Set(), sellers:new Set(), priceMax: null, minRating: 0 });
+  }, []);
 
-  const displayed = useMemo(() => {
-    let list = products.filter(p => {
-      if (filters.category !== "All" && p.category !== filters.category) return false;
-      if (query && !`${p.name}${p.brand}${p.seller}`.toLowerCase().includes(query.toLowerCase())) return false;
-      if (filters.brands.size && !filters.brands.has(p.brand)) return false;
-      if (filters.sellers.size && !filters.sellers.has(p.seller)) return false;
-      if (filters.priceMax != null && p.price > filters.priceMax) return false;
-      if (p.rating < filters.minRating) return false;
-      return true;
-    });
-    switch (sortBy) {
-      case "priceAsc":  return [...list].sort((a,b) => a.price - b.price);
-      case "priceDesc": return [...list].sort((a,b) => b.price - a.price);
-      case "new":       return [...list].sort((a,b) => (b.isNew?1:0)-(a.isNew?1:0));
-      case "rating":    return [...list].sort((a,b) => b.rating - a.rating);
-      default:          return [...list].sort((a,b) => b.pop - a.pop);
-    }
-  }, [query, sortBy, filters, products]);
+  // Filtering and sorting are done by the server; this is the list loaded so far
+  const displayed = products;
 
   const activeChips = useMemo(() => {
     const chips = [];
     if (filters.category!=="All") chips.push({ label:`${filters.category}`, remove:() => setFilters(f=>({...f,category:"All"})) });
     filters.brands.forEach(b  => chips.push({ label:b, remove:() => setFilters(f=>{const s=new Set(f.brands);s.delete(b);return{...f,brands:s};}) }));
     filters.sellers.forEach(s => chips.push({ label:s, remove:() => setFilters(f=>{const ss=new Set(f.sellers);ss.delete(s);return{...f,sellers:ss};}) }));
-    if (filters.priceMax != null && filters.priceMax < absoluteMaxPrice) chips.push({ label:`Up to Rs ${filters.priceMax}`, remove:()=>setFilters(f=>({...f,priceMax:absoluteMaxPrice})) });
+    if (filters.priceMax != null && filters.priceMax < absoluteMaxPrice) chips.push({ label:`Up to Rs ${filters.priceMax}`, remove:()=>setFilters(f=>({...f,priceMax:null})) });
     if (filters.minRating>0) chips.push({ label:`${filters.minRating}+ stars`, remove:()=>setFilters(f=>({...f,minRating:0})) });
     return chips;
   }, [filters, absoluteMaxPrice]);
@@ -1118,7 +1198,7 @@ export default function Marketplace() {
       <HeroBanner query={query} setQuery={setQuery} isMobile={isMobile} />
 
       {/* Top Picks Slider */}
-      <TopPicks onFav={onFav} favs={{ has: isInWishlist }} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={products} />
+      <TopPicks onFav={onFav} favs={{ has: isInWishlist }} onCart={onCart} isInCart={isInCart} onQuickView={setQuickView} products={topPicks} />
 
       {/* ── STICKY CATEGORY + TOOLBAR ── */}
       <div style={{ position:"sticky", top:0, zIndex:150, backgroundColor:"rgba(245,240,232,0.96)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.borderSoft}` }}>
@@ -1127,7 +1207,7 @@ export default function Marketplace() {
 
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginTop:10 }}>
             <span style={{ fontSize:12, color:C.brownSoft, whiteSpace:"nowrap" }}>
-              <span style={{ color:C.brown, fontWeight:800, fontSize:14 }}>{displayed.length}</span> products
+              <span style={{ color:C.brown, fontWeight:800, fontSize:14 }}>{isLoading ? "…" : total}</span> products
             </span>
 
             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
@@ -1190,7 +1270,13 @@ export default function Marketplace() {
           {isDesktop && <DesktopSidebar filters={filters} setFilters={setFilters} brands={BRANDS} sellers={SELLERS} maxPrice={absoluteMaxPrice}/>}
 
           <div style={{ flex:1, minWidth:0 }}>
-            {displayed.length === 0 ? (
+            {isLoading ? (
+              <div style={{ textAlign:"center", padding:"72px 24px", color:C.brownSoft, fontSize:14 }}>Loading products…</div>
+            ) : error ? (
+              <div style={{ textAlign:"center", padding:"72px 24px", color:C.brownMid, fontSize:14 }}>
+                Could not load products. Please check your connection and try again.
+              </div>
+            ) : displayed.length === 0 ? (
               <EmptyState onClear={clearAll}/>
             ) : listView ? (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -1203,6 +1289,15 @@ export default function Marketplace() {
                 {displayed.map((p, i) => (
                   <ProductCard key={p.id} p={p} isFav={isInWishlist(p.id)} onFav={onFav} inCart={isInCart(p.id)} onCart={onCart} onQuickView={setQuickView} animDelay={Math.min(i,12)*0.045}/>
                 ))}
+              </div>
+            )}
+
+            {!isLoading && !error && hasMore && (
+              <div ref={loadMoreRef} style={{ display:"flex", justifyContent:"center", paddingTop:24 }}>
+                <button onClick={loadMore} disabled={loadingMore} className="btn-press smooth"
+                  style={{ padding:"11px 26px", borderRadius:12, border:`1.5px solid ${C.border}`, backgroundColor:C.white, color:C.brown, fontSize:13, fontWeight:700, cursor:loadingMore?"default":"pointer", opacity:loadingMore?0.7:1 }}>
+                  {loadingMore ? "Loading…" : `Load more (${Math.max(0, total - displayed.length)} left)`}
+                </button>
               </div>
             )}
           </div>

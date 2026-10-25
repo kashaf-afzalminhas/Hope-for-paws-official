@@ -20,6 +20,7 @@ class NotificationService {
   async addUserSocket(userId, socketId) {
     const key = userId.toString();
     if (!this.userSockets.has(key)) this.userSockets.set(key, new Set());
+    const wasOffline = this.userSockets.get(key).size === 0;
     this.userSockets.get(key).add(socketId);
     activityTracker.trackUserConnect(userId);
     try {
@@ -33,6 +34,36 @@ class NotificationService {
       );
     } catch (error) {
       console.warn('Failed to update user activity on connect:', error.message);
+    }
+    // First tab/device opened: tell their chat partners they are online
+    if (wasOffline) await this.broadcastPresence(key, 'online');
+  }
+
+  // True while the user has at least one open tab/device
+  isOnline(userId) {
+    const sockets = this.userSockets.get(String(userId));
+    return Boolean(sockets && sockets.size > 0);
+  }
+
+  // Sends { userId, status, lastActive } to everyone who has a conversation with this user,
+  // so the chat screen can update the Online/Offline label without a refresh.
+  async broadcastPresence(userId, status) {
+    if (!this.io) return;
+    try {
+      const Conversation = require('../models/Conversation');
+      const conversations = await Conversation.find({ participants: userId }).select('participants').lean();
+      const partners = new Set();
+      for (const c of conversations) {
+        for (const p of c.participants || []) {
+          if (String(p) !== String(userId)) partners.add(String(p));
+        }
+      }
+      const payload = { userId: String(userId), status, lastActive: new Date().toISOString() };
+      for (const partnerId of partners) {
+        this.io.to(partnerId).emit('userStatusChanged', payload);
+      }
+    } catch (error) {
+      console.warn('Failed to broadcast presence:', error.message);
     }
   }
 
@@ -50,12 +81,13 @@ class NotificationService {
     try {
       await User.findByIdAndUpdate(
         userId,
-        { status: 'offline' },
+        { status: 'offline', lastActive: new Date() },
         { new: false }
       );
     } catch (error) {
       console.warn('Failed to update user status on disconnect:', error.message);
     }
+    await this.broadcastPresence(key, 'offline');
   }
 
   // Track user heartbeat
