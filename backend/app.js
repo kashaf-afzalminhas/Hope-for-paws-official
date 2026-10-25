@@ -56,40 +56,48 @@ const NotificationService = require('./services/notificationService');
 
 dotenv.config();
 
-// Fail fast on missing configuration instead of starting a half-working server
+// Fail fast on missing configuration instead of starting a half-working server.
+// Never process.exit on Lambda — that becomes a cryptic API Gateway 500 with no CORS headers.
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length > 0) {
   console.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
-  process.exit(1);
+  if (!isLambda) {
+    process.exit(1);
+  }
 }
 if (process.env.NODE_ENV === 'production' &&
     !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
   console.warn('WARNING: Cloudinary is not configured. Uploaded images will be saved on this server\'s disk and lost on redeploy.');
 }
 
-mongoose.connect(process.env.MONGO_URI, {
-  tls: true,
-  serverSelectionTimeoutMS: 30000,
-})
-  .then(async () => {
-    console.log('MongoDB connected successfully');
-    // After a restart nobody is connected yet: clear "online" flags left over from before
-    try {
-      await mongoose.model('User').updateMany({ status: 'online' }, { $set: { status: 'offline' } });
-    } catch (e) {
-      console.warn('Could not reset online statuses:', e.message);
-    }
+// Local/EC2 owns the Mongo connection here. On Lambda, lambda.js ensureDb() connects per warm start.
+if (!isLambda) {
+  const mongoUri = process.env.MONGO_URI || '';
+  const mongoNeedsTls = /(?:^mongodb\+srv:)|(?:[?&]tls=true)|(?:\.docdb\.amazonaws\.com)/i.test(mongoUri);
+  mongoose.connect(mongoUri, {
+    ...(mongoNeedsTls ? { tls: true } : {}),
+    serverSelectionTimeoutMS: 30000,
   })
-  .catch(err => {
-    console.error('Failed to connect MongoDB:', err);
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      stack: err.stack
+    .then(async () => {
+      console.log('MongoDB connected successfully');
+      // After a restart nobody is connected yet: clear "online" flags left over from before
+      try {
+        await mongoose.model('User').updateMany({ status: 'online' }, { $set: { status: 'offline' } });
+      } catch (e) {
+        console.warn('Could not reset online statuses:', e.message);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to connect MongoDB:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
     });
-  });
+}
 
 const app = express();
 
@@ -110,6 +118,8 @@ const ALLOWED_ORIGINS = [
   // Legacy domain kept until DNS/redirects fully cut over
   'https://www.hopeforpaws.club',
   'https://hopeforpaws.club',
+  // Production frontend URL from Lambda/env (no trailing slash)
+  ...(process.env.FRONTEND_URL ? [String(process.env.FRONTEND_URL).replace(/\/$/, '')] : []),
   ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 ];
 // HTTP + Socket.IO only outside Lambda (API Gateway handles HTTP there)
