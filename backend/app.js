@@ -208,16 +208,20 @@ if (io) {
   });
 }
 
-// Add timeout middleware
-app.use((req, res, next) => {
-  // Set timeout to 30 seconds
-  // Uploads (multipart) get longer, since several images may be sent on to Cloudinary
-  const isUpload = (req.headers['content-type'] || '').startsWith('multipart/form-data');
-  req.setTimeout(isUpload ? 120000 : 30000, () => {
-    res.status(504).json({ message: 'Request timeout' });
+// Request timeout — only for real Node HTTP servers. serverless-http mocks often have no setTimeout
+// and calling it crashes every route with a generic 500 on Lambda.
+if (!isLambda) {
+  app.use((req, res, next) => {
+    // Uploads (multipart) get longer, since several images may be sent on to Cloudinary
+    const isUpload = (req.headers['content-type'] || '').startsWith('multipart/form-data');
+    if (typeof req.setTimeout === 'function') {
+      req.setTimeout(isUpload ? 120000 : 30000, () => {
+        res.status(504).json({ message: 'Request timeout' });
+      });
+    }
+    next();
   });
-  next();
-});
+}
 
 // Helmet: HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
 app.use(helmet({
@@ -268,6 +272,18 @@ const corsOptions = {
 
 // Apply CORS middleware (it also answers OPTIONS preflight requests)
 app.use(cors(corsOptions));
+// Shared options so API Gateway / serverless never trip express-rate-limit IP validations into a 500
+const rateLimitIpOptions = {
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false, trustProxy: false },
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length) return forwarded.split(',')[0].trim();
+    return req.ip || req.socket?.remoteAddress || 'anonymous';
+  },
+};
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // Increased from 1000 to 5000 requests per windowMs
@@ -275,8 +291,7 @@ const limiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
   skip: (req) => {
     // Skip rate limiting for health checks and test endpoints
     return req.path === '/health' || 
@@ -297,8 +312,7 @@ const socialLimiter = rateLimit({
     error: 'Too many social actions. Please slow down.',
     retryAfter: '1 minute'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use('/api/posts/:id/like', socialLimiter);
 
@@ -311,8 +325,7 @@ const authLoginLimiter = rateLimit({
     message: 'Too many login attempts. Please try again in 15 minutes.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use(['/auth/signin', '/auth/login', '/auth/login-google', '/auth/complete-google-registration', '/auth/change-password'], authLoginLimiter);
 app.use('/api/comments', socialLimiter);
@@ -325,8 +338,7 @@ const adoptionWriteLimiter = rateLimit({
     error: 'Too many adoption creation or request actions. Please try again after 15 minutes.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use('/api/adoptions', (req, res, next) => {
   if (req.method === 'POST') {
@@ -454,12 +466,17 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ message: tooBig ? 'File too large' : (err.message || 'Image upload failed') });
   }
 
-  // Handle other errors. Internal error details are never sent to users in production.
+  // Handle other errors. Internal error details are never sent to users in production
+  // (except a short message on Lambda so CloudWatch + clients can diagnose without logs).
   const status = err.status || err.statusCode || 500;
   const isDev = process.env.NODE_ENV === 'development';
+  const exposeDetail = isDev || isLambda;
   res.status(status).json({
-    message: status < 500 ? (err.message || 'Bad request') : (isDev ? err.message : 'Something went wrong!'),
-    ...(isDev ? { error: err } : {})
+    message: status < 500
+      ? (err.message || 'Bad request')
+      : (exposeDetail ? (err.message || 'Something went wrong!') : 'Something went wrong!'),
+    ...(isDev ? { error: err } : {}),
+    ...(isLambda && status >= 500 ? { code: err.code || err.name || 'ERROR' } : {})
   });
 });
 
