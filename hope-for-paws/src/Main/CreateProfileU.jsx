@@ -20,7 +20,7 @@ import SellerOrders from '../marketplace/SellerOrders';
 import SellerAnalyticsDashboard from '../Components/SellerAnalyticsDashboard';
 import MyOrdersPage from '../marketplace/BuyerOrders';
 import MyPosts from './MyPosts';
-import PhoneNumberInput, { getFullPhoneNumber } from '../Components/PhoneNumberInput';
+import PhoneNumberInput, { getFullPhoneNumber, parsePhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
 import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 
 // Simple Toast component

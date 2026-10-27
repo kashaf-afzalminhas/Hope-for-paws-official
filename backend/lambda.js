@@ -27,12 +27,18 @@ const loadAllowedOrigins = () => {
     const { ALLOWED_ORIGINS } = require('./config/allowedOrigins');
     for (const o of ALLOWED_ORIGINS || []) origins.add(o);
   } catch (_) {
-    /* ignore — defaults are enough for CORS */
+    /* defaults are enough */
   }
   const frontend = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
   if (frontend) origins.add(frontend);
+  // Also allow www/non-www twin of FRONTEND_URL
+  if (frontend.startsWith('https://www.')) {
+    origins.add(frontend.replace('https://www.', 'https://'));
+  } else if (frontend.startsWith('https://')) {
+    origins.add(frontend.replace('https://', 'https://www.'));
+  }
   for (const o of (process.env.CORS_ORIGINS || '').split(',')) {
-    const trimmed = o.trim();
+    const trimmed = o.trim().replace(/\/$/, '');
     if (trimmed) origins.add(trimmed);
   }
   return [...origins];
@@ -42,6 +48,7 @@ const ALLOWED_ORIGINS = loadAllowedOrigins();
 
 let cachedHandler = null;
 let appLoadError = null;
+let lastDbError = null;
 
 const getHeader = (headers = {}, name) => {
   const target = name.toLowerCase();
@@ -82,28 +89,43 @@ const getPath = (event) =>
 const getMethod = (event) =>
   event?.requestContext?.http?.method || event?.httpMethod || 'GET';
 
+const withTimeout = (promise, ms, label) => {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`${label} timed out after ${ms}ms`);
+      err.code = 'ETIMEDOUT';
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
+/** Lambda has no CA files on disk; DocumentDB tlsCAFile=... paths break connect. */
+const sanitizeMongoUri = (uri = '') =>
+  String(uri)
+    .replace(/([?&])tlsCAFile=[^&]*/gi, '$1')
+    .replace(/([?&])sslCAFile=[^&]*/gi, '$1')
+    .replace(/[?&]$/, '')
+    .replace(/\?&/, '?')
+    .replace(/&&+/g, '&');
+
 const mongoNeedsTls = (uri = '') =>
   /(?:^mongodb\+srv:)|(?:[?&]tls=true)|(?:\.docdb\.amazonaws\.com)/i.test(uri);
 
+const resetMongo = async () => {
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close(true);
+    }
+  } catch (err) {
+    console.warn('mongo reset failed:', err.message);
+  }
+};
+
 const ensureDb = async () => {
-  if (mongoose.connection.readyState === 1) return;
-  if (mongoose.connection.readyState === 2) {
-    await new Promise((resolve, reject) => {
-      const onConnected = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = (err) => {
-        cleanup();
-        reject(err);
-      };
-      const cleanup = () => {
-        mongoose.connection.off('connected', onConnected);
-        mongoose.connection.off('error', onError);
-      };
-      mongoose.connection.on('connected', onConnected);
-      mongoose.connection.on('error', onError);
-    });
+  if (mongoose.connection.readyState === 1) {
+    lastDbError = null;
     return;
   }
 
@@ -111,18 +133,32 @@ const ensureDb = async () => {
     throw new Error('MONGO_URI environment variable is not set on this Lambda');
   }
 
-  const uri = process.env.MONGO_URI;
-  await mongoose.connect(uri, {
-    ...(mongoNeedsTls(uri) ? { tls: true } : {}),
-    serverSelectionTimeoutMS: 10000,
-  });
+  // Avoid waiting forever on a stuck "connecting" state from a prior invoke
+  if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) {
+    await resetMongo();
+  }
+
+  const uri = sanitizeMongoUri(process.env.MONGO_URI);
+  try {
+    await mongoose.connect(uri, {
+      ...(mongoNeedsTls(uri) ? { tls: true } : {}),
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+      maxPoolSize: 5,
+    });
+    lastDbError = null;
+  } catch (err) {
+    lastDbError = String(err?.message || err);
+    await resetMongo();
+    throw err;
+  }
 };
 
 const getExpressHandler = () => {
   if (cachedHandler) return cachedHandler;
 
   try {
-    // Lazy-load so OPTIONS/health still work if Express fails to boot
     const app = require('./app');
     cachedHandler = serverless(app, {
       provider: 'aws',
@@ -140,6 +176,19 @@ const getExpressHandler = () => {
     console.error('Failed to load Express app:', err);
     throw err;
   }
+};
+
+const mergeCors = (event, result) => {
+  if (!result || typeof result !== 'object') {
+    return jsonResponse(event, 500, { message: 'Invalid handler response' });
+  }
+  const corsHeaders = buildCorsHeaders(event);
+  const statusCode = result.statusCode || result.status || 200;
+  return {
+    ...result,
+    statusCode,
+    headers: { ...(result.headers || {}), ...corsHeaders },
+  };
 };
 
 exports.handler = async (event, context) => {
@@ -163,32 +212,43 @@ exports.handler = async (event, context) => {
       status: 'OK',
       runtime: 'lambda',
       handler: 'lambda.handler',
-      commitHint: 'lazy-app-load',
+      commitHint: 'mongo-timeout-cors-v2',
       hasMongoUri: Boolean(process.env.MONGO_URI),
       hasJwtSecret: Boolean(process.env.JWT_SECRET),
       mongoReadyState: mongoose.connection.readyState,
       appLoaded: Boolean(cachedHandler),
       appLoadError: appLoadError ? String(appLoadError.message || appLoadError) : null,
+      lastDbError,
+      allowedOriginCount: ALLOWED_ORIGINS.length,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
   }
 
   try {
-    await ensureDb();
+    // Hard cap so API Gateway never synthesizes a CORS-less 500 on timeout
+    const remaining = typeof context.getRemainingTimeInMillis === 'function'
+      ? context.getRemainingTimeInMillis()
+      : 25000;
+    const budget = Math.max(3000, Math.min(12000, remaining - 2000));
+
+    await withTimeout(ensureDb(), Math.min(6000, budget), 'MongoDB connect');
     const handler = getExpressHandler();
-    const result = await handler(event, context);
-    const corsHeaders = buildCorsHeaders(event);
-    result.headers = { ...(result.headers || {}), ...corsHeaders };
-    if (!result.statusCode && result.status) {
-      // some wrappers use `status`
-      result.statusCode = result.status;
-    }
-    return result;
+    const result = await withTimeout(
+      handler(event, context),
+      Math.max(2000, budget - 1000),
+      'Request handler'
+    );
+    return mergeCors(event, result);
   } catch (err) {
     console.error('Lambda handler error:', err);
-    return jsonResponse(event, 500, {
-      message: 'Something went wrong!',
+    const isDb = /mongo|MONGO_URI|server selection|ECONNREFUSED|ENOTFOUND|timed out/i.test(
+      String(err?.message || err)
+    );
+    return jsonResponse(event, isDb ? 503 : 500, {
+      message: isDb
+        ? 'Database is unavailable. Please try again shortly.'
+        : 'Something went wrong!',
       error: String(err?.message || err),
     });
   }

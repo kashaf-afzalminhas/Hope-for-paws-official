@@ -21,10 +21,11 @@ export default defineConfig({
     host: 'localhost',
     port: 5173,
     strictPort: true,
-    // Google Identity Services on http://localhost needs a usable Referrer; COOP must allow the GIS popup
+    // Google Identity Services on http://localhost: avoid COOP blocking GIS postMessage;
+    // Referrer must not be stripped or GSI rejects the origin.
     headers: {
       'Referrer-Policy': 'no-referrer-when-downgrade',
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
     },
   },
 })

@@ -233,8 +233,7 @@ app.use(helmet({
         "https://hopeforpawshub.co",
         "https://www.hopeforpawshub.co",
         "https://api.hopeforpawshub.co",
-        "https://www.hopeforpaws.club",
-        "https://hopeforpaws.club",
+      
         "http://localhost:5173",
         "http://localhost:5174",
         "ws://localhost:5173",

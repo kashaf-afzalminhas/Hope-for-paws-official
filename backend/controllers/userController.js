@@ -451,6 +451,14 @@ const googleLogins = async (req, res) => {
           ...(isDev && { detail: verifyErr.message })
         });
       }
+      // Usually: PC clock ahead of real time, or a stale Google ID token
+      if (/token used too late/i.test(verifyErr.message || '')) {
+        return res.status(401).json({
+          message:
+            'Google sign-in failed because this computer\'s clock is out of sync (or the sign-in expired). Turn on "Set time automatically" in Windows Date & time settings, then try again.',
+          ...(isDev && { detail: verifyErr.message })
+        });
+      }
       // Wrong audience (client ID mismatch), expired token, malformed token, etc.
       return res.status(401).json({
         message: 'Google sign-in could not be verified.',

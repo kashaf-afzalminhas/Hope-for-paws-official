@@ -491,6 +491,10 @@ const Login = () => {
                 <GoogleLogin
                   onSuccess={(response) => googleLoginHandler(response)}
                   onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
+                  useOneTap={false}
+                  auto_select={false}
+                  use_fedcm_for_button={false}
+                  use_fedcm_for_prompt={false}
                   theme="filled_blue"
                   shape="pill"
                   size="large"

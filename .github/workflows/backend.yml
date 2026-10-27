@@ -123,15 +123,22 @@ jobs:
           set_if("stripe_publishable_key")
           set_if("ABSTRACT_API_KEY")
 
-          # Always allow the production frontend origin(s) for browser CORS
+          # Always allow apex + www for browser CORS (users hit both)
           frontend = (os.environ.get("FRONTEND_URL") or "").rstrip("/")
           extra = []
           if frontend:
               extra.append(frontend)
+              if frontend.startswith("https://www."):
+                  extra.append(frontend.replace("https://www.", "https://", 1))
+              elif frontend.startswith("https://"):
+                  extra.append(frontend.replace("https://", "https://www.", 1))
           for o in ("https://hopeforpawshub.co", "https://www.hopeforpawshub.co"):
               if o not in extra:
                   extra.append(o)
-          current["CORS_ORIGINS"] = ",".join(extra)
+          current["CORS_ORIGINS"] = ",".join(dict.fromkeys(extra))
+          # Prefer apex for email links, but keep whatever was set
+          if not current.get("FRONTEND_URL"):
+              current["FRONTEND_URL"] = "https://www.hopeforpawshub.co"
 
           print(json.dumps({"Variables": current}))
           PY
