@@ -18,7 +18,7 @@ const MAX_IMAGES = 5;
 const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
-const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
+const AdoptionSelect = ({ value, options, placeholder, onChange, error, showPlaceholderOption = true }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef(null);
 
@@ -44,9 +44,11 @@ const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
       </button>
       {isOpen && (
         <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#e8dcc8] bg-white py-1 text-[#4E3B31] shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
-            {placeholder}
-          </button>
+          {showPlaceholderOption && (
+            <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+              {placeholder}
+            </button>
+          )}
           {options.map((option) => (
             <button type="button" role="option" aria-selected={value === option.value} key={option.value} onClick={() => { onChange(option.value); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
               {option.label}
@@ -63,7 +65,8 @@ AdoptionSelect.propTypes = {
   options: PropTypes.arrayOf(PropTypes.shape({ value: PropTypes.string.isRequired, label: PropTypes.string.isRequired })).isRequired,
   placeholder: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
-  error: PropTypes.string
+  error: PropTypes.string,
+  showPlaceholderOption: PropTypes.bool
 };
 
 const AdoptionForm = () => {
@@ -538,7 +541,8 @@ const AdoptionForm = () => {
                 <AdoptionSelect
                   value={ageUnit}
                   options={AGE_UNIT_OPTIONS}
-                  placeholder="Unit"
+                  placeholder="Years"
+                  showPlaceholderOption={false}
                   onChange={(val) => setAgeUnit(normalizeAgeUnit(val || 'years'))}
                 />
               </div>
