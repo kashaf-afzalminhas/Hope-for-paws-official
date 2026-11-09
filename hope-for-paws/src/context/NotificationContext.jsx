@@ -154,7 +154,7 @@ export const NotificationProvider = ({ children }) => {
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
               new Notification(notification.title, {
                 body: notification.message,
-                icon: '/hfplogo.png'
+                icon: '/hfplogo-solid.png'
               });
             }
 

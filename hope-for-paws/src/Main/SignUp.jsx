@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
-import Paws from '/Hopeforpaws.jpg';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
-import { motion } from "framer-motion";
+
+const AUTH_BRAND = '/auth-brand.png';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
 import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
@@ -27,15 +27,6 @@ const SignUp = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 120 }
-    }
-  };
 
   const performPostLoginRedirect = (userObj) => {
     const savedRedirect = (() => {
@@ -283,18 +274,18 @@ const SignUp = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md overflow-hidden">
-        {/* Logo Section with full-width beige background */}
-        <div className="w-full h-72 bg-[#F8F4ED] py-6 mb-2 flex flex-col items-center">
+        {/* Logo Section — fills the entire top block */}
+        <div className="w-full h-72 bg-[#8B5E34] relative overflow-hidden">
           <img
-            className="w-full h-72 max-w-sm:max-w-md object-cover"
-            src={Paws}
-            alt="Hope For Paws Logo"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            src={`${AUTH_BRAND}?v=2`}
+            alt="Hopeforpaws"
           />
         </div>
 
         {/* Form Section */}
         <div className="p-6">
-          <h2 className="text-xl font-extrabold text-black mb-6 mt-6 text-center">Create Your Account</h2>
+          <h2 className="text-xl font-extrabold text-[#4E3B31] mb-6 mt-6 text-center">Create Your Account</h2>
 
           <form onSubmit={handleSubmit}>
             {error && (
@@ -440,25 +431,26 @@ const SignUp = () => {
             </button>
           </form>
 
-          <motion.div variants={itemVariants} className="flex justify-center mt-4">
-              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                  <GoogleLogin
-                    onSuccess={(response) => googleLoginHandler(response)}
-                    onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
-                    useOneTap={false}
-                    auto_select={false}
-                    use_fedcm_for_button={false}
-                    use_fedcm_for_prompt={false}
-                    theme="filled_blue"
-                    shape="pill"
-                    size="large"
-                    text="continue_with"
-                    width="300"
-                    logo_alignment="left"
-                    className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
-                  />
-                </GoogleOAuthProvider>
-              </motion.div>
+          <div className="w-full flex justify-center mt-4">
+            <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+              <div className="w-full max-w-[320px] flex justify-center [&>div]:w-full [&>div]:flex [&>div]:justify-center">
+                <GoogleLogin
+                  onSuccess={(response) => googleLoginHandler(response)}
+                  onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
+                  useOneTap={false}
+                  auto_select={false}
+                  use_fedcm_for_button={false}
+                  use_fedcm_for_prompt={false}
+                  theme="filled_blue"
+                  shape="pill"
+                  size="large"
+                  text="continue_with"
+                  width="320"
+                  logo_alignment="center"
+                />
+              </div>
+            </GoogleOAuthProvider>
+          </div>
 
           <GoogleAccountTypeOnboarding
             open={showUserTypeModal}

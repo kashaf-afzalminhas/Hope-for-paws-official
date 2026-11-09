@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FaUser, FaPaw, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
+import { FaUser, FaTimes, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import NotificationIcon from './NotificationIcon';
 import { useMessages } from '../context/MessageContext';
@@ -54,10 +54,16 @@ const Navbar = ({ handleSignOut }) => {
     <>
       <nav className="bg-[#F8F4ED] p-3 sm:p-4 lg:p-6 flex flex-wrap justify-between items-center relative shadow-md">
         {/* Logo Section */}
-        <div className="flex items-center space-x-1 md:space-x-2">
-          <FaPaw className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#a07855]" />
-          <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#a07855]">HopeForPaws</span>
-        </div>
+        <NavLink to="/" className="flex items-center shrink-0" aria-label="Hopeforpaws home" onClick={closeMobileMenu}>
+          <img
+            src="/hfplogo-512.png"
+            alt="Hopeforpaws"
+            className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-xl object-cover shadow-sm"
+          />
+          <span className="ml-2 text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#a07855] hidden xs:inline sm:inline">
+            Hopeforpaws
+          </span>
+        </NavLink>
 
         {/* Mobile Header Right Section */}
         <div className="md:hidden flex items-center space-x-2 sm:space-x-3">
@@ -298,7 +304,11 @@ const Navbar = ({ handleSignOut }) => {
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#a07855]">
             <div className="flex items-center space-x-2">
-              <FaPaw className="text-xl sm:text-2xl text-[#a07855]" />
+              <img
+                src="/hfplogo-512.png"
+                alt=""
+                className="h-8 w-8 rounded-lg object-cover"
+              />
               <span className="text-lg sm:text-xl font-bold text-[#a07855]">Menu</span>
             </div>
             <button

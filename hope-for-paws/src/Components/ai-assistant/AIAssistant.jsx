@@ -37,34 +37,34 @@ const AIAssistant = () => {
         onClick={toggleAssistant}
         className={`fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full 
                     shadow-lg hover:shadow-xl transition-all duration-300 ease-out
-                    flex items-center justify-center group
+                    flex items-center justify-center group overflow-hidden
                     ${isOpen 
-                      ? 'bg-brown-800 hover:bg-brown-700 rotate-0' 
-                      : 'bg-brown-600 hover:bg-brown-700 hover:scale-110'
+                      ? 'bg-brown-800 hover:bg-brown-700 rounded-full' 
+                      : 'bg-transparent hover:scale-110 rounded-2xl shadow-lg'
                     }`}
         aria-label={isOpen ? 'Close Hopeforpaws Assistant' : 'Open Hopeforpaws Assistant'}
       >
-        {/* Pulse ring when closed */}
         {!isOpen && (
-          <span className="absolute inline-flex h-full w-full rounded-full bg-brown-400 opacity-20 animate-ping" />
+          <span className="absolute inline-flex h-full w-full rounded-2xl bg-[#a07855] opacity-20 animate-ping" />
         )}
-        
-        {/* Icon */}
-        <svg
-          className={`w-6 h-6 text-white transition-transform duration-300 ${
-            isOpen ? 'rotate-90 scale-90' : 'group-hover:scale-110'
-          }`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          {isOpen ? (
+
+        {isOpen ? (
+          <svg
+            className="w-6 h-6 text-white transition-transform duration-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-          )}
-        </svg>
+          </svg>
+        ) : (
+          <img
+            src="/hfplogo-512.png"
+            alt=""
+            className="w-full h-full rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
       </button>
 
       {/* Chat Window */}

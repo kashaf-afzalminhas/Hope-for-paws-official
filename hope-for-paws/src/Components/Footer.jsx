@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { FaLinkedin, FaInstagram, FaEnvelope, FaPaw } from 'react-icons/fa';
+import { FaLinkedin, FaInstagram, FaEnvelope } from 'react-icons/fa';
 
 const Footer = () => {
   return (
@@ -8,14 +8,15 @@ const Footer = () => {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
           
-          {/* Logo Section - Enhanced with better styling */}
+          {/* Logo Section */}
           <div className="flex items-center space-x-3 group">
-            <div className="relative">
-              <FaPaw className="text-xl md:text-2xl text-[#6b493d] group-hover:text-[#a07855] transition-colors duration-300" />
-              <div className="absolute inset-0 bg-[#a07855]/10 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300"></div>
-            </div>
+            <img
+              src="/hfplogo-512.png"
+              alt="Hopeforpaws"
+              className="h-9 w-9 md:h-10 md:w-10 rounded-xl object-cover shadow-sm transition"
+            />
             <span className="text-base md:text-lg font-bold text-[#4E3B31] group-hover:text-[#6b493d] transition-colors duration-300">
-              HopeForPaws
+              Hopeforpaws
             </span>
           </div>
           
