@@ -37,7 +37,7 @@ router.post('/:postId', auth, async (req, res) => {
     }
     
     const populatedComment = await Comment.findById(comment._id)
-      .populate('userId', 'username isVeterinarian');
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     res.status(201).json(populatedComment);
   } catch (error) {
@@ -81,7 +81,7 @@ router.post('/:postId/comments', auth, async (req, res) => {
 
     // Optionally populate user
     const populatedComment = await Comment.findById(comment._id)
-      .populate('userId', 'username isVeterinarian');
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     res.status(201).json(populatedComment);
   } catch (error) {
@@ -123,7 +123,7 @@ router.get('/:postId/comments', async (req, res) => {
   try {
     const postId = req.params.postId;
     const comments = await Comment.find({ postId })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: 1 });
 
     // Organize comments into threads (one level deep)

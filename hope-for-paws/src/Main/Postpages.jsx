@@ -168,14 +168,21 @@ const Postpages = () => {
             <h2 className="text-lg font-bold text-ink font-heading">
               {animal.name}
             </h2>
-            {animal.user && <UserBadge userType={animal.user.userType} />}
           </div>
 
           <p
-            className={`text-clay text-sm mt-1 font-body ${animal.user?._id ? 'cursor-pointer hover:underline' : ''}`}
+            className={`text-clay text-sm mt-1 font-body inline-flex flex-wrap items-center gap-1.5 ${animal.user?._id ? 'cursor-pointer hover:underline' : ''}`}
             onClick={() => animal.user?._id && handleUserProfileClick(animal.user._id)}
           >
             Posted by {animal.user?.username || 'Anonymous'}
+            {animal.user && (
+              <UserBadge
+                userType={animal.user.userType}
+                isVeterinarian={Boolean(animal.user.isVeterinarian)}
+                isNgo={Boolean(animal.user.isNgo)}
+                ngoVerified={Boolean(animal.user.ngoVerified)}
+              />
+            )}
           </p>
 
           <div className="flex items-center gap-2 mt-3 text-xs font-body">
@@ -224,7 +231,14 @@ const Postpages = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-ink">{comment.user?.username || 'Anonymous'}</span>
-                        {comment.user && <UserBadge userType={comment.user.userType} />}
+                        {comment.user && (
+                          <UserBadge
+                            userType={comment.user.userType}
+                            isVeterinarian={Boolean(comment.user.isVeterinarian)}
+                            isNgo={Boolean(comment.user.isNgo)}
+                            ngoVerified={Boolean(comment.user.ngoVerified)}
+                          />
+                        )}
                       </div>
                       <p className="text-ink-soft mt-0.5 break-words">{comment.text}</p>
                     </div>

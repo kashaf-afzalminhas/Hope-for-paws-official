@@ -227,6 +227,21 @@ export const adminAPI = {
     cache.delete('admin-all-adoption-requests');
   },
 
+  async updateNgoVerification(userId, verified) {
+    const token = getToken();
+    if (!token) throw new Error('No authentication token');
+    const response = await apiFetch(`${API_BASE_URL}/admin/ngos/${userId}/verification`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ verified: Boolean(verified) }),
+    });
+    cache.delete('admin-users-with-stats');
+    return response;
+  },
+
   // Clear all cache
   clearCache() {
     cache.clear();

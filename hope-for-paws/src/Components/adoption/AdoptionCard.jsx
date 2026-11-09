@@ -15,6 +15,8 @@ import {
   formatAdoptionDate,
 } from './adoptionTheme.js';
 import ShareLinkButton from '../ShareLinkButton';
+import { formatPetAge } from '../../utils/formatPetAge';
+import UserBadge from '../UserBadge';
 
 const HealthChip = ({ label, className }) => (
   <span
@@ -103,10 +105,11 @@ const AdoptionCard = ({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {post?.breed && <span className={adoptionTagMutedClass}>{post.breed}</span>}
           {post?.age != null && post.age !== '' && (
-            <span className="text-sm font-medium text-[#8B5A2B]">{post.age} old</span>
+            <span className="text-sm font-medium text-[#8B5A2B]">
+              {formatPetAge(post.age, post.ageUnit)}
+            </span>
           )}
         </div>
-
         {showHealth && (post?.vaccinated || post?.neuteredSpayed) && (
           <div className="mb-3 flex flex-wrap gap-2">
             {post.vaccinated && (
@@ -150,21 +153,30 @@ const AdoptionCard = ({
                   {(poster.username || 'U').charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="truncate">
-                Posted by{' '}
-                {poster.profileId ? (
-                  <Link
-                    to={`/profile/public/${poster.profileId}`}
-                    className="font-semibold text-[#6b493d] hover:underline underline-offset-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!requireAuth('view this user\'s profile')) e.preventDefault();
-                    }}
-                  >
-                    {poster.username || 'Anonymous'}
-                  </Link>
-                ) : (
-                  <span className="font-semibold text-[#6b493d]">{poster.username || 'Anonymous'}</span>
+              <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="truncate">
+                  Posted by{' '}
+                  {poster.profileId ? (
+                    <Link
+                      to={`/profile/public/${poster.profileId}`}
+                      className="font-semibold text-[#6b493d] hover:underline underline-offset-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!requireAuth('view this user\'s profile')) e.preventDefault();
+                      }}
+                    >
+                      {poster.username || 'Anonymous'}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-[#6b493d]">{poster.username || 'Anonymous'}</span>
+                  )}
+                </span>
+                {(post?.userId?.isNgo || poster?.isNgo) && (
+                  <UserBadge
+                    isNgo
+                    ngoVerified={Boolean(post?.userId?.ngoVerified || poster?.ngoVerified)}
+                    size="sm"
+                  />
                 )}
               </span>
             </div>
@@ -226,6 +238,8 @@ AdoptionCard.propTypes = {
     profileId: PropTypes.string,
     username: PropTypes.string,
     avatarUrl: PropTypes.string,
+    isNgo: PropTypes.bool,
+    ngoVerified: PropTypes.bool,
     onChat: PropTypes.func,
   }),
   meta: PropTypes.node,

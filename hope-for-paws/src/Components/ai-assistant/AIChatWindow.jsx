@@ -120,7 +120,7 @@ const AIChatWindow = () => {
             </svg>
           </div>
           <div>
-            <h3 className="font-semibold text-sm">HopeForPaws Assistant</h3>
+            <h3 className="font-semibold text-sm">Hopeforpaws Assistant</h3>
             <p className="text-[11px] text-white/70">
               {user ? `Hi, ${user.username}!` : 'Ask me anything'}
             </p>

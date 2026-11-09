@@ -226,13 +226,17 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Hard cap so API Gateway never synthesizes a CORS-less 500 on timeout
+    // Hard cap so API Gateway never synthesizes a CORS-less 500 on timeout.
+    // Auth (especially Google) needs a larger budget for cold starts + token verify.
     const remaining = typeof context.getRemainingTimeInMillis === 'function'
       ? context.getRemainingTimeInMillis()
       : 25000;
-    const budget = Math.max(3000, Math.min(12000, remaining - 2000));
+    const isAuthHeavy =
+      /\/auth\/(login-google|complete-google-registration|signin|login)\b/i.test(path);
+    const maxBudget = isAuthHeavy ? 22000 : 12000;
+    const budget = Math.max(3000, Math.min(maxBudget, remaining - 1500));
 
-    await withTimeout(ensureDb(), Math.min(6000, budget), 'MongoDB connect');
+    await withTimeout(ensureDb(), Math.min(isAuthHeavy ? 8000 : 6000, budget), 'MongoDB connect');
     const handler = getExpressHandler();
     const result = await withTimeout(
       handler(event, context),

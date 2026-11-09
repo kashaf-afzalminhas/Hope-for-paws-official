@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getAllUsersForAdmin, getAllUsersWithStats, getUserStats, deleteUser, getAllAdoptionsForAdmin, getUserAdoptionsForAdmin, deleteAdoptionForAdmin, getAllPostsForAdmin, getUserPostsForAdmin, deletePostForAdmin, getAllCommentsForAdmin, getUserCommentsForAdmin, getPostCommentsForAdmin, deleteCommentForAdmin, getAllAdoptionRequestsForAdmin, getUserAdoptionRequestsForAdmin, deleteAdoptionRequestForAdmin } = require('../controllers/adminController');
+const { getAllUsersForAdmin, getAllUsersWithStats, getUserStats, deleteUser, updateNgoVerification, getAllAdoptionsForAdmin, getUserAdoptionsForAdmin, deleteAdoptionForAdmin, getAllPostsForAdmin, getUserPostsForAdmin, deletePostForAdmin, getAllCommentsForAdmin, getUserCommentsForAdmin, getPostCommentsForAdmin, deleteCommentForAdmin, getAllAdoptionRequestsForAdmin, getUserAdoptionRequestsForAdmin, deleteAdoptionRequestForAdmin } = require('../controllers/adminController');
 
 router.get('/users', getAllUsersForAdmin);
 router.get('/users-with-stats', getAllUsersWithStats);
 router.get('/user-stats/:userId', getUserStats);
 router.delete('/user/:userId', deleteUser);
+router.patch('/ngos/:userId/verification', updateNgoVerification);
 
 // Admin adoptions management
 router.get('/adoptions', getAllAdoptionsForAdmin);

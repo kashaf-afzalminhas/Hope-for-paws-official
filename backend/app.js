@@ -52,6 +52,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const promoRoutes = require('./routes/promoRoutes');
+const aiAssistantRoutes = require('./routes/aiAssistantRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
@@ -276,7 +277,7 @@ app.use(cors(corsOptions));
 const rateLimitIpOptions = {
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false, trustProxy: false },
+  validate: { xForwardedForHeader: false, trustProxy: false, keyGeneratorIpFallback: false },
   keyGenerator: (req) => {
     const forwarded = req.headers['x-forwarded-for'];
     if (typeof forwarded === 'string' && forwarded.length) return forwarded.split(',')[0].trim();
@@ -419,6 +420,7 @@ app.use('/api/promos', promoRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ai', aiAssistantRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {

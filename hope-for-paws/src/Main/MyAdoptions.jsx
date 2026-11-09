@@ -14,6 +14,7 @@ import AdoptionRequestsModal from './AdoptionRequestsModal';
 import { getCurrentUserId } from '../lib/utils';
 import AdoptionCard from '../Components/adoption/AdoptionCard.jsx';
 import { adoptionGridClass, adoptionCardShellClass } from '../Components/adoption/adoptionTheme.js';
+import { AGE_UNIT_OPTIONS, normalizeAgeUnit } from '../utils/formatPetAge';
 
 const getAdoptionImages = (post) => (
   post.imageUrls?.length ? post.imageUrls : post.imageUrl ? [post.imageUrl] : []
@@ -21,7 +22,8 @@ const getAdoptionImages = (post) => (
 
 const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
   const [formData, setFormData] = useState({
-    name: post.name || '', age: post.age || '', petType: post.petType || '', breed: post.breed || '',
+    name: post.name || '', age: post.age || '', ageUnit: normalizeAgeUnit(post.ageUnit),
+    petType: post.petType || '', breed: post.breed || '',
     vaccinated: post.vaccinated || '', neuteredSpayed: post.neuteredSpayed || '',
     description: post.description || '', location: post.location || '',
   });
@@ -108,22 +110,51 @@ const AdoptionEditModal = ({ post, onClose, onSave, saving = false }) => {
             <p className="text-xs text-[#bca18a]">Select one photo or several photos together. You can remove any photo before saving.</p>
             {imageError && <p className="text-xs font-medium text-red-600">{imageError}</p>}
           </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Pet name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+              className="w-full rounded-xl border border-sand px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#4E3B31]">Age</label>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                min="0"
+                value={formData.age}
+                onChange={(event) => {
+                  setFormData({ ...formData, age: event.target.value });
+                  setAgeError('');
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay ${ageError ? 'border-red-400' : 'border-sand'}`}
+              />
+              <select
+                value={formData.ageUnit}
+                onChange={(event) => setFormData({ ...formData, ageUnit: normalizeAgeUnit(event.target.value) })}
+                className="min-w-[8.5rem] rounded-xl border border-sand bg-white px-3 py-2 text-ink"
+              >
+                {AGE_UNIT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            {ageError && <p className="mt-1 text-xs font-medium text-red-600">{ageError}</p>}
+          </div>
           {[
-            ['name', 'Pet name'], ['age', 'Age'], ['breed', 'Breed'], ['location', 'Location'],
+            ['breed', 'Breed'], ['location', 'Location'],
           ].map(([name, label]) => (
             <div key={name}>
               <label className="mb-1 block text-sm font-medium text-[#4E3B31]">{label}</label>
               <input
-                type={name === 'age' ? 'number' : 'text'}
-                min={name === 'age' ? '0' : undefined}
+                type="text"
                 value={formData[name]}
-                onChange={(event) => {
-                  setFormData({ ...formData, [name]: event.target.value });
-                  if (name === 'age') setAgeError('');
-                }}
-                className={`w-full rounded-xl border px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay ${name === 'age' && ageError ? 'border-red-400' : 'border-sand'}`}
+                onChange={(event) => setFormData({ ...formData, [name]: event.target.value })}
+                className="w-full rounded-xl border border-sand px-3 py-2 text-ink focus:border-clay focus:outline-none focus:ring-1 focus:ring-clay"
               />
-              {name === 'age' && ageError && <p className="mt-1 text-xs font-medium text-red-600">{ageError}</p>}
             </div>
           ))}
           <div className="grid grid-cols-2 gap-3">
@@ -146,6 +177,7 @@ const MyAdoptions = ({ embedded = false }) => {
   const [editData, setEditData] = useState({
     name: '',
     age: '',
+    ageUnit: 'years',
     petType: '',
     breed: '',
     vaccinated: '',
@@ -285,6 +317,7 @@ const MyAdoptions = ({ embedded = false }) => {
     const postData = {
       name: post.name,
       age: post.age,
+      ageUnit: normalizeAgeUnit(post.ageUnit),
       petType: post.petType,
       breed: post.breed || '',
       vaccinated: post.vaccinated || '',

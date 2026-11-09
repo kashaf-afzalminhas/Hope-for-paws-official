@@ -1,4 +1,5 @@
 import VerifiedBadge from "../Components/VerifiedBadge";
+import UserBadge from "../Components/UserBadge";
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
@@ -236,11 +237,13 @@ const ProfilePage = () => {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
     if (userData) {
-      // Convert isVeterinarian to userType for display
+      // Convert role flags to userType for display
       const getUserType = (user) => {
-        if (user.userType) return user.userType;
-        if (user.isSeller) return 'Seller';
-        if (user.isVeterinarian) return 'Veterinarian';
+        if (user.isNgo) return 'NGO';
+        if (user.userType === 'ngo') return 'NGO';
+        if (user.isSeller || user.userType === 'seller') return 'Seller';
+        if (user.isVeterinarian || user.userType === 'veterinarian') return 'Veterinarian';
+        if (user.userType && user.userType !== 'user') return user.userType;
         return 'Regular User';
       };
 
@@ -271,6 +274,8 @@ const ProfilePage = () => {
         location: savedLocation,
         about: userData.about || '',
         userType: getUserType(userData),
+        isNgo: Boolean(userData.isNgo),
+        ngoVerified: Boolean(userData.ngoVerified),
         // userType: userData.userType,
         profileImage: userData.profileImage || '',
         notificationPreferences: userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES
@@ -321,13 +326,41 @@ const ProfilePage = () => {
         const userData = response.data.data;
         const notificationPreferences = userData.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
 
+        const resolvedType = userData.isNgo
+          ? 'NGO'
+          : userData.isSeller || userData.userType === 'seller'
+            ? 'Seller'
+            : userData.isVeterinarian
+              ? 'Veterinarian'
+              : prev.userType || 'Regular User';
+
         setProfile(prev => ({
           ...prev,
           profileImage: userData.profileImage || '',
           isVerified: userData.sellerDetails?.isVerified || false,
+          isNgo: Boolean(userData.isNgo),
+          ngoVerified: Boolean(userData.ngoVerified),
+          userType: resolvedType,
           notificationPreferences,
           location: userData.sellerDetails?.location || userData.location || prev.location
         }));
+
+        // Keep stored session user in sync with server-side verification flags
+        try {
+          const storage = localStorage.getItem('user') ? localStorage : sessionStorage;
+          const stored = JSON.parse(storage.getItem('user') || 'null');
+          if (stored) {
+            const synced = {
+              ...stored,
+              isNgo: Boolean(userData.isNgo),
+              ngoVerified: Boolean(userData.ngoVerified),
+              profileImage: userData.profileImage || stored.profileImage,
+            };
+            storage.setItem('user', JSON.stringify(synced));
+          }
+        } catch {
+          // ignore storage sync errors
+        }
 
         setFormData(prev => ({
           ...prev,
@@ -510,11 +543,13 @@ const ProfilePage = () => {
 
   // Helper to apply profile update response to all local state
   const applyProfileUpdate = (updatedUser) => {
-    // Convert isVeterinarian to userType for display
+    // Convert role flags to userType for display
     const getUserType = (user) => {
-      if (user.userType) return user.userType;
-      if (user.isSeller) return 'Seller';
-      if (user.isVeterinarian) return 'Veterinarian';
+      if (user.isNgo) return 'NGO';
+      if (user.userType === 'ngo') return 'NGO';
+      if (user.isSeller || user.userType === 'seller') return 'Seller';
+      if (user.isVeterinarian || user.userType === 'veterinarian') return 'Veterinarian';
+      if (user.userType && user.userType !== 'user') return user.userType;
       return 'Regular User';
     };
 
@@ -993,6 +1028,7 @@ const ProfilePage = () => {
   const [editAdoptionData, setEditAdoptionData] = useState({
     name: '',
     age: '',
+    ageUnit: 'years',
     petType: '',
     breed: '',
     vaccinated: '',
@@ -1149,6 +1185,7 @@ const ProfilePage = () => {
     const postData = {
       name: post.name,
       age: post.age,
+      ageUnit: post.ageUnit === 'days' || post.ageUnit === 'months' ? post.ageUnit : 'years',
       petType: post.petType,
       breed: post.breed || '',
       vaccinated: post.vaccinated || '',
@@ -1518,7 +1555,12 @@ const ProfilePage = () => {
               )}
 
               <div className="flex items-center justify-center gap-1.5">
-                <h3 className="font-bold text-lg text-[#6b493d]">{profile.name}</h3>
+                <h3 className="font-bold text-lg text-[#6b493d] flex flex-wrap items-center gap-2">
+                  <span>{profile.name}</span>
+                  {profile.isNgo && (
+                    <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="sm" />
+                  )}
+                </h3>
                 {profile.userType === 'Seller' && (
                   <VerifiedBadge isVerified={profile.isVerified} size="md" />
                 )}
@@ -1630,7 +1672,12 @@ const ProfilePage = () => {
                     </div>
                     <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Account type</p>
-                      <p className="mt-2 text-sm font-semibold text-[#4E3B31]">{profile.userType || 'Standard User'}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#4E3B31]">
+                        <span>{profile.userType || 'Standard User'}</span>
+                        {profile.isNgo && (
+                          <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="sm" />
+                        )}
+                      </div>
                     </div>
                     <div className="rounded-2xl border border-[#e8dcc8] bg-white/80 p-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a07855]">Notifications</p>
@@ -1653,7 +1700,12 @@ const ProfilePage = () => {
                     <div className="mt-5 space-y-4">
                       <div className="rounded-2xl bg-[#fcfaf7] p-4">
                         <p className="text-sm text-[#8d7565]">Name</p>
-                        <p className="mt-1 font-semibold text-[#4E3B31]">{profile.name}</p>
+                        <p className="mt-1 font-semibold text-[#4E3B31] inline-flex flex-wrap items-center gap-1.5">
+                          <span>{profile.name}</span>
+                          {profile.isNgo && (
+                            <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="sm" />
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-2xl bg-[#fcfaf7] p-4">
                         <p className="text-sm text-[#8d7565]">Email</p>
@@ -1725,9 +1777,15 @@ const ProfilePage = () => {
                         </span>
                       )
                     )}
+                    {profile.isNgo && (
+                      <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="sm" />
+                    )}
                   </div>
-                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm font-semibold text-[#4E3B31]">
-                    {profile.userType || 'Standard User'}
+                  <div className="mt-4 rounded-2xl bg-[#fcfaf7] p-4 text-sm font-semibold text-[#4E3B31] flex flex-wrap items-center gap-2">
+                    <span>{profile.userType || 'Standard User'}</span>
+                    {profile.isNgo && (
+                      <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="sm" />
+                    )}
                   </div>
                 </div>
               </div>

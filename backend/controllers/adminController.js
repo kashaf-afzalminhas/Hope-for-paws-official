@@ -36,11 +36,12 @@ const getAllUsersForAdmin = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: Admins only' });
     }
     const users = await User.find({}).select(PRIVATE_USER_FIELDS);
-    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller && !u.isNgo);
     const sellers = users.filter(u => u.isSeller && !u.isAdmin);
-    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const ngos = users.filter(u => u.isNgo && !u.isAdmin);
+    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller && !u.isNgo);
     const admins = users.filter(u => u.isAdmin);
-    res.json({ admins, veterinarians, sellers, regularUsers });
+    res.json({ admins, veterinarians, sellers, ngos, regularUsers });
   } catch (error) {
     console.error('Error fetching users for admin:', error);
     sendAdminError(res, error);
@@ -108,7 +109,7 @@ const getAllAdoptionsForAdmin = async (req, res) => {
     const adminUser = await User.findById(decoded.id);
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     const adoptions = await Adoption.find({})
-      .populate('userId', 'username email')
+      .populate('userId', 'username email isNgo ngoVerified')
       .sort({ createdAt: -1 });
     
     const adoptionsWithFallbacks = adoptions.map(ad => {
@@ -345,13 +346,14 @@ const getAllUsersWithStats = async (req, res) => {
     if (!adminUser || !adminUser.isAdmin) return res.status(403).json({ message: 'Admins only' });
     
     const users = await User.find({}).select(PRIVATE_USER_FIELDS);
-    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const veterinarians = users.filter(u => u.isVeterinarian && !u.isAdmin && !u.isSeller && !u.isNgo);
     const sellers = users.filter(u => u.isSeller && !u.isAdmin);
-    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller);
+    const ngos = users.filter(u => u.isNgo && !u.isAdmin);
+    const regularUsers = users.filter(u => !u.isVeterinarian && !u.isAdmin && !u.isSeller && !u.isNgo);
     const admins = users.filter(u => u.isAdmin);
     
     // Get stats for all users in parallel
-    const allUserIds = [...veterinarians, ...sellers, ...regularUsers, ...admins].map(u => u._id);
+    const allUserIds = [...veterinarians, ...sellers, ...ngos, ...regularUsers, ...admins].map(u => u._id);
     
     const statsPromises = allUserIds.map(async (userId) => {
       try {
@@ -386,6 +388,7 @@ const getAllUsersWithStats = async (req, res) => {
       admins, 
       veterinarians, 
       sellers,
+      ngos,
       regularUsers, 
       userStats: statsObject 
     });
@@ -394,6 +397,48 @@ const getAllUsersWithStats = async (req, res) => {
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
     console.error('Error fetching users with stats:', error);
+    sendAdminError(res, error);
+  }
+};
+
+// Admin-only: verify or revoke verification for an NGO account
+const updateNgoVerification = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const adminUser = await User.findById(decoded.id || decoded.userId);
+    if (!adminUser || !adminUser.isAdmin) {
+      return res.status(403).json({ message: 'Access denied: Admins only' });
+    }
+
+    const { userId } = req.params;
+    const verified = req.body?.verified === true || req.body?.verified === 'true';
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    const ngoUser = await User.findById(userId);
+    if (!ngoUser) return res.status(404).json({ message: 'User not found' });
+    if (!ngoUser.isNgo) {
+      return res.status(400).json({ message: 'This account is not registered as an NGO' });
+    }
+
+    ngoUser.ngoVerified = verified;
+    ngoUser.ngoVerifiedAt = verified ? new Date() : null;
+    ngoUser.ngoVerifiedBy = verified ? adminUser._id : null;
+    await ngoUser.save();
+
+    const safe = ngoUser.toObject();
+    delete safe.password;
+
+    res.json({
+      message: verified ? 'NGO verified successfully' : 'NGO verification revoked',
+      user: safe
+    });
+  } catch (error) {
+    console.error('Error updating NGO verification:', error);
     sendAdminError(res, error);
   }
 };
@@ -486,6 +531,7 @@ module.exports = {
   getAllUsersWithStats,
   getUserStats,
   deleteUser,
+  updateNgoVerification,
   getAllAdoptionsForAdmin,
   getUserAdoptionsForAdmin,
   deleteAdoptionForAdmin,

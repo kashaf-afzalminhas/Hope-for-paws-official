@@ -11,6 +11,8 @@ import {
   getPosterProfileId,
 } from './adoptionTheme';
 import ShareLinkButton from '../ShareLinkButton';
+import { formatPetAge } from '../../utils/formatPetAge';
+import UserBadge from '../UserBadge';
 
 const AdoptionDetailsModal = ({
   post,
@@ -156,7 +158,9 @@ const AdoptionDetailsModal = ({
                 {post.petType && <span className={adoptionTagClass}>{post.petType}</span>}
                 {post.breed && <span className={adoptionTagMutedClass}>{post.breed}</span>}
                 {post.age != null && post.age !== '' && (
-                  <span className="text-base font-medium text-[#8B5A2B]">{post.age} old</span>
+                  <span className="text-base font-medium text-[#8B5A2B]">
+                    {formatPetAge(post.age, post.ageUnit)}
+                  </span>
                 )}
               </div>
             </div>
@@ -204,20 +208,25 @@ const AdoptionDetailsModal = ({
                     {(post.userId?.username || 'U').charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="truncate">
-                  Posted by{' '}
-                  {posterProfileId ? (
-                    <Link
-                      to={`/profile/public/${posterProfileId}`}
-                      className="font-semibold text-[#6b493d] hover:underline"
-                      onClick={(e) => { if (!requireAuth('view this user\'s profile')) e.preventDefault(); }}
-                    >
-                      {post.userId?.username || 'Anonymous'}
-                    </Link>
-                  ) : (
-                    <span className="font-semibold text-[#6b493d]">
-                      {post.userId?.username || 'Anonymous'}
-                    </span>
+                <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="truncate">
+                    Posted by{' '}
+                    {posterProfileId ? (
+                      <Link
+                        to={`/profile/public/${posterProfileId}`}
+                        className="font-semibold text-[#6b493d] hover:underline"
+                        onClick={(e) => { if (!requireAuth('view this user\'s profile')) e.preventDefault(); }}
+                      >
+                        {post.userId?.username || 'Anonymous'}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-[#6b493d]">
+                        {post.userId?.username || 'Anonymous'}
+                      </span>
+                    )}
+                  </span>
+                  {post.userId?.isNgo && (
+                    <UserBadge isNgo ngoVerified={Boolean(post.userId?.ngoVerified)} size="sm" />
                   )}
                 </span>
               </div>

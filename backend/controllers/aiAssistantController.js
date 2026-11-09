@@ -55,7 +55,7 @@ const callAIAPI = async (messages) => {
           'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://hopeforpawshub.co',
-          'X-Title': 'HopeForPaws AI Assistant',
+          'X-Title': 'Hopeforpaws Assistant',
         },
         timeout: 30000,
       }
@@ -144,7 +144,7 @@ const getLocalResponse = (messages) => {
   }
 
   if (lastMessage.includes('hello') || lastMessage.includes('hi') || lastMessage.includes('hey')) {
-    return `Hello! I'm the HopeForPaws assistant. I can help with adoption, marketplace, account management, or navigating any feature. What do you need?`;
+    return `Hello! I'm the Hopeforpaws Assistant. I can help with adoption, marketplace, account management, or navigating any feature. What do you need?`;
   }
 
   if (lastMessage.includes('thank')) {

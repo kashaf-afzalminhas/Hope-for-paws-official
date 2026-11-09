@@ -103,8 +103,8 @@ const signUp = async (req, res) => {
     return res.status(400).json({ message: 'All fields (username, email, password, phone) are required' });
   }
 
-  // 2. Validate User Type
-  const finalUserType = userType === 'seller' ? 'seller' : 'user';
+  // 2. Validate User Type (vet is tracked via isVeterinarian, not userType)
+  const finalUserType = userType === 'seller' || userType === 'ngo' ? userType : 'user';
 
   // 3. (Removed) Seller Fields validation is now handled in the onboarding step.
 
@@ -243,6 +243,11 @@ const verifyRegistrationOTP = async (req, res) => {
           user.sellerStatus = 'incomplete';
         }
       }
+      if (tempUser.userType === 'ngo') {
+        user.isNgo = true;
+        // ngoVerified is admin-only; never grant from signup
+        if (user.ngoVerified == null) user.ngoVerified = false;
+      }
 
       linkAuthProvider(user, 'local');
       await user.save();
@@ -256,6 +261,8 @@ const verifyRegistrationOTP = async (req, res) => {
         phoneVerified: true,
         isSeller: tempUser.userType === 'seller',
         sellerStatus: tempUser.userType === 'seller' ? 'incomplete' : null,
+        isNgo: tempUser.userType === 'ngo',
+        ngoVerified: false,
         canBuy: true, // All users can buy
         authProviders: [{ provider: 'local', providerId: null }]
       });
@@ -273,7 +280,9 @@ const verifyRegistrationOTP = async (req, res) => {
         id: user._id,
         username: user.username,
         isVeterinarian: user.isVeterinarian,
-        isSeller: user.isSeller
+        isSeller: user.isSeller,
+        isNgo: Boolean(user.isNgo),
+        ngoVerified: Boolean(user.ngoVerified)
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -325,7 +334,9 @@ const signIn = async (req, res) => {
         id: user._id,
         username: user.username,
         isVeterinarian: user.isVeterinarian,
-        isSeller: user.isSeller
+        isSeller: user.isSeller,
+        isNgo: Boolean(user.isNgo),
+        ngoVerified: Boolean(user.ngoVerified)
       },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
@@ -353,8 +364,22 @@ const signIn = async (req, res) => {
 // ==========================================
 // One shared client (re-creating it per request throws away Google's cached certs)
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
-const GOOGLE_VERIFY_TIMEOUT_MS = 10000;
+const isLambdaRuntime =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+// Lambda cold starts + Google cert fetch can be slow; keep verify bounded but not tiny
+const GOOGLE_VERIFY_TIMEOUT_MS = isLambdaRuntime ? 8000 : 10000;
 const isDev = process.env.NODE_ENV !== 'production';
+
+// Warm Google's federated sign-on certs once so first login is faster
+let googleCertsWarm = false;
+const warmGoogleCerts = () => {
+  if (googleCertsWarm) return;
+  googleCertsWarm = true;
+  googleClient
+    .getFederatedSignonCertsAsync()
+    .catch((err) => console.warn('[google-auth] cert warmup failed:', err.message));
+};
+warmGoogleCerts();
 
 // Rejects if the promise doesn't settle in time, so the request can never hang forever
 const withTimeout = (promise, ms, label) => {
@@ -518,7 +543,14 @@ const googleLogins = async (req, res) => {
       delete userSafe.password;
 
       const token = jwt.sign(
-        { id: userSafe._id, username: userSafe.username, isVeterinarian: userSafe.isVeterinarian, isSeller: userSafe.isSeller },
+        {
+          id: userSafe._id,
+          username: userSafe.username,
+          isVeterinarian: userSafe.isVeterinarian,
+          isSeller: userSafe.isSeller,
+          isNgo: Boolean(userSafe.isNgo),
+          ngoVerified: Boolean(userSafe.ngoVerified)
+        },
         process.env.JWT_SECRET,
         { expiresIn: '5d' }
       );
@@ -570,7 +602,7 @@ const completeGoogleRegistration = async (req, res) => {
     }
 
     const resolvedUserType =
-      userType === 'seller' || userType === 'veterinarian' || userType === 'user'
+      userType === 'seller' || userType === 'veterinarian' || userType === 'user' || userType === 'ngo'
         ? userType
         : (isVeterinarian === true || isVeterinarian === 'true')
           ? 'veterinarian'
@@ -579,6 +611,7 @@ const completeGoogleRegistration = async (req, res) => {
             : 'user';
     const isSeller = resolvedUserType === 'seller';
     const isVet = resolvedUserType === 'veterinarian';
+    const isNgo = resolvedUserType === 'ngo';
 
     // Seller details check moved to onboarding
 
@@ -593,6 +626,8 @@ const completeGoogleRegistration = async (req, res) => {
       isVeterinarian: isVet,
       isSeller,
       sellerStatus: isSeller ? 'incomplete' : undefined,
+      isNgo,
+      ngoVerified: false,
       phone: "",
       phoneVerified: false,
       profileImage,
@@ -603,7 +638,14 @@ const completeGoogleRegistration = async (req, res) => {
     delete userSafe.password;
 
     const token = jwt.sign(
-      { id: userSafe._id, username: userSafe.username, isVeterinarian: userSafe.isVeterinarian, isSeller: userSafe.isSeller },
+      {
+        id: userSafe._id,
+        username: userSafe.username,
+        isVeterinarian: userSafe.isVeterinarian,
+        isSeller: userSafe.isSeller,
+        isNgo: Boolean(userSafe.isNgo),
+        ngoVerified: Boolean(userSafe.ngoVerified)
+      },
       process.env.JWT_SECRET,
       { expiresIn: '5d' }
     );
@@ -839,7 +881,7 @@ const resetPassword = async (req, res) => {
 // Other Exports
 const signOut = async (req, res) => res.status(200).json({ message: 'Signed out' });
 // Only public profile fields are returned by the user lookup endpoints (never email, phone or verification codes)
-const PUBLIC_USER_FIELDS = 'username profileImage status lastActive isVeterinarian isSeller sellerStatus city about createdAt';
+const PUBLIC_USER_FIELDS = 'username profileImage status lastActive isVeterinarian isSeller sellerStatus isNgo ngoVerified city about createdAt';
 
 const getUserById = async (req, res) => {
   try {
@@ -954,7 +996,7 @@ const getUserPublicProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
     // Public endpoint: never return email or phone
-    const user = await User.findById(req.params.id).select("username profileImage city about isVeterinarian isSeller lastActive");
+    const user = await User.findById(req.params.id).select("username profileImage city about isVeterinarian isSeller isNgo ngoVerified lastActive");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }

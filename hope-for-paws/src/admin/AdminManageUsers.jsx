@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from './api';
+import UserBadge from '../Components/UserBadge';
 
-const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
+const AdminManageUsers = ({ vets, users, sellers, ngos = [], userStats, fetchUserStats, handleDeleteUser, deleting, search, setSearch }) => {
   const navigate = useNavigate();
   const filterUsers = (arr) => arr.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -19,7 +20,9 @@ const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, han
       ? filterUsers(vets)
       : tab === 'sellers'
         ? filterUsers(sellers)
-        : filterUsers(users);
+        : tab === 'ngos'
+          ? filterUsers(ngos)
+          : filterUsers(users);
 
   // Load all user stats in bulk when component mounts or when users change
   useEffect(() => {
@@ -45,7 +48,7 @@ const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, han
     };
 
     loadAllUserStats();
-  }, [vets.length, users.length, sellers.length]); // Only run when user counts change
+  }, [vets.length, users.length, sellers.length, ngos.length]); // Only run when user counts change
 
   return (
     <motion.div
@@ -56,7 +59,7 @@ const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, han
       className="bg-white rounded-xl shadow p-6"
     >
       {/* Tabs for Vets and Users */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         <button
           className={`px-6 py-2 rounded-lg font-semibold transition-colors ${tab === 'vets' ? 'bg-[#6b493d] text-white' : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'}`}
           onClick={() => setTab('vets')}
@@ -74,6 +77,12 @@ const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, han
           onClick={() => setTab('sellers')}
         >
           Sellers ({sellers.length})
+        </button>
+        <button
+          className={`px-6 py-2 rounded-lg font-semibold transition-colors ${tab === 'ngos' ? 'bg-emerald-700 text-white' : 'bg-[#F8F4ED] text-[#6b493d] border border-[#a07855]'}`}
+          onClick={() => setTab('ngos')}
+        >
+          NGOs ({ngos.length})
         </button>
       </div>
       {/* Search Bar */}
@@ -112,7 +121,14 @@ const AdminManageUsers = ({ vets, users, sellers, userStats, fetchUserStats, han
                 : { posts: loadingStats ? '...' : 0, comments: loadingStats ? '...' : 0, adoptions: loadingStats ? '...' : 0, requests: loadingStats ? '...' : 0 };
               return (
                 <tr key={user._id} className="hover:bg-[#f8f4ed] transition-colors">
-                  <td className="px-4 py-2 font-semibold text-[#4E3B31]">{user.username}</td>
+                  <td className="px-4 py-2 font-semibold text-[#4E3B31]">
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      {user.username}
+                      {user.isNgo && (
+                        <UserBadge isNgo ngoVerified={Boolean(user.ngoVerified)} size="sm" />
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-[#a07855]">{user.email}</td>
                   <td className="px-4 py-2 text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -185,6 +201,7 @@ AdminManageUsers.propTypes = {
   vets: PropTypes.array.isRequired,
   users: PropTypes.array.isRequired,
   sellers: PropTypes.array.isRequired,
+  ngos: PropTypes.array,
   userStats: PropTypes.object.isRequired,
   fetchUserStats: PropTypes.func.isRequired,
   handleDeleteUser: PropTypes.func.isRequired,

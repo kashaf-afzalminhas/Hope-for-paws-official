@@ -18,5 +18,11 @@ export const API_ROUTES_BASE_URL = API_BASE_URL;
 // Server origin without the /api path (e.g. for /health)
 export const API_ORIGIN = new URL(API_BASE_URL).origin;
 
+// Production API runs on AWS Lambda + API Gateway, which does not support Socket.IO.
+// Real-time sockets are local/EC2 only; production uses REST polling instead.
+export const SOCKETS_ENABLED =
+  import.meta.env.VITE_SOCKETS_ENABLED === 'true' ||
+  (import.meta.env.VITE_SOCKETS_ENABLED !== 'false' && isLocalhost);
+
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "495806156812-uqmc0tenm7i0ljnjdo3ick68d3v053sl.apps.googleusercontent.com";
 

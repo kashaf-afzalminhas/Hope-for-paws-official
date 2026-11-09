@@ -178,10 +178,11 @@ const Login = () => {
     }
   };
 
-  // POST to /login-google with a timeout and safe JSON parsing
-  const postGoogleLogin = async (body) => {
+  // POST to /login-google with a timeout and safe JSON parsing.
+  // Production Lambda can cold-start; allow enough time and one automatic retry.
+  const postGoogleLogin = async (body, { timeoutMs = 28000 } = {}) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
         method: "POST",
@@ -202,6 +203,16 @@ const Login = () => {
     }
   };
 
+  const postGoogleLoginWithRetry = async (body) => {
+    try {
+      return await postGoogleLogin(body);
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+      // Cold start / brief outage — retry once
+      return await postGoogleLogin(body, { timeoutMs: 25000 });
+    }
+  };
+
   const googleLoginHandler = async (googleResponse) => {
     setLoading(true);
     setError("");
@@ -212,7 +223,7 @@ const Login = () => {
         return;
       }
 
-      let { response, data } = await postGoogleLogin({ credential: googleResponse.credential });
+      let { response, data } = await postGoogleLoginWithRetry({ credential: googleResponse.credential });
 
       if (response.ok && data.requiresLinkConfirmation) {
         const shouldLink = window.confirm(
@@ -224,7 +235,7 @@ const Login = () => {
           return;
         }
 
-        ({ response, data } = await postGoogleLogin({
+        ({ response, data } = await postGoogleLoginWithRetry({
           credential: googleResponse.credential,
           confirmLinking: true
         }));
@@ -277,7 +288,7 @@ const Login = () => {
       if (err.name === "AbortError") {
         setError("The server took too long to respond. Please try again.");
       } else {
-        setError("Couldn't reach the server. Make sure the backend is running.");
+        setError("Couldn't reach the server. Please try again in a moment.");
       }
     }
   };
@@ -294,7 +305,12 @@ const Login = () => {
           credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
           isVeterinarian: userTypeSelected === 'veterinarian',
-          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
+          userType:
+            userTypeSelected === 'seller' || userTypeSelected === 'ngo'
+              ? userTypeSelected
+              : userTypeSelected === 'veterinarian'
+                ? 'veterinarian'
+                : 'user',
           ...(userTypeSelected === 'seller' && sellerInfo && {
             sellerName: sellerInfo.businessName,
             cnic: sellerInfo.cnic,

@@ -65,6 +65,7 @@ import SellerOrders from './marketplace/SellerOrders.jsx';
 import ProtectedRoute from './Components/ProtectedRoute.jsx';
 import AdminSellerRequests from './admin/AdminSellerRequests.jsx';
 import AdminSellerDetail from './admin/AdminSellerDetail.jsx';
+import AdminNgoVerification from './admin/AdminNgoVerification.jsx';
 import ChatPage from './Main/Chat.jsx';
 import PublicProfilePage from './Main/PublicProfilePage';
 import SellerOnboarding from './Main/SellerOnboarding';
@@ -76,6 +77,7 @@ const AdminDashboardRoutes = () => {
   const [vets, setVets] = useState([]);
   const [users, setUsers] = useState([]);
   const [sellers, setSellers] = useState([]);
+  const [ngos, setNgos] = useState([]);
   const [userStats, setUserStats] = useState({});
   const [deleting, setDeleting] = useState(null);
   const [search, setSearch] = useState('');
@@ -112,6 +114,7 @@ const AdminDashboardRoutes = () => {
         setVets(data.veterinarians || []);
         setUsers(data.regularUsers || []);
         setSellers(data.sellers || []);
+        setNgos(data.ngos || []);
         // Set all user stats at once
         if (data.userStats) {
           setUserStats(data.userStats);
@@ -175,6 +178,8 @@ const AdminDashboardRoutes = () => {
       }
       setVets(vets => vets.filter(u => u._id !== userId));
       setUsers(users => users.filter(u => u._id !== userId));
+      setSellers(sellers => sellers.filter(u => u._id !== userId));
+      setNgos(ngos => ngos.filter(u => u._id !== userId));
       setDeleting(null);
     } catch {
       setDeleting(null);
@@ -213,6 +218,7 @@ const AdminDashboardRoutes = () => {
             vets={vets}
             users={users}
             sellers={sellers}
+            ngos={ngos}
             admin={admin}
             onSignOut={handleSignOut}
           />
@@ -222,6 +228,7 @@ const AdminDashboardRoutes = () => {
             vets={vets}
             users={users}
             sellers={sellers}
+            ngos={ngos}
             userStats={userStats}
             fetchUserStats={fetchUserStats}
             handleDeleteUser={handleDeleteUser}
@@ -241,6 +248,7 @@ const AdminDashboardRoutes = () => {
         <Route path="comments/post/:postId" element={<AdminPostComments />} />
         <Route path="seller-requests" element={<AdminSellerRequests />} />
         <Route path="seller-request/:id" element={<AdminSellerDetail />} />
+        <Route path="ngo-verification" element={<AdminNgoVerification />} />
         <Route path="reported-items" element={<ReportedItems />} />
       </Routes>
     </AdminDashboardLayout>

@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { API_BASE_URL, API_ORIGIN } from '../config';
+import { API_BASE_URL, API_ORIGIN, SOCKETS_ENABLED } from '../config';
 import axios from 'axios';
-import { getSocket, initSocket, getSocketStatus } from '../services/socket';
+import { getSocket, initSocket, getSocketStatus, isSocketsEnabled } from '../services/socket';
 
 const NotificationContext = createContext();
-const POLL_INTERVAL_MS = 20000;
+const POLL_INTERVAL_MS = SOCKETS_ENABLED ? 60000 : 20000;
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -71,7 +71,7 @@ export const NotificationProvider = ({ children }) => {
   // (and added to state) once per stacked listener.
   const socketCleanupRef = useRef(null);
 
-  // Socket.IO on localhost only; production Lambda uses REST polling
+  // Socket.IO on localhost/EC2 only; production Lambda uses REST polling
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
@@ -81,17 +81,12 @@ export const NotificationProvider = ({ children }) => {
     }
 
     initializationRef.current = true;
-
-    // Guards against attaching listeners after this effect has already
-    // been torn down (e.g. the async health check resolves post-unmount).
     let cancelled = false;
 
-    // First check if backend is available
     const checkBackendHealth = async () => {
       try {
-        // Fix the health endpoint URL - remove /api from the base URL
         const healthUrl = `${API_ORIGIN}/health`;
-        await axios.get(healthUrl, { timeout: 5000 });
+        await axios.get(healthUrl, { timeout: 8000 });
         console.log('Backend is available, starting notification system');
         return true;
       } catch (error) {
@@ -101,16 +96,36 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
+    const startPolling = () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = setInterval(() => {
+        if (document.visibilityState === 'hidden') return;
+        fetchUnreadCount();
+      }, POLL_INTERVAL_MS);
+      return () => {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      };
+    };
+
     const connectSocket = () => {
+      if (!isSocketsEnabled()) {
+        setSocketConnected(false);
+        setIsInitialized(true);
+        return startPolling();
+      }
+
       try {
         const existing = getSocket();
         const userId = user?.id || user?._id;
         const socketInstance = existing || initSocket(userId);
 
         if (!socketInstance) {
-          console.error('Failed to initialize socket instance');
+          setSocketConnected(false);
           setIsInitialized(true);
-          return null;
+          return startPolling();
         }
 
         const handleConnect = () => {
@@ -124,11 +139,11 @@ export const NotificationProvider = ({ children }) => {
           setSocketConnected(false);
         };
 
-                const handleNotification = (notification) => {
+        const handleNotification = (notification) => {
           console.log('New notification received:', notification);
-                  if (notification.type === 'out_of_stock') {
-                    window.dispatchEvent(new Event('stock-updated'));
-                  }
+          if (notification.type === 'out_of_stock') {
+            window.dispatchEvent(new Event('stock-updated'));
+          }
           setNotifications(prev => {
             const exists = prev.some(n => (n._id || n.id) === (notification._id || notification.id));
             if (exists) return prev;
@@ -147,17 +162,14 @@ export const NotificationProvider = ({ children }) => {
           });
         };
 
-        // Register listeners
         socketInstance.on('connect', handleConnect);
         socketInstance.on('disconnect', handleDisconnect);
         socketInstance.on('notification', handleNotification);
 
-        // Reflect current status immediately
         const status = getSocketStatus();
         setSocketConnected(status === 'connected');
         setIsInitialized(true);
 
-        // Cleanup
         return () => {
           socketInstance.off('connect', handleConnect);
           socketInstance.off('disconnect', handleDisconnect);
@@ -166,13 +178,12 @@ export const NotificationProvider = ({ children }) => {
       } catch (error) {
         console.error('Error establishing shared socket:', error);
         setIsInitialized(true);
-        return null;
+        return startPolling();
       }
     };
 
     const initializeNotificationSystem = async () => {
       const backendAvailable = await checkBackendHealth();
-
       if (cancelled) return;
 
       if (!backendAvailable) {
@@ -181,29 +192,25 @@ export const NotificationProvider = ({ children }) => {
       }
 
       const cleanup = connectSocket();
-
       if (cancelled) {
-        // The effect was already torn down while we were awaiting the
-        // health check — undo the listener registration immediately
-        // instead of leaking it onto the shared socket.
         if (typeof cleanup === 'function') cleanup();
         return;
       }
-
       socketCleanupRef.current = cleanup;
     };
 
     initializeNotificationSystem();
 
-    // Cleanup function — this is what actually runs when the effect tears
-    // down. It now removes the socket listeners (if they were attached)
-    // in addition to resetting the initialization ref.
     return () => {
       cancelled = true;
       initializationRef.current = false;
       if (typeof socketCleanupRef.current === 'function') {
         socketCleanupRef.current();
         socketCleanupRef.current = null;
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
     };
   }, [authVersion]);
@@ -297,13 +304,14 @@ export const NotificationProvider = ({ children }) => {
 
       const response = await axios.get(`${API_BASE_URL}/notifications/unread-count`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000
+        timeout: 12000
       });
       setUnreadCount(response.data.count);
     } catch (err) {
-      console.error('Error fetching unread count:', err);
-      
-      // Handle rate limiting
+      // Soft-fail: Lambda cold starts / brief outages should not spam the console
+      if (err.code !== 'ECONNABORTED') {
+        console.error('Error fetching unread count:', err?.message || err);
+      }
       if (err.response?.status === 429) {
         setRateLimited(true);
         setTimeout(() => {

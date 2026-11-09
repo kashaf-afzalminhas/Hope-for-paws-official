@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getSocket, initSocket } from '../services/socket';
+import { getSocket, initSocket, isSocketsEnabled } from '../services/socket';
 import { useAuth } from './AuthContext';
 
 const MessageContext = createContext(undefined);
@@ -47,6 +47,11 @@ const MessageProvider = ({ children }) => {
       return;
     }
 
+    if (!isSocketsEnabled()) {
+      setSocketConnected(false);
+      return;
+    }
+
     try {
       initSocket(currentUserId);
     } catch (e) {
@@ -56,11 +61,15 @@ const MessageProvider = ({ children }) => {
 
   // Centralized socket event handler for new messages
   useEffect(() => {
+    if (!isSocketsEnabled()) {
+      setSocketConnected(false);
+      return;
+    }
+
     const socket = getSocket();
     if (!socket) {
       const currentUserId = user?.id || user?._id;
       if (currentUserId) {
-        console.log('MessageContext: Socket not ready yet, initializing socket for user:', currentUserId);
         try {
           initSocket(currentUserId);
         } catch (e) {

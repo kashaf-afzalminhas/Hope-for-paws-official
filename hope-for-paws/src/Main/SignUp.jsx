@@ -13,7 +13,7 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+92');
-  const [userType, setUserType] = useState('user'); // 'user', 'veterinarian', 'seller'
+  const [userType, setUserType] = useState('user'); // 'user', 'veterinarian', 'seller', 'ngo'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -123,7 +123,7 @@ const SignUp = () => {
           email,
           password,
           isVeterinarian: userType === 'veterinarian',
-          userType: userType === 'seller' ? 'seller' : 'user',
+          userType: userType === 'seller' || userType === 'ngo' ? userType : 'user',
           phone: getFullPhoneNumber(phone, countryCode)
         }),
       });
@@ -158,16 +158,44 @@ const SignUp = () => {
   // Filter to show only unmet requirements
   const unmetRequirements = passwordChecks.filter(check => !check.valid);
 
+  const postGoogleLogin = async (body, { timeoutMs = 28000 } = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { message: `Unexpected server response (${response.status})` };
+      }
+      return { response, data };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const postGoogleLoginWithRetry = async (body) => {
+    try {
+      return await postGoogleLogin(body);
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+      return await postGoogleLogin(body, { timeoutMs: 25000 });
+    }
+  };
+
   const googleLoginHandler = async (googleResponse) => {
     setLoading(true);
     setError("");
     try {
-      let response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential: googleResponse.credential }),
+      let { response, data } = await postGoogleLoginWithRetry({
+        credential: googleResponse.credential,
       });
-      let data = await response.json();
 
       if (response.ok && data.requiresLinkConfirmation) {
         const shouldLink = window.confirm(
@@ -179,15 +207,10 @@ const SignUp = () => {
           return;
         }
 
-        response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            credential: googleResponse.credential,
-            confirmLinking: true
-          }),
-        });
-        data = await response.json();
+        ({ response, data } = await postGoogleLoginWithRetry({
+          credential: googleResponse.credential,
+          confirmLinking: true,
+        }));
       }
 
       setLoading(false);
@@ -209,9 +232,13 @@ const SignUp = () => {
       } else {
         setError(data.message || "Google registration failed");
       }
-    } catch {
+    } catch (err) {
       setLoading(false);
-      setError("An error occurred during Google registration");
+      if (err.name === "AbortError") {
+        setError("The server took too long to respond. Please try again.");
+      } else {
+        setError("An error occurred during Google registration");
+      }
     }
   };
 
@@ -227,7 +254,12 @@ const SignUp = () => {
           credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
           isVeterinarian: userTypeSelected === 'veterinarian',
-          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user')
+          userType:
+            userTypeSelected === 'seller' || userTypeSelected === 'ngo'
+              ? userTypeSelected
+              : userTypeSelected === 'veterinarian'
+                ? 'veterinarian'
+                : 'user'
         }),
       });
       const data = await response.json();
@@ -378,6 +410,7 @@ const SignUp = () => {
                 <option value="user">Regular User</option>
                 <option value="veterinarian">Veterinarian</option>
                 <option value="seller">Seller</option>
+                <option value="ngo">NGO</option>
               </select>
               {userType === 'veterinarian' && (
                 <p className="mt-1 text-sm text-[#6b493d]">
@@ -387,6 +420,11 @@ const SignUp = () => {
               {userType === 'seller' && (
                 <p className="mt-1 text-sm text-[#6b493d]">
                   As a seller, you can list pet products for sale. Your application will be reviewed by our team.
+                </p>
+              )}
+              {userType === 'ngo' && (
+                <p className="mt-1 text-sm text-[#6b493d]">
+                  As an NGO, you can post and manage adoption ads like other users. Admins can later verify your organisation.
                 </p>
               )}
             </div>

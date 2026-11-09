@@ -173,7 +173,7 @@ class AIKnowledgeBase {
         : `regular user (orders: ${userContext.orderCount || 0})`
       : 'guest (not authenticated)';
 
-    let prompt = `You are the HopeForPaws AI Assistant. You are a platform expert with complete knowledge of the HopeForPaws pet adoption and rescue platform.
+    let prompt = `You are the Hopeforpaws Assistant. You are a platform expert with complete knowledge of the HopeForPaws pet adoption and rescue platform.
 
 ## CORE IDENTITY
 - You are NOT a general-purpose chatbot. You are a specialized platform assistant.

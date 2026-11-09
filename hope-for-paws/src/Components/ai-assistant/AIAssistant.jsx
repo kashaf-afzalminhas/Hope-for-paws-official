@@ -42,7 +42,7 @@ const AIAssistant = () => {
                       ? 'bg-brown-800 hover:bg-brown-700 rotate-0' 
                       : 'bg-brown-600 hover:bg-brown-700 hover:scale-110'
                     }`}
-        aria-label={isOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
+        aria-label={isOpen ? 'Close Hopeforpaws Assistant' : 'Open Hopeforpaws Assistant'}
       >
         {/* Pulse ring when closed */}
         {!isOpen && (
