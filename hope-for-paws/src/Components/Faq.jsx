@@ -1,7 +1,134 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, Search, Mail, X } from "lucide-react";
+import PropTypes from "prop-types";
+import { Check, ChevronDown, Search, Mail, X } from "lucide-react";
 import { API_ORIGIN } from "../config";
+
+// Topic picker styled like the rest of the site (the browser's own dropdown list can't be styled)
+const TopicDropdown = ({ options, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const rootRef = useRef(null);
+  const listRef = useRef(null);
+  const selected = options.find((o) => o.id === value) || options[0];
+
+  // Close when clicking outside
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, [open]);
+
+  // Keep the highlighted option in view when using the keyboard
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-index="${highlight}"]`);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [open, highlight]);
+
+  const openList = () => {
+    setHighlight(Math.max(0, options.findIndex((o) => o.id === value)));
+    setOpen(true);
+  };
+  const choose = (id) => {
+    onChange(id);
+    setOpen(false);
+  };
+
+  const onKeyDown = (e) => {
+    if (!open && ["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+      e.preventDefault();
+      openList();
+      return;
+    }
+    if (!open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(options.length - 1, h + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(0, h - 1));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      choose(options[highlight].id);
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="relative sm:w-72">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Topic: ${selected?.title}`}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-white py-3 pl-4 pr-3 text-left font-medium text-[#4E3B31] shadow-sm outline-none focus:ring-2 focus:ring-white/60"
+      >
+        <span className="truncate">{selected?.title}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="rounded-full bg-[#f5ede3] px-2 py-0.5 text-xs font-semibold text-[#a07855]">{selected?.count}</span>
+          <ChevronDown className={`h-5 w-5 text-[#a07855] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+
+      {open && (
+        <ul
+          ref={listRef}
+          role="listbox"
+          aria-label="Topics"
+          className="absolute right-0 z-30 mt-2 max-h-80 w-full sm:min-w-[20rem] overflow-y-auto rounded-2xl border border-[#e8dcc8] bg-white p-1.5 shadow-xl"
+        >
+          {options.map((o, i) => {
+            const isSelected = o.id === value;
+            return (
+              <li
+                key={o.id}
+                role="option"
+                aria-selected={isSelected}
+                data-index={i}
+                onMouseEnter={() => setHighlight(i)}
+                onClick={() => choose(o.id)}
+                className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                  isSelected ? "bg-[#6b493d] text-white" : i === highlight ? "bg-[#f8f1e8] text-[#4E3B31]" : "text-[#4E3B31]"
+                }`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Check className={`h-4 w-4 shrink-0 ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                  <span className="truncate font-medium">{o.title}</span>
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    isSelected ? "bg-white/20 text-white" : "bg-[#f5ede3] text-[#a07855]"
+                  }`}
+                >
+                  {o.count}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+TopicDropdown.propTypes = {
+  options: PropTypes.arrayOf(
+    PropTypes.shape({ id: PropTypes.string.isRequired, title: PropTypes.string.isRequired, count: PropTypes.number })
+  ).isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+};
 
 // Questions come from the backend (backend/utils/faqData.js plus any extra ones saved by the team),
 // grouped by category.
@@ -105,26 +232,14 @@ const FAQPage = () => {
                 </button>
               )}
             </div>
-            <div className="relative sm:w-64">
-              <label htmlFor="faq-topic" className="sr-only">Topic</label>
-              <select
-                id="faq-topic"
-                value={activeCategory}
-                onChange={(e) => {
-                  setActiveCategory(e.target.value);
-                  setOpenKey(null);
-                }}
-                className="w-full appearance-none rounded-xl border-0 bg-white bg-none py-3 pl-4 pr-10 font-medium text-[#4E3B31] shadow-sm outline-none focus:ring-2 focus:ring-white/60"
-              >
-                <option value="all">All topics ({faqs.length})</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title} ({c.count})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#a07855]" />
-            </div>
+            <TopicDropdown
+              options={[{ id: "all", title: "All topics", count: faqs.length }, ...categories]}
+              value={activeCategory}
+              onChange={(id) => {
+                setActiveCategory(id);
+                setOpenKey(null);
+              }}
+            />
           </div>
           {(query || activeCategory !== "all") && !loading && (
             <p className="mt-3 text-sm text-white/90">
