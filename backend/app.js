@@ -9,6 +9,12 @@ if (process.env.DNS_SERVERS) {
   }
 }
 dns.setDefaultResultOrder('ipv4first');
+// Slow or high-latency networks: Node gives each connection attempt only 250ms by default before
+// moving on, which can make calls to Google fail with "fetch failed". Allow 2 seconds per attempt.
+const net = require('net');
+if (typeof net.setDefaultAutoSelectFamilyAttemptTimeout === 'function') {
+  net.setDefaultAutoSelectFamilyAttemptTimeout(2000);
+}
 
 const express = require('express');
 const mongoose = require('mongoose');

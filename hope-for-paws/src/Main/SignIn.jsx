@@ -276,8 +276,11 @@ const Login = () => {
       console.error("Google login request failed:", err);
       if (err.name === "AbortError") {
         setError("The server took too long to respond. Please try again.");
-      } else {
+      } else if (err instanceof TypeError && /fetch|network|load failed/i.test(err.message || "")) {
         setError("Couldn't reach the server. Make sure the backend is running.");
+      } else {
+        // Signed in, but something failed afterwards in the browser (shown so it can be reported)
+        setError(`Sign-in finished but the page hit an error: ${err.message || err}`);
       }
     }
   };

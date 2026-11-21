@@ -60,6 +60,14 @@ const SellerOnboarding = () => {
       .then((data) => {
         const store = data?.seller;
         if (cancelled || !store) return;
+        // The copy of the account in this browser can be out of date (e.g. the store was set up
+        // on another device). Update it, so the app stops sending the seller back to store setup.
+        if (user && user.sellerStatus === 'incomplete' && data.sellerStatus && data.sellerStatus !== 'incomplete') {
+          const fresh = { ...user, isSeller: true, sellerStatus: data.sellerStatus };
+          const userStorage = localStorage.getItem('token') ? localStorage : sessionStorage;
+          userStorage.setItem('user', JSON.stringify(fresh));
+          updateUser(fresh);
+        }
         setIsEditMode(true);
         setFormData((prev) => ({
           ...prev,
@@ -72,6 +80,7 @@ const SellerOnboarding = () => {
       .catch(() => {}) // 404 = no store yet: normal onboarding
       .finally(() => { if (!cancelled) setCheckingStore(false); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Use the saved account details from the server (the copy in the browser can be out of date)

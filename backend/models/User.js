@@ -149,7 +149,8 @@ userSchema.index(
   { phone: 1 },
   {
     unique: true,
-    partialFilterExpression: { phone: { $type: 'string', $ne: '' } }
+    // MongoDB partial indexes don't support $ne; $gt: '' means "non-empty string"
+    partialFilterExpression: { phone: { $type: 'string', $gt: '' } }
   }
 );
 
@@ -169,7 +170,7 @@ userSchema.index(
     unique: true,
     partialFilterExpression: {
       'authProviders.provider': { $exists: true },
-      'authProviders.providerId': { $type: 'string', $ne: '' }
+      'authProviders.providerId': { $type: 'string', $gt: '' }
     }
   }
 );

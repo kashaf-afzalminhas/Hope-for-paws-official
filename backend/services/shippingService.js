@@ -57,6 +57,15 @@ const getRate = (policy, zone) => {
     return Number(configured.fee);
   }
 
+  // A seller who ships nationwide also delivers in their own city: if no separate
+  // local rate was set, the nationwide rate applies to same-city orders too.
+  if (normalizeZone(zone) === 'LOCAL' && normalizeZone(policy.coverage?.mode) !== 'LOCAL_DELIVERY') {
+    const nationwide = rates.find(rate => normalizeZone(rate.zone) === 'NATIONWIDE');
+    if (nationwide && Number.isFinite(Number(nationwide.fee)) && Number(nationwide.fee) >= 0) {
+      return Number(nationwide.fee);
+    }
+  }
+
   if (rates.length === 0 && policy.shippingFee !== null && policy.shippingFee !== undefined && Number(policy.shippingFee) >= 0) {
     return Number(policy.shippingFee);
   }

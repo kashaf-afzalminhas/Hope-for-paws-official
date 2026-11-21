@@ -25,6 +25,7 @@ const {
   validateToken,
   googleLogins,
   completeGoogleRegistration,
+  googleHealth,
   validateUser,
   verifyResetCode,
   resetPassword,
@@ -73,6 +74,8 @@ router.delete('/remove-profile-image', auth, removeProfileImage);
 
 // Google Auth Routes
 router.post("/login-google", googleLogins);
+// Shows whether the server can reach Google (open in the browser to check Google sign-in problems)
+router.get("/google-health", googleHealth);
 router.post("/complete-google-registration", completeGoogleRegistration);
 
 // Validation and reset password routes

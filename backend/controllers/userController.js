@@ -353,7 +353,7 @@ const signIn = async (req, res) => {
 // ==========================================
 // One shared client (re-creating it per request throws away Google's cached certs)
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
-const GOOGLE_VERIFY_TIMEOUT_MS = 10000;
+const GOOGLE_VERIFY_TIMEOUT_MS = 15000; // the frontend gives up after 20s
 const isDev = process.env.NODE_ENV !== 'production';
 
 // Rejects if the promise doesn't settle in time, so the request can never hang forever
@@ -369,7 +369,70 @@ const withTimeout = (promise, ms, label) => {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 };
 
-const NETWORK_ERROR_RE = /ETIMEDOUT|ENOTFOUND|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENETUNREACH|socket hang up|network/i;
+const NETWORK_ERROR_RE = /ETIMEDOUT|ENOTFOUND|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENETUNREACH|socket hang up|network|fetch failed|timed out/i;
+const isNetworkError = (err) => NETWORK_ERROR_RE.test(err?.code || '') || NETWORK_ERROR_RE.test(err?.message || '')
+  || NETWORK_ERROR_RE.test(err?.cause?.code || '') || NETWORK_ERROR_RE.test(err?.cause?.message || '');
+const describeError = (err) => [err?.code, err?.message, err?.cause?.code, err?.cause?.message].filter(Boolean).join(' | ');
+
+// Google's public keys (used to check sign-in tokens) are downloaded in the background when the server
+// starts and kept fresh, so a sign-in click normally doesn't wait for Google at all.
+// GET /auth/google-health shows whether the server can reach Google.
+const googleCertsStatus = { ok: false, lastSuccess: null, lastAttempt: null, lastError: null };
+let googleCertsRefreshing = null;
+const refreshGoogleCerts = () => {
+  if (googleCertsRefreshing) return googleCertsRefreshing;
+  googleCertsStatus.lastAttempt = new Date().toISOString();
+  googleCertsRefreshing = withTimeout(googleClient.getFederatedSignonCertsAsync(), 20000, 'Google key download')
+    .then(() => {
+      googleCertsStatus.ok = true;
+      googleCertsStatus.lastSuccess = new Date().toISOString();
+      googleCertsStatus.lastError = null;
+    })
+    .catch((err) => {
+      googleCertsStatus.ok = false;
+      googleCertsStatus.lastError = describeError(err);
+      console.warn('[google-auth] could not download Google keys:', googleCertsStatus.lastError);
+    })
+    .finally(() => {
+      googleCertsRefreshing = null;
+      // Refresh every 30 minutes; retry after 1 minute if it failed
+      const t = setTimeout(refreshGoogleCerts, googleCertsStatus.ok ? 30 * 60 * 1000 : 60 * 1000);
+      if (t.unref) t.unref();
+    });
+  return googleCertsRefreshing;
+};
+if (process.env.NODE_ENV !== 'test') {
+  const t = setTimeout(refreshGoogleCerts, 1000);
+  if (t.unref) t.unref();
+}
+
+// Verifies a Google ID token; tries a second time if the first attempt hit a network problem
+const verifyGoogleIdToken = async (credential) => {
+  const attempt = () => withTimeout(
+    googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID }),
+    GOOGLE_VERIFY_TIMEOUT_MS / 2,
+    'Google token verification'
+  );
+  try {
+    return await attempt();
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    console.warn('[google-auth] verification network error, retrying once:', describeError(err));
+    return attempt();
+  }
+};
+
+const googleHealth = async (req, res) => {
+  // Re-check if the last check failed or is older than 1 minute
+  const last = googleCertsStatus.lastAttempt ? Date.parse(googleCertsStatus.lastAttempt) : 0;
+  if (!googleCertsStatus.ok || Date.now() - last > 60 * 1000) await refreshGoogleCerts();
+  res.status(googleCertsStatus.ok ? 200 : 503).json({
+    canReachGoogle: googleCertsStatus.ok,
+    lastSuccess: googleCertsStatus.lastSuccess,
+    lastError: googleCertsStatus.lastError,
+    clientId: GOOGLE_CLIENT_ID
+  });
+};
 
 // Verifies a Google ID token and returns the trusted identity, or sends an error response and returns null
 const verifyGoogleCredential = async (credential, res) => {
@@ -379,18 +442,14 @@ const verifyGoogleCredential = async (credential, res) => {
   }
   let payload;
   try {
-    const ticket = await withTimeout(
-      googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID }),
-      GOOGLE_VERIFY_TIMEOUT_MS,
-      'Google token verification'
-    );
+    const ticket = await verifyGoogleIdToken(credential);
     payload = ticket.getPayload();
   } catch (verifyErr) {
-    console.error('[google-auth] token verification failed:', verifyErr.message);
-    if (NETWORK_ERROR_RE.test(verifyErr.code || '') || NETWORK_ERROR_RE.test(verifyErr.message || '')) {
+    console.error('[google-auth] token verification failed:', describeError(verifyErr));
+    if (isNetworkError(verifyErr)) {
       res.status(503).json({
         message: "The server couldn't reach Google to verify your sign-in. Please try again.",
-        ...(isDev && { detail: verifyErr.message })
+        ...(isDev && { detail: describeError(verifyErr) })
       });
       return null;
     }
@@ -437,18 +496,14 @@ const googleLogins = async (req, res) => {
     log('verifying Google ID token...');
     let payload;
     try {
-      const ticket = await withTimeout(
-        googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID }),
-        GOOGLE_VERIFY_TIMEOUT_MS,
-        'Google token verification'
-      );
+      const ticket = await verifyGoogleIdToken(credential);
       payload = ticket.getPayload();
     } catch (verifyErr) {
-      console.error('[google-login] token verification failed:', verifyErr.message);
-      if (NETWORK_ERROR_RE.test(verifyErr.code || '') || NETWORK_ERROR_RE.test(verifyErr.message || '')) {
+      console.error('[google-login] token verification failed:', describeError(verifyErr));
+      if (isNetworkError(verifyErr)) {
         return res.status(503).json({
           message: "The server couldn't reach Google to verify your sign-in. Please try again.",
-          ...(isDev && { detail: verifyErr.message })
+          ...(isDev && { detail: describeError(verifyErr) })
         });
       }
       // Wrong audience (client ID mismatch), expired token, malformed token, etc.
@@ -1186,6 +1241,7 @@ module.exports = {
   resendOTP,
   googleLogins,
   completeGoogleRegistration,
+  googleHealth,
   getUserProfile,
   updateProfile,
   signOut,
