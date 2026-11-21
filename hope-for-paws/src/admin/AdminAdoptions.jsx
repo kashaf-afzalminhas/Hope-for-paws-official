@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminAPI } from './api';
+import { formatPetAge } from '../utils/formatPetAge';
+import UserBadge from '../Components/UserBadge';
 
 const AdminAdoptions = () => {
   const [adoptions, setAdoptions] = useState([]);
@@ -65,7 +67,7 @@ const AdminAdoptions = () => {
                 <tr key={adoption._id}>
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{adoption.name}</td>
                   <td className="px-4 py-2">{adoption.petType}</td>
-                  <td className="px-4 py-2">{adoption.age}</td>
+                  <td className="px-4 py-2">{formatPetAge(adoption.age, adoption.ageUnit)}</td>
                   <td className="px-4 py-2 min-w-[300px] text-sm align-top">{adoption.description}</td>
                   <td className="px-4 py-2 capitalize">{adoption.status}</td>
                   <td className="px-4 py-2">
@@ -78,7 +80,13 @@ const AdminAdoptions = () => {
                     />
                   </td>
                   <td className="px-4 py-2">
-                    {adoption.userId?.username}<br/>
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      {adoption.userId?.username}
+                      {adoption.userId?.isNgo && (
+                        <UserBadge isNgo ngoVerified={Boolean(adoption.userId?.ngoVerified)} size="sm" />
+                      )}
+                    </span>
+                    <br/>
                     <span className="text-xs text-gray-500">{adoption.userId?.email}</span>
                   </td>
                   <td className="px-4 py-2 text-xs">{new Date(adoption.createdAt).toLocaleString()}</td>

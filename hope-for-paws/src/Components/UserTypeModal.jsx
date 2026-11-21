@@ -36,6 +36,12 @@ const UserTypeModal = ({ open, onClose, onSelect, username }) => {
             >
               🏪 Seller
             </button>
+            <button
+              className="w-full py-3 px-4 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition"
+              onClick={() => onSelect('ngo')}
+            >
+              NGO
+            </button>
           </div>
         </>
       </div>

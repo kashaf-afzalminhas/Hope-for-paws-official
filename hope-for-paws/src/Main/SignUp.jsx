@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
-import Paws from '/Hopeforpaws.jpg';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
-import { motion } from "framer-motion";
+
+const AUTH_BRAND = '/auth-brand.png';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
 import PhoneNumberInput, { getFullPhoneNumber, validatePhone } from '../Components/PhoneNumberInput';
@@ -13,7 +13,7 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+92');
-  const [userType, setUserType] = useState('user'); // 'user', 'veterinarian', 'seller'
+  const [userType, setUserType] = useState('user'); // 'user', 'veterinarian', 'seller', 'ngo'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -27,15 +27,6 @@ const SignUp = () => {
   const [pendingGoogleUser, setPendingGoogleUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 120 }
-    }
-  };
 
   const performPostLoginRedirect = (userObj) => {
     const savedRedirect = (() => {
@@ -123,7 +114,7 @@ const SignUp = () => {
           email,
           password,
           isVeterinarian: userType === 'veterinarian',
-          userType: userType === 'seller' ? 'seller' : 'user',
+          userType: userType === 'seller' || userType === 'ngo' ? userType : 'user',
           phone: getFullPhoneNumber(phone, countryCode)
         }),
       });
@@ -158,16 +149,44 @@ const SignUp = () => {
   // Filter to show only unmet requirements
   const unmetRequirements = passwordChecks.filter(check => !check.valid);
 
+  const postGoogleLogin = async (body, { timeoutMs = 28000 } = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { message: `Unexpected server response (${response.status})` };
+      }
+      return { response, data };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const postGoogleLoginWithRetry = async (body) => {
+    try {
+      return await postGoogleLogin(body);
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+      return await postGoogleLogin(body, { timeoutMs: 25000 });
+    }
+  };
+
   const googleLoginHandler = async (googleResponse) => {
     setLoading(true);
     setError("");
     try {
-      let response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential: googleResponse.credential }),
+      let { response, data } = await postGoogleLoginWithRetry({
+        credential: googleResponse.credential,
       });
-      let data = await response.json();
 
       if (response.ok && data.requiresLinkConfirmation) {
         const shouldLink = window.confirm(
@@ -179,15 +198,10 @@ const SignUp = () => {
           return;
         }
 
-        response = await fetch(`${AUTH_BASE_URL}/login-google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            credential: googleResponse.credential,
-            confirmLinking: true
-          }),
-        });
-        data = await response.json();
+        ({ response, data } = await postGoogleLoginWithRetry({
+          credential: googleResponse.credential,
+          confirmLinking: true,
+        }));
       }
 
       setLoading(false);
@@ -209,9 +223,13 @@ const SignUp = () => {
       } else {
         setError(data.message || "Google registration failed");
       }
-    } catch {
+    } catch (err) {
       setLoading(false);
-      setError("An error occurred during Google registration");
+      if (err.name === "AbortError") {
+        setError("The server took too long to respond. Please try again.");
+      } else {
+        setError("An error occurred during Google registration");
+      }
     }
   };
 
@@ -227,7 +245,12 @@ const SignUp = () => {
           credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
           isVeterinarian: userTypeSelected === 'veterinarian',
-          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user')
+          userType:
+            userTypeSelected === 'seller' || userTypeSelected === 'ngo'
+              ? userTypeSelected
+              : userTypeSelected === 'veterinarian'
+                ? 'veterinarian'
+                : 'user'
         }),
       });
       const data = await response.json();
@@ -251,18 +274,18 @@ const SignUp = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md overflow-hidden">
-        {/* Logo Section with full-width beige background */}
-        <div className="w-full h-72 bg-[#F8F4ED] py-6 mb-2 flex flex-col items-center">
+        {/* Logo Section — fills the entire top block */}
+        <div className="w-full h-72 bg-[#8B5E34] relative overflow-hidden">
           <img
-            className="w-full h-72 max-w-sm:max-w-md object-cover"
-            src={Paws}
-            alt="Hope For Paws Logo"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            src={`${AUTH_BRAND}?v=2`}
+            alt="Hopeforpaws"
           />
         </div>
 
         {/* Form Section */}
         <div className="p-6">
-          <h2 className="text-xl font-extrabold text-black mb-6 mt-6 text-center">Create Your Account</h2>
+          <h2 className="text-xl font-extrabold text-[#4E3B31] mb-6 mt-6 text-center">Create Your Account</h2>
 
           <form onSubmit={handleSubmit}>
             {error && (
@@ -378,6 +401,7 @@ const SignUp = () => {
                 <option value="user">Regular User</option>
                 <option value="veterinarian">Veterinarian</option>
                 <option value="seller">Seller</option>
+                <option value="ngo">NGO</option>
               </select>
               {userType === 'veterinarian' && (
                 <p className="mt-1 text-sm text-[#6b493d]">
@@ -387,6 +411,11 @@ const SignUp = () => {
               {userType === 'seller' && (
                 <p className="mt-1 text-sm text-[#6b493d]">
                   As a seller, you can list pet products for sale. Your application will be reviewed by our team.
+                </p>
+              )}
+              {userType === 'ngo' && (
+                <p className="mt-1 text-sm text-[#6b493d]">
+                  As an NGO, you can post and manage adoption ads like other users. Admins can later verify your organisation.
                 </p>
               )}
             </div>
@@ -402,21 +431,26 @@ const SignUp = () => {
             </button>
           </form>
 
-          <motion.div variants={itemVariants} className="flex justify-center mt-4">
-              <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                  <GoogleLogin
-                    onSuccess={(response) => googleLoginHandler(response)}
-                    onError={(error) => console.log(error)}
-                    theme="filled_blue"
-                    shape="pill"
-                    size="large"
-                    text="continue_with"
-                    width="300"
-                    logo_alignment="left"
-                    className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
-                  />
-                </GoogleOAuthProvider>
-              </motion.div>
+          <div className="w-full flex justify-center mt-4">
+            <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+              <div className="w-full max-w-[320px] flex justify-center [&>div]:w-full [&>div]:flex [&>div]:justify-center">
+                <GoogleLogin
+                  onSuccess={(response) => googleLoginHandler(response)}
+                  onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
+                  useOneTap={false}
+                  auto_select={false}
+                  use_fedcm_for_button={false}
+                  use_fedcm_for_prompt={false}
+                  theme="filled_blue"
+                  shape="pill"
+                  size="large"
+                  text="continue_with"
+                  width="320"
+                  logo_alignment="center"
+                />
+              </div>
+            </GoogleOAuthProvider>
+          </div>
 
           <GoogleAccountTypeOnboarding
             open={showUserTypeModal}

@@ -118,8 +118,9 @@ class NotificationService {
     return this.getUserSocket(userId);
   }
 
-  // Send real-time notification
+  // Send real-time notification (no-op on Lambda when Socket.IO is disabled)
   async sendRealTimeNotification(userId, notificationData) {
+    if (!this.io) return;
     const socketId = this.getUserSocket(userId);
     if (socketId) {
       this.io.to(socketId).emit('notification', notificationData);

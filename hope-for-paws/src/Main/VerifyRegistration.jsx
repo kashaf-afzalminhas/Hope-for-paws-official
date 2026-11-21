@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AUTH_BASE_URL } from '../config';
-import Paws from '/Hopeforpaws.jpg';
+const AUTH_BRAND = '/auth-brand.png';
 
 const VerifyRegistration = () => {
   const [email, setEmail] = useState('');
@@ -127,19 +127,19 @@ const VerifyRegistration = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
-        {/* Image Section - Visible on both mobile and desktop */}
-        <div className="w-full md:w-1/2 h-48 md:h-auto bg-[#F8F4ED] relative">
+      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+        {/* Image Section — grid row stretches to match form column height */}
+        <div className="relative min-h-[12rem] md:min-h-0 bg-[#8B5E34] overflow-hidden">
           <img
-            src={Paws}
-            alt="Hope For Paws"
-            className="absolute inset-0 w-full h-full object-cover"
+            src={`${AUTH_BRAND}?v=2`}
+            alt="Hopeforpaws"
+            className="absolute inset-0 w-full h-full object-cover object-center"
           />
         </div>
 
         {/* Form Section */}
-        <div className="w-full md:w-1/2 p-8">
-          <div className="max-w-md mx-auto space-y-6">
+        <div className="p-6 sm:p-8 flex flex-col justify-center">
+          <div className="w-full max-w-md mx-auto space-y-6">
             <div className="flex flex-col items-center space-y-2">
               <h2 className="text-2xl font-bold text-[#4E3B31]">Verify Your Email</h2>
               <p className="text-sm text-[#6b493d] text-center">

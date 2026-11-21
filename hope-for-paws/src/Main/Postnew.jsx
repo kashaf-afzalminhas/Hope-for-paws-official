@@ -10,6 +10,7 @@ import { getConversationBetweenUsers } from './api'; // <-- Make sure this is im
 import PostUploadForm from './PostUploadForm';
 import PostCard from '../Components/posts/PostCard';
 import PostViewToggle from '../Components/posts/PostViewToggle';
+import UserBadge from '../Components/UserBadge';
 import { useRequireAuth } from '../Components/AuthGuard';
  
 const Postnew = () => {
@@ -366,11 +367,12 @@ const Postnew = () => {
                 >
                   {rootComment.userId?.username || "Unknown User"}
                 </Link>
-                {rootComment.userId?.isVeterinarian && (
-                  <span className="px-1.5 py-0.5 bg-[#6b493d]/10 text-[#6b493d] text-xs rounded-full font-poppins">
-                    Veterinarian
-                  </span>
-                )}
+                <UserBadge
+                  isVeterinarian={Boolean(rootComment.userId?.isVeterinarian)}
+                  isNgo={Boolean(rootComment.userId?.isNgo)}
+                  ngoVerified={Boolean(rootComment.userId?.ngoVerified)}
+                  size="sm"
+                />
               </div>
               <p className="text-[#4E3B31] font-poppins text-xs sm:text-sm break-words">
                 {rootComment.content}
@@ -430,11 +432,12 @@ const Postnew = () => {
                       >
                         {reply.userId?.username || "Unknown User"}
                       </Link>
-                      {reply.userId?.isVeterinarian && (
-                        <span className="px-1 py-0.2 bg-[#6b493d]/10 text-[#6b493d] text-[10px] rounded-full font-poppins">
-                          Vet
-                        </span>
-                      )}
+                      <UserBadge
+                        isVeterinarian={Boolean(reply.userId?.isVeterinarian)}
+                        isNgo={Boolean(reply.userId?.isNgo)}
+                        ngoVerified={Boolean(reply.userId?.ngoVerified)}
+                        size="sm"
+                      />
                     </div>
                     <p className="text-[#4E3B31] font-poppins text-xs break-words">
                       {reply.content}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import { Store, Star, ShoppingCart, Heart as HeartIcon, Package, Plus, Check, Loader2 } from 'lucide-react';
 import VerifiedBadge from '../Components/VerifiedBadge';
+import UserBadge from '../Components/UserBadge';
 import StarDisplay from '../Components/StarDisplay';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
@@ -392,10 +393,13 @@ const PublicProfilePage = () => {
           </div>
 
           <div className="mb-4">
-            <div className="flex flex-row items-center justify-center">
+            <div className="flex flex-row items-center justify-center gap-2 flex-wrap">
               <h1 className="text-2xl font-heading font-bold text-[#2c1810]">
                 {profile.username}
               </h1>
+              {profile.isNgo && (
+                <UserBadge isNgo ngoVerified={Boolean(profile.ngoVerified)} size="md" />
+              )}
               {profile.sellerId && (
                 profile.sellerVerified ? (
                   <VerifiedBadge isVerified={true} size="lg" className="ml-2" />

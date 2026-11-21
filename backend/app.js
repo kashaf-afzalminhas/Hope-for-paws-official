@@ -1,3 +1,7 @@
+// Detect Lambda BEFORE any app requires — pack-lambda.sh strips socket.io from the zip
+const isLambda =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+
 const dns = require('dns');
 // Custom DNS servers are opt-in (e.g. DNS_SERVERS=8.8.8.8,1.1.1.1 for local networks with broken DNS).
 // On AWS and most hosts the server's own DNS must be used, so nothing is overridden by default.
@@ -25,10 +29,12 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const passport = require('passport');
 const { createServer } = require('http');
-const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-// const http = require('http');
-// const initSocket = require('./config/socket');
+// Socket.IO is local/EC2 only — never require it on Lambda
+const { Server } = isLambda ? { Server: null } : require('socket.io');
+
+dotenv.config();
+
 const authRoutes = require('./routes/authRoutes');
 //const animalRoutes = require('./routes/animalRoutes');
 const adoptionRoutes = require('./routes/adoptionRoutes');
@@ -52,46 +58,53 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const wishlistRoutes = require('./routes/wishlistRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const promoRoutes = require('./routes/promoRoutes');
+const aiAssistantRoutes = require('./routes/aiAssistantRoutes');
 
 // Import notification service
 const NotificationService = require('./services/notificationService');
 
-dotenv.config();
-
-// Fail fast on missing configuration instead of starting a half-working server
+// Fail fast on missing configuration instead of starting a half-working server.
+// Never process.exit on Lambda — that becomes a cryptic API Gateway 500 with no CORS headers.
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length > 0) {
   console.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
-  process.exit(1);
+  if (!isLambda) {
+    process.exit(1);
+  }
 }
 if (process.env.NODE_ENV === 'production' &&
     !(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
   console.warn('WARNING: Cloudinary is not configured. Uploaded images will be saved on this server\'s disk and lost on redeploy.');
 }
 
-mongoose.connect(process.env.MONGO_URI, {
-  tls: true,
-  serverSelectionTimeoutMS: 30000,
-})
-  .then(async () => {
-    console.log('MongoDB connected successfully');
-    // After a restart nobody is connected yet: clear "online" flags left over from before
-    try {
-      await mongoose.model('User').updateMany({ status: 'online' }, { $set: { status: 'offline' } });
-    } catch (e) {
-      console.warn('Could not reset online statuses:', e.message);
-    }
+// Local/EC2 owns the Mongo connection here. On Lambda, lambda.js ensureDb() connects per warm start.
+if (!isLambda) {
+  const mongoUri = process.env.MONGO_URI || '';
+  const mongoNeedsTls = /(?:^mongodb\+srv:)|(?:[?&]tls=true)|(?:\.docdb\.amazonaws\.com)/i.test(mongoUri);
+  mongoose.connect(mongoUri, {
+    ...(mongoNeedsTls ? { tls: true } : {}),
+    serverSelectionTimeoutMS: 30000,
   })
-  .catch(err => {
-    console.error('Failed to connect MongoDB:', err);
-    console.error('Error details:', {
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      stack: err.stack
+    .then(async () => {
+      console.log('MongoDB connected successfully');
+      // After a restart nobody is connected yet: clear "online" flags left over from before
+      try {
+        await mongoose.model('User').updateMany({ status: 'online' }, { $set: { status: 'offline' } });
+      } catch (e) {
+        console.warn('Could not reset online statuses:', e.message);
+      }
+    })
+    .catch(err => {
+      console.error('Failed to connect MongoDB:', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
     });
-  });
+}
 
 const app = express();
 
@@ -106,111 +119,116 @@ const parseTrustProxy = (value) => {
 app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 
 // Allowed browser origins (extra ones can be added with CORS_ORIGINS="https://a.com,https://b.com")
+const { ALLOWED_ORIGINS: BASE_ALLOWED_ORIGINS } = require('./config/allowedOrigins');
 const ALLOWED_ORIGINS = [
-  'https://www.hopeforpaws.club',
-  'https://hopeforpaws.club',
-  'http://localhost:5173',
-  'http://localhost:5174',
+  ...BASE_ALLOWED_ORIGINS,
+  // Legacy domain kept until DNS/redirects fully cut over
+  'https://www.hopeforpawshub.co',
+  'https://hopeforpawshub.co',
+  // Production frontend URL from Lambda/env (no trailing slash)
+  ...(process.env.FRONTEND_URL ? [String(process.env.FRONTEND_URL).replace(/\/$/, '')] : []),
   ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 ];
-// const server = http.createServer(app);
+// HTTP + Socket.IO only outside Lambda (API Gateway handles HTTP there)
+const server = isLambda ? null : createServer(app);
+let io = null;
 
-// Initialize Socket.IO
-// const io = initSocket(server);
-const server = createServer(app);
+if (!isLambda) {
+  io = new Server(server, {
+    cors: {
+      origin: ALLOWED_ORIGINS,
+      methods: ['GET', 'POST'],
+      credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e6
+  });
+}
 
-// Socket.IO setup
-const io = new Server(server, {
-  cors: {
-    origin: ALLOWED_ORIGINS,
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  transports: ['polling', 'websocket'],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  upgradeTimeout: 10000,
-  maxHttpBufferSize: 1e6
-});
-
-// Initialize notification service
+// Initialize notification service (io may be null on Lambda — realtime emit is skipped)
 const notificationService = new NotificationService(io);
-notificationService.scheduleDailyDigestJob();
-
-// Attach Socket.IO instance to Express app so it can be accessed in controllers
-app.set("socketio", io);
-
-// Socket.IO authentication middleware
-io.use(async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token;
-    if (!token) {
-      console.log('Socket connection attempt without token');
-      return next(new Error('Authentication error: No token provided'));
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId || decoded.id; // Accept either field
-    if (!userId) {
-      console.log('Socket connection attempt with invalid token');
-      return next(new Error('Authentication error: Invalid token'));
-    }
-    // The account must still exist (e.g. not deleted by an admin)
-    const exists = await mongoose.model('User').exists({ _id: userId });
-    if (!exists) {
-      return next(new Error('Authentication error: Account not found'));
-    }
-    socket.userId = String(userId);
-    next();
-  } catch (error) {
-    console.error('Socket authentication error:', error.message);
-    return next(new Error('Authentication error: ' + error.message));
-  }
-});
-
-// Socket.IO connection handling
+if (!isLambda) {
+  notificationService.scheduleDailyDigestJob();
+}
 initChatReminderWorker(notificationService);
 
-io.on('connection', async (socket) => {
-  // Every socket joins its user's personal room right away (used for messages and notifications)
-  socket.join(socket.userId);
-
-  // Register event handlers first, so events sent right after connecting (e.g. joinConversation) aren't lost
-  const { setupSocketHandlers } = require('./services/socketHandler');
-  setupSocketHandlers(io, socket, notificationService);
-
-  socket.on('disconnect', async () => {
-    await notificationService.removeUserSocket(socket.userId, socket.id);
-  });
-
-  // Add user to notification service (marks them online)
-  try {
-    await notificationService.addUserSocket(socket.userId, socket.id);
-  } catch (error) {
-    console.error('Failed to register user socket:', error);
-  }
-
-  socket.on('error', (error) => {
-    console.error('Socket error for user:', socket.userId, error);
-  });
-
-});
-
-// Make notification service available globally
+// Attach Socket.IO / notification service so controllers can access them
+app.set('socketio', io);
 global.notificationService = notificationService;
 app.set('notificationService', notificationService);
 
-// Add timeout middleware
-app.use((req, res, next) => {
-  // Set timeout to 30 seconds
-  // Uploads (multipart) get longer, since several images may be sent on to Cloudinary
-  const isUpload = (req.headers['content-type'] || '').startsWith('multipart/form-data');
-  req.setTimeout(isUpload ? 120000 : 30000, () => {
-    res.status(504).json({ message: 'Request timeout' });
+if (io) {
+  // Socket.IO authentication middleware
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        console.log('Socket connection attempt without token');
+        return next(new Error('Authentication error: No token provided'));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId || decoded.id; // Accept either field
+      if (!userId) {
+        console.log('Socket connection attempt with invalid token');
+        return next(new Error('Authentication error: Invalid token'));
+      }
+      // The account must still exist (e.g. not deleted by an admin)
+      const exists = await mongoose.model('User').exists({ _id: userId });
+      if (!exists) {
+        return next(new Error('Authentication error: Account not found'));
+      }
+      socket.userId = String(userId);
+      next();
+    } catch (error) {
+      console.error('Socket authentication error:', error.message);
+      return next(new Error('Authentication error: ' + error.message));
+    }
   });
-  next();
-});
+
+  io.on('connection', async (socket) => {
+    // Every socket joins its user's personal room right away (used for messages and notifications)
+    socket.join(socket.userId);
+
+    // Register event handlers first, so events sent right after connecting (e.g. joinConversation) aren't lost
+    const { setupSocketHandlers } = require('./services/socketHandler');
+    setupSocketHandlers(io, socket, notificationService);
+
+    socket.on('disconnect', async () => {
+      await notificationService.removeUserSocket(socket.userId, socket.id);
+    });
+
+    // Add user to notification service (marks them online)
+    try {
+      await notificationService.addUserSocket(socket.userId, socket.id);
+    } catch (error) {
+      console.error('Failed to register user socket:', error);
+    }
+
+    socket.on('error', (error) => {
+      console.error('Socket error for user:', socket.userId, error);
+    });
+  });
+}
+
+// Request timeout — only for real Node HTTP servers. serverless-http mocks often have no setTimeout
+// and calling it crashes every route with a generic 500 on Lambda.
+if (!isLambda) {
+  app.use((req, res, next) => {
+    // Uploads (multipart) get longer, since several images may be sent on to Cloudinary
+    const isUpload = (req.headers['content-type'] || '').startsWith('multipart/form-data');
+    if (typeof req.setTimeout === 'function') {
+      req.setTimeout(isUpload ? 120000 : 30000, () => {
+        res.status(504).json({ message: 'Request timeout' });
+      });
+    }
+    next();
+  });
+}
 
 // Helmet: HTTP security headers (CSP, X-Frame-Options, HSTS, etc.)
 app.use(helmet({
@@ -221,7 +239,18 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "blob:", "http://localhost:3000"],
-      connectSrc: ["'self'", "https://www.hopeforpaws.club", "http://localhost:5173", "http://localhost:5174", "ws://localhost:5173", "ws://localhost:5174"],
+      connectSrc: [
+        "'self'",
+        "https://hopeforpawshub.co",
+        "https://www.hopeforpawshub.co",
+        "https://api.hopeforpawshub.co",
+      
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "ws://localhost:5173",
+        "ws://localhost:5174",
+        "wss://api.hopeforpawshub.co",
+      ],
     },
   },
   crossOriginEmbedderPolicy: false, // Allow cross-origin images from Cloudinary
@@ -250,6 +279,18 @@ const corsOptions = {
 
 // Apply CORS middleware (it also answers OPTIONS preflight requests)
 app.use(cors(corsOptions));
+// Shared options so API Gateway / serverless never trip express-rate-limit IP validations into a 500
+const rateLimitIpOptions = {
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false, trustProxy: false, keyGeneratorIpFallback: false },
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length) return forwarded.split(',')[0].trim();
+    return req.ip || req.socket?.remoteAddress || 'anonymous';
+  },
+};
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // Increased from 1000 to 5000 requests per windowMs
@@ -257,8 +298,7 @@ const limiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
   skip: (req) => {
     // Skip rate limiting for health checks and test endpoints
     return req.path === '/health' || 
@@ -279,8 +319,7 @@ const socialLimiter = rateLimit({
     error: 'Too many social actions. Please slow down.',
     retryAfter: '1 minute'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use('/api/posts/:id/like', socialLimiter);
 
@@ -293,8 +332,7 @@ const authLoginLimiter = rateLimit({
     message: 'Too many login attempts. Please try again in 15 minutes.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use(['/auth/signin', '/auth/login', '/auth/login-google', '/auth/complete-google-registration', '/auth/change-password'], authLoginLimiter);
 app.use('/api/comments', socialLimiter);
@@ -307,8 +345,7 @@ const adoptionWriteLimiter = rateLimit({
     error: 'Too many adoption creation or request actions. Please try again after 15 minutes.',
     retryAfter: '15 minutes'
   },
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...rateLimitIpOptions,
 });
 app.use('/api/adoptions', (req, res, next) => {
   if (req.method === 'POST') {
@@ -389,6 +426,7 @@ app.use('/api/promos', promoRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/ai', aiAssistantRoutes);
 
 // Root route handler
 app.get('/', (req, res) => {
@@ -406,8 +444,9 @@ app.get('/health', (req, res) => {
 
 // Socket.IO health check
 app.get('/socket-health', (req, res) => {
-  res.json({ 
-    socketConnections: io.engine.clientsCount,
+  res.json({
+    socketConnections: io?.engine?.clientsCount ?? 0,
+    socketEnabled: !!io,
     notificationServiceActive: !!notificationService
   });
 });
@@ -435,16 +474,26 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ message: tooBig ? 'File too large' : (err.message || 'Image upload failed') });
   }
 
-  // Handle other errors. Internal error details are never sent to users in production.
+  // Handle other errors. Internal error details are never sent to users in production
+  // (except a short message on Lambda so CloudWatch + clients can diagnose without logs).
   const status = err.status || err.statusCode || 500;
   const isDev = process.env.NODE_ENV === 'development';
+  const exposeDetail = isDev || isLambda;
   res.status(status).json({
-    message: status < 500 ? (err.message || 'Bad request') : (isDev ? err.message : 'Something went wrong!'),
-    ...(isDev ? { error: err } : {})
+    message: status < 500
+      ? (err.message || 'Bad request')
+      : (exposeDetail ? (err.message || 'Something went wrong!') : 'Something went wrong!'),
+    ...(isDev ? { error: err } : {}),
+    ...(isLambda && status >= 500 ? { code: err.code || err.name || 'ERROR' } : {})
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Export Express app for Lambda (serverless-http) and for tests
+module.exports = app;
 
+// Local / EC2: start the HTTP server. Lambda must not listen.
+if (!isLambda && server) {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 

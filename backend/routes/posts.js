@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
     const total = await Post.countDocuments();
 
     const posts = await Post.find()
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
     // Batch-fetch all comments for this page of posts (eliminates N+1)
     const postIds = posts.map(p => p._id);
     const allComments = await Comment.find({ postId: { $in: postIds } })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: 1 });
 
     // Group comments by postId in memory
@@ -96,7 +96,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const post = await Post.findById(req.params.id)
-      .populate('userId', 'username isVeterinarian');
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -105,7 +105,7 @@ router.get('/:id', async (req, res) => {
     let comments = [];
     try {
       comments = await Comment.find({ postId: post._id })
-        .populate('userId', 'username isVeterinarian')
+        .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
         .sort({ createdAt: 1 });
     } catch (commentError) {
       console.error('Error loading comments for post:', commentError);
@@ -148,13 +148,13 @@ router.get('/user/:userId', auth, async (req, res) => {
   try {
     const userId = req.params.userId;
     const posts = await Post.find({ userId })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: -1 });
 
     // Batch-fetch comments (eliminates N+1)
     const postIds = posts.map(p => p._id);
     const allComments = await Comment.find({ postId: { $in: postIds } })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: 1 });
 
     const commentsByPostId = {};
@@ -227,7 +227,7 @@ router.post('/', auth, upload.fields([
 
     // Populate user data before sending response
     const populatedPost = await Post.findById(post._id)
-      .populate('userId', 'username isVeterinarian');
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     res.status(201).json(populatedPost);
   } catch (error) {
@@ -301,7 +301,7 @@ router.put('/:id', auth, upload.fields([
       { _id: req.params.id, userId: req.user.userId },
       { $set: update },
       { new: true, runValidators: true }
-    ).populate('userId', 'username isVeterinarian');
+    ).populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -315,7 +315,7 @@ router.put('/:id', auth, upload.fields([
     }
 
     const comments = await Comment.find({ postId: post._id })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: 1 });
 
     const postObject = post.toObject();
@@ -400,12 +400,12 @@ router.post('/:id/like', auth, async (req, res) => {
         postId,
         { $pull: { likes: userId } },
         { new: true }
-      ).populate('userId', 'username isVeterinarian')
+      ).populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       : await Post.findByIdAndUpdate(
         postId,
         { $addToSet: { likes: userId } },
         { new: true }
-      ).populate('userId', 'username isVeterinarian');
+      ).populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     // Send notification for new like (not for unlike)
     if (!alreadyLiked && global.notificationService) {
@@ -413,7 +413,7 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     const comments = await Comment.find({ postId })
-      .populate('userId', 'username isVeterinarian')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: 1 });
 
     const postObject = updatedPost.toObject();

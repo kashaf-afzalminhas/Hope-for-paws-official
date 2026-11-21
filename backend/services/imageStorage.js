@@ -12,7 +12,12 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
   });
 }
 
-const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
+// Lambda's /var/task is read-only; local disk fallback must use /tmp there
+const isLambda =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+const UPLOADS_ROOT = isLambda
+  ? path.join('/tmp', 'hope-for-paws-uploads')
+  : path.join(__dirname, '..', 'uploads');
 
 // Only real raster images are accepted. The type is detected from the file's first bytes,
 // never from the name or the Content-Type the browser sends (those can be faked).

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+import { formatPetAge } from '../utils/formatPetAge';
 
 const AdminUserAdoptions = () => {
   const { userId } = useParams();
@@ -75,7 +76,7 @@ const AdminUserAdoptions = () => {
                 <tr key={adoption._id}>
                   <td className="px-4 py-2 font-semibold text-[#4E3B31]">{adoption.name}</td>
                   <td className="px-4 py-2">{adoption.petType}</td>
-                  <td className="px-4 py-2">{adoption.age}</td>
+                  <td className="px-4 py-2">{formatPetAge(adoption.age, adoption.ageUnit)}</td>
                   <td className="px-4 py-2 min-w-[300px] text-sm align-top">{adoption.description}</td>
                   <td className="px-4 py-2 capitalize">{adoption.status}</td>
                   <td className="px-4 py-2">

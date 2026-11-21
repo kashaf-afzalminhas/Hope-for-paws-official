@@ -7,6 +7,7 @@ import { AUTH_BASE_URL } from './config';
 import RandomPopups from './Components/RandomPopups';
 import RabiesAwarenessModal from './Components/RabiesAwarenessModal';
 import ImagePopupModal from './Components/ImagePopupModal';
+import AIAssistant from './Components/ai-assistant/AIAssistant';
 
 function App() {
   const location = useLocation();
@@ -166,6 +167,7 @@ const handleSignOut = async () => {
         </div>
         {!hideFooter && <Footer />}
         </div>
+        <AIAssistant />
     </>
   );
 }

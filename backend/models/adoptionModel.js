@@ -20,6 +20,12 @@ const adoptionSchema = new mongoose.Schema({
     required: true,
     min: [0.1, 'Age must be greater than 0']
   },
+  // days | months | years — legacy "age" values are treated as years by the API/UI
+  ageUnit: {
+    type: String,
+    enum: ['days', 'months', 'years', 'age'],
+    default: 'years'
+  },
   petType: {
     type: String,
     required: true,

@@ -7,7 +7,7 @@ const tempUserSchema = new mongoose.Schema({
   isVeterinarian: { type: Boolean, default: false },
   phone: { type: String, required: true },
 
-  userType: { type: String, enum: ['user', 'seller'], default: 'user' },
+  userType: { type: String, enum: ['user', 'seller', 'ngo'], default: 'user' },
   existingUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: undefined },
 
   verificationCode: { type: String, required: true },

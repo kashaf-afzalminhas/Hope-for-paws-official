@@ -6,6 +6,7 @@ import { useRequireAuth } from '../Components/AuthGuard';
 import { API_BASE_URL } from '../config';
 import PakistanLocationSelector, { emptyPakistanLocation } from '../Components/PakistanLocationSelector';
 import { ChevronDown } from 'lucide-react';
+import { AGE_UNIT_OPTIONS, normalizeAgeUnit } from '../utils/formatPetAge';
 
 
 
@@ -17,7 +18,7 @@ const MAX_IMAGES = 5;
 const MAX_TOTAL_SIZE_MB = 20; // Total combined size across all selected images
 const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
 
-const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
+const AdoptionSelect = ({ value, options, placeholder, onChange, error, showPlaceholderOption = true }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef(null);
 
@@ -43,9 +44,11 @@ const AdoptionSelect = ({ value, options, placeholder, onChange, error }) => {
       </button>
       {isOpen && (
         <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[#e8dcc8] bg-white py-1 text-[#4E3B31] shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
-            {placeholder}
-          </button>
+          {showPlaceholderOption && (
+            <button type="button" role="option" aria-selected={!value} onClick={() => { onChange(''); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
+              {placeholder}
+            </button>
+          )}
           {options.map((option) => (
             <button type="button" role="option" aria-selected={value === option.value} key={option.value} onClick={() => { onChange(option.value); setIsOpen(false); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-[#F8F4ED]">
               {option.label}
@@ -62,12 +65,14 @@ AdoptionSelect.propTypes = {
   options: PropTypes.arrayOf(PropTypes.shape({ value: PropTypes.string.isRequired, label: PropTypes.string.isRequired })).isRequired,
   placeholder: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
-  error: PropTypes.string
+  error: PropTypes.string,
+  showPlaceholderOption: PropTypes.bool
 };
 
 const AdoptionForm = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
+  const [ageUnit, setAgeUnit] = useState('years');
   const [petType, setPetType] = useState('');
   const [breed, setBreed] = useState('');
   const [vaccinated, setVaccinated] = useState('');
@@ -392,6 +397,7 @@ const AdoptionForm = () => {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('age', age);
+    formData.append('ageUnit', normalizeAgeUnit(ageUnit));
     formData.append('petType', petType);
     formData.append('breed', breed);
     formData.append('vaccinated', vaccinated);
@@ -501,35 +507,46 @@ const AdoptionForm = () => {
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-[#4E3B31]">
-              Age (years)
+              Age
             </label>
-            <input
-              type="number"
-              placeholder="e.g., 2"
-              value={age}
-              min="0.1"
-              step="0.1"
-              onChange={(e) => {
-                const val = e.target.value;
-                setAge(val);
-                if (val === '' || val === null) {
-                  setAgeError('Pet age must be greater than 0');
-                } else if (parseFloat(val) <= 0) {
-                  setAgeError('Pet age must be greater than 0');
-                } else if (isNaN(parseFloat(val))) {
-                  setAgeError('Please enter a valid number');
-                } else {
-                  setAgeError('');
-                }
-              }}
-              onKeyDown={(e) => {
-                // Block minus sign from being typed
-                if (e.key === '-') e.preventDefault();
-              }}
-              className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
-                ageError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
-              }`}
-            />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                placeholder="e.g., 2"
+                value={age}
+                min="0.1"
+                step="0.1"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAge(val);
+                  if (val === '' || val === null) {
+                    setAgeError('Pet age must be greater than 0');
+                  } else if (parseFloat(val) <= 0) {
+                    setAgeError('Pet age must be greater than 0');
+                  } else if (isNaN(parseFloat(val))) {
+                    setAgeError('Please enter a valid number');
+                  } else {
+                    setAgeError('');
+                  }
+                }}
+                onKeyDown={(e) => {
+                  // Block minus sign from being typed
+                  if (e.key === '-') e.preventDefault();
+                }}
+                className={`w-full rounded-xl border px-4 py-2.5 focus:border-[#6b493d] focus:outline-none focus:ring-2 focus:ring-[#6b493d]/20 ${
+                  ageError ? 'border-red-400 bg-red-50' : 'border-[#e8dcc8] bg-white'
+                }`}
+              />
+              <div className="min-w-[8.5rem]">
+                <AdoptionSelect
+                  value={ageUnit}
+                  options={AGE_UNIT_OPTIONS}
+                  placeholder="Years"
+                  showPlaceholderOption={false}
+                  onChange={(val) => setAgeUnit(normalizeAgeUnit(val || 'years'))}
+                />
+              </div>
+            </div>
             {ageError && (
               <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
                 <span>⚠️</span> {ageError}

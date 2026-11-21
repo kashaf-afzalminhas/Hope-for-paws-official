@@ -1,0 +1,19 @@
+# Files excluded from SAM packaging
+.aws-sam
+samconfig.toml
+uploads
+scripts
+*.md
+.env
+.env.*
+.git
+.gitignore
+node_modules
+test-*.js
+test_*.js
+test.js
+test-form.html
+deploy.bat
+Hope_For_Paws_Postman_Collection.json
+DeveloperGroupPolicy.json
+GrantBucket1Access.json

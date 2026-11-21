@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { AUTH_BASE_URL } from '../config';
+import { AUTH_BASE_URL, SOCKETS_ENABLED } from '../config';
 
 let socket = null;
 let socketToken = null;
@@ -8,10 +8,15 @@ let notificationCallback = null;
 
 const getStoredToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
 
+export const isSocketsEnabled = () => SOCKETS_ENABLED;
+
 // Initialize (or reuse) the single shared socket connection.
-// The same socket object is kept across network drops: Socket.IO reconnects it automatically,
-// so listeners registered by components stay attached.
+// No-ops in production Lambda (SOCKETS_ENABLED=false) — use REST polling instead.
 export const initSocket = (userId) => {
+  if (!SOCKETS_ENABLED) {
+    return null;
+  }
+
   const token = getStoredToken();
 
   if (!token) {
@@ -42,9 +47,10 @@ export const initSocket = (userId) => {
   socketUserId = userId || null;
 
   socket = io(baseURL, {
-    transports: ['websocket', 'polling'],
+    // Prefer polling first so environments that block WebSockets still work
+    transports: ['polling', 'websocket'],
     autoConnect: true,
-    reconnection: true, // retries forever with backoff
+    reconnection: true,
     reconnectionDelay: 2000,
     reconnectionDelayMax: 10000,
     timeout: 20000,
@@ -53,20 +59,14 @@ export const initSocket = (userId) => {
   });
 
   socket.on('connect', () => {
-    // The server also joins the personal room automatically; this keeps older servers working
     if (socketUserId) socket.emit('join', socketUserId);
   });
 
   socket.on('connect_error', (error) => {
     console.error('Socket connection error:', error?.message || error);
-    // Fall back to polling if websocket is blocked
-    if (socket?.io?.opts?.transports?.[0] === 'websocket') {
-      socket.io.opts.transports = ['polling', 'websocket'];
-    }
   });
 
   socket.on('disconnect', (reason) => {
-    // When the server closes the connection, Socket.IO does not retry by itself
     if (reason === 'io server disconnect') {
       setTimeout(() => {
         if (socket && !socket.connected) socket.connect();
@@ -83,7 +83,7 @@ export const initSocket = (userId) => {
   return socket;
 };
 
-export const getSocket = () => socket;
+export const getSocket = () => (SOCKETS_ENABLED ? socket : null);
 
 export const disconnectSocket = () => {
   if (socket) {
@@ -100,13 +100,10 @@ export const reinitializeSocket = (userId) => {
   return initSocket(userId);
 };
 
-// Set notification callback for handling notifications (pass null to clear)
 export const setNotificationCallback = (callback) => {
   notificationCallback = callback;
 };
 
-// Deprecated: messages are sent through the REST API (POST /api/messages).
-// The server has no 'sendMessage' socket handler, so these do nothing useful.
 export const sendSocketMessage = () => {
   console.warn('sendSocketMessage is deprecated; use sendMessage from Main/api instead');
 };
@@ -118,6 +115,7 @@ export const sendSocketMessageLegacy = () => {
 export const isSocketConnected = () => !!(socket && socket.connected);
 
 export const getSocketStatus = () => {
+  if (!SOCKETS_ENABLED) return 'disabled';
   if (!socket) return 'disconnected';
   if (socket.connected) return 'connected';
   if (socket.active) return 'connecting';
@@ -133,5 +131,6 @@ export default {
   sendSocketMessageLegacy,
   isSocketConnected,
   setNotificationCallback,
-  getSocketStatus
+  getSocketStatus,
+  isSocketsEnabled,
 };

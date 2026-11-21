@@ -39,7 +39,7 @@ const MAX_ADOPTION_IMAGES = 10;
 const MAX_TOTAL_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB total for all images in one request
 
 /**
- * When a listing goes from adopted → available (adoption fell through),
+ * When a listing goes from adopted ? available (adoption fell through),
  * restore accepted and auto-rejected requests to pending so adopters see "Request sent"
  * and the owner can review again.
  */
@@ -86,7 +86,7 @@ async function reopenListingRequestsForAvailability(adId, adoptionName) {
   return { reopenedCount: requestsToReopen.length, requesterIds };
 }
 
-// GET /api/adoptions/cities — public endpoint, no auth required
+// GET /api/adoptions/cities � public endpoint, no auth required
 router.get('/cities', (req, res) => {
   if (req.query.hierarchy === 'true') {
     return res.json({
@@ -100,7 +100,7 @@ router.get('/cities', (req, res) => {
 // Create an adoption post
 router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, res) => {
   try {
-    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, location, locationDetails } = req.body;
+    const { name, age, ageUnit, petType, breed, vaccinated, neuteredSpayed, description, location, locationDetails } = req.body;
     
 
     // Check if at least one image is provided
@@ -140,6 +140,8 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
     if (isNaN(parsedAge) || parsedAge <= 0) {
       return res.status(400).json({ message: 'Age must be greater than 0' });
     }
+    const allowedAgeUnits = ['days', 'months', 'years'];
+    const normalizedAgeUnit = allowedAgeUnits.includes(ageUnit) ? ageUnit : 'years';
 
     // Upload all images to Cloudinary
     const uploadedUrls = [];
@@ -189,6 +191,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
       userId: req.user.userId,
       name: sanitizedName,
       age: parsedAge,
+      ageUnit: normalizedAgeUnit,
       petType: sanitizedPetType,
       breed: sanitizedBreed,
       vaccinated,
@@ -206,7 +209,7 @@ router.post('/', auth, upload.array('images', MAX_ADOPTION_IMAGES), async (req, 
     console.log('Adoption post saved successfully');
     
     // Fetch the saved post to ensure all fields are included
-    const savedPost = await Adoption.findById(adoptionPost._id).populate('userId', 'username');
+    const savedPost = await Adoption.findById(adoptionPost._id).populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
     console.log('Saved post with all fields:', savedPost);
     console.log('Response being sent:', JSON.stringify(savedPost, null, 2));
     
@@ -223,7 +226,7 @@ router.get('/', async (req, res) => {
     console.log('Fetching adoption posts...');
     // Remove the status filter to show all posts
     const adoptionPosts = await Adoption.find()
-      .populate('userId', 'username')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: -1 });
     console.log('Adoption posts fetched successfully:', adoptionPosts.length);
     res.json(adoptionPosts);
@@ -261,7 +264,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     const includeRequests = req.query.includeRequests === 'true';
 
     let query = Adoption.find({ userId })
-      .populate('userId', 'username')
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified')
       .sort({ createdAt: -1 });
 
     if (includeRequests) {
@@ -428,7 +431,7 @@ router.get('/public-count', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const adoptionPost = await Adoption.findById(req.params.id)
-      .populate('userId', 'username');
+      .populate('userId', 'username profileImage isVeterinarian isSeller isNgo ngoVerified');
 
     if (!adoptionPost) {
       return res.status(404).json({ message: 'Adoption post not found' });
@@ -444,7 +447,7 @@ router.get('/:id', async (req, res) => {
 // Update an adoption post
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, age, petType, breed, vaccinated, neuteredSpayed, description, status, location, locationDetails } = req.body;
+    const { name, age, ageUnit, petType, breed, vaccinated, neuteredSpayed, description, status, location, locationDetails } = req.body;
 
     if (status && !['available', 'pending', 'adopted'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -503,10 +506,15 @@ router.put('/:id', auth, async (req, res) => {
         return res.status(400).json({ message: 'Age must be greater than 0' });
       }
     }
+    const allowedAgeUnits = ['days', 'months', 'years'];
+    const normalizedAgeUnit = ageUnit !== undefined
+      ? (allowedAgeUnits.includes(ageUnit) ? ageUnit : 'years')
+      : undefined;
 
     Object.assign(updatePayload, {
       name: sanitizedName,
       age: parsedAge,
+      ...(normalizedAgeUnit ? { ageUnit: normalizedAgeUnit } : {}),
       petType: sanitizedPetType,
       breed: sanitizedBreed,
       vaccinated,

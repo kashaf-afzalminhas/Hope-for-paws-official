@@ -48,6 +48,14 @@ const AdminDashboardLayout = ({ admin, onSignOut, children }) => {
             Seller Requests
           </NavLink>
           <NavLink
+            to="/admin-dashboard/ngo-verification"
+            className={({ isActive }) =>
+              `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-emerald-700 text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`
+            }
+          >
+            NGO Verification
+          </NavLink>
+          <NavLink
             to="/admin-dashboard/adoptions"
             className={({ isActive }) =>
               `block px-4 py-2 rounded-lg font-semibold transition-colors ${isActive ? 'bg-[#8B5A2B] text-white' : 'text-[#6b493d] hover:bg-[#e0cfc2]'}`

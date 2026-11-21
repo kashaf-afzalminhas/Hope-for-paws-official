@@ -104,6 +104,24 @@ const userSchema = new mongoose.Schema(
     sellerSince: {
       type: Date
     },
+    // NGO accounts (verified only by admin — never settable by the user)
+    isNgo: {
+      type: Boolean,
+      default: false
+    },
+    ngoVerified: {
+      type: Boolean,
+      default: false
+    },
+    ngoVerifiedAt: {
+      type: Date,
+      default: null
+    },
+    ngoVerifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
     notificationPreferences: {
       email: {
         type: String,

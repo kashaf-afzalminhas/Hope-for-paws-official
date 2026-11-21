@@ -16,49 +16,55 @@ let realScheduler = null;
 let workerHandler = null;
 const mockJobs = new Map(); // jobId -> timeoutId
 
-const checkClient = new Redis({
-  ...connection,
-  maxRetriesPerRequest: 1,
-  retryStrategy: () => null // fail fast
-});
+const skipRedis =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
 
-checkClient.info('server')
-  .then((info) => {
-    const versionMatch = info.match(/redis_version:([0-9.]+)/);
-    if (versionMatch) {
-      const version = versionMatch[1];
-      const majorVersion = parseInt(version.split('.')[0], 10);
-      console.log(`[Queue] Detected Redis version: ${version}`);
-      if (majorVersion >= 5) {
-        console.log('[Queue] Redis version is compatible. Initializing BullMQ.');
-        useRealQueue = true;
-        realQueue = new Queue(queueName, { connection });
-        realScheduler = new QueueScheduler(queueName, { connection });
-        realScheduler.waitUntilReady().catch((err) => {
-          console.error('[Queue] Chat email QueueScheduler failed to start:', err);
-        });
-
-        // Initialize worker if handler is already registered
-        if (workerHandler && !global.realWorkerInstance) {
-          global.realWorkerInstance = new Worker(
-            queueName,
-            workerHandler,
-            { connection, concurrency: 2 }
-          );
-          global.realWorkerInstance.on('failed', (job, err) => {
-            console.error('Chat email reminder job failed:', job?.id, err);
-          });
-        }
-      } else {
-        console.warn(`[Queue] Redis version ${version} is less than 5.0.0. BullMQ requires version >= 5.0.0. Running in Mock/In-Memory mode.`);
-      }
-    }
-    checkClient.disconnect();
-  })
-  .catch((err) => {
-    console.warn(`[Queue] Failed to connect to Redis or verify version: ${err.message}. Running in Mock/In-Memory mode.`);
-    try { checkClient.disconnect(); } catch (e) {}
+if (skipRedis) {
+  console.log('[Queue] Skipping Redis on Lambda — mock/in-memory mode');
+} else {
+  const checkClient = new Redis({
+    ...connection,
+    maxRetriesPerRequest: 1,
+    retryStrategy: () => null // fail fast
   });
+
+  checkClient.info('server')
+    .then((info) => {
+      const versionMatch = info.match(/redis_version:([0-9.]+)/);
+      if (versionMatch) {
+        const version = versionMatch[1];
+        const majorVersion = parseInt(version.split('.')[0], 10);
+        console.log(`[Queue] Detected Redis version: ${version}`);
+        if (majorVersion >= 5) {
+          console.log('[Queue] Redis version is compatible. Initializing BullMQ.');
+          useRealQueue = true;
+          realQueue = new Queue(queueName, { connection });
+          realScheduler = new QueueScheduler(queueName, { connection });
+          realScheduler.waitUntilReady().catch((err) => {
+            console.error('[Queue] Chat email QueueScheduler failed to start:', err);
+          });
+
+          if (workerHandler && !global.realWorkerInstance) {
+            global.realWorkerInstance = new Worker(
+              queueName,
+              workerHandler,
+              { connection, concurrency: 2 }
+            );
+            global.realWorkerInstance.on('failed', (job, err) => {
+              console.error('Chat email reminder job failed:', job?.id, err);
+            });
+          }
+        } else {
+          console.warn(`[Queue] Redis version ${version} is less than 5.0.0. BullMQ requires version >= 5.0.0. Running in Mock/In-Memory mode.`);
+        }
+      }
+      checkClient.disconnect();
+    })
+    .catch((err) => {
+      console.warn(`[Queue] Failed to connect to Redis or verify version: ${err.message}. Running in Mock/In-Memory mode.`);
+      try { checkClient.disconnect(); } catch (e) {}
+    });
+}
 
 // Proxy Queue delegation
 const chatEmailQueue = new Proxy({}, {

@@ -301,6 +301,8 @@ const AdoptionList = ({ filter = 'all' }) => {
                 profileId: postOwnerId,
                 username: post.userId?.username,
                 avatarUrl,
+                isNgo: Boolean(post.userId?.isNgo),
+                ngoVerified: Boolean(post.userId?.ngoVerified),
                 onChat:
                   effectiveUser && postOwnerId !== currentUserId
                     ? (e) => handleStartConversation(post.userId?._id, post.userId?.username, e)

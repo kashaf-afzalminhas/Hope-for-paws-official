@@ -3,11 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const { detectImageType } = require('../services/imageStorage');
 
-// Upload folders (still used for older images saved on disk, and as the fallback when Cloudinary isn't configured)
-const PROFILE_IMAGES_DIR = path.join(__dirname, '..', 'uploads', 'profile-images');
-const PRODUCT_IMAGES_DIR = path.join(__dirname, '..', 'uploads', 'products');
+// Upload folders (still used for older images saved on disk, and as the fallback when Cloudinary isn't configured).
+// On Lambda /var/task is read-only — never mkdir there at require-time (use Cloudinary or /tmp instead).
+const isLambda =
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.RUNTIME === 'lambda';
+const uploadsRoot = isLambda ? path.join('/tmp', 'hope-for-paws-uploads') : path.join(__dirname, '..', 'uploads');
+const PROFILE_IMAGES_DIR = path.join(uploadsRoot, 'profile-images');
+const PRODUCT_IMAGES_DIR = path.join(uploadsRoot, 'products');
 [PROFILE_IMAGES_DIR, PRODUCT_IMAGES_DIR].forEach((dir) => {
-  fs.mkdirSync(dir, { recursive: true });
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    console.warn(`Could not create upload dir ${dir}:`, err.message);
+  }
 });
 
 // First check (cheap): the browser must say it's an image, and never SVG (SVG can contain scripts).

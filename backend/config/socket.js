@@ -1,6 +1,7 @@
 const { Server } = require("socket.io");
 const socketHandler = require("../services/socketHandler");
 const notificationService = require("../services/notificationService");
+const { ALLOWED_ORIGINS } = require("./allowedOrigins");
 
 const initSocket = (server) => {
   // Create a Map to store connection limits per IP
@@ -8,12 +9,7 @@ const initSocket = (server) => {
   
   const io = new Server(server, {
     cors: {
-      origin: [
-        process.env.FRONTEND_URL || "http://localhost:5173",
-        "https://www.hopeforpaws.club",
-        "https://hope-for-paws-official-backend.vercel.app",
-        "http://localhost:3000"
-      ],
+      origin: ALLOWED_ORIGINS,
       methods: ["GET", "POST"],
       credentials: true
     },

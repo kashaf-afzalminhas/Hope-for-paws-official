@@ -16,9 +16,16 @@ export default defineConfig({
       }
     }
   },
-  server:{
-    host:true,
-
+  server: {
+    // Use localhost (not a LAN IP) so Google Sign-In origin checks match Console settings
+    host: 'localhost',
+    port: 5173,
+    strictPort: true,
+    // Google Identity Services on http://localhost: avoid COOP blocking GIS postMessage;
+    // Referrer must not be stripped or GSI rejects the origin.
+    headers: {
+      'Referrer-Policy': 'no-referrer-when-downgrade',
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
+    },
   },
-
 })

@@ -13,18 +13,14 @@ import PropTypes from 'prop-types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// ✅ ADDED sellers to the props
-const AdminDashboard = ({ vets = [], users = [], sellers = [] }) => {
+const AdminDashboard = ({ vets = [], users = [], sellers = [], ngos = [] }) => {
   const chartData = {
-    // ✅ ADDED 'Sellers' to labels
-    labels: ['Veterinarians', 'Regular Users', 'Sellers'],
+    labels: ['Veterinarians', 'Regular Users', 'Sellers', 'NGOs'],
     datasets: [
       {
         label: 'User Count',
-        // ✅ ADDED sellers.length to data
-        data: [vets.length, users.length, sellers.length],
-        // ✅ ADDED a 3rd matching theme color (#c9a280)
-        backgroundColor: ['#6b493d', '#a07855', '#c9a280'],
+        data: [vets.length, users.length, sellers.length, ngos.length],
+        backgroundColor: ['#6b493d', '#a07855', '#c9a280', '#047857'],
         borderRadius: 8,
       },
     ],
@@ -70,8 +66,8 @@ const AdminDashboard = ({ vets = [], users = [], sellers = [] }) => {
 AdminDashboard.propTypes = {
   vets: PropTypes.array.isRequired,
   users: PropTypes.array.isRequired,
-  // ✅ ADDED sellers to prop validation
   sellers: PropTypes.array.isRequired,
+  ngos: PropTypes.array,
 };
 
 export default AdminDashboard;

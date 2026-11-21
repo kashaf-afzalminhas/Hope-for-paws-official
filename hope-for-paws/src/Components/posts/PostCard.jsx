@@ -72,6 +72,8 @@ const PostCard = ({
   const authorId = post.userId?._id || post.userId?.id || post.user?._id || post.user?.id || post.userId || post.user;
   const userType = post.userId?.userType || post.user?.userType;
   const isVet = post.userId?.isVeterinarian || post.user?.isVeterinarian;
+  const isNgo = post.userId?.isNgo || post.user?.isNgo;
+  const ngoVerified = post.userId?.ngoVerified || post.user?.ngoVerified;
   const createdAt = post.createdAt ? new Date(post.createdAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -233,12 +235,13 @@ const PostCard = ({
                 <span className="font-heading font-semibold text-ink text-base group-hover/author:text-clay transition-colors truncate">
                   {authorName}
                 </span>
-                {userType && <UserBadge userType={userType} />}
-                {isVet && (
-                  <span className="px-2 py-0.5 bg-sand-light text-clay text-xs rounded-full font-body font-medium">
-                    Veterinarian
-                  </span>
-                )}
+                <UserBadge
+                  userType={userType}
+                  isVeterinarian={isVet}
+                  isNgo={isNgo}
+                  ngoVerified={ngoVerified}
+                  size="sm"
+                />
               </div>
               {createdAt && (
                 <span className="text-xs text-ink-soft/70 font-body block">
@@ -407,8 +410,14 @@ const PostCard = ({
                                 {commentAuthor.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-semibold text-ink">{commentAuthor}</span>
+                                  <UserBadge
+                                    isVeterinarian={Boolean(comment.userId?.isVeterinarian || comment.user?.isVeterinarian)}
+                                    isNgo={Boolean(comment.userId?.isNgo || comment.user?.isNgo)}
+                                    ngoVerified={Boolean(comment.userId?.ngoVerified || comment.user?.ngoVerified)}
+                                    size="sm"
+                                  />
                                 </div>
                                 <p className="text-ink-soft mt-0.5 break-words">{commentTextContent}</p>
                                 <div className="mt-1.5 flex items-center gap-3">
@@ -450,8 +459,14 @@ const PostCard = ({
                                         {replyAuthor.charAt(0).toUpperCase()}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-semibold text-ink">{replyAuthor}</span>
+                                          <UserBadge
+                                            isVeterinarian={Boolean(reply.userId?.isVeterinarian || reply.user?.isVeterinarian)}
+                                            isNgo={Boolean(reply.userId?.isNgo || reply.user?.isNgo)}
+                                            ngoVerified={Boolean(reply.userId?.ngoVerified || reply.user?.ngoVerified)}
+                                            size="sm"
+                                          />
                                         </div>
                                         <p className="text-ink-soft mt-0.5 break-words">{replyTextContent}</p>
                                         <div className="mt-1.5 flex items-center gap-3">

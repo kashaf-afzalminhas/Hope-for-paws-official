@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_BASE_URL, GOOGLE_CLIENT_ID } from '../config';
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { motion } from "framer-motion";
-import Paws from '/Hopeforpaws.jpg';
 import GoogleAccountTypeOnboarding from '../Components/GoogleAccountTypeOnboarding';
+
+const AUTH_BRAND = '/auth-brand.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -24,16 +24,6 @@ const Login = () => {
   const { updateUser } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist } = useWishlist();
-
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 120 }
-    }
-  };
 
   useEffect(() => {
     if (location.state?.email) {
@@ -178,10 +168,11 @@ const Login = () => {
     }
   };
 
-  // POST to /login-google with a timeout and safe JSON parsing
-  const postGoogleLogin = async (body) => {
+  // POST to /login-google with a timeout and safe JSON parsing.
+  // Production Lambda can cold-start; allow enough time and one automatic retry.
+  const postGoogleLogin = async (body, { timeoutMs = 28000 } = {}) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(`${AUTH_BASE_URL}/login-google`, {
         method: "POST",
@@ -202,6 +193,16 @@ const Login = () => {
     }
   };
 
+  const postGoogleLoginWithRetry = async (body) => {
+    try {
+      return await postGoogleLogin(body);
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+      // Cold start / brief outage — retry once
+      return await postGoogleLogin(body, { timeoutMs: 25000 });
+    }
+  };
+
   const googleLoginHandler = async (googleResponse) => {
     setLoading(true);
     setError("");
@@ -212,7 +213,7 @@ const Login = () => {
         return;
       }
 
-      let { response, data } = await postGoogleLogin({ credential: googleResponse.credential });
+      let { response, data } = await postGoogleLoginWithRetry({ credential: googleResponse.credential });
 
       if (response.ok && data.requiresLinkConfirmation) {
         const shouldLink = window.confirm(
@@ -224,7 +225,7 @@ const Login = () => {
           return;
         }
 
-        ({ response, data } = await postGoogleLogin({
+        ({ response, data } = await postGoogleLoginWithRetry({
           credential: googleResponse.credential,
           confirmLinking: true
         }));
@@ -277,7 +278,7 @@ const Login = () => {
       if (err.name === "AbortError") {
         setError("The server took too long to respond. Please try again.");
       } else if (err instanceof TypeError && /fetch|network|load failed/i.test(err.message || "")) {
-        setError("Couldn't reach the server. Make sure the backend is running.");
+        setError("Couldn't reach the server. Please try again in a moment.");
       } else {
         // Signed in, but something failed afterwards in the browser (shown so it can be reported)
         setError(`Sign-in finished but the page hit an error: ${err.message || err}`);
@@ -297,7 +298,12 @@ const Login = () => {
           credential: pendingGoogleUser.credential,
           username: pendingGoogleUser.username,
           isVeterinarian: userTypeSelected === 'veterinarian',
-          userType: userTypeSelected === 'seller' ? 'seller' : (userTypeSelected === 'veterinarian' ? 'veterinarian' : 'user'),
+          userType:
+            userTypeSelected === 'seller' || userTypeSelected === 'ngo'
+              ? userTypeSelected
+              : userTypeSelected === 'veterinarian'
+                ? 'veterinarian'
+                : 'user',
           ...(userTypeSelected === 'seller' && sellerInfo && {
             sellerName: sellerInfo.businessName,
             cnic: sellerInfo.cnic,
@@ -374,20 +380,19 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
-        {/* Image Section - Visible on both mobile and desktop */}
-        <div className="w-full sm:h-72 md:w-1/2 h-64 md:h-auto bg-[#F8F4ED] relative">
+      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+        {/* Image Section — grid row stretches to match form column height */}
+        <div className="relative min-h-[16rem] sm:min-h-[18rem] md:min-h-0 bg-[#8B5E34] overflow-hidden">
           <img
-            src={Paws}
-            alt="Hope For Paws"
-            className="absolute h-72 inset-0 w-full md:h-full object-cover"
-            style={{ objectFit: 'cover' }}
+            src={`${AUTH_BRAND}?v=2`}
+            alt="Hopeforpaws"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
         </div>
 
         {/* Form Section */}
-        <div className="w-full md:w-1/2 p-8 mt-6">
-          <div className="max-w-md mx-auto space-y-6">
+        <div className="p-6 sm:p-8 flex flex-col justify-center">
+          <div className="w-full max-w-md mx-auto space-y-6">
             <div className="flex flex-col items-center space-y-2">
               <h2 className="text-2xl font-bold text-[#4E3B31]">Welcome back</h2>
               <p className="text-sm text-[#6b493d] text-center">
@@ -489,21 +494,28 @@ const Login = () => {
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
-            <motion.div variants={itemVariants} className="flex justify-center">
+
+            <div className="w-full flex justify-center">
               <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                <GoogleLogin
-                  onSuccess={(response) => googleLoginHandler(response)}
-                  onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
-                  theme="filled_blue"
-                  shape="pill"
-                  size="large"
-                  text="continue_with"
-                  width="300"
-                  logo_alignment="left"
-                  className="!rounded-xl !overflow-hidden hover:!shadow-md transition-shadow"
-                />
+                <div className="w-full max-w-[320px] flex justify-center [&>div]:w-full [&>div]:flex [&>div]:justify-center">
+                  <GoogleLogin
+                    onSuccess={(response) => googleLoginHandler(response)}
+                    onError={() => setError("Google sign-in was cancelled or failed. Please try again.")}
+                    useOneTap={false}
+                    auto_select={false}
+                    use_fedcm_for_button={false}
+                    use_fedcm_for_prompt={false}
+                    theme="filled_blue"
+                    shape="pill"
+                    size="large"
+                    text="continue_with"
+                    width="320"
+                    logo_alignment="center"
+                  />
+                </div>
               </GoogleOAuthProvider>
-            </motion.div>
+            </div>
+
             <GoogleAccountTypeOnboarding
               open={showUserTypeModal}
               onClose={() => setShowUserTypeModal(false)}
