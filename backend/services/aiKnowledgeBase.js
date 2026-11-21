@@ -4,7 +4,7 @@ const Adoption = require('../models/adoptionModel');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller');
-const FAQ = require('../models/FAQ');
+const { getAllFAQs } = require('../controllers/faqController');
 const Notification = require('../models/Notification');
 const Review = require('../models/Review');
 const Conversation = require('../models/Conversation');
@@ -99,7 +99,8 @@ class AIKnowledgeBase {
     const cached = this.getCached('faqs');
     if (cached) return cached;
 
-    const faqs = await FAQ.find().select('question answer').lean();
+    // Same list as the FAQ page (built-in questions plus any saved in the database)
+    const faqs = await getAllFAQs();
     this.setCache('faqs', faqs);
     return faqs;
   }
